@@ -1,0 +1,4 @@
+node_modules/
+.env
+uploads/   <-- (Bhai, ye dhyan dena, agar images folder bahut bada h to)
+.DS_Store   

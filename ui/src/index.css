@@ -1,0 +1,71 @@
+@import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400..700&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Outfit:wght@100..900&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+body {
+  margin: 0;
+
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+/* ✅ Jodit Editor Responsive Fixes */
+
+/* 1. Container ko screen width se bahar jane se rokein */
+.jodit-container {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important; /* Flexbox overflow fix */
+  box-sizing: border-box !important;
+}
+
+/* 2. Toolbar ke buttons ko wrap karwayein (Mobile par next line me aa jayein) */
+.jodit-toolbar__box {
+  flex-wrap: wrap !important; 
+  height: auto !important;
+  overflow: visible !important;
+}
+
+/* 3. Status bar (niche wala bar) ko responsive banayein */
+.jodit-status-bar {
+  flex-wrap: wrap !important;
+  height: auto !important;
+}
+
+/* 4. Writing area (Workplace) fix */
+.jodit-workplace {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* 5. Mobile par toolbar buttons thode chhote karein */
+@media (max-width: 640px) {
+  .jodit-toolbar-button {
+    padding: 2px 4px !important;
+  }
+  .jodit-toolbar-button__icon {
+    width: 14px !important;
+    height: 14px !important;
+  }
+}
+
+img {
+  image-rendering: auto;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translateZ(0);
+}
+
+/* Slider / Banner images ke liye extra protection */
+.slider-img {
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+}
