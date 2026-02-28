@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Check, RotateCcw, X, Loader2, Plus, Trash2, Printer, Mail } from 'lucide-react';
+import { Check, RotateCcw, X, Loader2, Plus, Trash2, Printer, Mail,Search  } from 'lucide-react';
 import JoditEditor from 'jodit-react';
 import axios from '../../utils/axiosConfig.js';
 import toast from 'react-hot-toast';
@@ -19,7 +19,14 @@ const EditOrders = () => {
   const [coupons, setCoupons] = useState([]);
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [shippingOptions, setShippingOptions] = useState([]);
+  const [courierList, setCourierList] = useState([]); // 🟢 New
+  const [orderStatuses, setOrderStatuses] = useState([]); // 🟢 New
 
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
 
   // Product Rows
   const [orderProducts, setOrderProducts] = useState([]);
@@ -83,13 +90,15 @@ const EditOrders = () => {
         const API_URL = process.env.REACT_APP_API_URL;
 
         // Parallel requests: Dropdowns + Single Order Data
-        const [custRes, prodRes, coupRes, orderRes, payRes, shipRes] = await Promise.all([
+        const [custRes, prodRes, coupRes, orderRes, payRes, shipRes, courierRes, statusRes] = await Promise.all([
           axios.get(`${API_URL}/user/fetch`),
           axios.get(`${API_URL}/product/fetch`),
           axios.get(`${API_URL}/coupons/active`),
           axios.get(`${API_URL}/orders/get/${id}`),
           axios.get(`${API_URL}/payments/list`),
-          axios.get(`${API_URL}/shipping-options/list`)
+          axios.get(`${API_URL}/shipping-options/list`),
+          axios.get(`${API_URL}/couriers/list`),      // 🟢 Courier API
+          axios.get(`${API_URL}/order-status/list`)
         ]);
 
         // Set Dropdowns
@@ -98,6 +107,8 @@ const EditOrders = () => {
         if (coupRes.data.status) setCoupons(coupRes.data.data);
         if (payRes.data.status) setPaymentMethods(payRes.data.data);
         if (shipRes.data.status) setShippingOptions(shipRes.data.data);
+        if (courierRes.data.status) setCourierList(courierRes.data.data); // 🟢 Set Courier
+        if (statusRes.data.status) setOrderStatuses(statusRes.data.data);
 
         // Set Order Data (Auto-fill)
         if (orderRes.data.status) {
@@ -122,30 +133,30 @@ const EditOrders = () => {
             membership_discount: data.membership_discount || '',
             coupon_id: data.coupon_id?._id || data.coupon_id || '',
 
-            // Shipping
-            shipping_email: data.shipping_email || '',
-            shipping_first_name: data.shipping_first_name || '',
-            shipping_last_name: data.shipping_last_name || '',
-            shipping_address_1: data.shipping_address_1 || '',
-            shipping_address_2: data.shipping_address_2 || '',
-            shipping_company: data.shipping_company || '',
-            shipping_country: data.shipping_country || '',
-            shipping_state_region: data.shipping_state_region || '',
-            shipping_city: data.shipping_city || '',
-            shipping_postcode: data.shipping_postcode || '',
-            shipping_phone: data.shipping_phone || '',
+            //shipping
+            shipping_email: data.shipping_details?.email || '',
+            shipping_first_name: data.shipping_details?.first_name || '',
+            shipping_last_name: data.shipping_details?.last_name || '',
+            shipping_address_1: data.shipping_details?.address_1 || '',
+            shipping_address_2: data.shipping_details?.address_2 || '',
+            shipping_company: data.shipping_details?.company || '',
+            shipping_country: data.shipping_details?.country || 'India',
+            shipping_state_region: data.shipping_details?.state_region || '',
+            shipping_city: data.shipping_details?.city || '',
+            shipping_postcode: data.shipping_details?.postcode || '',
+            shipping_phone: data.shipping_details?.phone || '',
 
-            // Billing
-            billing_first_name: data.billing_first_name || '',
-            billing_last_name: data.billing_last_name || '',
-            billing_address_1: data.billing_address_1 || '',
-            billing_address_2: data.billing_address_2 || '',
-            billing_company: data.billing_company || '',
-            billing_country: data.billing_country || '',
-            billing_state_region: data.billing_state_region || '',
+            //billing
+            billing_first_name: data.billing_details?.first_name || '',
+            billing_last_name: data.billing_details?.last_name || '',
+            billing_address_1: data.billing_details?.address_1 || '',
+            billing_address_2: data.billing_details?.address_2 || '',
+            billing_company: data.billing_details?.company || '',
+            billing_country: data.billing_details?.country || 'India',
+            billing_state_region: data.billing_details?.state_region || '',
             billing_city: data.billing_city || '',
-            billing_postcode: data.billing_postcode || '',
-            billing_phone: data.billing_phone || '',
+            billing_postcode: data.billing_details?.postcode || '',
+            billing_phone: data.billing_details?.phone || '',
 
             // Bottom
             payment_status: data.payment_status || '',
@@ -166,8 +177,58 @@ const EditOrders = () => {
     fetchData();
   }, [id]);
 
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(async () => {
+      if (searchQuery.length > 2 && isDropdownOpen) {
+        setIsSearching(true);
+        try {
+          const res = await axios.get(`${process.env.REACT_APP_API_URL}/home-sale-products/search-inventory?q=${searchQuery}`);
+          if (res.data.status) setSearchResults(res.data.data);
+        } catch (error) { console.error("Search Error:", error); }
+        finally { setIsSearching(false); }
+      } else { setSearchResults([]); }
+    }, 500);
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery, isDropdownOpen]);
+
+  const handleSelectProduct = (product) => {
+    const newRow = {
+      name: product.title,
+      price: product.price || 0,
+      quantity: 1,
+      status: orderStatuses.length > 0 ? orderStatuses[0].name : 'Pending',
+      courier: '', tracking_id: '', return_note: '', cancel_note: ''
+    };
+    setOrderProducts(prev => {
+      const updated = [...prev, newRow];
+      calculateGrandTotal(updated, formData.shipping_cost);
+      return updated;
+    });
+    setSearchQuery("");
+    setIsDropdownOpen(false);
+  };
+
+
+  // 1. Calculation Engine
+  const calculateGrandTotal = (products, shipping) => {
+    const subtotal = products.reduce((acc, item) => {
+      const p = Number(item.price) || 0;
+      const q = Number(item.quantity) || 0;
+      return acc + (p * q);
+    }, 0);
+    const shipCost = Number(shipping) || 0;
+    const finalTotal = subtotal + shipCost;
+    setFormData(prev => ({ ...prev, total: finalTotal.toFixed(2) }));
+  }
+
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData(prev => {
+      const updated = { ...prev, [name]: value };
+      if (name === 'shipping_cost') calculateGrandTotal(orderProducts, value);
+      return updated;
+    });
   };
 
   // --- Product Table Logic ---
@@ -199,6 +260,9 @@ const EditOrders = () => {
     const list = [...orderProducts];
     list[index][field] = value;
     setOrderProducts(list);
+    if (field === 'price' || field === 'quantity') {
+      calculateGrandTotal(list, formData.shipping_cost);
+    }
   };
 
   // --- Submit Logic (Update) ---
@@ -217,6 +281,31 @@ const EditOrders = () => {
         ...formData,
         coupon_id: formData.coupon_id === "" ? null : formData.coupon_id,
         customer_id: formData.customer_id?._id || formData.customer_id,
+        shipping_details: {
+          email: formData.shipping_email,
+          first_name: formData.shipping_first_name,
+          last_name: formData.shipping_last_name,
+          address_1: formData.shipping_address_1,
+          address_2: formData.shipping_address_2,
+          company: formData.shipping_company,
+          country: formData.shipping_country,
+          state_region: formData.shipping_state_region,
+          city: formData.shipping_city,
+          postcode: formData.shipping_postcode,
+          phone: formData.shipping_phone,
+        },
+        billing_details: {
+          first_name: formData.billing_first_name,
+          last_name: formData.billing_last_name,
+          address_1: formData.billing_address_1,
+          address_2: formData.billing_address_2,
+          company: formData.billing_company,
+          country: formData.billing_country,
+          state_region: formData.billing_state_region,
+          city: formData.billing_city,
+          postcode: formData.billing_postcode,
+          phone: formData.billing_phone,
+        },
         products: orderProducts,
         comment: commentContent
       };
@@ -329,7 +418,7 @@ const EditOrders = () => {
                 </select>
               </div>
             </div>
-            
+
             {/* Shipping Type */}
             <div className="grid grid-cols-12 gap-4 items-center">
               <label className={labelClass}>Shipping type</label>
@@ -356,55 +445,88 @@ const EditOrders = () => {
               </div>
             </div>
 
-            {/* --- PRODUCTS TABLE --- */}
-            <div className="grid grid-cols-12 gap-4 items-start mt-4">
-              <label className={labelClass}>Products</label>
-              <div className="col-span-9 overflow-x-auto">
-                <table className="w-full border-collapse border border-gray-300 text-[10px] min-w-[900px]">
-                  <thead className="bg-gray-50 text-text-muted font-montserrat font-bold">
-                    <tr>
-                      <th className="border p-2 text-left min-w-[200px]">Name</th>
-                      <th className="border p-2 w-20">Price</th>
-                      <th className="border p-2 w-16">Quantity</th>
-                      <th className="border p-2 w-24">Status</th>
-                      <th className="border p-2 w-24">Courier</th>
-                      <th className="border p-2 w-24">Tracking id</th>
-                      <th className="border p-2 w-24">Return note</th>
-                      <th className="border p-2 w-24">Cancel note</th>
-                      <th className="border p-2 w-8"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {orderProducts.map((row, index) => (
-                      <tr key={index}>
-                        <td className="border p-1"><input type="text" value={row.name} onChange={(e) => handleProductChange(index, 'name', e.target.value)} className="w-full outline-none bg-transparent" /></td>
-                        <td className="border p-1"><input type="number" value={row.price} onChange={(e) => handleProductChange(index, 'price', e.target.value)} className="w-full outline-none bg-transparent" /></td>
-                        <td className="border p-1"><input type="number" value={row.quantity} onChange={(e) => handleProductChange(index, 'quantity', e.target.value)} className="w-full outline-none bg-transparent" /></td>
-                        <td className="border p-1"><input type="text" value={row.status} onChange={(e) => handleProductChange(index, 'status', e.target.value)} className="w-full outline-none bg-transparent" /></td>
-                        <td className="border p-1"><input type="text" value={row.courier} onChange={(e) => handleProductChange(index, 'courier', e.target.value)} className="w-full outline-none bg-transparent" /></td>
-                        <td className="border p-1"><input type="text" value={row.tracking_id} onChange={(e) => handleProductChange(index, 'tracking_id', e.target.value)} className="w-full outline-none bg-transparent" /></td>
-                        <td className="border p-1"><input type="text" value={row.return_note} onChange={(e) => handleProductChange(index, 'return_note', e.target.value)} className="w-full outline-none bg-transparent" /></td>
-                        <td className="border p-1"><input type="text" value={row.cancel_note} onChange={(e) => handleProductChange(index, 'cancel_note', e.target.value)} className="w-full outline-none bg-transparent" /></td>
-                        <td className="border p-1 text-center"><button type="button" onClick={() => removeProductRow(index)}><Trash2 size={12} className="text-red-500" /></button></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <div className="flex items-center gap-2 mt-2">
-                  <input
-                    type="text"
-                    value={addProductIdInput}
-                    onChange={(e) => setAddProductIdInput(e.target.value)}
-                    className="border border-gray-300 rounded px-2 py-1 text-xs w-40"
-                    placeholder="Product ID"
-                  />
-                  <button type="button" onClick={addProductRow} className="bg-gray-100 border border-gray-300 px-3 py-1 rounded text-xs font-bold hover:bg-gray-200 text-text-muted">
-                    Add product id
-                  </button>
-                </div>
-              </div>
-            </div>
+          {/* --- PRODUCTS TABLE --- */}
+<div className="grid grid-cols-12 gap-4 items-start mt-4">
+  <label className={labelClass}>Products</label>
+  <div className="col-span-9"> {/* 🟢 Main wrapper */}
+    
+    {/* Scrollable Table Div */}
+    <div className="overflow-x-auto border border-gray-300 rounded-sm">
+      <table className="w-full border-collapse border border-gray-300 text-[10px] min-w-[900px]">
+        <thead className="bg-gray-50 text-text-muted font-montserrat font-bold">
+          <tr>
+            <th className="border p-2 text-left min-w-[200px]">Name</th>
+            <th className="border p-2 w-20">Price</th>
+            <th className="border p-2 w-16">Quantity</th>
+            <th className="border p-2 w-24">Status</th>
+            <th className="border p-2 w-24">Courier</th>
+            <th className="border p-2 w-24">Tracking id</th>
+            <th className="border p-2 w-24">Return note</th>
+            <th className="border p-2 w-24">Cancel note</th>
+            <th className="border p-2 w-8"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {orderProducts.map((row, index) => (
+            <tr key={index}>
+              <td className="border p-1"><input type="text" value={row.name} onChange={(e) => handleProductChange(index, 'name', e.target.value)} className="w-full outline-none bg-transparent" /></td>
+              <td className="border p-1"><input type="number" value={row.price} onChange={(e) => handleProductChange(index, 'price', e.target.value)} className="w-full outline-none bg-transparent" /></td>
+              <td className="border p-1"><input type="number" value={row.quantity} onChange={(e) => handleProductChange(index, 'quantity', e.target.value)} className="w-full outline-none bg-transparent" /></td>
+              <td className="border-b p-1">
+                <select value={row.status} onChange={(e) => handleProductChange(index, 'status', e.target.value)} className="w-full outline-none bg-transparent text-[10px]">
+                  <option value="">Status</option>
+                  {orderStatuses.map((st) => <option key={st._id} value={st.name}>{st.name}</option>)}
+                </select>
+              </td>
+              <td className="border-b p-1">
+                <select value={row.courier} onChange={(e) => handleProductChange(index, 'courier', e.target.value)} className="w-full outline-none bg-transparent text-[10px]">
+                  <option value="">Select Courier</option>
+                  {courierList.map((c) => <option key={c._id} value={c.title}>{c.title}</option>)}
+                </select>
+              </td>
+              <td className="border p-1"><input type="text" value={row.tracking_id} onChange={(e) => handleProductChange(index, 'tracking_id', e.target.value)} className="w-full outline-none bg-transparent" /></td>
+              <td className="border p-1"><input type="text" value={row.return_note} onChange={(e) => handleProductChange(index, 'return_note', e.target.value)} className="w-full outline-none bg-transparent" /></td>
+              <td className="border p-1"><input type="text" value={row.cancel_note} onChange={(e) => handleProductChange(index, 'cancel_note', e.target.value)} className="w-full outline-none bg-transparent" /></td>
+              <td className="border p-1 text-center"><button type="button" onClick={() => removeProductRow(index)}><Trash2 size={12} className="text-red-500" /></button></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
 
+    {/* 🟢 Search Box Block (Overflow div se bahar, par col-span-9 ke andar) */}
+    <div className="mt-4 relative" onClick={(e) => e.stopPropagation()}>
+      <div className="relative w-full md:w-1/2 flex items-center gap-2">
+        <div className="relative flex-1">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => { setSearchQuery(e.target.value); setIsDropdownOpen(true); }}
+            onFocus={() => setIsDropdownOpen(true)}
+            className="w-full border border-gray-300 rounded px-3 py-1.5 text-xs outline-none focus:border-primary pr-8"
+            placeholder="Search Book to Add..."
+          />
+          <div className="absolute right-2 top-1/2 -translate-y-1/2">
+            {isSearching ? <Loader2 size={14} className="animate-spin text-gray-400" /> : <Search size={14} className="text-gray-400" />}
+          </div>
+        </div>
+
+        {/* Floating Search Results */}
+        {isDropdownOpen && searchResults.length > 0 && (
+          <div className="absolute left-0 top-full w-full bg-white border border-gray-300 rounded shadow-2xl z-[9999] max-h-60 overflow-y-auto mt-1">
+            {searchResults.map((prod) => (
+              <div key={prod._id} onClick={() => handleSelectProduct(prod)} className="px-4 py-2 hover:bg-primary/10 cursor-pointer border-b border-gray-100 flex flex-col">
+                <p className="text-[11px] font-bold text-gray-800 uppercase">{prod.title}</p>
+                <span className="text-[9px] text-primary">Price: ₹{prod.price}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+    
+  </div> {/* 🟢 col-span-9 Wrapper End */}
+</div> {/* 🟢 Main Grid End */}
             {/* Financials & Status */}
             <div className="grid grid-cols-12 gap-4 items-center">
               <label className={labelClass}>Total</label>
@@ -422,10 +544,10 @@ const EditOrders = () => {
               <label className={labelClass}>Status</label>
               <div className="col-span-9">
                 <select name="status" value={formData.status} onChange={handleChange} className={dropdownClass}>
-                  <option value="Not yet ordered">Not yet ordered</option>
-                  <option value="Payment pending">Payment pending</option>
-                  <option value="Processing">Processing</option>
-                  <option value="Shipped">Shipped</option>
+                  <option value="">Select Status</option>
+                  {orderStatuses.map((st) => (
+                    <option key={st._id} value={st.name}>{st.name}</option>
+                  ))}
                 </select>
               </div>
             </div>

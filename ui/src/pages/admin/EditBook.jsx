@@ -93,6 +93,9 @@ const EditBook = () => {
         email: '', phone: '', order: '', slug: ''
     });
 
+    const [userSelectedDate, setUserSelectedDate] = useState('');
+    const [arrivalDays, setArrivalDays] = useState(30);
+
 
     // --- MAIN FORM STATE ---
     const [formData, setFormData] = useState({
@@ -125,6 +128,7 @@ const EditBook = () => {
         active: 'active',
         recommended: 'inactive',
         upcoming: 'inactive',
+        upcoming_date: '',
         new_release: 'inactive',
         series: '',
         series_number: '',
@@ -202,14 +206,15 @@ const EditBook = () => {
 
             try {
                 // A. Fetch All Lists (Dropdowns)
-                const [catRes, langRes, tagRes, authRes, fmtRes, serRes, pubRes] = await Promise.all([
+                const [catRes, langRes, tagRes, authRes, fmtRes, serRes, pubRes, setRes] = await Promise.all([
                     axios.get(`${API_URL}/category/fetch`),
                     axios.get(`${API_URL}/languages/list`),
                     axios.get(`${API_URL}/tags/list`),
                     axios.get(`${API_URL}/authors/list`),
                     axios.get(`${API_URL}/formats/list`),
                     axios.get(`${API_URL}/series/list`),
-                    axios.get(`${API_URL}/publishers/list`)
+                    axios.get(`${API_URL}/publishers/list`),
+                    axios.get(`${API_URL}/settings/list`)
                 ]);
                 console.log("📂 Categories Loaded (Sample):", catRes.data.data?.[0]);
                 if (catRes.data.status) setCategories(catRes.data.data || []);
@@ -219,6 +224,10 @@ const EditBook = () => {
                 if (fmtRes.data.status) setFormats(fmtRes.data.data || []);
                 if (serRes.data.status) setSeriesList(serRes.data.data || []);
                 if (pubRes.data.status) setPublishers(pubRes.data.data || []);
+                if (setRes.data.status && setRes.data.data.length > 0) {
+                    setArrivalDays(setRes.data.data[0].new_arrival_time || 30);
+                }
+
 
                 // B. Fetch Book Data (Edit Logic)
                 const response = await axios.get(`${API_URL}/product/get/${id}`);
@@ -254,6 +263,8 @@ const EditBook = () => {
                             : (book.product_categories?.[0] || ''),
 
 
+
+
                         // Arrays logic
                         product_categories: book.product_categories || [],
                         product_languages: book.product_languages || (book.language ? [book.language] : []),
@@ -280,7 +291,7 @@ const EditBook = () => {
                         discount: book.discount || '',
 
                         stock: typeof book.stock === 'number' ? (book.stock > 0 ? 'active' : 'inactive') : (book.stock || 'active'),
-availability: book.availability ? Number(book.availability) : 0,
+                        availability: book.availability ? Number(book.availability) : 0,
                         notes: book.notes || '',
                         // 🟢 FIX 1: Series Number (String conversion for input binding)
                         series_number: (book.series_number !== undefined && book.series_number !== null) ? String(book.series_number) : '',
@@ -293,8 +304,11 @@ availability: book.availability ? Number(book.availability) : 0,
                         // Flags Mapping
                         active: book.isActive ? 'active' : 'inactive',
                         recommended: book.isRecommended ? 'active' : 'inactive',
-                        upcoming:(book.upcoming || book.Upcoming) ? 'active' : 'inactive',
+                        upcoming: (book.upcoming || book.Upcoming) ? 'active' : 'inactive',
+                        upcoming_date: book.upcoming_date ? new Date(book.upcoming_date).toISOString().split('T')[0] : '',
                         new_release: book.isNewRelease ? 'active' : 'inactive',
+                        new_release_until: book.new_release_until ? new Date(book.new_release_until).toISOString().split('T')[0] : '',
+                        exclusive: book.isExclusive ? 'active' : 'inactive',
 
                         // Extra Fields Mapping
                         ship_days: book.ship_days || book.shipDays || "3",
@@ -308,6 +322,12 @@ availability: book.availability ? Number(book.availability) : 0,
                         ordered_items_count: book.soldCount || 0, //
                     });
 
+
+                    // 🟢 UI specific helper states ko backend date se fill karein
+                    if (book.new_release_until) {
+                        const formattedDate = new Date(book.new_release_until).toISOString().split('T')[0];
+                        setUserSelectedDate(formattedDate); // Ise date input mein dikhane ke liye
+                    }
 
 
                     // 🟢 FIX: Related Products Loading Logic
@@ -367,6 +387,13 @@ availability: book.availability ? Number(book.availability) : 0,
                             file: null
                         })));
                     }
+
+                    if (book.new_release_until) {
+                        const backendDate = new Date(book.new_release_until).toISOString().split('T')[0];
+                        setUserSelectedDate(backendDate);
+                    }
+
+
                     // Rich Text Mapping
                     setSynopsis(book.synopsis || book.description || '');
                     setCriticsNote(book.criticsNote || book.critics_note || '');
@@ -398,6 +425,23 @@ availability: book.availability ? Number(book.availability) : 0,
 
         if (id) fetchData();
     }, [id]);
+
+
+    // 🟢 SPECIAL HANDLER: Matched with Add Page Logic
+    const handleNewReleaseChange = (e) => {
+        const val = e.target.value;
+        if (val === 'active') {
+            // Agar Edit mode mein backend se date aayi hai toh use rakhein, 
+            // warna aaj + arrivalDays calculate karein
+            const dateToSet = userSelectedDate || getCalculatedDate();
+
+            setFormData(prev => ({ ...prev, new_release: 'active', new_release_until: dateToSet }));
+            setUserSelectedDate(dateToSet);
+        } else {
+            setFormData(prev => ({ ...prev, new_release: 'inactive', new_release_until: '' }));
+            setUserSelectedDate('');
+        }
+    };
 
 
     //add publisher
@@ -521,6 +565,27 @@ availability: book.availability ? Number(book.availability) : 0,
         } finally {
             setIsAuthorSaving(false);
         }
+    };
+
+
+
+    // 🟢 MAGIC CALCULATION: Jab user Start Date badle (Edit mode mein bhi kaam karega)
+    useEffect(() => {
+        if (formData.new_release === 'active' && userSelectedDate) {
+            const startDate = new Date(userSelectedDate);
+            // Magic: Settings wale din jodo (arrivalDays settings se aa raha hai)
+            startDate.setDate(startDate.getDate() + Number(arrivalDays));
+
+            const finalDate = startDate.toISOString().split('T')[0];
+
+            // Backend ke liye format update karein
+            setFormData(prev => ({ ...prev, new_release_until: finalDate }));
+        }
+    }, [userSelectedDate, formData.new_release, arrivalDays]);
+    const getCalculatedDate = () => {
+        const date = new Date();
+        date.setDate(date.getDate() + Number(arrivalDays));
+        return date.toISOString().split('T')[0];
     };
 
 
@@ -658,8 +723,10 @@ availability: book.availability ? Number(book.availability) : 0,
             data.append('active', formData.active);
             data.append('recommended', formData.recommended);
             data.append('upcoming', formData.upcoming);
+            data.append('upcoming_date', formData.upcoming_date || '');
             data.append('new_release', formData.new_release);
             data.append('new_release_until', formData.new_release_until || '');
+            data.append('exclusive', formData.exclusive);
             data.append('ship_days', formData.ship_days || '');
             data.append('deliver_days', formData.deliver_days || '');
             data.append('pub_date', formData.pub_date || '');
@@ -1830,7 +1897,7 @@ availability: book.availability ? Number(book.availability) : 0,
                         </div>
 
                         {/* Binary Flags */}
-                        {[{ label: "Active", name: "active" }, { label: "Recommended", name: "recommended" }, { label: "Upcoming", name: "upcoming" }, { label: "New release", name: "new_release" }].map((item) => (
+                        {[{ label: "Active", name: "active" }, { label: "Recommended", name: "recommended" }].map((item) => (
                             <div key={item.name} className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4">
                                 <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight">{item.label}</label>
                                 <div className="col-span-9 flex gap-6">
@@ -1839,6 +1906,151 @@ availability: book.availability ? Number(book.availability) : 0,
                                 </div>
                             </div>
                         ))}
+
+
+                        {/* 🟢 19B. New Release (Start Date Logic - Matched with Add Page) */}
+                        <div className="grid grid-cols-12 gap-4 items-start border-b border-gray-50 pb-4">
+                            <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight pt-1 font-montserrat">
+                                New release
+                            </label>
+                            <div className="col-span-9">
+                                <div className="flex gap-6 mb-2">
+                                    <label className="flex items-center gap-2 text-sm cursor-pointer font-body">
+                                        <input
+                                            type="radio"
+                                            name="new_release"
+                                            value="active"
+                                            onChange={handleNewReleaseChange}
+                                            checked={formData.new_release === "active"}
+                                            className="accent-primary w-4 h-4"
+                                        /> active
+                                    </label>
+                                    <label className="flex items-center gap-2 text-sm cursor-pointer font-body">
+                                        <input
+                                            type="radio"
+                                            name="new_release"
+                                            value="inactive"
+                                            onChange={handleNewReleaseChange}
+                                            checked={formData.new_release === "inactive"}
+                                            className="accent-primary w-4 h-4"
+                                        /> inactive
+                                    </label>
+                                </div>
+
+                                {/* 🗓️ Dropdown: Sirf tab dikhega jab Active ho */}
+                                {formData.new_release === 'active' && (
+                                    <div className="animate-in fade-in slide-in-from-top-1 duration-300 p-3 bg-blue-50/50 rounded border border-blue-100">
+                                        <label className="block text-[10px] text-primary font-bold mb-1 uppercase font-montserrat">
+                                            Select Start Date
+                                        </label>
+                                        <div className="flex items-center gap-3">
+                                            <input
+                                                type="date"
+                                                value={userSelectedDate}
+                                                onChange={(e) => setUserSelectedDate(e.target.value)}
+                                                className="theme-input w-40 border-primary/50 bg-white"
+                                            />
+                                            <span className="text-gray-400 text-[11px] font-bold">
+                                                + {arrivalDays} Days (From Settings)
+                                            </span>
+                                        </div>
+
+                                        {/* Result Display: Matched with Add Page Style */}
+                                        <div className="mt-2 text-[11px] text-gray-500 font-montserrat">
+                                            Book will be in "New Arrivals" until:{" "}
+                                            <span className="font-bold text-black bg-yellow-100 px-2 py-0.5 rounded border border-yellow-200">
+                                                {formData.new_release_until || '...'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* 🟢 19C. Upcoming Section - Theme Matched */}
+                        <div className="grid grid-cols-12 gap-4 items-start border-b border-gray-50 pb-4 mt-4 font-montserrat">
+                            <label className="col-span-3 text-right text-[11px] font-bold text-text-muted uppercase tracking-tight pt-1">
+                                Upcoming Book
+                            </label>
+                            <div className="col-span-9">
+                                <div className="flex gap-6 mb-2">
+                                    <label className="flex items-center gap-2 text-sm cursor-pointer font-body text-text-main">
+                                        <input
+                                            type="radio"
+                                            name="upcoming"
+                                            value="active"
+                                            onChange={handleChange}
+                                            checked={formData.upcoming === "active"}
+                                            className="accent-primary w-4 h-4"
+                                        /> active
+                                    </label>
+                                    <label className="flex items-center gap-2 text-sm cursor-pointer font-body text-text-main">
+                                        <input
+                                            type="radio"
+                                            name="upcoming"
+                                            value="inactive"
+                                            onChange={(e) => {
+                                                handleChange(e);
+                                                setFormData(prev => ({ ...prev, upcoming_date: '' }));
+                                            }}
+                                            checked={formData.upcoming === "inactive"}
+                                            className="accent-primary w-4 h-4"
+                                        /> inactive
+                                    </label>
+                                </div>
+
+                                {/* 🗓️ Dynamic Launch Date Input */}
+                                {formData.upcoming === 'active' && (
+                                    <div className="animate-in fade-in slide-in-from-top-1 duration-300 p-3 bg-accent/10 rounded border border-accent/30 mt-2">
+                                        <label className="block text-[10px] text-text-main font-bold mb-1 uppercase tracking-wider">
+                                            Expected Launch Date
+                                        </label>
+                                        <div className="flex items-center gap-3">
+                                            <input
+                                                type="date"
+                                                name="upcoming_date"
+                                                value={formData.upcoming_date}
+                                                onChange={handleChange}
+                                                className="theme-input w-40 border-gray-300 focus:border-primary bg-white"
+                                            />
+                                            <span className="text-text-muted text-[11px] italic font-body">
+                                                * Currently set for launch on: {formData.upcoming_date || 'Not set'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* 🟢 Exclusive Section (New Release ke turant baad) */}
+                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4">
+                            <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight">
+                                Exclusive
+                            </label>
+                            <div className="col-span-9 flex gap-6">
+                                <label className="flex items-center gap-2 text-sm cursor-pointer font-body">
+                                    <input
+                                        type="radio"
+                                        name="exclusive"
+                                        value="active"
+                                        onChange={handleChange}
+                                        checked={formData.exclusive === "active"}
+                                        className="accent-primary w-4 h-4"
+                                    /> active
+                                </label>
+                                <label className="flex items-center gap-2 text-sm cursor-pointer font-body">
+                                    <input
+                                        type="radio"
+                                        name="exclusive"
+                                        value="inactive"
+                                        onChange={handleChange}
+                                        checked={formData.exclusive === "inactive"}
+                                        className="accent-primary w-4 h-4"
+                                    /> inactive
+                                </label>
+                            </div>
+                        </div>
+
 
                         {/* Shipping */}
                         <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Ship Days</label><div className="col-span-9"><select name="ship_days" value={formData.ship_days} onChange={handleChange} className="theme-input w-48"><option value="">Select</option>{[1, 2, 3, 4, 5, 7].map(d => <option key={d} value={d}>{d}</option>)}</select></div></div>

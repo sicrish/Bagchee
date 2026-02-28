@@ -119,8 +119,10 @@ const ProductSchema = mongoose.Schema({
     isNewRelease: { type: Boolean, default: false },
     isRecommended: { type: Boolean, default: false },
     upcoming: { type: Boolean, default: false },
+    upcoming_date: { type: Date, default: null },
     
     new_release_until: { type: Date },
+    isExclusive: { type: Boolean, default: false },
     
     // Extra
     notes: { type: String },

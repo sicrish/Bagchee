@@ -81,7 +81,58 @@ const EditCategory = () => {
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+    
+        setFormData((prev) => {
+            let updatedData = { ...prev, [name]: value };
+    
+            // 🟢 Case 1: Jab Category Title edit karein (Slug aur Path update logic)
+            if (name === 'categorytitle') {
+                const newSlug = value.toLowerCase().replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-');
+                updatedData.slug = newSlug;
+    
+                // Agar Parent selected hai toh path update karein
+                if (prev.parentid && prev.parentid !== 'root') {
+                    const parent = parentCategories.find(cat => cat._id === prev.parentid);
+                    if (parent) {
+                        // Parent ka backend vala path ('parentslug') base banayein
+                        const basePath = (parent.parentslug && parent.parentslug !== 'root-category') 
+                            ? parent.parentslug 
+                            : parent.slug;
+                        updatedData.parentslug = `${basePath}/${newSlug}`;
+                    }
+                } else {
+                    updatedData.parentslug = 'root-category';
+                }
+            }
+    
+            // 🟢 Case 2: Jab Parent badlein (Hierarchy update logic)
+            if (name === 'parentid') {
+                const selectedParent = parentCategories.find(cat => cat._id === value);
+                
+                if (selectedParent) {
+                    // Level set karein (Parent Level + 1)
+                    updatedData.level = (Number(selectedParent.level) || 0) + 1;
+                    
+                    const currentSlug = updatedData.slug || prev.slug || '';
+                    
+                    // Parent ka pura rasta base banayein
+                    const basePath = (selectedParent.parentslug && selectedParent.parentslug !== 'root-category')
+                        ? selectedParent.parentslug
+                        : selectedParent.slug;
+    
+                    // Final Path = ParentPath + CurrentSlug
+                    updatedData.parentslug = currentSlug 
+                        ? `${basePath}/${currentSlug}` 
+                        : basePath;
+                } else {
+                    // Agar 'Root Category' select kiya
+                    updatedData.parentslug = 'root-category';
+                    updatedData.level = 0;
+                }
+            }
+    
+            return updatedData;
+        });
     };
 
     const handleUpdate = async (e) => {

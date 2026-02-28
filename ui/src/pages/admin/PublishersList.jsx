@@ -7,11 +7,19 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
+import * as XLSX from 'xlsx';
 
 const PublishersList = () => {
   const navigate = useNavigate();
   const [publishers, setPublishers] = useState([]);
   const [loading, setLoading] = useState(true);
+
+
+  // 🟢 1. Pagination States
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalItems, setTotalItems] = useState(0);
   
   // 🟢 1. Filtering State for all columns
   const [filters, setFilters] = useState({
@@ -26,24 +34,59 @@ const PublishersList = () => {
 
   const API_BASE_URL = process.env.REACT_APP_API_URL;
 
-  const fetchPublishers = async () => {
-    setLoading(true);
+  const fetchPublishers = async (isExport = false) => {
+    if (!isExport) setLoading(true);
     try {
-      const res = await axios.get(`${API_BASE_URL}/publishers/list`); 
+      const params = new URLSearchParams();
+      params.append("page", isExport ? 1 : currentPage);
+      params.append("limit", isExport ? 100000 : itemsPerPage);
+
+      const res = await axios.get(`${API_BASE_URL}/publishers/list?${params.toString()}`); 
       if (res.data.status) {
+        if (isExport) return res.data.data;
         setPublishers(res.data.data);
+        setTotalPages(res.data.totalPages || 1);
+        setTotalItems(res.data.total || 0);
       }
     } catch (error) {
-      console.error("Fetch Error:", error);
-      toast.error("Failed to load publishers list");
+      toast.error("Failed to load publishers");
     } finally {
-      setLoading(false);
+      if (!isExport) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchPublishers();
-  }, []);
+  }, [currentPage, itemsPerPage]);
+
+  // 🟢 3. Excel Export Logic
+  const handleExport = async () => {
+    const toastId = toast.loading("Preparing Excel file...");
+    try {
+      const allData = await fetchPublishers(true);
+      if (!allData || allData.length === 0) return toast.error("No data", { id: toastId });
+
+      const dataToExport = allData.map((pub, i) => ({
+        "Sr No": i + 1,
+        "Title": pub.title,
+        "Category": pub.category?.categorytitle || "N/A",
+        "Company": pub.company || "-",
+        "Place": pub.place || "-",
+        "Email": pub.email || "-",
+        "Phone": pub.phone || "-",
+        "Visibility": pub.show || "No",
+        "Display Order": pub.order || 0
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Publishers");
+      XLSX.writeFile(workbook, `Publishers_Report_${Date.now()}.xlsx`);
+      toast.success("Excel exported successfully! 📊", { id: toastId });
+    } catch (error) { toast.error("Export failed", { id: toastId }); }
+  };
+
+  const handlePrint = () => window.print();
 
   // 🟢 2. Advanced Filtering Logic
   const filteredPublishers = useMemo(() => {
@@ -107,10 +150,10 @@ const PublishersList = () => {
         </button>
 
         <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end">
-          <button className="bg-white border border-cream-200 text-text-main px-4 py-1.5 rounded shadow-sm hover:bg-cream-100 flex items-center gap-2 text-xs font-montserrat font-bold transition-colors">
+          <button onClick={handleExport} className="bg-white border border-cream-200 text-text-main px-4 py-1.5 rounded shadow-sm hover:bg-cream-100 flex items-center gap-2 text-xs font-montserrat font-bold transition-colors">
             <Download size={14} className="text-accent" /> Export
           </button>
-          <button className="bg-white border border-cream-200 text-text-main px-4 py-1.5 rounded shadow-sm hover:bg-cream-100 flex items-center gap-2 text-xs font-montserrat font-bold transition-colors">
+          <button onClick={handlePrint} className="bg-white border border-cream-200 text-text-main px-4 py-1.5 rounded shadow-sm hover:bg-cream-100 flex items-center gap-2 text-xs font-montserrat font-bold transition-colors">
             <Printer size={14} className="text-green-600" /> Print
           </button>
           <button onClick={clearFilters} className="bg-white border border-cream-200 text-text-main px-4 py-1.5 rounded shadow-sm hover:text-primary hover:border-primary flex items-center gap-2 text-xs font-montserrat font-bold transition-all">
@@ -242,18 +285,33 @@ const PublishersList = () => {
         </div>
 
         {/* --- FOOTER / PAGINATION --- */}
-        <div className="p-4 bg-white border-t border-cream-50 flex flex-col md:flex-row justify-between items-center gap-4 font-montserrat">
-          <div className="text-[11px] font-bold text-text-muted uppercase tracking-tighter">
-            Displaying {filteredPublishers.length} of {publishers.length} items
+        <div className="p-3 bg-white border-t border-cream-200 flex flex-col md:flex-row justify-between items-center gap-4 font-montserrat shadow-sm no-print">
+          <div className="flex items-center gap-2 text-[12px] font-bold text-text-main">
+            <span className="text-text-muted uppercase text-[10px] tracking-wide">Show</span>
+            <select 
+              value={itemsPerPage} 
+              onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} 
+              className="border border-cream-200 rounded px-2 py-1 focus:border-primary bg-cream-50 text-xs text-primary font-bold cursor-pointer"
+            >
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+
+            </select>
+            <span className="text-text-muted uppercase text-[10px] tracking-wide">entries</span>
           </div>
+
+          <div className="text-[11px] font-bold text-text-muted uppercase tracking-tighter">
+            Displaying {totalItems > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} to {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} items
+          </div>
+
           <div className="flex items-center gap-1">
-            <button className="p-1.5 border border-cream-200 rounded text-text-muted hover:text-primary transition-all"><ChevronsLeft size={16}/></button>
-            <button className="p-1.5 border border-cream-200 rounded text-text-muted hover:text-primary transition-all"><ChevronLeft size={16}/></button>
-            <div className="flex items-center mx-1 border border-cream-200 rounded overflow-hidden">
-              <input type="text" value="1" readOnly className="w-8 text-center text-xs border-none p-1.5 font-bold bg-cream-50 text-text-main" />
-            </div>
-            <button className="p-1.5 border border-cream-200 rounded text-text-muted hover:text-primary transition-all"><ChevronRight size={16}/></button>
-            <button className="p-1.5 border border-cream-200 rounded text-text-muted hover:text-primary transition-all"><ChevronsRight size={16}/></button>
+            <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1} className="p-1.5 border border-cream-200 rounded text-text-muted hover:text-primary disabled:opacity-30 active:scale-90 bg-white shadow-sm"><ChevronsLeft size={16} /></button>
+            <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="p-1.5 border border-cream-200 rounded text-text-muted hover:text-primary disabled:opacity-30 active:scale-90 bg-white shadow-sm"><ChevronLeft size={16} /></button>
+            <div className="min-w-[32px] h-8 flex items-center justify-center bg-primary text-white text-xs font-bold rounded shadow-md mx-1">{currentPage}</div>
+            <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages} className="p-1.5 border border-cream-200 rounded text-text-muted hover:text-primary disabled:opacity-30 active:scale-90 bg-white shadow-sm"><ChevronRight size={16} /></button>
+            <button onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages} className="p-1.5 border border-cream-200 rounded text-text-muted hover:text-primary disabled:opacity-30 active:scale-90 bg-white shadow-sm"><ChevronsRight size={16} /></button>
           </div>
         </div>
       </div>

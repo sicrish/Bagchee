@@ -7,6 +7,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
+import * as XLSX from 'xlsx';
 
 const NavigationList = () => {
   const navigate = useNavigate();
@@ -42,6 +43,38 @@ const NavigationList = () => {
   useEffect(() => {
     fetchNavigations();
   }, []);
+
+
+// 🟢 1. Excel Export Function
+const handleExport = () => {
+  if (navigationItems.length === 0) return toast.error("No data to export");
+
+  // Excel ke liye data prepare karein
+  const dataToExport = navigationItems.map((nav, index) => ({
+    "Sr No": index + 1,
+    "Item Name": nav.item || nav.name,
+    "Link URL": nav.link,
+    "Dropdown Status": nav.dropdown,
+    "Status (Active)": nav.active || nav.status,
+    "Display Order": nav.order
+  }));
+
+  const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Navigations");
+
+  // File download trigger karein
+  XLSX.writeFile(workbook, `Navigation_Report_${new Date().getTime()}.xlsx`);
+  toast.success("Excel exported successfully! 📊");
+};
+
+// 🟢 2. Print Function
+const handlePrint = () => {
+  if (filteredNavs.length === 0) return toast.error("No data to print");
+  window.print();
+};
+
+
 
   // 🟢 2. Filtering Logic (Optimized)
   const filteredNavs = useMemo(() => {
@@ -89,6 +122,16 @@ const NavigationList = () => {
   return (
     <div className="bg-gray-50 min-h-screen p-4 md:p-6 font-sans text-gray-700">
       
+      <style dangerouslySetInnerHTML={{ __html: `
+      @media print {
+        button, input, select, .no-print, .actions-column, th:last-child, td:last-child {
+          display: none !important;
+        }
+        table { width: 100% !important; border: 1px solid #000 !important; }
+        th, td { border: 1px solid #000 !important; padding: 8px !important; color: black !important; }
+        thead { background-color: #0096cc !important; -webkit-print-color-adjust: exact; }
+      }
+    `}} />
       {/* --- TOP TOOLBAR --- */}
       <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
         <button 
@@ -99,10 +142,10 @@ const NavigationList = () => {
         </button>
 
         <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end">
-          <button className="bg-[#f8f9fa] border border-gray-300 text-gray-700 px-4 py-1.5 rounded shadow-sm hover:bg-white flex items-center gap-2 text-xs font-bold transition-colors">
+          <button onClick={handleExport} className="bg-[#f8f9fa] border border-gray-300 text-gray-700 px-4 py-1.5 rounded shadow-sm hover:bg-white flex items-center gap-2 text-xs font-bold transition-colors">
             <Download size={14} className="text-orange-400" /> Export
           </button>
-          <button className="bg-[#f8f9fa] border border-gray-300 text-gray-700 px-4 py-1.5 rounded shadow-sm hover:bg-white flex items-center gap-2 text-xs font-bold transition-colors">
+          <button onClick={handlePrint} className="bg-[#f8f9fa] border border-gray-300 text-gray-700 px-4 py-1.5 rounded shadow-sm hover:bg-white flex items-center gap-2 text-xs font-bold transition-colors">
             <Printer size={14} className="text-green-600" /> Print
           </button>
           <button 

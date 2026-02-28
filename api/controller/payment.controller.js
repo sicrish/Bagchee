@@ -46,10 +46,10 @@ export const savePayment = async (req, res) => {
 
         await newPayment.save();
 
-        res.status(201).json({ 
-            status: true, 
-            msg: "Payment method added successfully!", 
-            data: newPayment 
+        res.status(201).json({
+            status: true,
+            msg: "Payment method added successfully!",
+            data: newPayment
         });
 
     } catch (error) {
@@ -59,23 +59,39 @@ export const savePayment = async (req, res) => {
 };
 
 // ==========================================
-// 🟢 2. READ (LIST ALL)
+// 🟢 2. READ (LIST ALL WITH PAGINATION)
 // ==========================================
 export const getAllPayments = async (req, res) => {
     try {
-        const list = await PaymentModel.find().sort({ order: 1, createdAt: -1 });
-        
-        res.status(200).json({ 
-            status: true, 
+        const { page, limit } = req.query;
+
+        // 1. Pagination Settings
+        const pageNum = parseInt(page) || 1;
+        const pageSize = parseInt(limit) || 10;
+        const skip = (pageNum - 1) * pageSize;
+
+        // 2. Fetch Data with Pagination
+        const list = await PaymentModel.find()
+            .sort({ order: 1, createdAt: -1 })
+            .skip(skip)
+            .limit(pageSize);
+
+        // 3. Total Count for calculation
+        const total = await PaymentModel.countDocuments();
+
+        res.status(200).json({
+            status: true,
             msg: "Payments fetched successfully",
-            data: list 
+            data: list,
+            total,
+            totalPages: Math.ceil(total / pageSize),
+            page: pageNum
         });
 
     } catch (error) {
         res.status(500).json({ status: false, msg: "Server Error", error: error.message });
     }
 };
-
 // ==========================================
 // 🟢 3. READ ONE (GET BY ID)
 // ==========================================
@@ -102,7 +118,7 @@ export const updatePayment = async (req, res) => {
     try {
         const id = req.params.id;
         const data = req.body;
-        const { remove_image } = req.body; 
+        const { remove_image } = req.body;
 
         const existingPayment = await PaymentModel.findById(id);
         if (!existingPayment) {
@@ -132,7 +148,7 @@ export const updatePayment = async (req, res) => {
             try {
                 // 1. New Save
                 const newImagePath = await saveFileLocal(req.files.image, 'payments');
-                
+
                 // 2. Old Delete (Safe Swap)
                 if (newImagePath) {
                     if (existingPayment.image) {
@@ -156,10 +172,10 @@ export const updatePayment = async (req, res) => {
 
         const updatedPayment = await PaymentModel.findByIdAndUpdate(id, updateData, { new: true });
 
-        res.status(200).json({ 
-            status: true, 
-            msg: "Payment updated successfully!", 
-            data: updatedPayment 
+        res.status(200).json({
+            status: true,
+            msg: "Payment updated successfully!",
+            data: updatedPayment
         });
 
     } catch (error) {
@@ -174,7 +190,7 @@ export const updatePayment = async (req, res) => {
 export const deletePayment = async (req, res) => {
     try {
         const id = req.params.id;
-        
+
         const payment = await PaymentModel.findById(id);
         if (!payment) {
             return res.status(404).json({ status: false, msg: "Payment method not found" });
@@ -187,9 +203,9 @@ export const deletePayment = async (req, res) => {
 
         await PaymentModel.findByIdAndDelete(id);
 
-        res.status(200).json({ 
-            status: true, 
-            msg: "Payment deleted successfully!" 
+        res.status(200).json({
+            status: true,
+            msg: "Payment deleted successfully!"
         });
 
     } catch (error) {

@@ -7,9 +7,9 @@ import { saveFileLocal, deleteFileLocal } from '../utils/fileHandler.js';
 // ==========================================
 export const savePublisher = async (req, res) => {
   try {
-    const { 
-      category, title, company, address, place, 
-      email, phone, fax, date, order, show, slug, ship_in_days 
+    const {
+      category, title, company, address, place,
+      email, phone, fax, date, order, show, slug, ship_in_days
     } = req.body;
 
     // 1. Basic Validation
@@ -26,7 +26,7 @@ export const savePublisher = async (req, res) => {
 
     // 🖼️ Handle Image (Local Storage with Sub-folder)
     let imagePath = '';
-    
+
     if (req.files && req.files.image) {
       try {
         // 🟢 'publishers' pass kiya taaki uploads/publishers me save ho
@@ -37,7 +37,7 @@ export const savePublisher = async (req, res) => {
     }
 
     const newPublisher = new Publisher({
-      category, 
+      category,
       title,
       image: imagePath, // e.g. "/uploads/publishers/abc-123.jpg"
       company,
@@ -55,10 +55,10 @@ export const savePublisher = async (req, res) => {
 
     await newPublisher.save();
 
-    res.status(201).json({ 
-      status: true, 
-      msg: "Publisher added successfully!", 
-      data: newPublisher 
+    res.status(201).json({
+      status: true,
+      msg: "Publisher added successfully!",
+      data: newPublisher
     });
 
   } catch (error) {
@@ -68,16 +68,36 @@ export const savePublisher = async (req, res) => {
 };
 
 // ==========================================
-// 🔵 2. READ ALL
+// 🔵 2. READ ALL (WITH PAGINATION & POPULATION)
 // ==========================================
 export const getAllPublishers = async (req, res) => {
   try {
+    const { page, limit } = req.query;
+
+    // 1. Pagination Settings
+    const pageNum = parseInt(page) || 1;
+    const pageSize = parseInt(limit) || 10;
+    const skip = (pageNum - 1) * pageSize;
+
+    // 2. Fetch with Population
     const publishers = await Publisher.find()
-      .populate('category', 'categorytitle') 
-      .sort({ order: 1 });
-      
-    res.status(200).json({ status: true, data: publishers });
+      .populate('category', 'categorytitle')
+      .sort({ order: 1 })
+      .skip(skip)
+      .limit(pageSize);
+
+    // 3. Total Count for Pagination
+    const total = await Publisher.countDocuments();
+
+    res.status(200).json({
+      status: true,
+      data: publishers,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+      page: pageNum
+    });
   } catch (error) {
+    console.error("Fetch Error:", error);
     res.status(500).json({ status: false, msg: "Server Error", error: error.message });
   }
 };
@@ -118,10 +138,10 @@ export const updatePublisher = async (req, res) => {
 
         // 3. Safe Swap: Agar nayi save ho gayi, tabhi purani delete karo
         if (newImagePath) {
-            if (currentPublisher && currentPublisher.image) {
-                await deleteFileLocal(currentPublisher.image);
-            }
-            updateData.image = newImagePath;
+          if (currentPublisher && currentPublisher.image) {
+            await deleteFileLocal(currentPublisher.image);
+          }
+          updateData.image = newImagePath;
         }
       } catch (uploadError) {
         return res.status(400).json({ status: false, msg: uploadError.message });
@@ -131,17 +151,17 @@ export const updatePublisher = async (req, res) => {
     const updatedPublisher = await Publisher.findByIdAndUpdate(
       id,
       updateData,
-      { new: true } 
+      { new: true }
     );
 
     if (!updatedPublisher) {
       return res.status(404).json({ status: false, msg: "Publisher not found" });
     }
 
-    res.status(200).json({ 
-      status: true, 
-      msg: "Publisher updated successfully!", 
-      data: updatedPublisher 
+    res.status(200).json({
+      status: true,
+      msg: "Publisher updated successfully!",
+      data: updatedPublisher
     });
 
   } catch (error) {
@@ -165,7 +185,7 @@ export const deletePublisher = async (req, res) => {
 
     // 2. Local File Delete karo
     if (publisherToDelete.image) {
-        await deleteFileLocal(publisherToDelete.image);
+      await deleteFileLocal(publisherToDelete.image);
     }
 
     // 3. Database se record udao

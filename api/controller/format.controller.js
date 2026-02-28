@@ -15,8 +15,8 @@ export const saveFormat = async (req, res) => {
     const cleanTitle = title.trim();
 
     // Check for Duplicate Title (Case Insensitive)
-    const existingFormat = await Format.findOne({ 
-        title: { $regex: new RegExp(`^${cleanTitle}$`, "i") } 
+    const existingFormat = await Format.findOne({
+      title: { $regex: new RegExp(`^${cleanTitle}$`, "i") }
     });
 
     if (existingFormat) {
@@ -32,10 +32,10 @@ export const saveFormat = async (req, res) => {
 
     await newFormat.save();
 
-    res.status(201).json({ 
-      status: true, 
-      msg: "Format added successfully!", 
-      data: newFormat 
+    res.status(201).json({
+      status: true,
+      msg: "Format added successfully!",
+      data: newFormat
     });
 
   } catch (error) {
@@ -45,26 +45,43 @@ export const saveFormat = async (req, res) => {
 };
 
 // ==========================================
-// 🔵 2. READ ALL (WITH CATEGORY POPULATION)
+// 🔵 2. READ ALL (WITH PAGINATION & POPULATION)
 // ==========================================
 export const getAllFormats = async (req, res) => {
   try {
-    // 1. Populate category details
+    const { page, limit } = req.query;
+
+    // 1. Pagination Settings
+    const pageNum = parseInt(page) || 1;
+    const pageSize = parseInt(limit) || 10;
+    const skip = (pageNum - 1) * pageSize;
+
+    // 2. Fetch with Population
     const formats = await Format.find()
       .populate('category', 'categorytitle')
-      .sort({ order: 1 });
+      .sort({ order: 1 })
+      .skip(skip)
+      .limit(pageSize);
 
-    // 2. Map data for Frontend convenience
+    // 3. Total Count for Pagination
+    const total = await Format.countDocuments();
+
+    // 4. Map data for Frontend
     const formattedData = formats.map(item => ({
       ...item._doc,
-      category_name: item.category && item.category.categorytitle 
-        ? item.category.categorytitle 
+      category_name: item.category && item.category.categorytitle
+        ? item.category.categorytitle
         : 'N/A'
     }));
 
-    res.status(200).json({ status: true, data: formattedData });
+    res.status(200).json({
+      status: true,
+      data: formattedData,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+      page: pageNum
+    });
   } catch (error) {
-    console.error("Fetch list error:", error);
     res.status(500).json({ status: false, msg: "Server Error", error: error.message });
   }
 };
@@ -94,21 +111,21 @@ export const updateFormat = async (req, res) => {
 
     // 1. Duplicate Check for New Title
     if (title) {
-        const cleanTitle = title.trim();
-        const existingFormat = await Format.findOne({ 
-            title: { $regex: new RegExp(`^${cleanTitle}$`, "i") },
-            _id: { $ne: id } 
-        });
+      const cleanTitle = title.trim();
+      const existingFormat = await Format.findOne({
+        title: { $regex: new RegExp(`^${cleanTitle}$`, "i") },
+        _id: { $ne: id }
+      });
 
-        if (existingFormat) {
-            return res.status(400).json({ status: false, msg: "Another format already has this title." });
-        }
+      if (existingFormat) {
+        return res.status(400).json({ status: false, msg: "Another format already has this title." });
+      }
     }
 
     // 2. Map fields correctly
     const updateData = {
-        ...req.body,
-        category: category_id // Frontend se category_id aaye toh category field update ho
+      ...req.body,
+      category: category_id // Frontend se category_id aaye toh category field update ho
     };
 
     const updatedFormat = await Format.findByIdAndUpdate(
@@ -121,10 +138,10 @@ export const updateFormat = async (req, res) => {
       return res.status(404).json({ status: false, msg: "Format not found" });
     }
 
-    res.status(200).json({ 
-      status: true, 
-      msg: "Format updated successfully!", 
-      data: updatedFormat 
+    res.status(200).json({
+      status: true,
+      msg: "Format updated successfully!",
+      data: updatedFormat
     });
 
   } catch (error) {

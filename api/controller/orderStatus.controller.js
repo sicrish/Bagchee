@@ -45,17 +45,33 @@ export const createOrderStatus = async (req, res) => {
 };
 
 // ==========================================
-// 🟢 2. READ (LIST ALL)
+// 🟢 2. READ (LIST WITH PAGINATION)
 // ==========================================
 export const getAllOrderStatus = async (req, res) => {
     try {
-        // Sort Alphabetically (A-Z) - Dropdown ke liye better rehta hai
-        const statuses = await OrderStatusModel.find().sort({ name: 1 });
-        
+        const { page, limit } = req.query;
+
+        // 1. Pagination Settings
+        const pageNum = parseInt(page) || 1;
+        const pageSize = parseInt(limit) || 10;
+        const skip = (pageNum - 1) * pageSize;
+
+        // 2. Fetch Data with Pagination
+        const statuses = await OrderStatusModel.find()
+            .sort({ name: 1 })
+            .skip(skip)
+            .limit(pageSize);
+
+        // 3. Total Count for Pagination Logic
+        const total = await OrderStatusModel.countDocuments();
+
         res.status(200).json({ 
             status: true, 
             msg: "List fetched successfully",
-            data: statuses 
+            data: statuses,
+            total,
+            totalPages: Math.ceil(total / pageSize),
+            page: pageNum
         });
 
     } catch (error) {

@@ -35,12 +35,38 @@ export const saveTag = async (req, res) => {
   }
 };
 
-// 🔵 Read All (Fetch List)
+// ==========================================
+// 🔵 READ ALL (FETCH LIST WITH PAGINATION)
+// ==========================================
 export const getAllTags = async (req, res) => {
   try {
-    const tags = await Tag.find().sort({ createdAt: -1 });
-    res.status(200).json({ status: true, data: tags });
+    const { page, limit } = req.query;
+
+    // 1. Pagination Settings
+    const pageNum = parseInt(page) || 1;       // Default page 1
+    const pageSize = parseInt(limit) || 25;    // Default 25 tags per page
+    const skip = (pageNum - 1) * pageSize;     // Kitne tags chhodne hain uska calculation
+
+    // 2. Fetch Data from Database
+    const tags = await Tag.find()
+      .sort({ createdAt: -1 })
+      .skip(skip)   // Pagination logic here
+      .limit(pageSize);
+
+    // 3. Total count for frontend buttons
+    const total = await Tag.countDocuments();
+
+    res.status(200).json({ 
+      status: true, 
+      data: tags,
+      total,                         // Total tags in database
+      page: pageNum,                 // Current page number
+      limit: pageSize,               // Per page limit
+      totalPages: Math.ceil(total / pageSize) // Total pages available
+    });
+
   } catch (error) {
+    console.error("Fetch Tags Error:", error);
     res.status(500).json({ status: false, msg: "Server Error", error: error.message });
   }
 };

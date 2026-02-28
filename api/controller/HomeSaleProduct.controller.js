@@ -168,7 +168,7 @@ export const searchMainInventory = async (req, res) => {
                 { isbn10: { $regex: q, $options: 'i' } }
             ]
         })
-        .select('title bagchee_id isbn13 default_image') // Sirf zaruri data bhejo
+        .select('title price bagchee_id isbn13 default_image') // Sirf zaruri data bhejo
         .limit(10); // Sirf top 10 results taaki dropdown fast rahe
 
         res.status(200).json({ status: true, data: products });

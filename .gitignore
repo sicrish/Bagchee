@@ -1,0 +1,19 @@
+# Dependency folders (MNC standard)
+ui/node_modules/
+api/node_modules/
+
+# Local Environment files (Security ke liye zaroori)
+.env
+api/.env
+ui/.env
+
+# Uploaded files (Repo ko heavy hone se bachane ke liye)
+api/uploads/
+api/uploads/**/*
+
+# OS related files
+.DS_Store
+Thumbs.db
+
+# Build folders
+ui/build/

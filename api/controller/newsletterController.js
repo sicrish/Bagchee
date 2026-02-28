@@ -32,15 +32,31 @@ export const saveSubscriber = async (req, res) => {
     }
 };
 
-// 🟢 2. Read All (List)
+// 🟢 2. Read All (List WITH PAGINATION)
 export const getAllSubscribers = async (req, res) => {
     try {
-        // Sort descending (latest first)
-        const subscribers = await NewsletterSubscriber.find().sort({ createdAt: -1 });
+        const { page, limit } = req.query;
+
+        // 1. Pagination Settings
+        const pageNum = parseInt(page) || 1;
+        const pageSize = parseInt(limit) || 25;
+        const skip = (pageNum - 1) * pageSize;
+
+        // 2. Fetch Data
+        const subscribers = await NewsletterSubscriber.find()
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(pageSize);
+
+        // 3. Total Count for Pagination calculation
+        const total = await NewsletterSubscriber.countDocuments();
 
         res.status(200).json({
             status: true,
-            data: subscribers
+            data: subscribers,
+            total,
+            totalPages: Math.ceil(total / pageSize),
+            page: pageNum
         });
 
     } catch (error) {
@@ -75,14 +91,14 @@ export const updateSubscriber = async (req, res) => {
 
         const updatedData = {
             email,
-            firstname: firstName, 
+            firstname: firstName,
             lastname: lastName,
             categories
         };
 
         const subscriber = await NewsletterSubscriber.findByIdAndUpdate(
-            id, 
-            updatedData, 
+            id,
+            updatedData,
             { new: true } // Updated document return karega
         );
 

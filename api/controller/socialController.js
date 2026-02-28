@@ -43,13 +43,33 @@ export const saveSocial = async (req, res) => {
 };
 
 // ==========================================
-// 🔵 2. LIST ALL SOCIALS (Read All)
+// 🔵 2. LIST ALL SOCIALS (WITH PAGINATION)
 // ==========================================
 export const listSocials = async (req, res) => {
     try {
-        // Sort by Order (Ascending: 1, 2, 3...)
-        const data = await Social.find().sort({ order: 1, createdAt: -1 });
-        res.status(200).json({ status: true, data });
+        const { page, limit } = req.query;
+
+        // 1. Pagination Settings
+        const pageNum = parseInt(page) || 1;
+        const pageSize = parseInt(limit) || 10;
+        const skip = (pageNum - 1) * pageSize;
+
+        // 2. Fetch Data with Pagination
+        const data = await Social.find()
+            .sort({ order: 1, createdAt: -1 })
+            .skip(skip)
+            .limit(pageSize);
+
+        // 3. Total Count for Pagination Logic
+        const total = await Social.countDocuments();
+
+        res.status(200).json({ 
+            status: true, 
+            data,
+            total,
+            totalPages: Math.ceil(total / pageSize),
+            page: pageNum
+        });
     } catch (error) {
         res.status(500).json({ status: false, msg: error.message });
     }

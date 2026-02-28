@@ -38,16 +38,22 @@ export const saveAuthor = async (req, res) => {
   }
 };
 
+
 // ==========================================
-// 🔵 2. READ ALL (WITH SEARCH LOGIC FOR TOP AUTHORS)
+// 🔵 2. READ ALL (WITH PAGINATION & SEARCH)
 // ==========================================
 export const getAllAuthors = async (req, res) => {
   try {
-    const { q } = req.query; // 🟢 Search query parameter
-    let query = {};
+    const { q, page, limit } = req.query;
 
+    // 1. Pagination Settings
+    const pageNum = parseInt(page) || 1;      // Default page 1
+    const pageSize = parseInt(limit) || 20;   // Default 20 records per page
+    const skip = (pageNum - 1) * pageSize;    // Kitne records chhodne hain
+
+    // 2. Search Query logic
+    let query = {};
     if (q) {
-      // 🟢 First Name ya Last Name mein se kuch bhi match kare
       query = {
         $or: [
           { first_name: { $regex: q, $options: 'i' } },
@@ -56,13 +62,28 @@ export const getAllAuthors = async (req, res) => {
       };
     }
 
-    const authors = await Author.find(query).sort({ first_name: 1 }).limit(20);
-    res.status(200).json({ status: true, data: authors });
+    // 3. Database Fetching with Skip and Limit
+    const authors = await Author.find(query)
+      .sort({ first_name: 1 })
+      .skip(skip)   // Pagination logic here
+      .limit(pageSize);
+
+    // 4. Total count for frontend calculation
+    const total = await Author.countDocuments(query);
+
+    res.status(200).json({ 
+      status: true, 
+      data: authors,
+      total,                         // Kul kitne authors hain
+      page: pageNum,                 // Current page kaun sa hai
+      limit: pageSize,               // Ek page par kitni limit hai
+      totalPages: Math.ceil(total / pageSize) // Total kitne pages bane
+    });
+
   } catch (error) {
     res.status(500).json({ status: false, msg: "Server Error", error: error.message });
   }
 };
-
 // ==========================================
 // 🟡 3. READ ONE
 // ==========================================

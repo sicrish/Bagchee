@@ -45,13 +45,37 @@ export const saveCoupon = async (req, res) => {
 };
 
 // ==========================================
-// 🔵 2. READ ALL (FETCH LIST)
+// 🔵 2. READ ALL (FETCH LIST WITH PAGINATION)
 // ==========================================
 export const getAllCoupons = async (req, res) => {
   try {
-    const coupons = await Coupon.find().sort({ createdAt: -1 });
-    res.status(200).json({ status: true, data: coupons });
+    const { page, limit } = req.query;
+
+    // 1. Pagination Settings
+    const pageNum = parseInt(page) || 1;       // Default page 1
+    const pageSize = parseInt(limit) || 25;    // Default 25 records as per your requirement
+    const skip = (pageNum - 1) * pageSize;     // Kitne records chhodne hain
+
+    // 2. Database Fetching with Skip and Limit
+    const coupons = await Coupon.find()
+      .sort({ createdAt: -1 })
+      .skip(skip)   // Pagination logic
+      .limit(pageSize);
+
+    // 3. Total count for frontend buttons
+    const total = await Coupon.countDocuments();
+
+    res.status(200).json({ 
+      status: true, 
+      data: coupons,
+      total,                         // Kul kitne coupons hain
+      page: pageNum,                 // Current page number
+      limit: pageSize,               // Per page limit
+      totalPages: Math.ceil(total / pageSize) // Total kitne pages banenge
+    });
+
   } catch (error) {
+    console.error("Fetch Coupons Error:", error);
     res.status(500).json({ status: false, msg: "Server Error", error: error.message });
   }
 };

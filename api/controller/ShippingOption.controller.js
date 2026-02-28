@@ -47,24 +47,40 @@ export const saveShippingOption = async (req, res) => {
 };
 
 // ==========================================
-// 🟢 2. READ (LIST ALL) - WITH MAPPING FIX
+// 🟢 2. READ (LIST ALL WITH PAGINATION)
 // ==========================================
 export const getAllShippingOptions = async (req, res) => {
     try {
-        // Fetch data from DB
-        const list = await ShippingOptionModel.find().sort({ displayOrder: 1, createdAt: -1 }).lean();
+        const { page, limit } = req.query;
+
+        // 1. Pagination Settings
+        const pageNum = parseInt(page) || 1;
+        const pageSize = parseInt(limit) || 10;
+        const skip = (pageNum - 1) * pageSize;
+
+        // 2. Fetch data from DB
+        const list = await ShippingOptionModel.find()
+            .sort({ displayOrder: 1, createdAt: -1 })
+            .skip(skip)
+            .limit(pageSize)
+            .lean();
         
-        // 🟢 SMART MAPPING: Backend se bhejte waqt 'displayOrder' ko wapas 'order' bana do
-        // Taaki Frontend bina change kiye chal jaye.
+        // 3. Total count for calculation
+        const total = await ShippingOptionModel.countDocuments();
+        
+        // 4. Smart Mapping
         const formattedList = list.map(item => ({
             ...item,
-            order: item.displayOrder // Frontend 'order' dhoond raha hai
+            order: item.displayOrder // UI compatibility
         }));
         
         res.status(200).json({ 
             status: true, 
             msg: "Shipping options fetched successfully",
-            data: formattedList 
+            data: formattedList,
+            total,
+            totalPages: Math.ceil(total / pageSize),
+            page: pageNum
         });
 
     } catch (error) {

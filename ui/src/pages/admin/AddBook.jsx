@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Save, RotateCcw, Plus, Search, Check, X, Upload, Eye, Loader2,ChevronDown } from 'lucide-react';
+import { Save, RotateCcw, Plus, Search, Check, X, Upload, Eye, Loader2, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import JoditEditor from 'jodit-react';// 🟢 Real Editor Library
@@ -88,9 +88,9 @@ const AddBook = () => {
     const [newSeriesData, setNewSeriesData] = useState({ title: '' });
     const [isSeriesSaving, setIsSeriesSaving] = useState(false);
 
-// 🟢 NEW: User Input Date (Start Date)
-const [userSelectedDate, setUserSelectedDate] = useState(''); // User isme Start Date dalega
-const [arrivalDays, setArrivalDays] = useState(30); // Ye Settings se aayega
+    // 🟢 NEW: User Input Date (Start Date)
+    const [userSelectedDate, setUserSelectedDate] = useState(''); // User isme Start Date dalega
+    const [arrivalDays, setArrivalDays] = useState(30); // Ye Settings se aayega
 
     // 🟢 Publisher Quick Add States
     const [isPubPanelOpen, setIsPubPanelOpen] = useState(false);
@@ -134,7 +134,9 @@ const [arrivalDays, setArrivalDays] = useState(30); // Ye Settings se aayega
         active: 'active',
         recommended: 'inactive',
         upcoming: 'inactive',
+        upcoming_date: '',
         new_release: 'inactive',
+        exclusive: 'inactive',
         series: '',
         series_number: '',
         publisher: '',
@@ -194,10 +196,10 @@ const [arrivalDays, setArrivalDays] = useState(30); // Ye Settings se aayega
             const startDate = new Date(userSelectedDate);
             // Magic: Settings wale din jodo
             startDate.setDate(startDate.getDate() + Number(arrivalDays));
-            
+
             // Result: Format YYYY-MM-DD
             const finalDate = startDate.toISOString().split('T')[0];
-            
+
             // Backend ke liye 'new_release_until' set karo (Hidden)
             setFormData(prev => ({ ...prev, new_release_until: finalDate }));
         }
@@ -206,7 +208,7 @@ const [arrivalDays, setArrivalDays] = useState(30); // Ye Settings se aayega
     // 🟢 HELPER: Calculate Future Date (Aaj + Settings Days)
     const getCalculatedDate = () => {
         const date = new Date();
-        date.setDate(date.getDate() + Number(arrivalDays)); 
+        date.setDate(date.getDate() + Number(arrivalDays));
         return date.toISOString().split('T')[0]; // Format: YYYY-MM-DD
     };
 
@@ -217,7 +219,7 @@ const [arrivalDays, setArrivalDays] = useState(30); // Ye Settings se aayega
             // Agar Active kiya, to date auto-fill karo
             // Lekin agar user ne manually pehle se koi date set ki hui hai, to usko overwrite mat karo
             const dateToSet = userSelectedDate || getCalculatedDate();
-            
+
             setFormData({ ...formData, new_release: 'active', new_release_until: dateToSet });
             setUserSelectedDate(dateToSet); // UI update ke liye
         } else {
@@ -432,8 +434,12 @@ const [arrivalDays, setArrivalDays] = useState(30); // Ye Settings se aayega
             data.append('active', formData.active);
             data.append('recommended', formData.recommended);
             data.append('upcoming', formData.upcoming);
+            data.append('upcoming_date', formData.upcoming_date || '')
+
             data.append('new_release', formData.new_release);
             data.append('new_release_until', formData.new_release_until || '');
+            data.append('exclusive', formData.exclusive);
+
 
             // --- 4. Stock & Availability ---
             data.append('stock', formData.stock); // 'active' or 'inactive' string
@@ -2205,12 +2211,12 @@ const [arrivalDays, setArrivalDays] = useState(30); // Ye Settings se aayega
 
 
 
-{/* 🟢 19A. Standard Flags (Active, Recommended, Upcoming) */}
+                        {/* 🟢 19A. Standard Flags (Active, Recommended, Upcoming) */}
                         {/* New Release ko yahan se hata diya hai kyunki uska alag UI hai */}
                         {[
                             { label: "Active", name: "active" },
                             { label: "Recommended", name: "recommended" },
-                            { label: "Upcoming", name: "upcoming" },
+
                         ].map((item) => (
                             <div key={item.name} className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4">
                                 <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight">{item.label}</label>
@@ -2225,37 +2231,97 @@ const [arrivalDays, setArrivalDays] = useState(30); // Ye Settings se aayega
                             </div>
                         ))}
 
-                       {/* 🟢 19B. New Release (Start Date Logic) */}
-                       <div className="grid grid-cols-12 gap-4 items-start border-b border-gray-50 pb-4">
+
+
+                        {/* 🟢 19C. Upcoming Section (Date Logic) */}
+                        <div className="grid grid-cols-12 gap-4 items-start border-b border-gray-50 pb-4 mt-4">
+                            <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight pt-1 font-montserrat">
+                                Upcoming
+                            </label>
+                            <div className="col-span-9">
+                                <div className="flex gap-6 mb-2">
+                                    <label className="flex items-center gap-2 text-sm cursor-pointer font-body">
+                                        <input
+                                            type="radio"
+                                            name="upcoming"
+                                            value="active"
+                                            onChange={handleChange}
+                                            checked={formData.upcoming === "active"}
+                                            className="accent-primary w-4 h-4"
+                                        /> active
+                                    </label>
+                                    <label className="flex items-center gap-2 text-sm cursor-pointer font-body">
+                                        <input
+                                            type="radio"
+                                            name="upcoming"
+                                            value="inactive"
+                                            onChange={(e) => {
+                                                handleChange(e);
+                                                setFormData(prev => ({ ...prev, upcoming_date: '' })); // Clear date if inactive
+                                            }}
+                                            checked={formData.upcoming === "inactive"}
+                                            className="accent-primary w-4 h-4"
+                                        /> inactive
+                                    </label>
+                                </div>
+
+                                {/* 🗓️ Launch Date Input (Sirf tab dikhega jab Active ho) */}
+                                {formData.upcoming === 'active' && (
+                                    <div className="animate-in fade-in slide-in-from-top-1 duration-300 p-3 bg-orange-50/50 rounded border border-orange-100 mt-2">
+                                        <label className="block text-[10px] text-orange-600 font-bold mb-1 font-montserrat uppercase">
+                                            Expected Launch Date
+                                        </label>
+                                        <div className="flex items-center gap-3">
+                                            <input
+                                                type="date"
+                                                name="upcoming_date"
+                                                value={formData.upcoming_date}
+                                                onChange={handleChange}
+                                                className="theme-input w-40 border-orange-200 focus:border-orange-400 focus:ring-orange-100"
+                                            />
+                                            <span className="text-gray-400 text-[11px] italic font-body">
+                                                * This book will be highlighted as 'Pre-Order' or 'Coming Soon'
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+
+
+
+                        {/* 🟢 19B. New Release (Start Date Logic) */}
+                        <div className="grid grid-cols-12 gap-4 items-start border-b border-gray-50 pb-4">
                             <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight pt-1">New release</label>
                             <div className="col-span-9">
                                 <div className="flex gap-6 mb-2">
                                     <label className="flex items-center gap-2 text-sm cursor-pointer">
-                                        <input 
-                                            type="radio" 
-                                            name="new_release" 
-                                            value="active" 
+                                        <input
+                                            type="radio"
+                                            name="new_release"
+                                            value="active"
                                             onChange={(e) => {
                                                 handleChange(e);
                                                 // Active karte hi aaj ki date 'Start Date' ban jaye
-                                                if(!userSelectedDate) setUserSelectedDate(new Date().toISOString().split('T')[0]);
-                                            }} 
-                                            checked={formData.new_release === "active"} 
-                                            className="accent-primary w-4 h-4" 
+                                                if (!userSelectedDate) setUserSelectedDate(new Date().toISOString().split('T')[0]);
+                                            }}
+                                            checked={formData.new_release === "active"}
+                                            className="accent-primary w-4 h-4"
                                         /> active
                                     </label>
                                     <label className="flex items-center gap-2 text-sm cursor-pointer">
-                                        <input 
-                                            type="radio" 
-                                            name="new_release" 
-                                            value="inactive" 
+                                        <input
+                                            type="radio"
+                                            name="new_release"
+                                            value="inactive"
                                             onChange={(e) => {
                                                 handleChange(e);
-                                                setFormData(prev => ({...prev, new_release_until: ''})); // Backend data clear
+                                                setFormData(prev => ({ ...prev, new_release_until: '' })); // Backend data clear
                                                 setUserSelectedDate(''); // UI clear
-                                            }} 
-                                            checked={formData.new_release === "inactive"} 
-                                            className="accent-primary w-4 h-4" 
+                                            }}
+                                            checked={formData.new_release === "inactive"}
+                                            className="accent-primary w-4 h-4"
                                         /> inactive
                                     </label>
                                 </div>
@@ -2266,22 +2332,51 @@ const [arrivalDays, setArrivalDays] = useState(30); // Ye Settings se aayega
                                         <label className="block text-[10px] text-primary font-bold mb-1">SELECT START DATE</label>
                                         <div className="flex items-center gap-3">
                                             {/* Ye Input 'userSelectedDate' ko control karega */}
-                                            <input 
-                                                type="date" 
-                                                value={userSelectedDate} 
-                                                onChange={(e) => setUserSelectedDate(e.target.value)} 
-                                                className="theme-input w-40 border-primary/50" 
+                                            <input
+                                                type="date"
+                                                value={userSelectedDate}
+                                                onChange={(e) => setUserSelectedDate(e.target.value)}
+                                                className="theme-input w-40 border-primary/50"
                                             />
                                             {/* User ko batana ki setting se kitne din jud rahe hain */}
                                             <span className="text-gray-400 text-xs font-bold">+ {arrivalDays} Days (Settings)</span>
                                         </div>
-                                        
+
                                         {/* Result Display: User ko dikhana ki book kab tak new rahegi */}
                                         <div className="mt-2 text-[11px] text-gray-500">
                                             Will stay in "New Arrivals" until: <span className="font-bold text-black bg-yellow-100 px-1 rounded">{formData.new_release_until || '...'}</span>
                                         </div>
                                     </div>
                                 )}
+                            </div>
+                        </div>
+
+                        {/* 🟢 Exclusive Section (New Release ke baad) */}
+                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4">
+                            <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight font-montserrat">
+                                Exclusive
+                            </label>
+                            <div className="col-span-9 flex gap-6">
+                                <label className="flex items-center gap-2 text-sm cursor-pointer font-body">
+                                    <input
+                                        type="radio"
+                                        name="exclusive"
+                                        value="active"
+                                        checked={formData.exclusive === "active"}
+                                        onChange={handleChange}
+                                        className="accent-primary w-4 h-4"
+                                    /> active
+                                </label>
+                                <label className="flex items-center gap-2 text-sm cursor-pointer font-body">
+                                    <input
+                                        type="radio"
+                                        name="exclusive"
+                                        value="inactive"
+                                        checked={formData.exclusive === "inactive"}
+                                        onChange={handleChange}
+                                        className="accent-primary w-4 h-4"
+                                    /> inactive
+                                </label>
                             </div>
                         </div>
 

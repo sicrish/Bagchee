@@ -1,18 +1,26 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  Plus, Download, Printer, Search, RotateCw, 
-  Edit, Trash2, ChevronLeft, ChevronRight, 
-  ChevronsLeft, ChevronsRight, Loader2 
+import {
+  Plus, Download, Printer, Search, RotateCw,
+  Edit, Trash2, ChevronLeft, ChevronRight,
+  ChevronsLeft, ChevronsRight, Loader2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
+import * as XLSX from 'xlsx';
+
 
 const UsersList = () => {
   const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  
+
+  // 🟢 1. Pagination States
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalItems, setTotalItems] = useState(0);
+
   // 🟢 1. Filtering States
   const [filters, setFilters] = useState({
     username: "",
@@ -22,25 +30,60 @@ const UsersList = () => {
     membership: ""
   });
 
-  const fetchUsers = async () => {
-    setLoading(true);
+  const API_BASE_URL = process.env.REACT_APP_API_URL;
+
+  const fetchUsers = async (isExport = false) => {
+    if (!isExport) setLoading(true);
     try {
-      const API_URL = process.env.REACT_APP_API_URL;
-      const res = await axios.get(`${API_URL}/user/fetch`); 
+      const params = new URLSearchParams();
+      params.append("page", isExport ? 1 : currentPage);
+      params.append("limit", isExport ? 100000 : itemsPerPage);
+
+      const res = await axios.get(`${API_BASE_URL}/user/fetch?${params.toString()}`);
       if (res.data.status) {
+        if (isExport) return res.data.data;
         setUsers(res.data.data);
+        setTotalPages(res.data.totalPages || 1);
+        setTotalItems(res.data.total || 0);
       }
     } catch (error) {
-      console.error("Fetch Error:", error);
-      toast.error("Failed to load users list");
+      toast.error("Failed to load users");
     } finally {
-      setLoading(false);
+      if (!isExport) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [currentPage, itemsPerPage]);
+
+  // 🟢 3. Excel Export logic
+  const handleExport = async () => {
+    const toastId = toast.loading("Preparing Excel file...");
+    try {
+      const allData = await fetchUsers(true);
+      if (!allData || allData.length === 0) return toast.error("No data", { id: toastId });
+
+      const dataToExport = allData.map((user, i) => ({
+        "Sr No": i + 1,
+        "Name": user.name,
+        "Username": user.username || "-",
+        "Email": user.email,
+        "Company": user.company || "-",
+        "Phone": user.phone || "-",
+        "Membership": user.membership || "inactive",
+        "Joined Date": new Date(user.createdAt).toLocaleDateString('en-GB')
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Users");
+      XLSX.writeFile(workbook, `Users_Report_${Date.now()}.xlsx`);
+      toast.success("Excel downloaded! 📊", { id: toastId });
+    } catch (error) { toast.error("Export failed", { id: toastId }); }
+  };
+
+  const handlePrint = () => window.print();
 
   // 🟢 2. Filtering Logic (Memoized for Performance)
   const filteredUsers = useMemo(() => {
@@ -70,14 +113,14 @@ const UsersList = () => {
   };
 
   const handleDelete = async (id) => {
-    if(!window.confirm("Are you sure you want to delete this user?")) return;
+    if (!window.confirm("Are you sure you want to delete this user?")) return;
     const toastId = toast.loading("Deleting user...");
     try {
       const API_URL = process.env.REACT_APP_API_URL;
-      const res = await axios.delete(`${API_URL}/user/delete/${id}`); 
+      const res = await axios.delete(`${API_URL}/user/delete/${id}`);
       if (res.data.status) {
         toast.success("User deleted successfully!", { id: toastId });
-        fetchUsers(); 
+        fetchUsers();
       }
     } catch (error) {
       toast.error("Delete failed", { id: toastId });
@@ -88,24 +131,24 @@ const UsersList = () => {
 
   return (
     <div className="bg-cream-50 min-h-screen p-3 sm:p-4 md:p-6 font-body text-text-main">
-      
+
       {/* --- TOP TOOLBAR --- */}
       <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
-        <button 
-          onClick={() => navigate('/admin/add-user')} 
+        <button
+          onClick={() => navigate('/admin/add-user')}
           className="w-full md:w-auto bg-white border border-cream-200 text-text-main hover:bg-cream-100 px-4 py-2 rounded shadow-sm flex items-center justify-center gap-2 font-montserrat font-bold text-xs uppercase transition-all active:scale-95"
         >
           <Plus size={14} className="text-red-600" /> Add Users
         </button>
 
         <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end">
-          <button className="bg-white border border-cream-200 text-text-main px-4 py-1.5 rounded shadow-sm hover:bg-cream-100 flex items-center gap-2 text-xs font-montserrat font-bold transition-colors">
+          <button onClick={handleExport} className="bg-white border border-cream-200 text-text-main px-4 py-1.5 rounded shadow-sm hover:bg-cream-100 flex items-center gap-2 text-xs font-montserrat font-bold transition-colors">
             <Download size={14} className="text-accent" /> Export
           </button>
-          <button className="bg-white border border-cream-200 text-text-main px-4 py-1.5 rounded shadow-sm hover:bg-cream-100 flex items-center gap-2 text-xs font-montserrat font-bold transition-colors">
+          <button onClick={handlePrint} className="bg-white border border-cream-200 text-text-main px-4 py-1.5 rounded shadow-sm hover:bg-cream-100 flex items-center gap-2 text-xs font-montserrat font-bold transition-colors">
             <Printer size={14} className="text-green-600" /> Print
           </button>
-          <button 
+          <button
             onClick={clearFilters}
             className="bg-white border border-cream-200 text-text-main px-4 py-1.5 rounded shadow-sm hover:text-primary hover:border-primary flex items-center gap-2 text-xs font-montserrat font-bold transition-all"
           >
@@ -137,25 +180,25 @@ const UsersList = () => {
               {/* 🟢 Filter Row with dynamic handlers */}
               <tr className="bg-primary border-b border-cream-200 align-top">
                 <td className="p-2 border-r border-white/20 text-center">
-                    <input type="checkbox" className="h-4 w-4 rounded accent-primary bg-white cursor-pointer" />
+                  <input type="checkbox" className="h-4 w-4 rounded accent-primary bg-white cursor-pointer" />
                 </td>
                 <td className="p-2 border-r border-white/20">
-                    <input type="text" name="username" value={filters.username} onChange={handleFilterChange} className={filterInputClass} placeholder="Filter Username" />
+                  <input type="text" name="username" value={filters.username} onChange={handleFilterChange} className={filterInputClass} placeholder="Filter Username" />
                 </td>
                 <td className="p-2 border-r border-white/20">
-                    <input type="text" name="email" value={filters.email} onChange={handleFilterChange} className={filterInputClass} placeholder="Filter Email" />
+                  <input type="text" name="email" value={filters.email} onChange={handleFilterChange} className={filterInputClass} placeholder="Filter Email" />
                 </td>
                 <td className="p-2 border-r border-white/20">
-                    <input type="text" name="firstname" value={filters.firstname} onChange={handleFilterChange} className={filterInputClass} placeholder="Filter Firstname" />
+                  <input type="text" name="firstname" value={filters.firstname} onChange={handleFilterChange} className={filterInputClass} placeholder="Filter Firstname" />
                 </td>
                 <td className="p-2 border-r border-white/20">
-                    <input type="text" name="lastname" value={filters.lastname} onChange={handleFilterChange} className={filterInputClass} placeholder="Filter Lastname" />
+                  <input type="text" name="lastname" value={filters.lastname} onChange={handleFilterChange} className={filterInputClass} placeholder="Filter Lastname" />
                 </td>
                 <td className="p-2 border-r border-white/20">
-                    <input type="text" name="membership" value={filters.membership} onChange={handleFilterChange} className={filterInputClass} placeholder="Filter Status" />
-                    <div className="text-[10px] text-white mt-1.5 font-medium leading-tight opacity-90 pl-1">
-                        <div>member / inactive</div>
-                    </div>
+                  <input type="text" name="membership" value={filters.membership} onChange={handleFilterChange} className={filterInputClass} placeholder="Filter Status" />
+                  <div className="text-[10px] text-white mt-1.5 font-medium leading-tight opacity-90 pl-1">
+                    <div>member / inactive</div>
+                  </div>
                 </td>
                 <td className="p-2 text-center">
                   <button onClick={fetchUsers} className="text-white hover:rotate-180 transition-transform duration-500">
@@ -170,7 +213,7 @@ const UsersList = () => {
                 <tr>
                   <td colSpan="7" className="p-10 text-center text-text-muted font-bold">
                     <div className="flex justify-center items-center gap-2">
-                        <Loader2 className="animate-spin text-primary" /> Loading Users...
+                      <Loader2 className="animate-spin text-primary" /> Loading Users...
                     </div>
                   </td>
                 </tr>
@@ -179,9 +222,9 @@ const UsersList = () => {
                   let firstName = "-";
                   let lastName = "-";
                   if (item.name) {
-                    const nameParts = item.name.split(' '); 
-                    firstName = nameParts[0] || "-"; 
-                    lastName = nameParts.slice(1).join(' ') || "-"; 
+                    const nameParts = item.name.split(' ');
+                    firstName = nameParts[0] || "-";
+                    lastName = nameParts.slice(1).join(' ') || "-";
                   } else {
                     firstName = item.firstname || "-";
                     lastName = item.lastname || "-";
@@ -190,21 +233,20 @@ const UsersList = () => {
                   return (
                     <tr key={item._id} className="hover:bg-primary-50 transition-colors text-[13px]">
                       <td className="p-3 border-r border-cream-50 text-center">
-                         <div className="flex items-center gap-2 px-1 justify-center">
-                            <input type="checkbox" className="h-4 w-4 rounded accent-primary cursor-pointer" />
-                            <span className="text-text-muted text-xs font-bold">{index + 1}</span>
-                         </div>
+                        <div className="flex items-center gap-2 px-1 justify-center">
+                          <input type="checkbox" className="h-4 w-4 rounded accent-primary cursor-pointer" />
+                          <span className="text-text-muted text-xs font-bold">{index + 1}</span>
+                        </div>
                       </td>
                       <td className="p-3 border-r border-cream-50 text-text-main">{item.username || item.email}</td>
                       <td className="p-3 border-r border-cream-50 text-text-main">{item.email}</td>
                       <td className="p-3 border-r border-cream-50 text-text-main font-medium">{firstName}</td>
                       <td className="p-3 border-r border-cream-50 text-text-main font-medium">{lastName}</td>
                       <td className="p-3 border-r border-cream-50 text-text-main">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                          item.membership === 'active' || item.isMember 
-                            ? 'bg-green-100 text-green-700' 
-                            : 'bg-gray-100 text-gray-500'
-                        }`}>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${item.membership === 'active' || item.isMember
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-gray-100 text-gray-500'
+                          }`}>
                           {item.membership || 'inactive'}
                         </span>
                       </td>
@@ -231,18 +273,33 @@ const UsersList = () => {
         </div>
 
         {/* --- FOOTER / PAGINATION --- */}
-        <div className="p-4 bg-white border-t border-cream-50 flex flex-col md:flex-row justify-between items-center gap-4 font-montserrat">
-          <div className="flex items-center gap-2 text-sm text-text-muted font-bold">
-            <span>Show entries</span>
+        <div className="p-3 bg-white border-t border-cream-200 flex flex-col md:flex-row justify-between items-center gap-4 font-montserrat shadow-sm no-print">
+          <div className="flex items-center gap-2 text-[12px] font-bold text-text-main">
+            <span className="text-text-muted uppercase text-[10px] tracking-wide">Show</span>
+            <select 
+              value={itemsPerPage} 
+              onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} 
+              className="border border-cream-200 rounded px-2 py-1 outline-none focus:border-primary bg-cream-50 text-xs text-primary font-bold cursor-pointer transition-all"
+            >
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+
+            </select>
+            <span className="text-text-muted uppercase text-[10px] tracking-wide">entries</span>
           </div>
+
           <div className="text-[11px] font-bold text-text-muted uppercase tracking-tighter">
-            Displaying {filteredUsers.length} of {users.length} items
+            Displaying {totalItems > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} to {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} items
           </div>
+
           <div className="flex items-center gap-1">
-            <button className="p-1.5 border border-cream-200 rounded text-text-muted hover:text-primary transition-all"><ChevronsLeft size={16}/></button>
-            <button className="p-1.5 border border-cream-200 rounded text-text-muted hover:text-primary transition-all"><ChevronLeft size={16}/></button>
-            <button className="p-1.5 border border-cream-200 rounded text-text-muted hover:text-primary transition-all"><ChevronRight size={16}/></button>
-            <button className="p-1.5 border border-cream-200 rounded text-text-muted hover:text-primary transition-all"><ChevronsRight size={16}/></button>
+            <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1} className="p-1.5 border border-cream-200 rounded text-text-muted hover:text-primary disabled:opacity-30 active:scale-90 bg-white shadow-sm"><ChevronsLeft size={16} /></button>
+            <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="p-1.5 border border-cream-200 rounded text-text-muted hover:text-primary disabled:opacity-30 active:scale-90 bg-white shadow-sm"><ChevronLeft size={16} /></button>
+            <div className="min-w-[32px] h-8 flex items-center justify-center bg-primary text-white text-xs font-bold rounded shadow-md ring-2 ring-primary/20 mx-1">{currentPage}</div>
+            <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages} className="p-1.5 border border-cream-200 rounded text-text-muted hover:text-primary disabled:opacity-30 active:scale-90 bg-white shadow-sm"><ChevronRight size={16} /></button>
+            <button onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages} className="p-1.5 border border-cream-200 rounded text-text-muted hover:text-primary disabled:opacity-30 active:scale-90 bg-white shadow-sm"><ChevronsRight size={16} /></button>
           </div>
         </div>
       </div>

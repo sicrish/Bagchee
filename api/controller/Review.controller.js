@@ -1,8 +1,8 @@
 import ReviewModel from '../models/Review.model.js';
 
 // 🟢 IMPORT RELATED MODELS (Crucial for .populate to work)
-import CategoryModel from '../models/category.model.js'; 
-import ProductModel from '../models/Product.model.js'; 
+import CategoryModel from '../models/category.model.js';
+import ProductModel from '../models/Product.model.js';
 
 // ==========================================
 // 🟢 1. CREATE (SAVE)
@@ -25,8 +25,8 @@ export const saveReview = async (req, res) => {
 
         const newReview = new ReviewModel({
             // 🟢 MAPPING (As per your request)
-            categoryId: category_id || null, 
-            itemId: item_id,                
+            categoryId: category_id || null,
+            itemId: item_id,
             email: email || "",
             name: name,
             title: title || "",
@@ -37,10 +37,10 @@ export const saveReview = async (req, res) => {
 
         await newReview.save();
 
-        res.status(201).json({ 
-            status: true, 
-            msg: "Review saved successfully!", 
-            data: newReview 
+        res.status(201).json({
+            status: true,
+            msg: "Review saved successfully!",
+            data: newReview
         });
 
     } catch (error) {
@@ -50,20 +50,35 @@ export const saveReview = async (req, res) => {
 };
 
 // ==========================================
-// 🟢 2. READ (LIST ALL)
+// 🟢 2. READ (LIST ALL WITH PAGINATION)
 // ==========================================
 export const getAllReviews = async (req, res) => {
     try {
-        const reviews = await ReviewModel.find()
-            // Make sure 'categorytitle' exists in your CategoryModel, otherwise use 'title' or 'name'
-            .populate('categoryId', 'categorytitle') 
-            .populate('itemId', 'title')             
-            .sort({ createdAt: -1 });
+        const { page, limit } = req.query;
 
-        res.status(200).json({ 
-            status: true, 
+        // 1. Pagination Settings
+        const pageNum = parseInt(page) || 1;
+        const pageSize = parseInt(limit) || 10;
+        const skip = (pageNum - 1) * pageSize;
+
+        // 2. Fetch Data with Pagination and Population
+        const reviews = await ReviewModel.find()
+            .populate('categoryId', 'categorytitle')
+            .populate('itemId', 'title')
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(pageSize);
+
+        // 3. Total Count for Pagination calculation
+        const total = await ReviewModel.countDocuments();
+
+        res.status(200).json({
+            status: true,
             msg: "Reviews fetched successfully",
-            data: reviews 
+            data: reviews,
+            total,
+            totalPages: Math.ceil(total / pageSize),
+            page: pageNum
         });
 
     } catch (error) {
@@ -86,7 +101,7 @@ export const getReviewById = async (req, res) => {
         // 🟢 MAPPING BACK TO FRONTEND FORMAT
         const formattedData = {
             _id: review._id,
-            category_id: review.categoryId, 
+            category_id: review.categoryId,
             item_id: review.itemId,
             email: review.email,
             name: review.name,
@@ -126,9 +141,9 @@ export const updateReview = async (req, res) => {
 
         // Status Logic
         if (isActive !== undefined) {
-             updateData.isActive = (isActive === true || isActive === 'true');
+            updateData.isActive = (isActive === true || isActive === 'true');
         } else if (status !== undefined) {
-             updateData.isActive = (status === 'active');
+            updateData.isActive = (status === 'active');
         }
 
         const updatedReview = await ReviewModel.findByIdAndUpdate(id, updateData, { new: true });
@@ -137,10 +152,10 @@ export const updateReview = async (req, res) => {
             return res.status(404).json({ status: false, msg: "Review not found" });
         }
 
-        res.status(200).json({ 
-            status: true, 
-            msg: "Review updated successfully!", 
-            data: updatedReview 
+        res.status(200).json({
+            status: true,
+            msg: "Review updated successfully!",
+            data: updatedReview
         });
 
     } catch (error) {
@@ -160,9 +175,9 @@ export const deleteReview = async (req, res) => {
             return res.status(404).json({ status: false, msg: "Review not found" });
         }
 
-        res.status(200).json({ 
-            status: true, 
-            msg: "Review deleted successfully!" 
+        res.status(200).json({
+            status: true,
+            msg: "Review deleted successfully!"
         });
 
     } catch (error) {

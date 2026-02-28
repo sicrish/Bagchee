@@ -70,27 +70,19 @@ const AddEditSideBannerOne = () => {
     }
   }, [id, isEditMode, navigate]);
 
-  // 🟢 3. AUTO-GENERATE PREVIEW (Image 1 - Left) - Fixed Logic
+  // 🟢 3. AUTO-GENERATE PREVIEW (Image 1 - Left)
   useEffect(() => {
     if (!image1) return;
-    // Console log to debug selection
-    console.log("📸 Left Image Selected:", image1.name);
-    
     const objectUrl = URL.createObjectURL(image1);
     setPreview1(objectUrl);
-    
-    // Cleanup to prevent memory leaks
     return () => URL.revokeObjectURL(objectUrl);
   }, [image1]);
 
-  // 🟢 4. AUTO-GENERATE PREVIEW (Image 2 - Right) - Fixed Logic
+  // 🟢 4. AUTO-GENERATE PREVIEW (Image 2 - Right)
   useEffect(() => {
     if (!image2) return;
-    console.log("📸 Right Image Selected:", image2.name);
-
     const objectUrl = URL.createObjectURL(image2);
     setPreview2(objectUrl);
-    
     return () => URL.revokeObjectURL(objectUrl);
   }, [image2]);
 
@@ -118,35 +110,28 @@ const AddEditSideBannerOne = () => {
   const handleSubmit = async (e, actionType) => {
     e.preventDefault();
 
-    // Validation: Add Mode needs both images
-    if (!isEditMode && ((!image1 && !preview1) || (!image2 && !preview2))) {
-         return toast.error("Please ensure both Left and Right images are uploaded.");
-    }
+    if (!isEditMode && (!image1 && !preview1)) return toast.error("Left image is required.");
+    if (!isEditMode && (!image2 && !preview2)) return toast.error("Right image is required.");
 
     setLoading(true);
     const toastId = toast.loading(isEditMode ? "Updating banners..." : "Saving banners...");
 
     try {
       const data = new FormData();
-
-      // Append textual data
       data.append('link1', formData.link1);
       data.append('link2', formData.link2);
       data.append('isActive', formData.active === 'yes');
       data.append('order', formData.order);
 
-      // Append images ONLY if new ones selected
       if (image1) data.append('image1', image1);
       if (image2) data.append('image2', image2);
 
       let response;
       if (isEditMode) {
-        // 🟢 Update Endpoint (PUT request because using FormData)
         response = await axios.put(`${process.env.REACT_APP_API_URL}/side-banner-one/update/${id}`, data, {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
       } else {
-        // 🟢 Save Endpoint
         response = await axios.post(`${process.env.REACT_APP_API_URL}/side-banner-one/save`, data, {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
@@ -159,11 +144,9 @@ const AddEditSideBannerOne = () => {
            navigate('/admin/side-banner-one');
         } else {
            if (!isEditMode) {
-               // Reset form for Add Mode
                setFormData({ link1: '', link2: '', active: 'yes', order: '' });
                setImage1(null); setPreview1(null);
                setImage2(null); setPreview2(null);
-               // Reset file inputs
                const input1 = document.getElementById('image1-input');
                if(input1) input1.value = "";
                const input2 = document.getElementById('image2-input');
@@ -179,6 +162,30 @@ const AddEditSideBannerOne = () => {
       setLoading(false);
     }
   };
+
+
+  const onFileSelect = (e, setImage) => {
+    if(e.target.files && e.target.files[0]) {
+        const file = e.target.files[0];
+        
+        // 🟢 Validation 1: Format Check (Mime-type)
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+        if (!allowedTypes.includes(file.type)) {
+            toast.error("Invalid format! Only JPG, PNG, and WebP allowed.");
+            e.target.value = ""; // Input reset
+            return;
+        }
+
+        // 🟢 Validation 2: Size Check (10MB)
+        const MAX_SIZE = 10 * 1024 * 1024; 
+        if (file.size > MAX_SIZE) {
+            toast.error("File size exceeds 10MB!");
+            e.target.value = "";
+            return;
+        }
+        setImage(file);
+    }
+};
 
   return (
     <div className="bg-gray-50 min-h-screen font-body p-4 md:p-8">
@@ -200,7 +207,6 @@ const AddEditSideBannerOne = () => {
                </div>
                
                <div className="space-y-6">
-                   {/* Image 1 Upload */}
                    <FormRow label="Left Image">
                      <div className="flex items-start gap-4">
                          <div className="flex flex-col gap-2 justify-center h-16">
@@ -212,16 +218,11 @@ const AddEditSideBannerOne = () => {
                                         id="image1-input"
                                         type="file" 
                                         className="hidden" 
-                                        onChange={(e) => {
-                                            if(e.target.files && e.target.files[0]) {
-                                                setImage1(e.target.files[0]);
-                                            }
-                                        }} 
-                                        accept="image/*" 
+                                        onChange={(e) => onFileSelect(e, setImage1)}
+                                        accept="image/jpeg,image/png,image/webp" 
                                     />
                                  </label>
 
-                                 {/* Preview 1 */}
                                  {preview1 && (
                                     <div className="relative group shrink-0">
                                         <div className="w-32 h-16 rounded-lg border border-gray-200 overflow-hidden shadow-sm bg-white flex items-center justify-center">
@@ -244,8 +245,7 @@ const AddEditSideBannerOne = () => {
                      </div>
                    </FormRow>
 
-                   {/* Link 1 */}
-                   <FormRow label="Left Banner">
+                   <FormRow label="Target Link">
                       <div className="relative">
                         <LinkIcon size={14} className="absolute left-3 top-3 text-gray-400" />
                         <input type="text" name="link1" value={formData.link1} onChange={handleChange} className="theme-input pl-9" placeholder="e.g., /category/fiction" />
@@ -261,7 +261,6 @@ const AddEditSideBannerOne = () => {
                </div>
 
                <div className="space-y-6">
-                   {/* Image 2 Upload */}
                    <FormRow label="Right Image">
                      <div className="flex items-start gap-4">
                          <div className="flex flex-col gap-2 justify-center h-16">
@@ -273,16 +272,11 @@ const AddEditSideBannerOne = () => {
                                         id="image2-input"
                                         type="file" 
                                         className="hidden" 
-                                        onChange={(e) => {
-                                            if(e.target.files && e.target.files[0]) {
-                                                setImage2(e.target.files[0]);
-                                            }
-                                        }} 
-                                        accept="image/*" 
+                                        onChange={(e) => onFileSelect(e, setImage2)}
+                                        accept="image/jpeg,image/png,image/webp" 
                                     />
                                  </label>
 
-                                 {/* Preview 2 */}
                                  {preview2 && (
                                     <div className="relative group shrink-0">
                                         <div className="w-32 h-16 rounded-lg border border-gray-200 overflow-hidden shadow-sm bg-white flex items-center justify-center">
@@ -305,8 +299,7 @@ const AddEditSideBannerOne = () => {
                      </div>
                    </FormRow>
 
-                   {/* Link 2 */}
-                   <FormRow label="Right Banner">
+                   <FormRow label="Target Link">
                       <div className="relative">
                         <LinkIcon size={14} className="absolute left-3 top-3 text-gray-400" />
                         <input type="text" name="link2" value={formData.link2} onChange={handleChange} className="theme-input pl-9" placeholder="e.g., /category/non-fiction" />

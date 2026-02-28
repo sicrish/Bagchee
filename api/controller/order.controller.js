@@ -15,6 +15,7 @@ export const saveOrder = async (req, res) => {
             ...req.body,
             order_number: order_number, // Auto generated
             status: req.body.status || 'Not yet ordered',
+            payment_status: req.body.payment_status || 'pending',
             created_at: new Date()
         });
 

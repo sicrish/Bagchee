@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, RotateCcw, X, Loader2, Plus, Trash2, Printer, Mail,Search } from 'lucide-react';
+import { Check, RotateCcw, X, Loader2, Plus, Trash2, Printer, Mail, Search } from 'lucide-react';
 import JoditEditor from 'jodit-react';
 import axios from '../../utils/axiosConfig.js';
 import toast from 'react-hot-toast';
@@ -16,6 +16,7 @@ const AddOrders = () => {
   const [coupons, setCoupons] = useState([]);
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [shippingOptions, setShippingOptions] = useState([]);
+  const [orderStatuses, setOrderStatuses] = useState([]);
 
   // Search States (Aapke HomeSaleForm se liya gaya)
   const [searchQuery, setSearchQuery] = useState("");
@@ -23,6 +24,9 @@ const AddOrders = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [courierList, setCourierList] = useState([]);
+
+  
+
 
 
   // Product Rows
@@ -110,12 +114,14 @@ const AddOrders = () => {
     const fetchData = async () => {
       try {
         const API_URL = process.env.REACT_APP_API_URL;
-        const [custRes, prodRes, coupRes, payRes, shipRes] = await Promise.all([
+        const [custRes, prodRes, coupRes, payRes, shipRes, courierRes, statusRes] = await Promise.all([
           axios.get(`${API_URL}/user/fetch`),
           axios.get(`${API_URL}/product/fetch`),
           axios.get(`${API_URL}/coupons/active`),
           axios.get(`${API_URL}/payments/list`),
-          axios.get(`${API_URL}/shipping-options/list`)
+          axios.get(`${API_URL}/shipping-options/list`),
+          axios.get(`${API_URL}/couriers/list`),
+          axios.get(`${API_URL}/order-status/list`)
         ]);
         // 🔍 DEBUGGING CONSOLE LOGS
         // console.log("Customers:", custRes.data);
@@ -126,6 +132,8 @@ const AddOrders = () => {
         if (coupRes.data.status) setCoupons(coupRes.data.data);
         if (payRes.data.status) setPaymentMethods(payRes.data.data);
         if (shipRes.data.status) setShippingOptions(shipRes.data.data);
+        if (courierRes.data.status) setCourierList(courierRes.data.data);
+        if (statusRes.data.status) setOrderStatuses(statusRes.data.data);
 
       } catch (error) {
         console.error("Data fetch error", error);
@@ -135,10 +143,32 @@ const AddOrders = () => {
   }, []);
 
 
+
+// 🟢 Ye function har change par total calculate karega
+const calculateGrandTotal = (products, shipping) => {
+  const subtotal = products.reduce((acc, item) => {
+    const p = Number(item.price) || 0;
+    const q = Number(item.quantity) || 0;
+    return acc + (p * q);
+  }, 0);
+
+  const shipCost = Number(shipping) || 0;
+  const finalTotal = subtotal + shipCost;
+
+  // Form state mein total update karein
+  setFormData(prev => ({ 
+    ...prev, 
+    total: finalTotal.toFixed(2) 
+  }));
+};
+
+
   const handleSelectProduct = (product) => {
+    console.log("Selected Product Full Data:", product);
+    console.log("Product Price from Backend:", product.price);
     const newRow = {
       name: product.title,
-      price: product.price,
+      price: product.price || 0,
       quantity: 1,
       status: 'Pending', // Default Status
       courier: '',
@@ -146,13 +176,41 @@ const AddOrders = () => {
       return_note: '',
       cancel_note: ''
     };
-    setOrderProducts([...orderProducts, newRow]);
+    setOrderProducts(prev => {
+      let updatedList;
+      
+      // 🟢 Logic: Agar sirf 1 row hai aur wo khali hai, toh replace karo
+      if (prev.length === 1 && prev[0].name === '') {
+        updatedList = [newRow];
+      } else {
+        // 🟢 Warna purani list mein naya product piche add kar do
+        updatedList = [...prev, newRow];
+      }
+
+      // 3. 🟢 Calculation trigger karein (Calculation function ko call karein)
+      calculateGrandTotal(updatedList, formData.shipping_cost);
+      
+      return updatedList;
+    });
     setSearchQuery(""); // Input reset
     setIsDropdownOpen(false);
   };
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+
+    // 1. Pehle form data ko update karo
+    setFormData(prev => {
+      const updatedData = { ...prev, [name]: value };
+
+      // 2. 🟢 Logic: Agar shipping_cost badli hai, toh Total recalculate karo
+      if (name === 'shipping_cost') {
+        // Hum yahan orderProducts aur nayi shipping value bhej rahe hain
+        calculateGrandTotal(orderProducts, value);
+      }
+
+      return updatedData;
+    });
   };
 
   // --- Product Table Logic ---
@@ -185,6 +243,10 @@ const AddOrders = () => {
     const list = [...orderProducts];
     list[index][field] = value;
     setOrderProducts(list);
+    // 🟢 Agar price ya quantity badli hai, toh total naya banao
+    if (field === 'price' || field === 'quantity') {
+      calculateGrandTotal(list, formData.shipping_cost);
+    }
   };
 
   // --- Submit Logic ---
@@ -192,13 +254,45 @@ const AddOrders = () => {
     e.preventDefault();
     if (!formData.customer_id) return toast.error("Customer is required!");
 
+    console.log("Final Products List for DB:", orderProducts);
+    const validProducts = orderProducts.filter(p => p.name && p.name.trim() !== "");
+
+    if (validProducts.length === 0) {
+        return toast.error("At least one product with a name is required!");
+    }
     setLoading(true);
     const toastId = toast.loading("Saving order...");
 
     try {
       const payload = {
         ...formData,
-        products: orderProducts,
+        coupon_id: formData.coupon_id === "" ? null : formData.coupon_id,
+        shipping_details: {
+          email: formData.shipping_email,
+          first_name: formData.shipping_first_name,
+          last_name: formData.shipping_last_name,
+          address_1: formData.shipping_address_1,
+          address_2: formData.shipping_address_2,
+          company: formData.shipping_company,
+          country: formData.shipping_country,
+          state_region: formData.shipping_state_region,
+          city: formData.shipping_city,
+          postcode: formData.shipping_postcode,
+          phone: formData.shipping_phone,
+        },
+        billing_details: {
+          first_name: formData.billing_first_name,
+          last_name: formData.billing_last_name,
+          address_1: formData.billing_address_1,
+          address_2: formData.billing_address_2,
+          company: formData.billing_company,
+          country: formData.billing_country,
+          state_region: formData.billing_state_region,
+          city: formData.billing_city,
+          postcode: formData.billing_postcode,
+          phone: formData.billing_phone,
+        },
+        products: validProducts,
         comment: commentContent
       };
 
@@ -212,7 +306,8 @@ const AddOrders = () => {
         }
       }
     } catch (error) {
-      toast.error(error.response?.data?.msg || "Failed to save", { id: toastId });
+      const errorMessage = error.response?.data?.msg || "Something went wrong while saving";
+      toast.error(errorMessage, { id: toastId });
     } finally {
       setLoading(false);
     }
@@ -321,105 +416,119 @@ const AddOrders = () => {
               </div>
             </div>
 
-{/* --- PRODUCTS TABLE --- */}
-<div className="grid grid-cols-12 gap-4 items-start mt-4">
-  <label className={labelClass}>Products</label>
-  
-  {/* Yahan humne overflow-x-auto ko sirf table ke wrap tak rakha hai */}
-  <div className="col-span-9">
-    <div className="overflow-x-auto border border-gray-300 rounded-sm">
-      <table className="w-full border-collapse text-[10px] min-w-[900px]">
-        <thead className="bg-gray-50 text-text-muted font-montserrat font-bold">
-          <tr>
-            <th className="border-b p-2 text-left min-w-[200px]">Name</th>
-            <th className="border-b p-2 w-20">Price</th>
-            <th className="border-b p-2 w-16">Quantity</th>
-            <th className="border-b p-2 w-24">Status</th>
-            <th className="border-b p-2 w-24">Courier</th>
-            <th className="border-b p-2 w-24">Tracking id</th>
-            <th className="border-b p-2 w-24">Return note</th>
-            <th className="border-b p-2 w-24">Cancel note</th>
-            <th className="border-b p-2 w-8"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {orderProducts.map((row, index) => (
-            <tr key={index} className="hover:bg-gray-50">
-              <td className="border-b p-1"><input type="text" value={row.name} onChange={(e) => handleProductChange(index, 'name', e.target.value)} className="w-full outline-none bg-transparent" /></td>
-              <td className="border-b p-1"><input type="number" value={row.price} onChange={(e) => handleProductChange(index, 'price', e.target.value)} className="w-full outline-none bg-transparent" /></td>
-              <td className="border-b p-1"><input type="number" value={row.quantity} onChange={(e) => handleProductChange(index, 'quantity', e.target.value)} className="w-full outline-none bg-transparent" /></td>
-              <td className="border-b p-1">
-                <select 
-                  value={row.status} 
-                  onChange={(e) => handleProductChange(index, 'status', e.target.value)} 
-                  className="w-full outline-none bg-transparent text-[10px]"
-                >
-                  <option value="Pending">Pending</option>
-                  <option value="In Process">In Process</option>
-                  <option value="Shipped">Shipped</option>
-                  <option value="Delivered">Delivered</option>
-                  <option value="Cancelled">Cancelled</option>
-                  <option value="Returned">Returned</option>
-                </select>
-              </td>
-              <td className="border-b p-1"><input type="text" value={row.courier} onChange={(e) => handleProductChange(index, 'courier', e.target.value)} className="w-full outline-none bg-transparent" /></td>
-              <td className="border-b p-1"><input type="text" value={row.tracking_id} onChange={(e) => handleProductChange(index, 'tracking_id', e.target.value)} className="w-full outline-none bg-transparent" /></td>
-              <td className="border-b p-1"><input type="text" value={row.return_note} onChange={(e) => handleProductChange(index, 'return_note', e.target.value)} className="w-full outline-none bg-transparent" /></td>
-              <td className="border-b p-1"><input type="text" value={row.cancel_note} onChange={(e) => handleProductChange(index, 'cancel_note', e.target.value)} className="w-full outline-none bg-transparent" /></td>
-              <td className="border-b p-1 text-center"><button type="button" onClick={() => removeProductRow(index)}><Trash2 size={12} className="text-red-500" /></button></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+            {/* --- PRODUCTS TABLE --- */}
+            <div className="grid grid-cols-12 gap-4 items-start mt-4">
+              <label className={labelClass}>Products</label>
 
-    {/* 🟢 Search Section Fix: Isko table ke overflow div se bahar rakha hai */}
-    <div className="mt-4 relative">
-      <div className="relative w-full md:w-1/2 flex items-center gap-2">
-        <div className="relative flex-1">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setIsDropdownOpen(true);
-            }}
-            onFocus={() => setIsDropdownOpen(true)}
-            className="w-full border border-gray-300 rounded px-3 py-1.5 text-xs outline-none focus:border-primary pr-8"
-            placeholder="Search Title, ID or ISBN..."
-            autoComplete="off"
-          />
-          <div className="absolute right-2 top-1/2 -translate-y-1/2">
-            {isSearching ? <Loader2 size={14} className="animate-spin text-gray-400" /> : <Search size={14} className="text-gray-400" />}
-          </div>
-        </div>
-        
-        {/* 🟢 Side Search Results (Z-index high and floating) */}
-        {isDropdownOpen && searchResults.length > 0 && (
-          <div className="fixed sm:absolute left-0 sm:left-full top-full sm:top-0 sm:ml-4 w-full sm:w-72 bg-white border border-gray-300 rounded shadow-2xl z-[9999] max-h-80 overflow-y-auto mt-2 sm:mt-0 animate-in fade-in zoom-in-95 duration-150">
-            <div className="bg-primary text-white text-[10px] px-3 py-1.5 font-bold uppercase sticky top-0 flex justify-between items-center">
-                <span>Search Results ({searchResults.length})</span>
-                <X size={12} className="cursor-pointer" onClick={() => setIsDropdownOpen(false)}/>
-            </div>
-            {searchResults.map((prod) => (
-              <div
-                key={prod._id}
-                onClick={() => handleSelectProduct(prod)}
-                className="px-4 py-2.5 hover:bg-primary-50 cursor-pointer border-b border-gray-100 flex flex-col group transition-colors"
-              >
-                <p className="text-[11px] font-bold text-gray-800 group-hover:text-primary line-clamp-2 uppercase">{prod.title}</p>
-                <div className="flex justify-between items-center mt-1">
-                    <span className="text-[10px] text-primary bg-primary/10 px-1.5 rounded font-mono font-bold">{prod.bagchee_id}</span>
-                    
+              {/* Yahan humne overflow-x-auto ko sirf table ke wrap tak rakha hai */}
+              <div className="col-span-9">
+                <div className="overflow-x-auto border border-gray-300 rounded-sm">
+                  <table className="w-full border-collapse text-[10px] min-w-[900px]">
+                    <thead className="bg-gray-50 text-text-muted font-montserrat font-bold">
+                      <tr>
+                        <th className="border-b p-2 text-left min-w-[200px]">Name</th>
+                        <th className="border-b p-2 w-20">Price</th>
+                        <th className="border-b p-2 w-16">Quantity</th>
+                        <th className="border-b p-2 w-24">Status</th>
+                        <th className="border-b p-2 w-24">Courier</th>
+                        <th className="border-b p-2 w-24">Tracking id</th>
+                        <th className="border-b p-2 w-24">Return note</th>
+                        <th className="border-b p-2 w-24">Cancel note</th>
+                        <th className="border-b p-2 w-8"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {orderProducts.map((row, index) => (
+                        <tr key={index} className="hover:bg-gray-50">
+                          <td className="border-b p-1"><input type="text" value={row.name} onChange={(e) => handleProductChange(index, 'name', e.target.value)} className="w-full outline-none bg-transparent" /></td>
+                          <td className="border-b p-1"><input type="number" value={row.price} onChange={(e) => handleProductChange(index, 'price', e.target.value)} className="w-full outline-none bg-transparent" /></td>
+                          <td className="border-b p-1"><input type="number" value={row.quantity} onChange={(e) => handleProductChange(index, 'quantity', e.target.value)} className="w-full outline-none bg-transparent" /></td>
+                          <td className="border-b p-1">
+                            <select
+                              value={row.status}
+                              onChange={(e) => handleProductChange(index, 'status', e.target.value)}
+                              className="w-full outline-none bg-transparent text-[10px]"
+                            >
+                              <option value="">Select Status</option>
+                              {/* 🟢 Dynamic Row Status Options */}
+                              {orderStatuses.map((st) => (
+                                <option key={st._id} value={st.name}>
+                                  {st.name}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="border-b p-1">
+                            <select
+                              value={row.courier}
+                              onChange={(e) => handleProductChange(index, 'courier', e.target.value)}
+                              className="w-full outline-none bg-transparent text-[10px]"
+                            >
+                              <option value="">Select Courier</option>
+                              {courierList.map((c) => (
+                                <option key={c._id} value={c.title}>
+                                  {c.title}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="border-b p-1"><input type="text" value={row.tracking_id} onChange={(e) => handleProductChange(index, 'tracking_id', e.target.value)} className="w-full outline-none bg-transparent" /></td>
+                          <td className="border-b p-1"><input type="text" value={row.return_note} onChange={(e) => handleProductChange(index, 'return_note', e.target.value)} className="w-full outline-none bg-transparent" /></td>
+                          <td className="border-b p-1"><input type="text" value={row.cancel_note} onChange={(e) => handleProductChange(index, 'cancel_note', e.target.value)} className="w-full outline-none bg-transparent" /></td>
+                          <td className="border-b p-1 text-center"><button type="button" onClick={() => removeProductRow(index)}><Trash2 size={12} className="text-red-500" /></button></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* 🟢 Search Section Fix: Isko table ke overflow div se bahar rakha hai */}
+                <div className="mt-4 relative">
+                  <div className="relative w-full md:w-1/2 flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => {
+                          setSearchQuery(e.target.value);
+                          setIsDropdownOpen(true);
+                        }}
+                        onFocus={() => setIsDropdownOpen(true)}
+                        className="w-full border border-gray-300 rounded px-3 py-1.5 text-xs outline-none focus:border-primary pr-8"
+                        placeholder="Search Title, ID or ISBN..."
+                        autoComplete="off"
+                      />
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                        {isSearching ? <Loader2 size={14} className="animate-spin text-gray-400" /> : <Search size={14} className="text-gray-400" />}
+                      </div>
+                    </div>
+
+                    {/* 🟢 Side Search Results (Z-index high and floating) */}
+                    {isDropdownOpen && searchResults.length > 0 && (
+                      <div className="fixed sm:absolute left-0 sm:left-full top-full sm:top-0 sm:ml-4 w-full sm:w-72 bg-white border border-gray-300 rounded shadow-2xl z-[9999] max-h-80 overflow-y-auto mt-2 sm:mt-0 animate-in fade-in zoom-in-95 duration-150">
+                        <div className="bg-primary text-white text-[10px] px-3 py-1.5 font-bold uppercase sticky top-0 flex justify-between items-center">
+                          <span>Search Results ({searchResults.length})</span>
+                          <X size={12} className="cursor-pointer" onClick={() => setIsDropdownOpen(false)} />
+                        </div>
+                        {searchResults.map((prod) => (
+                          <div
+                            key={prod._id}
+                            onClick={() => handleSelectProduct(prod)}
+                            className="px-4 py-2.5 hover:bg-primary-50 cursor-pointer border-b border-gray-100 flex flex-col group transition-colors"
+                          >
+                            <p className="text-[11px] font-bold text-gray-800 group-hover:text-primary line-clamp-2 uppercase">{prod.title}</p>
+                            <div className="flex justify-between items-center mt-1">
+                              <span className="text-[10px] text-primary bg-primary/10 px-1.5 rounded font-mono font-bold">{prod.bagchee_id}</span>
+
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  </div>
-</div>
+            </div>
 
             {/* Financials & Status */}
             <div className="grid grid-cols-12 gap-4 items-center">
@@ -428,20 +537,34 @@ const AddOrders = () => {
             </div>
             <div className="grid grid-cols-12 gap-4 items-center">
               <label className={labelClass}>Shipping cost</label>
-              <div className="col-span-9"><input type="text" name="shipping_cost" value={formData.shipping_cost} onChange={handleChange} className={inputClass} /></div>
+              <div className="col-span-9"><input type="number" name="shipping_cost" value={formData.shipping_cost} onChange={handleChange} className={inputClass} /></div>
             </div>
             <div className="grid grid-cols-12 gap-4 items-center">
               <label className={labelClass}>Currency</label>
               <div className="col-span-9"><input type="text" name="currency" value={formData.currency} onChange={handleChange} className={inputClass} /></div>
             </div>
+            {/* Main Order Status */}
             <div className="grid grid-cols-12 gap-4 items-center">
               <label className={labelClass}>Status</label>
               <div className="col-span-9">
-                <select name="status" value={formData.status} onChange={handleChange} className={dropdownClass}>
-                  <option value="Not yet ordered">Not yet ordered</option>
-                  <option value="Payment pending">Payment pending</option>
-                  <option value="Processing">Processing</option>
-                  <option value="Shipped">Shipped</option>
+                <select
+                  name="status"
+                  value={formData.status}
+                  onChange={handleChange}
+                  className={dropdownClass}
+                >
+                  <option value="">Select Status</option>
+
+                  {/* 🟢 DYNAMIC STATUS OPTIONS FROM BACKEND */}
+                  {orderStatuses.length > 0 ? (
+                    orderStatuses.map((st) => (
+                      <option key={st._id} value={st.name}>
+                        {st.name}
+                      </option>
+                    ))
+                  ) : (
+                    <option disabled>Loading statuses...</option>
+                  )}
                 </select>
               </div>
             </div>

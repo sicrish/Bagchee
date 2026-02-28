@@ -25,6 +25,8 @@ const AdminDashboard = () => {
     { title: "Books of the Month", icon: Newspaper, link: "/admin/books-of-the-month" },
 
     { title: "side banner1", icon: Image, link: "/admin/side-banner-one" },
+    { title: "side banner2", icon: Image, link: "/admin/side-banner-two" },
+
     { title: "CATEGORIES", icon: List, link: "/admin/main-categories" }, // Link to Add Category
     { title: "TOP AUTHORS", icon: Users, link: "/admin/top-authors" },
     { title: "FOOTER", icon: LayoutTemplate, link: "/admin/footer" },

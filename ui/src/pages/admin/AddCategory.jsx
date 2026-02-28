@@ -85,69 +85,58 @@ const AddCategory = () => {
       fetchParentCategories();
    }, []);
 
-// 🟢 UPDATED HANDLE CHANGE (Auto-Generate Logic)
-const handleChange = (e) => {
-   const { name, value } = e.target;
-
-   setFormData((prev) => {
-      let updatedData = { ...prev, [name]: value };
-
-      // ---------------------------------------------------------
-      // CASE 1: JAB CATEGORY TITLE TYPE KARENGE
-      // ---------------------------------------------------------
-      if (name === 'categoryTitle') {
-         // 1. Slug Generate karein
-         const newSlug = value
-            .toLowerCase()
-            .replace(/[^a-z0-9\s-]/g, '') // Special chars hatayein
-            .trim()
-            .replace(/\s+/g, '-');        // Space ko '-' karein
-
-         updatedData.slug = newSlug;
-
-         // 2. Meta Title Auto-fill (Agar khali hai to)
-         if (!prev.metaTitle) {
-            updatedData.metaTitle = value;
-         }
-
-         // 3. Parents Slug Update (Agar Parent pehle se selected hai)
-         if (prev.parentId) {
-            const parent = parentCategories.find(cat => cat._id === prev.parentId);
-            if (parent) {
-               // Format: parent-slug/new-slug
-               updatedData.parentsSlug = `${parent.slug}/${newSlug}`;
-            }
-         }
-      }
-
-      // ---------------------------------------------------------
-      // CASE 2: JAB PARENT ID SELECT KARENGE
-      // ---------------------------------------------------------
-      if (name === 'parentId') {
-         const selectedParent = parentCategories.find(cat => cat._id === value);
-
-         if (selectedParent) {
-            // 1. Level Auto Set (Parent Level + 1)
-            updatedData.level = (Number(selectedParent.level) || 0) + 1;
-
-            // 2. Parents Slug Generate
-            const currentSlug = prev.slug || ''; 
-            
-            // Logic: ParentSlug + / + CurrentSlug
-            updatedData.parentsSlug = currentSlug 
-               ? `${selectedParent.slug}/${currentSlug}` 
-               : selectedParent.slug; 
-            
-         } else {
-            // Agar Root select kiya (Value empty hui)
-            updatedData.parentsSlug = 'root-category';
-            updatedData.level = 0;
-         }
-      }
-
-      return updatedData;
-   });
-};
+   const handleChange = (e) => {
+      const { name, value } = e.target;
+  
+      setFormData((prev) => {
+          let updatedData = { ...prev, [name]: value };
+  
+          // 🟢 Case 1: Category Title change hone par slug banana
+          if (name === 'categoryTitle') {
+              const newSlug = value.toLowerCase().replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-');
+              updatedData.slug = newSlug;
+              if (!prev.metaTitle) updatedData.metaTitle = value;
+  
+              // Agar Parent selected hai toh path update karein
+              if (prev.parentId) {
+                  const parent = parentCategories.find(cat => cat._id === prev.parentId);
+                  if (parent) {
+                      // YAHAN FIX HAI: Backend key 'parentslug' check karein
+                      const parentFullRoute = parent.parentslug || parent.parentsSlug; 
+                      const basePath = (parentFullRoute && parentFullRoute !== 'root-category') 
+                          ? parentFullRoute 
+                          : parent.slug;
+                      updatedData.parentsSlug = `${basePath}/${newSlug}`;
+                  }
+              }
+          }
+  
+          // 🟢 Case 2: Parent ID select hone par pura rasta banana
+          if (name === 'parentId') {
+              const selectedParent = parentCategories.find(cat => cat._id === value);
+              if (selectedParent) {
+                  updatedData.level = (Number(selectedParent.level) || 0) + 1;
+                  const currentSlug = updatedData.slug || prev.slug || '';
+  
+                  // YAHAN FIX HAI: Parent ka pura rasta 'parentslug' se nikaalein
+                  // Agar parentslug available hai, toh wahi base hai, warna parent.slug base hai
+                  const parentFullRoute = selectedParent.parentslug || selectedParent.parentsSlug;
+                  const basePath = (parentFullRoute && parentFullRoute !== 'root-category')
+                      ? parentFullRoute
+                      : selectedParent.slug;
+  
+                  // Final Path: ParentPath + CurrentSlug
+                  updatedData.parentsSlug = currentSlug 
+                      ? `${basePath}/${currentSlug}` 
+                      : basePath;
+              } else {
+                  updatedData.parentsSlug = 'root-category';
+                  updatedData.level = 0;
+              }
+          }
+          return updatedData;
+      });
+  };
 
    const handleImageChange = (e) => {
       const file = e.target.files[0];

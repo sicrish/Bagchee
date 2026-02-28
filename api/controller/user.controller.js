@@ -188,20 +188,47 @@ export const login = async (req, res) => {
 };
 
 // ==========================================
-// 📋 FETCH USERS
+// 📋 FETCH USERS (WITH PAGINATION & FILTERS)
 // ==========================================
 export const fetch = async (req, res) => {
     try {
-        const condition_obj = req.query; 
-        const userList = await UserSchemaModel.find(condition_obj);
-        
-        if (userList.length > 0) {
-            res.status(200).json({ status: true, data: userList });
-        } else {
-            res.status(404).json({ status: false, msg: "No users found" });
-        }
+        // 1. Params Extraction
+        const { page, limit, ...filters } = req.query;
+
+        // 2. Pagination Logic
+        const pageNum = Math.max(1, parseInt(page) || 1);
+        const pageSize = Math.max(1, parseInt(limit) || 10);
+        const skip = (pageNum - 1) * pageSize;
+
+        // 3. Database Queries (Parallel execution for speed)
+        // .lean() use karne se query fast ho jaati hai
+        const [userList, total] = await Promise.all([
+            UserSchemaModel.find(filters)
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(pageSize)
+                .lean(),
+            UserSchemaModel.countDocuments(filters)
+        ]);
+
+        // 🟢 FIX: Agar list khali hai toh 404 nahi, balki status true aur empty array bhejein
+        // Isse frontend ka Loader band ho jayega aur table "No users" dikha payega.
+        res.status(200).json({ 
+            status: true, 
+            data: userList, // [] if no users
+            total,
+            totalPages: Math.ceil(total / pageSize),
+            currentPage: pageNum,
+            msg: userList.length > 0 ? "Users fetched" : "No users found"
+        });
+
     } catch (error) {
-        res.status(500).json({ status: false, msg: "Server Error" });
+        console.error("🔥 Fetch Users Error:", error);
+        res.status(500).json({ 
+            status: false, 
+            msg: "Server Error", 
+            error: error.message 
+        });
     }
 };
 

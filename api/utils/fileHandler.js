@@ -1,26 +1,27 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import sharp from 'sharp'; // 🟢 Fast loading ke liye essential
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const BASE_UPLOAD_DIR = path.join(__dirname, '../uploads');
 
-// 🟢 SAVE FUNCTION (With Security & Folder Support)
+// 🟢 SAVE FUNCTION (Optimized for MNC Standards)
 export const saveFileLocal = async (file, folderName = '') => {
     try {   
         if (!file) return null;
 
         // ==========================================
-        // 🛡️ SECURITY 1: SIZE CHECK (5MB)
+        // 🛡️ SECURITY 1: SIZE CHECK (10MB for processing)
         // ==========================================
-        const MAX_SIZE = 50 * 1024 * 1024; 
+        const MAX_SIZE = 10 * 1024 * 1024; 
         if (file.size > MAX_SIZE) {
-            throw new Error(`File too large! Max 50MB allowed.`);
+            throw new Error(`File too large! Max 10MB allowed for optimization.`);
         }
 
         // ==========================================
-        // 🛡️ SECURITY 2: EXTENSION & MIME CHECK
+        // 🛡️ SECURITY 2: EXTENSION CHECK
         // ==========================================
         const allowedTypes = {
             '.png': 'image/png',
@@ -33,66 +34,75 @@ export const saveFileLocal = async (file, folderName = '') => {
         };
 
         const fileExt = path.extname(file.name).toLowerCase();
-
-        // Extension Valid?
         if (!Object.keys(allowedTypes).includes(fileExt)) {
             throw new Error("Invalid file type! Only Images and Docs allowed.");
-        }
-
-        // MIME Type Valid? (Spoofing Check)
-        if (allowedTypes[fileExt] !== file.mimetype && !file.mimetype.startsWith('image/')) {
-             if(file.mimetype !== 'application/octet-stream') { 
-                 throw new Error("File content mismatch (Possible Attack).");
-             }
         }
 
         // ==========================================
         // 📂 ORGANIZATION: DYNAMIC FOLDER
         // ==========================================
-        // Agar folderName aaya (e.g. 'users'), to usme save karo
         const targetDir = folderName ? path.join(BASE_UPLOAD_DIR, folderName) : BASE_UPLOAD_DIR;
-
-        // Auto Create Folder
         if (!fs.existsSync(targetDir)) {
             fs.mkdirSync(targetDir, { recursive: true });
         }
 
         // ==========================================
-        // 🛡️ SECURITY 3: SAFE FILENAME
+        // 🛡️ SECURITY 3: SAFE FILENAME & WEBP CONVERSION
         // ==========================================
         const originalName = path.parse(file.name).name;
-        // Sirf A-Z, 0-9 allow karo
         const safeName = originalName.replace(/[^a-zA-Z0-9-_]/g, '').substring(0, 50); 
-
-        if(safeName.length === 0) throw new Error("Invalid Filename.");
-
-        const fileName = `${safeName}-${Date.now()}${fileExt}`;
+        
+        // 🟢 Check if it's an image for Sharp processing
+        const isImage = ['.jpg', '.jpeg', '.png', '.webp'].includes(fileExt);
+        
+        // Agar image hai toh extension humesha .webp rakhenge fast loading ke liye
+        const finalExt = isImage ? '.webp' : fileExt;
+        const fileName = `${safeName}-${Date.now()}${finalExt}`;
         const uploadPath = path.join(targetDir, fileName);
 
-        // 💾 Save File
-        await file.mv(uploadPath);
+        // ==========================================
+        // 🚀 CORE CHANGE: SHARP VS MV LOGIC
+        // ==========================================
+        if (isImage) {
+            // 🟢 MNC STANDARD: Image ko resize aur compress karke save karein
+            await sharp(file.data)
+                .resize(800, null, { // Max 800px width, height auto maintain hogi
+                    withoutEnlargement: true, 
+                    fit: 'inside' 
+                })
+                .webp({ quality: 80 }) // 80% quality par WebP (Best balance)
+                .toFile(uploadPath);
+        } else {
+            // ⚪ NORMAL: PDF/Docs ke liye purana mv logic
+            await file.mv(uploadPath);
+        }
 
-        // Return DB Path (e.g. /uploads/users/my-pic.jpg)
+        // Return DB Path
         const dbPath = folderName ? `/uploads/${folderName}/${fileName}` : `/uploads/${fileName}`;
         return dbPath; 
 
     } catch (error) {
+        console.error("Save File Error:", error.message);
         throw new Error(error.message); 
     }
 };
 
 // ==========================================
-// 🗑️ DELETE FUNCTION
+// 🗑️ DELETE FUNCTION (Security Fixed)
 // ==========================================
 export const deleteFileLocal = async (relativeFilePath) => {
     try {
-        if (!relativeFilePath) return;
-        if (relativeFilePath.startsWith('http')) return; 
+        if (!relativeFilePath || relativeFilePath.startsWith('http')) return; 
 
-        const fullPath = path.join(__dirname, '..', relativeFilePath);
+        // Correct path normalization
+        const cleanPath = relativeFilePath.startsWith('/') ? relativeFilePath.slice(1) : relativeFilePath;
+        const fullPath = path.join(__dirname, '..', cleanPath);
 
-        // Security: Ensure path is inside 'uploads'
-        if (!fullPath.startsWith(BASE_UPLOAD_DIR)) {
+        // Security: Check if path is actually inside uploads
+        const relativeTarget = path.relative(BASE_UPLOAD_DIR, fullPath);
+        const isSafe = relativeTarget && !relativeTarget.startsWith('..') && !path.isAbsolute(relativeTarget);
+
+        if (!isSafe) {
              console.warn("⚠️ Security Warning: Attempt to delete outside uploads dir");
              return;
         }

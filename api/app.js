@@ -51,6 +51,10 @@ import privacyRoutes from './routes/privacyRoutes.js'
 import termsRoutes from './routes/termsRoutes.js'
 import sideBannerOneRoutes from './routes/sideBannerOneRoutes.js';
 import socialRoutes from './routes/socialRoutes.js'
+import sideBannerTwoRoutes from './routes/sideBannerTwoRoutes.js'
+import footerRoutes from './routes/footerRoutes.js';
+
+
 
 const app = express();
 dotenv.config();
@@ -66,17 +70,28 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 🟢 FILE UPLOAD MIDDLEWARE (Updated for Local Storage)
 app.use(fileupload({
-   
-    createParentPath: true, // Agar 'uploads' folder nahi h to khud bana dega
-    limits: { fileSize: 50 * 1024 * 1024 }, // 5MB Max File Size
+    createParentPath: true,
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
     abortOnLimit: true,
+    responseOnLimit: "File size limit has been exceeded. Max 10MB allowed.", // 🟢 Custom message bhejega
+    limitHandler: (req, res, next) => {
+        return res.status(413).json({ status: false, msg: "File too large! Max 10MB allowed." });
+    }
 }));
 
+
+const cacheOptions = {
+    maxAge: '7d',          // 1. Browser 7 din tak server se nahi puchega
+    etag: true,            // 2. File ki unique ID (Validation ke liye)
+    lastModified: true,    // 3. File kab badli thi uski date
+    setHeaders: (res, path) => {
+        res.setHeader('Cache-Control', 'public, no-cache'); // Dev ke waqt useful
+    }
+};
 // 2. 🟢 STATIC FOLDER (Images ko Public Access Dene ke liye)
 // Browser me access hoga: http://localhost:3001/uploads/image.jpg
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'),cacheOptions));
 
 // 3. Application Routes
 app.use("/user", userroute);
@@ -124,6 +139,8 @@ app.use('/privacy', privacyRoutes);
 app.use('/terms', termsRoutes);
 app.use('/side-banner-one', sideBannerOneRoutes);
 app.use('/socials', socialRoutes);
+app.use('/side-banner-two', sideBannerTwoRoutes);
+app.use('/footer', footerRoutes);
 
 // Step 1: Frontend ke 'dist' folder ka path set karein
 // NOTE: Agar aapka folder name 'build' hai to 'dist' ki jagah 'build' likhein.

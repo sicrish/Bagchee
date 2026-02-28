@@ -26,10 +26,9 @@ const OrderSchema = new mongoose.Schema({
   shipping_type: { type: String, default: '' },
   status: {
     type: String,
-    enum: ['Not yet ordered', 'Payment pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'],
-    default: 'Not yet ordered'
+    default: 'pending'
   },
-  payment_status: { type: String, default: '' },
+  payment_status: { type: String, default: 'pending' },
   transaction_id: { type: String, default: '' },
 
   // Membership & Coupons

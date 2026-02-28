@@ -36,11 +36,34 @@ export const saveSeries = async (req, res) => {
   }
 };
 
-// 🔵 Read All
+// ==========================================
+// 🔵 2. READ ALL (WITH PAGINATION)
+// ==========================================
 export const getAllSeries = async (req, res) => {
   try {
-    const seriesList = await Series.find().sort({ updatedAt: -1 });
-    res.status(200).json({ status: true, data: seriesList });
+    const { page, limit } = req.query;
+
+    // 1. Pagination Settings
+    const pageNum = parseInt(page) || 1;
+    const pageSize = parseInt(limit) || 10;
+    const skip = (pageNum - 1) * pageSize;
+
+    // 2. Fetch Data
+    const seriesList = await Series.find()
+      .sort({ updatedAt: -1 })
+      .skip(skip)
+      .limit(pageSize);
+
+    // 3. Total Count
+    const total = await Series.countDocuments();
+
+    res.status(200).json({ 
+      status: true, 
+      data: seriesList,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+      page: pageNum
+    });
   } catch (error) {
     res.status(500).json({ status: false, msg: "Server Error", error: error.message });
   }

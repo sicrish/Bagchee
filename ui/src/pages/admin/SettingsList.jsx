@@ -2,16 +2,24 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Plus, Download, Printer, Search, RotateCw,
   Edit, Trash2, ChevronLeft, ChevronRight,
-  Settings as SettingsIcon, Loader2
+  Settings as SettingsIcon, Loader2,ChevronsLeft,ChevronsRight
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
+import * as XLSX from 'xlsx';
 
 const SettingsList = () => {
   const navigate = useNavigate();
   const [settings, setSettings] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // 🟢 1. Pagination States
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalItems, setTotalItems] = useState(0);
+
 
   // 🟢 1. Filtering States (Based on your screenshot fields)
   const [filters, setFilters] = useState({
@@ -23,25 +31,59 @@ const SettingsList = () => {
     topbar_promotion: ""
   });
 
-  const fetchSettings = useCallback(async () => {
-    setLoading(true);
+  const API_BASE_URL = process.env.REACT_APP_API_URL;
+
+  const fetchSettings = useCallback(async (isExport = false) => {
+    if (!isExport) setLoading(true);
     try {
-      const API_URL = process.env.REACT_APP_API_URL;
-      const res = await axios.get(`${API_URL}/settings/list`);
+      const params = new URLSearchParams();
+      params.append("page", isExport ? 1 : currentPage);
+      params.append("limit", isExport ? 100000 : itemsPerPage);
+
+      const res = await axios.get(`${API_BASE_URL}/settings/list?${params.toString()}`);
       if (res.data.status) {
+        if (isExport) return res.data.data;
         setSettings(res.data.data || []);
+        setTotalPages(res.data.totalPages || 1);
+        setTotalItems(res.data.total || 0);
       }
     } catch (error) {
-      console.error("Fetch Error:", error);
       toast.error("Failed to load settings");
     } finally {
-      setLoading(false);
+      if (!isExport) setLoading(false);
     }
-  }, []);
+  }, [currentPage, itemsPerPage, API_BASE_URL]);
 
   useEffect(() => {
     fetchSettings();
   }, [fetchSettings]);
+
+  // 🟢 3. Excel Export Logic
+  const handleExport = async () => {
+    const toastId = toast.loading("Preparing Excel file...");
+    try {
+      const allData = await fetchSettings(true);
+      if (!allData || allData.length === 0) return toast.error("No data", { id: toastId });
+
+      const dataToExport = allData.map((item, i) => ({
+        "Sr No": i + 1,
+        "Sale Threshold (%)": item.sale_threshold,
+        "Bestseller Threshold": item.bestseller_threshold,
+        "Membership Cost": item.membership_cost,
+        "New Arrival Time (Days)": item.new_arrival_time,
+        "Free Shipping Over": item.free_shipping_over,
+        "Topbar Promotion": item.topbar_promotion
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Settings");
+      XLSX.writeFile(workbook, `Settings_Report_${Date.now()}.xlsx`);
+      toast.success("Excel exported! 📊", { id: toastId });
+    } catch (error) { toast.error("Export failed", { id: toastId }); }
+  };
+
+  const handlePrint = () => window.print();
 
 
   const handleDelete = async (id) => {
@@ -102,10 +144,10 @@ const SettingsList = () => {
         </button>
 
         <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end">
-          <button className="bg-white border border-gray-200 text-text-main px-4 py-2 rounded shadow-sm hover:bg-gray-50 flex items-center gap-2 text-[10px] font-bold font-montserrat uppercase">
+          <button onClick={handleExport} className="bg-white border border-gray-200 text-text-main px-4 py-2 rounded shadow-sm hover:bg-gray-50 flex items-center gap-2 text-[10px] font-bold font-montserrat uppercase">
             <Download size={14} className="text-orange-400" /> Export
           </button>
-          <button className="bg-white border border-gray-200 text-text-main px-4 py-2 rounded shadow-sm hover:bg-gray-50 flex items-center gap-2 text-[10px] font-bold font-montserrat uppercase">
+          <button onClick={handlePrint} className="bg-white border border-gray-200 text-text-main px-4 py-2 rounded shadow-sm hover:bg-gray-50 flex items-center gap-2 text-[10px] font-bold font-montserrat uppercase">
             <Printer size={14} className="text-green-600" /> Print
           </button>
           <button
@@ -177,8 +219,8 @@ const SettingsList = () => {
                         >
                           <Edit size={14} />
                         </button>
-                        <button 
-                          onClick={() => handleDelete(item._id)} 
+                        <button
+                          onClick={() => handleDelete(item._id)}
                           className="p-2 bg-red-50 text-red-500 rounded-lg hover:bg-red-600 hover:text-white transition-all shadow-sm"
                           title="Delete"
                         >
@@ -198,17 +240,23 @@ const SettingsList = () => {
         </div>
 
         {/* --- FOOTER --- */}
-        <div className="p-4 bg-cream-50 border-t border-cream-200 flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="text-[11px] font-bold text-text-muted uppercase tracking-widest">
-            Configuration Records: {filteredSettings.length}
+        <div className="p-3 bg-white border-t border-cream-200 flex flex-col md:flex-row justify-between items-center gap-4 font-montserrat shadow-sm no-print">
+          <div className="flex items-center gap-2 text-[12px] font-bold text-text-main">
+            <span className="text-text-muted uppercase text-[10px] tracking-wide">Show</span>
+            <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="border border-cream-200 rounded px-2 py-1 focus:border-primary bg-cream-50 text-xs text-primary font-bold cursor-pointer shadow-sm">
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+            </select>
+            <span className="text-text-muted uppercase text-[10px] tracking-wide">entries</span>
           </div>
-          <div className="flex items-center gap-2">
-            <button className="p-2 border border-cream-200 rounded-lg bg-white text-text-muted hover:text-primary transition-all"><ChevronLeft size={18} /></button>
-            <span className="px-4 py-1 text-xs font-bold text-primary bg-white border border-cream-200 rounded-md">1</span>
-            <button className="p-2 border border-cream-200 rounded-lg bg-white text-text-muted hover:text-primary transition-all"><ChevronRight size={18} /></button>
-            <div className="ml-4 p-2 border border-cream-200 rounded-lg bg-white text-text-muted hover:rotate-90 transition-all duration-500 cursor-pointer">
-              <SettingsIcon size={18} />
-            </div>
+          <div className="text-[11px] font-bold text-text-muted uppercase tracking-tighter">Displaying {totalItems > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} to {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} Configuration Records</div>
+          <div className="flex items-center gap-1">
+            <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1} className="p-1.5 border border-cream-200 rounded text-text-muted hover:text-primary disabled:opacity-30 active:scale-90 bg-white shadow-sm"><ChevronsLeft size={16} /></button>
+            <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="p-1.5 border border-cream-200 rounded text-text-muted hover:text-primary disabled:opacity-30 active:scale-90 bg-white shadow-sm"><ChevronLeft size={16} /></button>
+            <div className="min-w-[32px] h-8 flex items-center justify-center bg-primary text-white text-xs font-bold rounded shadow-md ring-2 ring-primary/20 mx-1">{currentPage}</div>
+            <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages} className="p-1.5 border border-cream-200 rounded text-text-muted hover:text-primary disabled:opacity-30 active:scale-90 bg-white shadow-sm"><ChevronRight size={16} /></button>
+            <button onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages} className="p-1.5 border border-cream-200 rounded text-text-muted hover:text-primary disabled:opacity-30 active:scale-90 bg-white shadow-sm"><ChevronsRight size={16} /></button>
           </div>
         </div>
       </div>

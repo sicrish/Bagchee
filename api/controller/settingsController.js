@@ -11,11 +11,34 @@ export const saveSetting = async (req, res) => {
     }
 };
 
-// 🟢 2. List Settings (For Table View)
+// ==========================================
+// 🔵 2. LIST SETTINGS (WITH PAGINATION)
+// ==========================================
 export const listSettings = async (req, res) => {
     try {
-        const data = await Settings.find().sort({ createdAt: -1 });
-        res.status(200).json({ status: true, data });
+        const { page, limit } = req.query;
+
+        // 1. Pagination Settings
+        const pageNum = parseInt(page) || 1;
+        const pageSize = parseInt(limit) || 10;
+        const skip = (pageNum - 1) * pageSize;
+
+        // 2. Fetch Data with Pagination
+        const data = await Settings.find()
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(pageSize);
+
+        // 3. Total Count for calculation
+        const total = await Settings.countDocuments();
+
+        res.status(200).json({
+            status: true,
+            data,
+            total,
+            totalPages: Math.ceil(total / pageSize),
+            page: pageNum
+        });
     } catch (error) {
         res.status(500).json({ status: false, msg: error.message });
     }

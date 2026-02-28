@@ -13,6 +13,10 @@ const ProductList = () => {
 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10); // Default as per your requirement
+  const [totalItems, setTotalItems] = useState(0);
 
   // 🟢 1. Main Search (Top Bar)
   const [searchTerm, setSearchTerm] = useState("");
@@ -34,47 +38,49 @@ const ProductList = () => {
   const category = "book";
   const pageTitle = "Books list";
 
-  // --- FETCH PRODUCTS ---
-  const fetchProducts = async () => {
-    setLoading(true);
+  const fetchProducts = async (isExport = false) => {
+    if (!isExport) setLoading(true);
     try {
       const API_URL = process.env.REACT_APP_API_URL;
-
-      // Query Params Builder (Sahi tarika URL banane ka)
       const params = new URLSearchParams();
-      params.append("product_type", "book"); // Default type
+      params.append("product_type", "book");
       params.append("showAll", "true");
-      // 🟢 Add Main Search
-      if (searchTerm) params.append("keyword", searchTerm);
 
-      // 🟢 Add Column Filters (Loop through filters state)
+      // Pagination Params (Export ke waqt limit bypass karega)
+      params.append("page", isExport ? 1 : currentPage);
+      params.append("limit", isExport ? 100000 : itemsPerPage);
+
+      if (searchTerm) params.append("keyword", searchTerm);
+      
       Object.keys(filters).forEach(key => {
-        if (filters[key]) {
-          // Backend check: Backend ko 'id' chahiye ya '_id'? Hum input name bhej rahe hain.
-          params.append(key, filters[key]);
-        }
+        if (filters[key]) params.append(key, filters[key]);
       });
 
       const url = `${API_URL}/product/fetch?${params.toString()}`;
-
-      // 🔍 DEBUGGING: Console me dekhein ki URL sahi ban raha hai ya nahi
-      console.log("Fetching URL:", url);
-
       const response = await axios.get(url);
+      
       if (response.data.status) {
+        if (isExport) return response.data.data; // Export ke liye data return karo
         setProducts(response.data.data);
+        setTotalPages(response.data.totalPages || 1);
+        setTotalItems(response.data.total || 0);
       }
     } catch (error) {
       console.error("Fetch Error:", error);
-      setProducts([]);
+      if (!isExport) setProducts([]);
     } finally {
-      setLoading(false);
+      if (!isExport) setLoading(false);
     }
   };
 
+  // Jab bhi Page ya Limit (Show entries) badle, data fetch ho
   useEffect(() => {
     fetchProducts();
-  }, []);
+  }, [currentPage, itemsPerPage]);
+
+  useEffect(() => {
+    fetchProducts();
+  }, [currentPage, itemsPerPage]);
 
   // --- HANDLERS ---
 
@@ -108,26 +114,64 @@ const ProductList = () => {
     }, 100);
   };
 
-  // --- EXPORT & PRINT ---
-  const handleExport = () => {
-    if (products.length === 0) { toast.error("No data!"); return; }
-    const headers = ["ID", "Title", "Bagchee ID", "Price", "Meta Title", "ISBN 10", "ISBN 13", "Type"];
+ // 🟢 Export with Full Data Fetch
+ const handleExport = async () => {
+  const toastId = toast.loading("Preparing full data for export...");
+  try {
+    const allData = await fetchProducts(true); // Special call for full data
+    
+    if (!allData || allData.length === 0) {
+      toast.error("No data to export", { id: toastId });
+      return;
+    }
+
+    const headers = ["ID", "Title", "Bagchee ID", "Price", "ISBN 10", "ISBN 13", "Type"];
     const csvContent = [
       headers.join(","),
-      ...products.map(item => [
-        item._id, `"${item.title.replace(/"/g, '""')}"`, item.bagchee_id || "",
-        item.priceForeign || item.real_price || 0, `"${(item.meta_title || "").replace(/"/g, '""')}"`,
-        item.isbn10 || "", item.isbn13 || "", item.product_type || "Book"
-      ].join(","))
+      ...allData.map(item => {
+        // Fix: ISBN ke aage \t (Tab) jodne se Excel usey Number nahi Text treat karega
+        // Isse 9781234567890 poora dikhega, 9.78E+12 nahi banega.
+        const isbn10 = item.isbn10 ? `\t${item.isbn10}` : "-";
+        const isbn13 = item.isbn13 ? `\t${item.isbn13}` : "-";
+        const title = `"${(item.title || "").replace(/"/g, '""')}"`;
+        const meta = `"${(item.meta_title || "").replace(/"/g, '""')}"`;
+
+        return [
+          item._id, 
+          title, 
+          item.bagchee_id || "",
+          item.priceForeign || item.real_price || 0,
+          meta,
+          isbn10, 
+          isbn13, 
+          item.product_type || "Book"
+        ].join(",");
+      })
     ].join("\n");
+
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.href = url; link.setAttribute("download", "books_export.csv");
-    document.body.appendChild(link); link.click(); document.body.removeChild(link);
-  };
+    link.href = url;
+    link.setAttribute("download", `full_books_report_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Full data exported! 📊", { id: toastId });
+  } catch (error) {
+    toast.error("Export failed", { id: toastId });
+  }
+};
 
-  const handlePrint = () => window.print();
+  // 🟢 1. Updated handlePrint Logic
+  const handlePrint = () => {
+    // Print window open karne se pehle agar aap loading state handle karna chahein toh kar sakte hain
+    if (products.length === 0) {
+      toast.error("No data to print!");
+      return;
+    }
+    window.print();
+  };
 
   const handleDelete = async (id) => {
     if (!window.confirm("Confirm delete?")) return;
@@ -141,6 +185,26 @@ const ProductList = () => {
 
   return (
     <div className="bg-gray-50 min-h-screen font-body p-4 md:p-6">
+
+{/* 🟢 Print optimization styles */}
+<style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          /* Hide Toolbar, Filters, Pagination, and Action columns */
+          button, input, select, .print\\:hidden, 
+          thead.print\\:hidden, th:last-child, td:last-child {
+            display: none !important;
+          }
+          /* Reset background and padding for paper */
+          body { background: white !important; padding: 0 !important; }
+          .bg-white { border: none !important; box-shadow: none !important; }
+          table { width: 100% !important; border-collapse: collapse !important; }
+          th, td { border: 1px solid #ddd !important; padding: 8px !important; font-size: 10px !important; }
+          thead { background-color: #0096cc !important; color: white !important; -webkit-print-color-adjust: exact; }
+          /* Show page title on print */
+          .print-header { display: block !important; text-align: center; margin-bottom: 20px; }
+        }
+        @media screen { .print-header { display: none; } }
+      `}} />
 
       {/* --- TOP TOOLBAR --- */}
       <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
@@ -355,28 +419,77 @@ const ProductList = () => {
         </div>
 
         {/* --- FOOTER --- */}
-        <div className="p-3 bg-white border-t border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-bold text-gray-500 uppercase">Show</span>
-            <select className="border border-gray-300 rounded text-xs p-1 focus:border-primary outline-none">
-              <option>25</option>
-              <option>50</option>
-            </select>
-            <span className="text-[11px] font-bold text-gray-500 uppercase">entries</span>
-          </div>
+        {/* --- FOOTER / PAGINATION --- */}
+<div className="p-3 bg-white border-t border-cream-200 flex flex-col md:flex-row justify-between items-center gap-4 font-montserrat shadow-sm">
+  
+  {/* 1. Show Entries Dropdown */}
+  <div className="flex items-center gap-2 text-[12px] font-bold text-text-main">
+    <span className="text-text-muted uppercase text-[10px] tracking-wide">Show</span>
+    <select 
+      value={itemsPerPage}
+      onChange={(e) => {
+        setItemsPerPage(Number(e.target.value));
+        setCurrentPage(1);
+      }}
+      className="border border-cream-200 rounded px-2 py-1 outline-none focus:border-primary bg-cream-50 text-xs text-primary font-bold transition-all cursor-pointer shadow-sm active:scale-95"
+    >
+      <option value={10}>10</option>
+      <option value={25}>25</option>
+      <option value={50}>50</option>
+      <option value={100}>100</option>
+    </select>
+    <span className="text-text-muted uppercase text-[10px] tracking-wide">entries</span>
+  </div>
 
-          <div className="text-[11px] font-bold text-gray-400 uppercase tracking-tighter">
-            Displaying {products.length} items
-          </div>
+  {/* 2. Display Info */}
+  <div className="text-[11px] font-bold text-text-muted uppercase tracking-tighter">
+    Displaying {totalItems > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} to {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} items
+  </div>
 
-          <div className="flex items-center gap-1">
-            <button className="p-1.5 border border-gray-200 rounded text-gray-400 hover:text-primary"><ChevronsLeft size={14} /></button>
-            <button className="p-1.5 border border-gray-200 rounded text-gray-400 hover:text-primary"><ChevronLeft size={14} /></button>
-            <button className="w-8 h-8 flex items-center justify-center bg-[#0096cc] text-white text-xs font-bold rounded shadow-sm">1</button>
-            <button className="p-1.5 border border-gray-200 rounded text-gray-400 hover:text-primary"><ChevronRight size={14} /></button>
-            <button className="p-1.5 border border-gray-200 rounded text-gray-400 hover:text-primary"><ChevronsRight size={14} /></button>
-          </div>
-        </div>
+  {/* 3. Pagination Navigation Controls */}
+  <div className="flex items-center gap-1">
+    {/* First Page */}
+    <button 
+      onClick={() => setCurrentPage(1)}
+      disabled={currentPage === 1}
+      className="p-1.5 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-90 bg-white"
+    >
+      <ChevronsLeft size={16} />
+    </button>
+    
+    {/* Previous Page */}
+    <button 
+      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+      disabled={currentPage === 1}
+      className="p-1.5 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-90 bg-white"
+    >
+      <ChevronLeft size={16} />
+    </button>
+
+    {/* Current Page Number Display */}
+    <div className="min-w-[32px] h-8 flex items-center justify-center bg-primary text-white text-xs font-bold rounded shadow-md ring-2 ring-primary/20 mx-1">
+      {currentPage}
+    </div>
+
+    {/* Next Page */}
+    <button 
+      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+      disabled={currentPage === totalPages}
+      className="p-1.5 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-90 bg-white"
+    >
+      <ChevronRight size={16} />
+    </button>
+
+    {/* Last Page */}
+    <button 
+      onClick={() => setCurrentPage(totalPages)}
+      disabled={currentPage === totalPages}
+      className="p-1.5 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-90 bg-white"
+    >
+      <ChevronsRight size={16} />
+    </button>
+  </div>
+</div>
       </div>
     </div>
   );

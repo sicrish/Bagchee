@@ -1,16 +1,23 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-    Plus, Search, Printer, Download, Edit, Trash2, 
-    RotateCcw, Filter, Loader2, ChevronLeft, ChevronRight 
+import {
+    Plus, Search, Printer, Download, Edit, Trash2,
+    RotateCcw, Filter, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight
 } from 'lucide-react';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
+import * as XLSX from 'xlsx';
 
 const Categories = () => {
     const navigate = useNavigate();
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
+
+    // 🟢 1. Pagination States Add Karein
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [totalItems, setTotalItems] = useState(0);
 
     // --- Filter States (One for each column as per image) ---
     const [filters, setFilters] = useState({
@@ -27,24 +34,70 @@ const Categories = () => {
     const API_BASE_URL = process.env.REACT_APP_API_URL;
 
     // 🟢 1. Fetch Categories
-    const fetchCategories = async () => {
-        setLoading(true);
+    const fetchCategories = async (isExport = false) => {
+        if (!isExport) setLoading(true);
         try {
-            const response = await axios.get(`${API_BASE_URL}/category/fetch`); // Adjust endpoint if needed
+            const API_URL = process.env.REACT_APP_API_URL;
+
+            // Agar export mode hai toh limit bypass karein, warna pagination use karein
+            const url = isExport
+                ? `${API_URL}/category/fetch?limit=100000`
+                : `${API_URL}/category/fetch?page=${currentPage}&limit=${itemsPerPage}`;
+
+            const response = await axios.get(url);
             if (response.data.status) {
-                setCategories(response.data.data); // Ensure this matches backend response structure
+                if (isExport) return response.data.data; // Export ke liye data return karo
+                setCategories(response.data.data);
+                setTotalPages(response.data.totalPages || 1);
+                setTotalItems(response.data.total || response.data.data.length);
             }
         } catch (error) {
             console.error("Fetch Error:", error);
             toast.error("Failed to load categories");
         } finally {
-            setLoading(false);
+            if (!isExport) setLoading(false);
         }
     };
 
     useEffect(() => {
         fetchCategories();
-    }, []);
+    }, [currentPage, itemsPerPage]);
+
+
+    // 🟢 3. Excel Export Logic (Matched with Model)
+    const handleExport = async () => {
+        const toastId = toast.loading("Fetching data for export...");
+        try {
+            const allData = await fetchCategories(true);
+            if (!allData || allData.length === 0) return toast.error("No data", { id: toastId });
+
+            const dataToExport = allData.map((cat, index) => ({
+                "Sr No": index + 1,
+                "Category ID": cat.oldid || cat._id,
+                "Title": cat.categorytitle,
+                "Slug": cat.slug,
+                "Parent Slug": cat.parentslug || "Root",
+                "Meta Title": cat.metatitle || "-",
+                "Product Type": cat.producttype || "Book",
+                "Newsletter": cat.newslettercategory || "No",
+                "Order": cat.newsletterorder || 0
+            }));
+
+            const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Categories");
+            XLSX.writeFile(workbook, `Categories_Report_${Date.now()}.xlsx`);
+            toast.success("Excel exported successfully! 📊", { id: toastId });
+        } catch (error) {
+            toast.error("Export failed", { id: toastId });
+        }
+    };
+
+    // 🟢 4. Print Logic
+    const handlePrint = () => {
+        window.print();
+    };
+
 
     // 🔴 2. Delete Logic
     const handleDelete = async (id) => {
@@ -99,12 +152,12 @@ const Categories = () => {
 
     return (
         <div className="bg-gray-50 min-h-screen font-body p-4 md:p-6">
-            
+
             {/* --- TOP ACTIONS BAR --- */}
             <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
-                
+
                 {/* Left: Add Button */}
-                <button 
+                <button
                     onClick={() => navigate('/admin/add-category')}
                     className="bg-[#f8f9fa] border border-gray-300 text-gray-700 hover:bg-white px-4 py-2 rounded shadow-sm flex items-center gap-2 font-bold text-xs uppercase transition-all"
                 >
@@ -113,13 +166,13 @@ const Categories = () => {
 
                 {/* Right: Actions */}
                 <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end">
-                    <button className="bg-[#f8f9fa] border border-gray-300 text-gray-700 px-4 py-1.5 rounded shadow-sm hover:bg-white flex items-center gap-2 text-xs font-bold">
+                    <button onClick={handleExport} className="bg-[#f8f9fa] border border-gray-300 text-gray-700 px-4 py-1.5 rounded shadow-sm hover:bg-white flex items-center gap-2 text-xs font-bold">
                         <Download size={14} className="text-orange-500" /> Export
                     </button>
-                    <button className="bg-[#f8f9fa] border border-gray-300 text-gray-700 px-4 py-1.5 rounded shadow-sm hover:bg-white flex items-center gap-2 text-xs font-bold">
+                    <button onClick={handlePrint} className="bg-[#f8f9fa] border border-gray-300 text-gray-700 px-4 py-1.5 rounded shadow-sm hover:bg-white flex items-center gap-2 text-xs font-bold">
                         <Printer size={14} className="text-green-600" /> Print
                     </button>
-                    <button 
+                    <button
                         onClick={() => setFilters({
                             id: "", title: "", slug: "", parentSlug: "", metaTitle: "", productType: "", newsletter: "", order: ""
                         })}
@@ -127,12 +180,12 @@ const Categories = () => {
                     >
                         Clear filters
                     </button>
-                    
+
                     {/* Global Search */}
                     <div className="flex">
-                        <input 
-                            type="text" 
-                            placeholder="Search..." 
+                        <input
+                            type="text"
+                            placeholder="Search..."
                             className="border border-r-0 border-gray-300 rounded-l px-3 py-1.5 text-xs outline-none focus:border-[#0096cc]"
                         />
                         <button className="bg-[#0096cc] text-white px-3 py-1.5 rounded-r hover:bg-[#007bb5]">
@@ -145,7 +198,7 @@ const Categories = () => {
             {/* --- DATA TABLE --- */}
             <div className="bg-white rounded border border-gray-200 shadow-sm overflow-x-auto">
                 <table className="w-full min-w-[1200px] border-collapse">
-                    
+
                     {/* 1. Header Row (Blue) */}
                     <thead>
                         <tr className="bg-[#0096cc] text-white text-[11px] font-bold uppercase tracking-tight">
@@ -216,46 +269,46 @@ const Categories = () => {
                                     <td className="p-3 border-r border-gray-200 text-center">
                                         <input type="checkbox" className="accent-[#0096cc]" />
                                     </td>
-                                    
+
                                     {/* ID (Using Index + 1 or actual ID if short) */}
                                     <td className="p-3 border-r border-gray-200">{index + 1}</td>
-                                    
+
                                     <td className="p-3 border-r border-gray-200 font-medium">
                                         {item.categorytitle || item.title}
                                     </td>
-                                    
+
                                     <td className="p-3 border-r border-gray-200">{item.slug}</td>
-                                    
+
                                     <td className="p-3 border-r border-gray-200 text-gray-500">
                                         {item.parentslug || "root-category"}
                                     </td>
-                                    
+
                                     <td className="p-3 border-r border-gray-200 text-gray-500">
                                         {item.metatitle || item.categorytitle}
                                     </td>
-                                    
+
                                     <td className="p-3 border-r border-gray-200">
                                         {item.producttype || "Books"}
                                     </td>
-                                    
+
                                     <td className="p-3 border-r border-gray-200">
                                         {item.newslettercategory || "No"}
                                     </td>
-                                    
+
                                     <td className="p-3 border-r border-gray-200">
                                         {item.newslettercategoryorder || "0"}
                                     </td>
 
                                     <td className="p-3 text-center">
                                         <div className="flex justify-center gap-2">
-                                            <button 
+                                            <button
                                                 onClick={() => navigate(`/admin/edit-category/${item._id}`)}
                                                 className="p-1.5 bg-gray-100 border border-gray-300 rounded text-gray-600 hover:bg-white hover:text-[#0096cc] transition-all shadow-sm"
                                                 title="Edit"
                                             >
                                                 <Edit size={14} />
                                             </button>
-                                            <button 
+                                            <button
                                                 onClick={() => handleDelete(item._id)}
                                                 className="p-1.5 bg-gray-100 border border-gray-300 rounded text-red-500 hover:bg-white hover:border-red-200 transition-all shadow-sm"
                                                 title="Delete"
@@ -277,26 +330,73 @@ const Categories = () => {
                 </table>
             </div>
 
-            {/* --- FOOTER (Pagination) --- */}
-            <div className="mt-4 flex justify-between items-center text-[11px] text-gray-500">
-                <div className="flex items-center gap-2">
-                    <span className="font-bold uppercase">Show</span>
-                    <select className="border border-gray-300 rounded p-1 focus:border-[#0096cc] outline-none bg-white">
-                        <option>25</option>
-                        <option>50</option>
-                        <option>100</option>
+            {/* --- FOOTER / PAGINATION --- */}
+            {/* --- FOOTER / PAGINATION --- */}
+            <div className="mt-4 p-3 bg-white border-t border-cream-200 flex flex-col md:flex-row justify-between items-center gap-4 font-montserrat shadow-sm">
+
+                {/* 1. Show Entries Dropdown */}
+                <div className="flex items-center gap-2 text-[12px] font-bold text-text-main">
+                    <span className="text-text-muted uppercase text-[10px] tracking-wide">Show</span>
+                    <select
+                        value={itemsPerPage}
+                        onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                        className="border border-cream-200 rounded px-2 py-1 outline-none focus:border-primary bg-cream-50 text-xs text-primary font-bold transition-all cursor-pointer shadow-sm active:scale-95"
+                    >
+                        <option value={10}>10</option>
+                        <option value={25}>25</option>
+                        <option value={50}>50</option>
+                        <option value={100}>100</option>
                     </select>
-                    <span className="font-bold uppercase">entries</span>
-                </div>
-                
-                <div className="font-bold uppercase">
-                    Displaying {filteredCategories.length} Items
+                    <span className="text-text-muted uppercase text-[10px] tracking-wide">entries</span>
                 </div>
 
+                {/* 2. Display Info */}
+                <div className="text-[11px] font-bold text-text-muted uppercase tracking-tighter">
+                    Displaying {totalItems > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} to {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} items
+                </div>
+
+                {/* 3. Pagination Navigation Controls */}
                 <div className="flex items-center gap-1">
-                    <button className="p-1.5 border border-gray-300 rounded bg-white hover:bg-gray-50"><ChevronLeft size={14} /></button>
-                    <button className="w-7 h-7 flex items-center justify-center bg-[#0096cc] text-white font-bold rounded shadow-sm">1</button>
-                    <button className="p-1.5 border border-gray-300 rounded bg-white hover:bg-gray-50"><ChevronRight size={14} /></button>
+                    {/* First Page */}
+                    <button
+                        onClick={() => setCurrentPage(1)}
+                        disabled={currentPage === 1}
+                        className="p-1.5 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-90 bg-white"
+                    >
+                        <ChevronsLeft size={16} />
+                    </button>
+
+                    {/* Previous Page */}
+                    <button
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
+                        className="p-1.5 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-90 bg-white"
+                    >
+                        <ChevronLeft size={16} />
+                    </button>
+
+                    {/* Current Page Indicator */}
+                    <div className="min-w-[32px] h-8 flex items-center justify-center bg-primary text-white text-xs font-bold rounded shadow-md ring-2 ring-primary/20 mx-1">
+                        {currentPage}
+                    </div>
+
+                    {/* Next Page */}
+                    <button
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                        disabled={currentPage === totalPages}
+                        className="p-1.5 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-90 bg-white"
+                    >
+                        <ChevronRight size={16} />
+                    </button>
+
+                    {/* Last Page */}
+                    <button
+                        onClick={() => setCurrentPage(totalPages)}
+                        disabled={currentPage === totalPages}
+                        className="p-1.5 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary disabled:opacity-30 disabled:cursor-not-allowed transition-all active:scale-90 bg-white"
+                    >
+                        <ChevronsRight size={16} />
+                    </button>
                 </div>
             </div>
 

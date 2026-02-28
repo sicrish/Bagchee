@@ -67,8 +67,8 @@ const processDynamicImages = async (files, orders, folderName) => {
 const buildCommonFilters = (query) => {
     let filter = { isActive: true }; // Default active only
 
-    const { 
-        keyword, minPrice, maxPrice, categoryId, categories, 
+    const {
+        keyword, minPrice, maxPrice, categoryId, categories,
         formats, languages, authors, publishers, series,
         title, isbn10, isbn13, product_type
     } = query;
@@ -143,7 +143,7 @@ export const getSaleProducts = async (req, res) => {
         // 🟢 Step 1: Base Filter (Active + Discount Logic)
         const filter = {
             isActive: true,
-            discount: { $gte: threshold, $gt: 0 } 
+            discount: { $gte: threshold, $gt: 0 }
         };
 
         // 🟢 Step 2: Sirf Category Filter Apply karo
@@ -166,10 +166,10 @@ export const getSaleProducts = async (req, res) => {
 
         const total = await ProductSchemaModel.countDocuments(filter);
 
-        res.status(200).json({ 
-            status: true, 
-            msg: `Showing products with discount >= ${threshold}%`, 
-            data: products, total, page, limit 
+        res.status(200).json({
+            status: true,
+            msg: `Showing products with discount >= ${threshold}%`,
+            data: products, total, page, limit
         });
 
     } catch (error) {
@@ -248,7 +248,9 @@ export const save = async (req, res) => {
             isActive: parseBoolean(req.body.active),
             isRecommended: parseBoolean(req.body.recommended),
             upcoming: parseBoolean(req.body.upcoming),
+            upcoming_date: req.body.upcoming === 'active' ? (req.body.upcoming_date || null) : null,
             isNewRelease: parseBoolean(req.body.new_release),
+            isExclusive: parseBoolean(req.body.exclusive),
 
             // Ratings & Shipping
             rating: Number(req.body.rating || 0),
@@ -309,8 +311,14 @@ export const update = async (req, res) => {
         // 5. BOOLEAN FLAGS
         if (req.body.active !== undefined) updateData.isActive = parseBoolean(req.body.active);
         if (req.body.recommended !== undefined) updateData.isRecommended = parseBoolean(req.body.recommended);
-        if (req.body.upcoming !== undefined) updateData.upcoming = parseBoolean(req.body.upcoming);
+        if (req.body.upcoming !== undefined) {
+            updateData.upcoming = parseBoolean(req.body.upcoming);
+            // 🟢 Logic: Agar frontend se upcoming 'active' aa raha hai to date update karo, varna null
+            updateData.upcoming_date = req.body.upcoming === 'active' ? (req.body.upcoming_date || null) : null;
+        }
         if (req.body.new_release !== undefined) updateData.isNewRelease = parseBoolean(req.body.new_release);
+        if (req.body.exclusive !== undefined) updateData.isExclusive = parseBoolean(req.body.exclusive); // 🟢 Ye nayi line add karein
+
 
         // 6. ARRAYS
         if (req.body.authors) updateData.authors = cleanArray(req.body.authors);
@@ -437,7 +445,7 @@ export const fetch = async (req, res) => {
         // B. List Fetch with Search & Filters
         const {
             page, limit, sort, keyword, minPrice, maxPrice, categoryId, categories,
-            formats, languages, isFeatured, isNewRelease, isRecommended,
+            formats, languages, isFeatured, isNewRelease, isRecommended,isExclusive,
             title, bagchee_id, isbn10, isbn13, id, product_type,
             showAll, authors, publishers, series
         } = req.query;
@@ -518,7 +526,7 @@ export const fetch = async (req, res) => {
         if (isFeatured === 'true') queryObj.isFeatured = true;
         if (isNewRelease === 'true') queryObj.isNewRelease = true;
         if (isRecommended === 'true') queryObj.isRecommended = true;
-
+        if (isExclusive === 'true') queryObj.isExclusive = true;
         // --- 5. PRICE ---
         if (minPrice || maxPrice) {
             queryObj.price = {};
@@ -673,7 +681,7 @@ export const getBestSellers = async (req, res) => {
         const skip = (page - 1) * limit;
 
         const settings = await SettingsModel.findOne().sort({ createdAt: -1 });
-        const threshold = settings ? (settings.bestseller_threshold || 1) : 1; 
+        const threshold = settings ? (settings.bestseller_threshold || 1) : 1;
 
         // 🟢 Filters + Bestseller Logic
         const filter = buildCommonFilters(req.query);
@@ -706,17 +714,17 @@ export const getNewArrivals = async (req, res) => {
         // 🟢 STEP 1: Auto-Expire Logic (Jo date nikal gayi unhe inactive karo)
         const today = new Date();
         await ProductSchemaModel.updateMany(
-            { 
-                isNewRelease: true, 
-                new_release_until: { $lt: today }, 
-                new_release_until: { $ne: null } 
+            {
+                isNewRelease: true,
+                new_release_until: { $lt: today },
+                new_release_until: { $ne: null }
             },
             { $set: { isNewRelease: false, new_release_until: null } }
         );
 
         // 🟢 STEP 2: Settings se default days nikalo
         const settings = await SettingsModel.findOne().sort({ createdAt: -1 });
-        const days = settings ? settings.new_arrival_time : 30; 
+        const days = settings ? settings.new_arrival_time : 30;
         const dateFrom = new Date();
         dateFrom.setDate(dateFrom.getDate() - days);
 

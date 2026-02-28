@@ -45,12 +45,33 @@ export const saveHelpPage = async (req, res) => {
 };
 
 // ==========================================
-// 🔵 2. READ ALL HELP PAGES
+// 🔵 2. READ ALL HELP PAGES (WITH PAGINATION)
 // ==========================================
 export const getAllHelpPages = async (req, res) => {
   try {
-    const pages = await HelpPage.find().sort({ createdAt: -1 });
-    res.status(200).json({ status: true, data: pages });
+    const { page, limit } = req.query;
+
+    // 1. Pagination Settings
+    const pageNum = parseInt(page) || 1;
+    const pageSize = parseInt(limit) || 10;
+    const skip = (pageNum - 1) * pageSize;
+
+    // 2. Fetch Data
+    const pages = await HelpPage.find()
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(pageSize);
+
+    // 3. Total Count for Frontend
+    const total = await HelpPage.countDocuments();
+
+    res.status(200).json({ 
+      status: true, 
+      data: pages,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+      page: pageNum
+    });
   } catch (error) {
     res.status(500).json({ status: false, msg: "Server Error", error: error.message });
   }
