@@ -1,10 +1,15 @@
 import express from 'express';
+import helmet from 'helmet'; // 🟢 1. Security Headers ke liye
+import rateLimit from 'express-rate-limit'; // 🟢 2. Bot Protection ke liye
 import fileupload from 'express-fileupload';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import connectDB from './models/connection.js';
+
+// 🟢 FIX 1: Decrypt Body Import karein (Check karein file path sahi ho)
+import { decryptBody } from './middleware/decryptBody.js'
 
 // Router Imports
 import userroute from './routes/user.router.js';
@@ -57,6 +62,29 @@ import footerRoutes from './routes/footerRoutes.js';
 
 
 const app = express();
+
+
+
+// 🟢 Global Limiter: Pure website ke liye
+// Ek IP se 15 minute mein maximum 200 requests
+const globalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 200, 
+    message: { status: false, msg: "Too many requests, please try again later." },
+    standardHeaders: true, 
+    legacyHeaders: false,
+});
+
+// 🟢 Strict Limiter: Sirf Login aur Register ke liye
+// Ek IP se 1 ghante mein sirf 10 attempts (Brute force protection)
+const authLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 500,                    //NOTE: isko bad me 10 krna h testing ke liye badayi h 
+    message: { status: false, msg: "Too many login attempts. Try again after an hour." }
+});
+
+
+
 dotenv.config();
 connectDB(); // DB Connection
 
@@ -66,8 +94,20 @@ const PORT = process.env.PORT || 3001;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // 1. Middlewares
-app.use(cors());
-app.use(express.json());
+app.use(helmet({
+    crossOriginResourcePolicy: false,        // NOTE: bad me change krna h dono ko 
+    crossOriginEmbedderPolicy: false,
+})); // 🟢 Helmet sabse pehle (Security Headers set karega)
+app.use(globalLimiter);// 1. Middlewares
+
+
+app.use(cors({
+    origin: "http://localhost:3000",
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    credentials: true
+}));
+app.use(express.json({ limit: '50mb' }));
+app.use(decryptBody);
 app.use(express.urlencoded({ extended: true }));
 
 app.use(fileupload({
@@ -89,9 +129,22 @@ const cacheOptions = {
         res.setHeader('Cache-Control', 'public, no-cache'); // Dev ke waqt useful
     }
 };
+
+
 // 2. 🟢 STATIC FOLDER (Images ko Public Access Dene ke liye)
 // Browser me access hoga: http://localhost:3001/uploads/image.jpg
-app.use('/uploads', express.static(path.join(__dirname, 'uploads'),cacheOptions));
+app.use('/uploads',(req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*'); // Extra safety for images
+    next();
+}, express.static(path.join(__dirname, 'uploads'),cacheOptions));
+
+
+// ==========================================================
+// 🛡️ APPLY AUTH LIMITER (Must be above /user route)
+// ==========================================================
+app.use("/user/login", authLimiter);
+app.use("/user/register", authLimiter);
+// ==========================================================
 
 // 3. Application Routes
 app.use("/user", userroute);

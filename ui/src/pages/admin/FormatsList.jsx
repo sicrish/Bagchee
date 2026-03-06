@@ -1,26 +1,24 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Plus, Download, Printer, Search, RotateCw, 
   Edit, Trash2, ChevronLeft, ChevronRight, 
-  ChevronsLeft, ChevronsRight, Settings, Loader2 
+  ChevronsLeft, ChevronsRight, Loader2 
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // 🟢 React Query added
 
 const FormatsList = () => {
   const navigate = useNavigate();
-  const [formats, setFormats] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
   // 🟢 1. Pagination States
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  const [totalItems, setTotalItems] = useState(0);
   
-  // 🟢 1. Filtering States
+  // 🟢 2. Filtering States
   const [filters, setFilters] = useState({
     id: "",
     title: "",
@@ -29,39 +27,61 @@ const FormatsList = () => {
     order: ""
   });
 
-  const fetchFormats = async (isExport = false) => {
-    if (!isExport) setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      params.append("page", isExport ? 1 : currentPage);
-      params.append("limit", isExport ? 100000 : itemsPerPage);
+  // 🚀 OPTIMIZATION 1: Fetch Data using React Query
+  const fetchFormats = async ({ queryKey }) => {
+    const [_key, page, limit] = queryKey;
+    const params = new URLSearchParams();
+    params.append("page", page);
+    params.append("limit", limit);
 
-      const API_URL = process.env.REACT_APP_API_URL;
-      const res = await axios.get(`${API_URL}/formats/list?${params.toString()}`); 
-      
-      if (res.data.status) {
-        if (isExport) return res.data.data;
-        setFormats(res.data.data);
-        setTotalPages(res.data.totalPages || 1);
-        setTotalItems(res.data.total || 0);
-      }
-    } catch (error) {
-      toast.error("Failed to load formats");
-    } finally {
-      if (!isExport) setLoading(false);
-    }
+    const API_URL = process.env.REACT_APP_API_URL;
+    const res = await axios.get(`${API_URL}/formats/list?${params.toString()}`); 
+    if (!res.data.status) throw new Error("Failed to load formats");
+    return res.data;
   };
 
-  useEffect(() => {
-    fetchFormats();
-  }, [currentPage, itemsPerPage]);
-  
+  const { data: queryData, isLoading, isFetching, refetch } = useQuery({
+    queryKey: ['formatsList', currentPage, itemsPerPage],
+    queryFn: fetchFormats,
+    staleTime: 1000 * 60 * 5, // Cache for 5 mins for lightning fast pagination
+    keepPreviousData: true, // Pagination ke time table blink/blank nahi hogi
+    onError: () => {
+      toast.error("Failed to load formats");
+    }
+  });
 
-  // 🟢 3. Excel Export logic
+  // Extract Data from Query
+  const formats = queryData?.data || [];
+  const totalPages = queryData?.totalPages || 1;
+  const totalItems = queryData?.total || 0;
+
+  // 🚀 OPTIMIZATION 2: Delete Mutation
+  const deleteFormatMutation = useMutation({
+    mutationFn: async (id) => {
+      const API_URL = process.env.REACT_APP_API_URL;
+      const res = await axios.delete(`${API_URL}/formats/delete/${id}`);
+      return res.data;
+    },
+    onSuccess: (data) => {
+      if (data.status) {
+        toast.success("Format deleted successfully!");
+        // Table ko instantly refresh karega background me
+        queryClient.invalidateQueries({ queryKey: ['formatsList'] }); 
+      }
+    },
+    onError: () => {
+      toast.error("Delete failed");
+    }
+  });
+
+  // 🟢 3. Excel Export logic (Unchanged functionally, separated fetching)
   const handleExport = async () => {
     const toastId = toast.loading("Preparing Excel file...");
     try {
-      const allData = await fetchFormats(true);
+      const API_URL = process.env.REACT_APP_API_URL;
+      const res = await axios.get(`${API_URL}/formats/list?page=1&limit=100000`); 
+      const allData = res.data.data;
+
       if (!allData || allData.length === 0) return toast.error("No data", { id: toastId });
 
       const dataToExport = allData.map((f, i) => ({
@@ -77,24 +97,28 @@ const FormatsList = () => {
       XLSX.utils.book_append_sheet(workbook, worksheet, "Formats");
       XLSX.writeFile(workbook, `Formats_Report_${Date.now()}.xlsx`);
       toast.success("Excel downloaded! 📊", { id: toastId });
-    } catch (error) { toast.error("Export failed", { id: toastId }); }
+    } catch (error) { 
+      toast.error("Export failed", { id: toastId }); 
+    }
   };
 
   const handlePrint = () => window.print();
 
-  // 🟢 2. Filtering Logic (Performance Optimized)
+  // 🟢 4. Filtering Logic (Performance Optimized)
   const filteredFormats = useMemo(() => {
     return formats.filter((format, index) => {
-      const displayId = (index + 1).toString();
+      // Calculate display index correctly based on pagination
+      const displayId = ((currentPage - 1) * itemsPerPage + index + 1).toString();
+      
       const matchesId = displayId.includes(filters.id);
       const matchesTitle = (format.title || "").toLowerCase().includes(filters.title.toLowerCase());
-      const matchesStatus = (format.status || "active").toLowerCase().includes(filters.status.toLowerCase());
+      const matchesStatus = (format.active || "active").toLowerCase().includes(filters.status.toLowerCase());
       const matchesCategory = (format.category_name || "N/A").toLowerCase().includes(filters.category.toLowerCase());
       const matchesOrder = (format.order || "0").toString().includes(filters.order);
 
       return matchesId && matchesTitle && matchesStatus && matchesCategory && matchesOrder;
     });
-  }, [formats, filters]);
+  }, [formats, filters, currentPage, itemsPerPage]);
 
   const handleFilterChange = (e) => {
     setFilters({ ...filters, [e.target.name]: e.target.value });
@@ -102,22 +126,13 @@ const FormatsList = () => {
 
   const clearFilters = () => {
     setFilters({ id: "", title: "", status: "", category: "", order: "" });
-    fetchFormats();
+    setCurrentPage(1);
+    refetch(); // Force a fresh background fetch
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = (id) => {
     if(!window.confirm("Are you sure you want to delete this format?")) return;
-    const toastId = toast.loading("Deleting...");
-    try {
-      const API_URL = process.env.REACT_APP_API_URL;
-      const res = await axios.delete(`${API_URL}/formats/delete/${id}`); 
-      if (res.data.status) {
-        toast.success("Format deleted successfully!", { id: toastId });
-        fetchFormats(); 
-      }
-    } catch (error) {
-      toast.error("Delete failed", { id: toastId });
-    }
+    deleteFormatMutation.mutate(id);
   };
 
   const filterInputClass = "w-full rounded p-1 text-xs outline-none bg-white/90 focus:bg-white text-text-main font-montserrat border border-transparent focus:border-primary transition-all";
@@ -148,7 +163,7 @@ const FormatsList = () => {
             Clear filters
           </button>
           <div className="relative flex items-center">
-            <button onClick={fetchFormats} className="bg-primary text-white p-2 rounded hover:bg-primary-hover transition-colors shadow-sm">
+            <button onClick={() => refetch()} className="bg-primary text-white p-2 rounded hover:bg-primary-hover transition-colors shadow-sm">
               <Search size={16} />
             </button>
           </div>
@@ -156,7 +171,15 @@ const FormatsList = () => {
       </div>
 
       {/* --- DATA TABLE --- */}
-      <div className="bg-white rounded border border-cream-200 overflow-hidden shadow-sm">
+      <div className="bg-white rounded border border-cream-200 overflow-hidden shadow-sm relative">
+        
+        {/* Top subtle progress bar while background fetching */}
+        {isFetching && !isLoading && (
+          <div className="absolute top-0 left-0 w-full h-1 bg-primary/20 overflow-hidden">
+            <div className="h-full bg-primary animate-pulse w-1/3"></div>
+          </div>
+        )}
+
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1000px] border-collapse text-sm">
             <thead>
@@ -190,7 +213,7 @@ const FormatsList = () => {
                   <input name="order" value={filters.order} onChange={handleFilterChange} type="text" className={filterInputClass} placeholder="Order" />
                 </td>
                 <td className="p-2 text-center">
-                  <button onClick={fetchFormats} className="text-white hover:rotate-180 transition-transform duration-500">
+                  <button onClick={() => refetch()} className="text-white hover:rotate-180 transition-transform duration-500">
                     <RotateCw size={16} />
                   </button>
                 </td>
@@ -198,7 +221,7 @@ const FormatsList = () => {
             </thead>
 
             <tbody className="divide-y divide-cream-50">
-              {loading ? (
+              {isLoading ? (
                 <tr>
                   <td colSpan="6" className="p-10 text-center text-text-muted font-bold">
                     <div className="flex justify-center items-center gap-2">
@@ -212,21 +235,27 @@ const FormatsList = () => {
                     <td className="p-3 border-r border-cream-50">
                         <div className="flex items-center gap-5 px-1">
                           <input type="checkbox" className="h-4 w-4 rounded accent-primary cursor-pointer shrink-0" />
-                          <span className="text-text-muted text-[10px] font-bold w-full text-center">{index + 1}</span>
+                          <span className="text-text-muted text-[10px] font-bold w-full text-center">
+                             {(currentPage - 1) * itemsPerPage + index + 1}
+                          </span>
                         </div>
                     </td>
                     <td className="p-3 border-r border-cream-50 text-text-main font-medium">{format.title}</td>
                     <td className="p-3 border-r border-cream-50">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${format.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                        {format.status || 'active'}
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${format.active === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                        {format.active || 'active'}
                       </span>
                     </td>
                     <td className="p-3 border-r border-cream-50 text-text-main font-bold ">{format.category_name || 'N/A'}</td>
                     <td className="p-3 border-r border-cream-50 text-text-main font-bold text-center">{format.order || '0'}</td>
                     <td className="p-3">
                       <div className="flex justify-center gap-2">
-                        <button onClick={() => navigate(`/admin/edit-formats/${format._id}`)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm active:scale-95"><Edit size={14} /></button>
-                        <button onClick={() => handleDelete(format._id)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 hover:border-red-600 transition-all shadow-sm active:scale-95"><Trash2 size={14} /></button>
+                        <button onClick={() => navigate(`/admin/edit-formats/${format._id}`)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm active:scale-95">
+                           <Edit size={14} />
+                        </button>
+                        <button onClick={() => handleDelete(format._id)} disabled={deleteFormatMutation.isPending} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 hover:border-red-600 transition-all shadow-sm active:scale-95 disabled:opacity-50">
+                           <Trash2 size={14} />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -247,17 +276,20 @@ const FormatsList = () => {
             <select 
               value={itemsPerPage} 
               onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} 
-              className="border border-cream-200 rounded px-2 py-1 focus:border-primary bg-cream-50 text-xs text-primary font-bold"
+              className="border border-cream-200 rounded px-2 py-1 focus:border-primary bg-cream-50 text-xs text-primary font-bold outline-none"
             >
               <option value={10}>10</option>
               <option value={25}>25</option>
               <option value={50}>50</option>
               <option value={100}>100</option>
-
             </select>
             <span className="text-text-muted uppercase text-[10px] tracking-wide">entries</span>
           </div>
-          <div className="text-[11px] font-bold text-text-muted uppercase tracking-tighter">Displaying {totalItems > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} to {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} items</div>
+          
+          <div className="text-[11px] font-bold text-text-muted uppercase tracking-tighter">
+             Displaying {totalItems > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} to {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} items
+          </div>
+          
           <div className="flex items-center gap-1">
             <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1} className="p-1.5 border border-cream-200 rounded hover:text-primary disabled:opacity-30 active:scale-90"><ChevronsLeft size={16} /></button>
             <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="p-1.5 border border-cream-200 rounded hover:text-primary disabled:opacity-30 active:scale-90"><ChevronLeft size={16} /></button>

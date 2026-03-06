@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useContext } from 'react';
+import React, { useEffect, useState, useContext,useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Package, Loader2, Eye, ShoppingBag, Clock, CheckCircle, Truck, XCircle, RefreshCw, X, ExternalLink, Wallet, Calendar, Boxes } from 'lucide-react';
 import { Dialog, Transition, TransitionChild, DialogPanel } from '@headlessui/react';
@@ -6,89 +6,64 @@ import { Fragment } from 'react';
 import axios from '../../../utils/axiosConfig';
 import AccountLayout from '../../../layouts/AccountLayout';
 import { CurrencyContext } from '../../../context/CurrencyContext';
+import { useQuery } from '@tanstack/react-query';
 
 const Orders = () => {
-  const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
+  
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [productDetails, setProductDetails] = useState({}); // Cache for product details
   const { formatPrice } = useContext(CurrencyContext);
+  
 
-  useEffect(() => {
-    fetchOrders();
+  
+
+
+
+  // 1. Get User ID safely (useMemo performance ke liye best hai)
+  const userId = useMemo(() => {
+    const authData = localStorage.getItem('auth');
+    if (!authData) return null;
+    const parsedData = JSON.parse(authData);
+    return parsedData.userDetails?.id || parsedData.userDetails?._id;
   }, []);
 
-  const fetchProductDetails = async (productId) => {
-    if (!productId || productDetails[productId]) return;
-    
-    try {
-      let response;
-      
-      try {
-        // Try fetching by _id first
-        response = await axios.get(`/product/fetch?id=${productId}`);
-      } catch (error) {
-        // Fallback to bagchee_id
-        response = await axios.get(`/product/fetch?bagchee_id=${productId}`);
-      }
-      
-      if (response.data.status && response.data.data) {
-        const productData = Array.isArray(response.data.data) ? response.data.data[0] : response.data.data;
-        setProductDetails(prev => ({
-          ...prev,
-          [productId]: productData
-        }));
-      }
-    } catch (error) {
-      console.error(`Error fetching product ${productId}:`, error);
-    }
-  };
-
-  const fetchOrders = async () => {
-    try {
-      const authData = localStorage.getItem('auth');
-      if (!authData) {
-        setLoading(false);
-        return;
-      }
-
-      const parsedData = JSON.parse(authData);
-      const userId = parsedData.userDetails?.id || parsedData.userDetails?._id;
-
-      if (!userId) {
-        setLoading(false);
-        return;
-      }
-
+  // 🟢 2. REACT QUERY: Ye akela hook loading aur data dono handle kar lega
+  const { data: orders = [], isLoading: loading } = useQuery({
+    queryKey: ['my-orders', userId], 
+    queryFn: async () => {
+      if (!userId) return [];
       const res = await axios.get('/orders/my-orders', {
         params: { customer_id: userId }
       });
+      return res.data.status ? (res.data.data || []) : [];
+    },
+    enabled: !!userId, // Sirf tabhi chalega jab userId milegi
+  });
 
-      if (res.data.status) {
-        const ordersData = res.data.data || [];
-        setOrders(ordersData);
-        // Fetch product details for all products in orders
-        ordersData.forEach(order => {
-          if (order.products && order.products.length > 0) {
-            order.products.forEach(product => {
-              if (product.product_id) {
-                fetchProductDetails(product.product_id);
-              }
-            });
-          }
-        });
-      } else {
-        setOrders([]);
+
+
+  const fetchProductDetails = async (productId) => {
+    if (!productId || productDetails[productId]) return;
+    try {
+      let response;
+      try { response = await axios.get(`/product/fetch?id=${productId}`); }
+      catch { response = await axios.get(`/product/fetch?bagchee_id=${productId}`); }
+      if (response.data.status && response.data.data) {
+        const productData = Array.isArray(response.data.data) ? response.data.data[0] : response.data.data;
+        setProductDetails(prev => ({ ...prev, [productId]: productData }));
       }
-    } catch (error) {
-      console.error("Order Fetch Error:", error);
-      console.error("Error response:", error.response?.data);
-      setOrders([]);
-    } finally {
-      setLoading(false);
-    }
+    } catch (error) { console.error(error); }
   };
+
+  // Jab orders load ho jayein, tab details fetch karein
+  React.useEffect(() => {
+    if (orders.length > 0) {
+      orders.forEach(order => {
+        order.products?.forEach(p => p.product_id && fetchProductDetails(p.product_id));
+      });
+    }
+  }, [orders]);
 
   const getProductInfo = (product) => {
     const details = productDetails[product.product_id];
@@ -798,3 +773,4 @@ const Orders = () => {
   );
 }
 export default Orders;
+

@@ -1,19 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-  RotateCcw, TriangleAlert, Upload, Check, ChevronDown, X
+  RotateCcw, TriangleAlert, Upload, Check, ChevronDown, X, Loader2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import axios from '../../utils/axiosConfig';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // 🟢 Added React Query
+import { validateImageFiles } from '../../utils/fileValidator'; // 🟢 Image Validation Helper
 
 const AddHomeSlider = () => {
   const navigate = useNavigate();
   const { id } = useParams(); // Get ID for Edit Mode
   const isEditMode = Boolean(id);
+  const queryClient = useQueryClient();
 
-  const [loading, setLoading] = useState(false);
+  // 🟢 Flag to prevent data overwrite during typing
+  const [isDataInitialized, setIsDataInitialized] = useState(false);
 
-  // 🟢 1. Two separate states for Desktop & Mobile Images
+  // States for Desktop & Mobile Images
   const [desktopImage, setDesktopImage] = useState(null);
   const [desktopPreview, setDesktopPreview] = useState(null);
 
@@ -35,38 +39,39 @@ const AddHomeSlider = () => {
       return `${API_BASE}/${path.replace(/^\//, '')}`;
   };
 
-  // 🟢 2. FETCH DATA FOR EDIT MODE
-  useEffect(() => {
-    if (isEditMode) {
-      const fetchSliderData = async () => {
-        setLoading(true);
-        try {
-            console.log("🔍 Fetching data for ID:", id);
-          const response = await axios.get(`${process.env.REACT_APP_API_URL}/home-slider/get/${id}`);
-          if (response.data.status) {
-            const data = response.data.data;
-            console.log("✅ Data received from Backend:", data);
-            setFormData({
-              link: data.link || '',
-              active: data.isActive ? 'yes' : 'no',
-              order: data.order || ''
-            });
-
-            // Set existing previews
-            if (data.desktopImage) setDesktopPreview(getFullImageUrl(data.desktopImage));
-            if (data.mobileImage) setMobilePreview(getFullImageUrl(data.mobileImage));
-          }
-        } catch (error) {
-          console.error("Error fetching slider:", error);
-          toast.error("Could not load slider details");
-          navigate('/admin/home-slider');
-        } finally {
-          setLoading(false);
-        }
-      };
-      fetchSliderData();
+  // 🚀 OPTIMIZATION 1: Fetch Existing Data using useQuery
+  const { data: sliderData, isLoading: fetching } = useQuery({
+    queryKey: ['sliderDetails', id],
+    queryFn: async () => {
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/home-slider/get/${id}`);
+      if (!response.data.status) throw new Error("Failed to fetch");
+      return response.data.data;
+    },
+    enabled: isEditMode, // Only run in edit mode
+    staleTime: 1000 * 60 * 5, // Cache for 5 mins
+    refetchOnWindowFocus: false,
+    onError: (error) => {
+      toast.error("Could not load slider details");
+      navigate('/admin/home-slider');
     }
-  }, [id, isEditMode, navigate]);
+  });
+
+  // 🟢 2. Initialize State ONCE when data arrives
+  useEffect(() => {
+    if (isEditMode && sliderData && !isDataInitialized) {
+      setFormData({
+        link: sliderData.link || '',
+        active: sliderData.isActive ? 'yes' : 'no',
+        order: sliderData.order || ''
+      });
+
+      // Set existing previews
+      if (sliderData.desktopImage) setDesktopPreview(getFullImageUrl(sliderData.desktopImage));
+      if (sliderData.mobileImage) setMobilePreview(getFullImageUrl(sliderData.mobileImage));
+      
+      setIsDataInitialized(true); // Lock the initialization
+    }
+  }, [isEditMode, sliderData, isDataInitialized]);
 
   // 🟢 3. AUTO-GENERATE PREVIEW (Desktop)
   useEffect(() => {
@@ -99,13 +104,44 @@ const AddHomeSlider = () => {
     if (input) input.value = "";
   };
 
-  const handleChange = (e) => {
+  const handleChange = useCallback((e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  }, []);
+
+  // 🟢 Image Selection with Validation
+  const onFileSelect = (e, setImage) => {
+    if (e.target.files && e.target.files[0]) {
+        const file = e.target.files[0];
+        // Standardize image validation using helper
+        if (validateImageFiles(file)) {
+            setImage(file);
+        } else {
+            e.target.value = ""; // Reset input on failure
+        }
+    }
   };
 
+  // 🚀 OPTIMIZATION 2: Unified Save/Update Mutation
+  const saveSliderMutation = useMutation({
+    mutationFn: async (payload) => {
+      const API_URL = process.env.REACT_APP_API_URL;
+      if (isEditMode) {
+        const res = await axios.patch(`${API_URL}/home-slider/update/${id}`, payload, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        return res.data;
+      } else {
+        const res = await axios.post(`${API_URL}/home-slider/save`, payload, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        return res.data;
+      }
+    }
+  });
+
   // 🟢 SUBMIT HANDLER
-  const handleSubmit = async (e, actionType) => {
+  const handleSubmit = (e, actionType) => {
     e.preventDefault();
 
     // Validation: Add Mode needs both images
@@ -113,68 +149,53 @@ const AddHomeSlider = () => {
          return toast.error("Please upload both Desktop and Mobile images.");
     }
 
-    setLoading(true);
     const toastId = toast.loading(isEditMode ? "Updating slider..." : "Saving slider...");
 
-    try {
-      const data = new FormData();
+    const data = new FormData();
+    data.append('link', formData.link);
+    data.append('isActive', formData.active === 'yes');
+    data.append('order', formData.order);
 
-      // Append textual data
-      data.append('link', formData.link);
-      data.append('isActive', formData.active === 'yes');
-      data.append('order', formData.order);
+    if (desktopImage) data.append('desktopImage', desktopImage);
+    if (mobileImage) data.append('mobileImage', mobileImage);
 
-      // Append images ONLY if new ones selected
-      if (desktopImage) data.append('desktopImage', desktopImage);
-      if (mobileImage) data.append('mobileImage', mobileImage);
+    saveSliderMutation.mutate(data, {
+      onSuccess: (resData) => {
+        if (resData.status) {
+          toast.success(resData.msg || "Success!", { id: toastId });
+          
+          if (isEditMode) {
+            queryClient.invalidateQueries(['sliderDetails', id]);
+          }
 
-      // 🚀 LOG 1: FORM DATA INSPECTION (Very Important for debugging)
-    console.log("📤 Preparing to send request. FormData Contents:");
-    for (let pair of data.entries()) {
-        // Desktop/Mobile image ke liye file objects dikhayega
-        console.log(`${pair[0]}:`, pair[1]); 
-    }
-
-
-      let response;
-      if (isEditMode) {
-        console.log(`🔄 Sending PUT request to update ID: ${id}`);
-        response = await axios.put(`${process.env.REACT_APP_API_URL}/home-slider/update/${id}`, data, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-        });
-      } else {
-        console.log("➕ Sending POST request to save new slider");
-        response = await axios.post(`${process.env.REACT_APP_API_URL}/home-slider/save`, data, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-        });
-      }
-
-      // 🚀 LOG 2: SERVER SUCCESS RESPONSE
-    console.log("📥 Server Response received:", response.data);
-
-    
-      if (response.data.status) {
-        toast.success(response.data.msg || "Success!", { id: toastId });
-
-        if (actionType === 'back') {
-           navigate('/admin/home-slider');
+          if (actionType === 'back') {
+             navigate('/admin/home-slider');
+          } else if (!isEditMode) {
+             setFormData({ link: '', active: 'no', order: '' });
+             setDesktopImage(null); setDesktopPreview(null);
+             setMobileImage(null); setMobilePreview(null);
+             document.getElementById('desktop-file-input').value = "";
+             document.getElementById('mobile-file-input').value = "";
+          }
         } else {
-           if (!isEditMode) {
-               // Reset form for Add Mode
-               setFormData({ link: '', active: 'no', order: '' });
-               setDesktopImage(null); setDesktopPreview(null);
-               setMobileImage(null); setMobilePreview(null);
-           }
+            toast.error(resData.msg || "Operation failed", { id: toastId });
         }
+      },
+      onError: (error) => {
+        const errorMsg = error.response?.data?.msg || "Failed to connect to server";
+        toast.error(errorMsg, { id: toastId });
       }
-    } catch (error) {
-      console.error("Submit Error:", error);
-      const errorMsg = error.response?.data?.msg || "Failed to connect to server";
-      toast.error(errorMsg, { id: toastId });
-    } finally {
-      setLoading(false);
-    }
+    });
   };
+
+  // Full Screen Loader for Setup
+  if (isEditMode && (fetching || !isDataInitialized)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-cream-50">
+        <Loader2 className="animate-spin text-primary" size={32} />
+      </div>
+    );
+  }
 
   return (
     <div className="bg-gray-50 min-h-screen font-body p-4 md:p-8">
@@ -190,7 +211,7 @@ const AddHomeSlider = () => {
         <form className="p-6 md:p-10 space-y-6" onSubmit={(e) => e.preventDefault()}>
 
            {/* 🟢 1. DESKTOP IMAGE UPLOAD */}
-           <FormRow label="Desktop Image * (1920x600)">
+           <FormRow label="Desktop Image">
              <div className="flex items-start gap-4">
                  <div className="flex flex-col gap-2 justify-center h-16">
                      <div className="flex items-center gap-3">
@@ -201,12 +222,11 @@ const AddHomeSlider = () => {
                                 id="desktop-file-input"
                                 type="file" 
                                 className="hidden" 
-                                onChange={(e) => setDesktopImage(e.target.files[0])} 
-                                accept="image/*" 
+                                onChange={(e) => onFileSelect(e, setDesktopImage)} 
+                                accept="image/jpeg,image/png,image/webp" 
                             />
                          </label>
 
-                         {/* Preview */}
                          {desktopPreview && (
                             <div className="relative group shrink-0">
                                 <div className="w-32 h-12 rounded-lg border border-gray-200 overflow-hidden shadow-sm">
@@ -230,7 +250,7 @@ const AddHomeSlider = () => {
            </FormRow>
 
            {/* 🟢 2. MOBILE IMAGE UPLOAD */}
-           <FormRow label="Mobile Image * (600x600)">
+           <FormRow label="Mobile Image">
              <div className="flex items-start gap-4">
                  <div className="flex flex-col gap-2 justify-center h-16">
                      <div className="flex items-center gap-3">
@@ -241,12 +261,11 @@ const AddHomeSlider = () => {
                                 id="mobile-file-input"
                                 type="file" 
                                 className="hidden" 
-                                onChange={(e) => setMobileImage(e.target.files[0])} 
-                                accept="image/*" 
+                                onChange={(e) => onFileSelect(e, setMobileImage)} 
+                                accept="image/jpeg,image/png,image/webp" 
                             />
                          </label>
 
-                         {/* Preview */}
                          {mobilePreview && (
                             <div className="relative group shrink-0">
                                 <div className="w-12 h-12 rounded-lg border border-gray-200 overflow-hidden shadow-sm">
@@ -288,15 +307,25 @@ const AddHomeSlider = () => {
            </FormRow>
 
            <div className="pt-8 flex flex-wrap justify-center gap-4 border-t border-gray-100 mt-8 font-montserrat">
-              <button type="button" disabled={loading} onClick={(e) => handleSubmit(e, 'stay')} className={`flex items-center gap-2 bg-primary hover:bg-primary-hover text-white px-6 py-2.5 rounded shadow-lg shadow-primary/30 transition-all transform active:scale-95 text-sm font-bold uppercase tracking-wider ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}>
-                 {loading ? 'Processing...' : <><Check size={18} strokeWidth={3} /> {isEditMode ? "Update" : "Save"}</>}
+              <button 
+                type="button" 
+                disabled={saveSliderMutation.isPending} 
+                onClick={(e) => handleSubmit(e, 'stay')} 
+                className={`flex items-center gap-2 bg-primary hover:bg-primary-hover text-white px-6 py-2.5 rounded shadow-lg shadow-primary/30 transition-all transform active:scale-95 text-sm font-bold uppercase tracking-wider ${saveSliderMutation.isPending ? 'opacity-70 cursor-not-allowed' : ''}`}
+              >
+                 {saveSliderMutation.isPending ? <Loader2 size={16} className="animate-spin"/> : <><Check size={18} strokeWidth={3} /> {isEditMode ? "Update" : "Save"}</>}
               </button>
 
-              <button type="button" disabled={loading} onClick={(e) => handleSubmit(e, 'back')} className="flex items-center gap-2 bg-text-main hover:bg-black text-white px-6 py-2.5 rounded shadow-md transition-all transform active:scale-95 text-sm font-bold uppercase tracking-wider">
-                 <RotateCcw size={16} /> {isEditMode ? "Update & Go Back" : "Save & Go Back"}
+              <button 
+                type="button" 
+                disabled={saveSliderMutation.isPending} 
+                onClick={(e) => handleSubmit(e, 'back')} 
+                className="flex items-center gap-2 bg-text-main hover:bg-black text-white px-6 py-2.5 rounded shadow-md transition-all transform active:scale-95 text-sm font-bold uppercase tracking-wider disabled:opacity-70"
+              >
+                 {saveSliderMutation.isPending ? <Loader2 size={16} className="animate-spin"/> : <RotateCcw size={16} />} {isEditMode ? "Update & Go Back" : "Save & Go Back"}
               </button>
 
-              <button type="button" onClick={() => navigate('/admin/home-slider')} className="flex items-center gap-2 bg-white border border-gray-300 text-text-muted hover:text-red-500 hover:border-red-500 px-6 py-2.5 rounded shadow-sm transition-all text-sm font-bold uppercase tracking-wider">
+              <button type="button" onClick={() => navigate('/admin/home-slider')} className="flex items-center gap-2 bg-white border border-gray-300 text-text-muted hover:text-red-500 hover:border-red-500 px-6 py-2.5 rounded shadow-sm transition-all text-sm font-bold uppercase tracking-wider disabled:opacity-50">
                  <TriangleAlert size={16} /> Cancel
               </button>
            </div>
@@ -317,7 +346,7 @@ const AddHomeSlider = () => {
         }
         .theme-input:focus {
            border-color: #008DDA; 
-           box-shadow: 0 0 0 3px rgba(0, 141, 218, 0.1);
+           box-shadow: 0 0 0 3px rgba(0, 141, 218, 0.15);
            outline: none;
         }
       `}</style>

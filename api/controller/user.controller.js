@@ -42,7 +42,7 @@ export const verifyUser = async (req, res) => {
 // ==========================================
 export const register = async (req, res) => {
     try {
-        console.log("🔹 Register Request Body:", req.body);
+        // console.log("🔹 Register Request Body:", req.body);
 
         // 1. Data Extraction (Frontend aur Backend dono styles handle karein)
         let { 
@@ -81,7 +81,7 @@ export const register = async (req, res) => {
         // 3. Duplicate Check
         const existingUser = await UserSchemaModel.findOne({ 
             $or: [{ email: email }, { username: username }] 
-        });
+        }).lean();;
         
         if (existingUser) {
             return res.status(400).json({ status: false, msg: "User already exists with this email or username." });

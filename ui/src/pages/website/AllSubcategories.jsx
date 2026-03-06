@@ -1,80 +1,71 @@
-import React, { useState, useEffect } from "react";
+'use client';
+
+import React, { useMemo } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import axios from "../../utils/axiosConfig";
 import { ChevronRight, ArrowLeft } from "lucide-react";
+import { useQuery } from "@tanstack/react-query"; // 🟢 React Query Import
 
 const AllSubcategories = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
-  
-  const [loading, setLoading] = useState(true);
-  const [category, setCategory] = useState(null);
-  const [subcategories, setSubcategories] = useState([]);
 
-  useEffect(() => {
-    const fetchCategoryAndSubcategories = async () => {
-      setLoading(true);
-      try {
-        const [catRes, subcatRes] = await Promise.all([
-          axios.get(`${process.env.REACT_APP_API_URL}/category/fetch`),
-          axios.get(`${process.env.REACT_APP_API_URL}/subcategory/fetch`)
-        ]);
-        
-        if (catRes.data.status && subcatRes.data.status) {
-          const allCategories = buildCategoryTree(catRes.data.data);
-          const allSubcategories = subcatRes.data.data;
-          
-          // Find the category by slug
-          const findCategoryBySlug = (categories, targetSlug) => {
-            for (const cat of categories) {
-              if (cat.slug === targetSlug) return cat;
-              if (cat.children && cat.children.length > 0) {
-                const found = findCategoryBySlug(cat.children, targetSlug);
-                if (found) return found;
-              }
-            }
-            return null;
-          };
-
-          const foundCategory = findCategoryBySlug(allCategories, slug);
-          
-          if (foundCategory) {
-            setCategory(foundCategory);
-            // Filter subcategories that belong to this category
-            const filteredSubcategories = allSubcategories.filter(
-              (subcat) => {
-                // Try multiple possible field names for the category reference
-                const catId = subcat.categoryId || subcat.categoryid || subcat.category_id || subcat.category;
-                const catIdStr = typeof catId === 'object' ? catId._id : catId;
-                const foundCatIdStr = foundCategory._id;
-                
-                return catIdStr === foundCatIdStr || String(catIdStr) === String(foundCatIdStr);
-              }
-            );
-            setSubcategories(filteredSubcategories);
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching categories:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchCategoryAndSubcategories();
-  }, [slug]);
-
+  // Helper function to build tree (No changes)
   const buildCategoryTree = (categories) => {
     const map = {};
     const tree = [];
     categories.forEach((c) => (map[c._id] = { ...c, children: [] }));
     categories.forEach((c) => {
-      if (c.parentid && map[c.parentid])
-        map[c.parentid].children.push(map[c._id]);
+      if (c.parentid && map[c.parentid]) map[c.parentid].children.push(map[c._id]);
       else tree.push(map[c._id]);
     });
     return tree;
   };
+
+  // Helper to find category (No changes)
+  const findCategoryBySlug = (categories, targetSlug) => {
+    for (const cat of categories) {
+      if (cat.slug === targetSlug) return cat;
+      if (cat.children && cat.children.length > 0) {
+        const found = findCategoryBySlug(cat.children, targetSlug);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
+  // 🟢 1. FETCH CATEGORIES & SUBCATEGORIES (useQuery)
+  const { data, isLoading: loading } = useQuery({
+    queryKey: ['category-tree-with-sub', slug],
+    queryFn: async () => {
+      const [catRes, subcatRes] = await Promise.all([
+        axios.get(`${process.env.REACT_APP_API_URL}/category/fetch`),
+        axios.get(`${process.env.REACT_APP_API_URL}/subcategory/fetch`)
+      ]);
+
+      if (catRes.data.status && subcatRes.data.status) {
+        const allCategories = buildCategoryTree(catRes.data.data);
+        const allSubcategories = subcatRes.data.data;
+        
+        const foundCategory = findCategoryBySlug(allCategories, slug);
+        
+        if (foundCategory) {
+          const filteredSubcategories = allSubcategories.filter((subcat) => {
+            const catId = subcat.categoryId || subcat.categoryid || subcat.category_id || subcat.category;
+            const catIdStr = typeof catId === 'object' ? catId._id : catId;
+            return String(catIdStr) === String(foundCategory._id);
+          });
+          
+          return { category: foundCategory, subcategories: filteredSubcategories };
+        }
+      }
+      return { category: null, subcategories: [] };
+    },
+    staleTime: 1000 * 60 * 10, // 10 minute tak data fresh rahega
+  });
+
+  const category = data?.category;
+  const subcategories = data?.subcategories || [];
 
   if (loading) {
     return (

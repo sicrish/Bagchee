@@ -1,17 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Check, RotateCcw, X, Loader2, ArrowLeft } from 'lucide-react';
 import axios from '../../utils/axiosConfig';
-
 import toast from 'react-hot-toast';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // 🟢 useQueryClient Added
 
 const EditCoupons = () => {
-  const { id } = useParams(); // Get ID from URL
+  const { id } = useParams(); 
   const navigate = useNavigate();
-  
-  const [loading, setLoading] = useState(false); // For Submit button
-  const [fetching, setFetching] = useState(true); // For initial data load
-  const [categoryList, setCategoryList] = useState([]);
+  const queryClient = useQueryClient(); // 🟢 Cache refresh ke liye
+
+  const [isDataInitialized, setIsDataInitialized] = useState(false);
 
   const [formData, setFormData] = useState({
     code: '',
@@ -33,111 +32,108 @@ const EditCoupons = () => {
     categories: ''
   });
 
-  // 🟢 1. Fetch Existing Data
-  useEffect(() => {
-    const fetchCouponData = async () => {
-      try {
-        const API_URL = process.env.REACT_APP_API_URL;
-       // ⚡ Parallel Fetch: Categories + Coupon Data
-       const [categoryRes, couponRes] = await Promise.all([
+  // 🚀 FETCH DATA
+  const { data: pageData, isLoading: fetching } = useQuery({
+    queryKey: ['editCouponData', id],
+    queryFn: async () => {
+      const API_URL = process.env.REACT_APP_API_URL;
+      const [categoryRes, couponRes] = await Promise.all([
         axios.get(`${API_URL}/category/fetch`),
         axios.get(`${API_URL}/coupons/get/${id}`)
-    ]);
+      ]);
 
-    // 1️⃣ Set Categories List
-    if (categoryRes.data.status) {
-        setCategoryList(categoryRes.data.data || []);
+      if (!couponRes.data.status) throw new Error("Could not fetch coupon details");
+
+      return {
+        categories: categoryRes.data.status ? categoryRes.data.data || [] : [],
+        couponData: couponRes.data.data
+      };
+    },
+    enabled: !!id, 
+    staleTime: 1000 * 60 * 5, 
+    refetchOnWindowFocus: false, // 🟢 Overwrite roko
+    onError: (error) => {
+      toast.error("Failed to load data.");
+      navigate('/admin/coupons');
     }
+  });
 
-    // 2️⃣ Set Coupon Data
-    if (couponRes.data.status) {
-      const data = couponRes.data.data;
+  // 🟢 POPULATE STATE SAFELY
+  useEffect(() => {
+    if (pageData && !isDataInitialized) {
+      const { couponData: data } = pageData;
 
-          // 🟡 Date Formatting Fix: 
-          // Backend sends ISO (2024-02-01T00:00:00.000Z), HTML input needs (2024-02-01)
-          const formatDate = (dateString) => {
-            if (!dateString) return '';
-            return dateString.split('T')[0];
-          };
+      // Safely parse ISO Dates to YYYY-MM-DD for HTML input
+      const formatDate = (dateString) => {
+        if (!dateString) return '';
+        const d = new Date(dateString);
+        return d.toISOString().split('T')[0];
+      };
 
-          const savedCategory = (data.categories && data.categories.length > 0) 
-            ? data.categories[0] 
-            : "";
-
-          setFormData({
-            ...data,
-            valid_from: formatDate(data.valid_from),
-            valid_to: formatDate(data.valid_to),
-            // Ensure numbers are converted to strings for inputs to avoid warnings
-            amount: data.amount || '',
-            minimum_buy: data.minimum_buy || '',
-            price_over_only: data.price_over_only || '',
-            categories:savedCategory// Assuming single select for now
-          });
-        } else {
-          toast.error("Could not fetch coupon details.");
-          navigate('/admin/coupons');
-        }
-      } catch (error) {
-        console.error(error);
-        toast.error("Failed to load data.");
-        navigate('/admin/coupons');
-      } finally {
-        setFetching(false);
+      let savedCategory = "";
+      if (Array.isArray(data.categories) && data.categories.length > 0) {
+          savedCategory = data.categories[0];
+      } else if (typeof data.categories === 'string') {
+          savedCategory = data.categories;
       }
-    };
 
-    if (id) fetchCouponData();
-  }, [id, navigate]);
+      setFormData({
+        ...data,
+        valid_from: formatDate(data.valid_from),
+        valid_to: formatDate(data.valid_to),
+        amount: data.amount || '',
+        minimum_buy: data.minimum_buy || '',
+        price_over_only: data.price_over_only || '',
+        categories: savedCategory 
+      });
 
-  const handleChange = (e) => {
+      setIsDataInitialized(true); 
+    }
+  }, [pageData, isDataInitialized]);
+
+  // 🚀 UPDATE MUTATION
+  const updateCouponMutation = useMutation({
+    mutationFn: async (submitData) => {
+      const API_URL = process.env.REACT_APP_API_URL;
+      const res = await axios.patch(`${API_URL}/coupons/update/${id}`, submitData);
+      return res.data;
+    }
+  });
+
+  const handleChange = useCallback((e) => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
-  };
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  }, []);
 
-  // 🟢 2. Update Logic (PUT Request)
-  const handleSubmit = async (e, actionType) => {
+  // 🟢 SUBMIT HANDLER
+  const handleSubmit = (e, actionType) => {
     e.preventDefault();
     if (!formData.code || !formData.title) return toast.error("Code and Title are required!");
 
-    setLoading(true);
     const toastId = toast.loading("Updating coupon...");
 
-    try {
-      const API_URL = process.env.REACT_APP_API_URL;
-      // Using PUT for updates
-      const res = await axios.patch(`${API_URL}/coupons/update/${id}`, formData);
+    updateCouponMutation.mutate(formData, {
+      onSuccess: (resData) => {
+        if (resData.status) {
+          toast.success("Coupon updated successfully! 🎫", { id: toastId });
+          
+          // 🟢 PURANA CACHE DELETE KARO TAAKI DATA OVERWRITE NA HO
+          queryClient.invalidateQueries({ queryKey: ['editCouponData', id] });
 
-      if (res.data.status) {
-        toast.success("Coupon updated successfully! 🎫", { id: toastId });
-        if (actionType === 'back') {
-          navigate('/admin/coupons');
-        } 
-        // If 'stay', we don't need to clear form, just keep edited data
+          if (actionType === 'back') {
+            navigate('/admin/coupons');
+          }
+        } else {
+          toast.error(resData.msg || "Failed to update", { id: toastId });
+        }
+      },
+      onError: (error) => {
+        toast.error(error.response?.data?.msg || "Failed to update", { id: toastId });
       }
-    } catch (error) {
-      toast.error(error.response?.data?.msg || "Failed to update", { id: toastId });
-    } finally {
-      setLoading(false);
-    }
+    });
   };
 
-  // Helper function for radio rows
-  const RadioRow = (label, name) => (
-    <div className="grid grid-cols-12 gap-4 items-center border-b border-cream-50 pb-4">
-      <label className="col-span-3 text-right text-[11px] font-bold text-text-muted uppercase font-montserrat">{label}</label>
-      <div className="col-span-9 flex gap-6">
-        <label className="flex items-center gap-2 text-sm cursor-pointer">
-          <input type="radio" name={name} value="active" checked={formData[name] === "active"} onChange={handleChange} className="accent-primary w-4 h-4" /> active
-        </label>
-        <label className="flex items-center gap-2 text-sm cursor-pointer">
-          <input type="radio" name={name} value="inactive" checked={formData[name] === "inactive"} onChange={handleChange} className="accent-primary w-4 h-4" /> inactive
-        </label>
-      </div>
-    </div>
-  );
-
-  if (fetching) {
+  if (fetching || !isDataInitialized) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-cream-50">
         <Loader2 className="animate-spin text-primary" size={40} />
@@ -145,11 +141,22 @@ const EditCoupons = () => {
     );
   }
 
+  const radioFields = [
+    { label: "Active", name: "active" },
+    { label: "Fix amount", name: "fix_amount" },
+    { label: "New customer only", name: "new_customer_only" },
+    { label: "Members only", name: "members_only" },
+    { label: "Next order only", name: "next_order_only" },
+    { label: "Bestseller only", name: "bestseller_only" },
+    { label: "Recommended only", name: "recommended_only" },
+    { label: "New arrivals only", name: "new_arrivals_only" },
+    { label: "Get third free", name: "get_third_free" }
+  ];
+
   return (
     <div className="bg-cream-50 min-h-screen font-body text-text-main pb-10">
       
-      {/* 🔵 Header Bar */}
-      <div className="bg-primary  px-6 py-3 shadow-md flex items-center justify-between">
+      <div className="bg-primary px-6 py-3 shadow-md flex items-center justify-between">
         <div className="flex items-center gap-3">
              <button onClick={() => navigate('/admin/coupons')} className="text-white hover:bg-white/20 p-1 rounded-full transition">
                 <ArrowLeft size={20} />
@@ -194,8 +201,20 @@ const EditCoupons = () => {
               </div>
             </div>
 
-            {RadioRow("Active", "active")}
-            {RadioRow("Fix amount", "fix_amount")}
+            {/* Top Radios */}
+            {[radioFields[0], radioFields[1]].map((field) => (
+              <div key={field.name} className="grid grid-cols-12 gap-4 items-center border-b border-cream-50 pb-4">
+                <label className="col-span-3 text-right text-[11px] font-bold text-text-muted uppercase font-montserrat">{field.label}</label>
+                <div className="col-span-9 flex gap-6">
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input type="radio" name={field.name} value="active" checked={formData[field.name] === "active"} onChange={handleChange} className="accent-primary w-4 h-4" /> active
+                  </label>
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input type="radio" name={field.name} value="inactive" checked={formData[field.name] === "inactive"} onChange={handleChange} className="accent-primary w-4 h-4" /> inactive
+                  </label>
+                </div>
+              </div>
+            ))}
 
             {/* Amount */}
             <div className="grid grid-cols-12 gap-4 items-center border-b border-cream-50 pb-4">
@@ -229,40 +248,47 @@ const EditCoupons = () => {
               </div>
             </div>
 
-            {RadioRow("New customer only", "new_customer_only")}
-            {RadioRow("Members only", "members_only")}
-            {RadioRow("Next order only", "next_order_only")}
-            {RadioRow("Bestseller only", "bestseller_only")}
-            {RadioRow("Recommended only", "recommended_only")}
-            {RadioRow("New arrivals only", "new_arrivals_only")}
-            {RadioRow("Get third free", "get_third_free")}
+            {/* Remaining Radios */}
+            {radioFields.slice(2).map((field) => (
+              <div key={field.name} className="grid grid-cols-12 gap-4 items-center border-b border-cream-50 pb-4">
+                <label className="col-span-3 text-right text-[11px] font-bold text-text-muted uppercase font-montserrat">{field.label}</label>
+                <div className="col-span-9 flex gap-6">
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input type="radio" name={field.name} value="active" checked={formData[field.name] === "active"} onChange={handleChange} className="accent-primary w-4 h-4" /> active
+                  </label>
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input type="radio" name={field.name} value="inactive" checked={formData[field.name] === "inactive"} onChange={handleChange} className="accent-primary w-4 h-4" /> inactive
+                  </label>
+                </div>
+              </div>
+            ))}
 
-            {/* 🟢 DYNAMIC CATEGORY DROPDOWN */}
-            <div className="grid grid-cols-12 gap-4 items-center border-b border-cream-50 pb-4">
+           {/* 🟢 CATEGORY DROPDOWN */}
+           <div className="grid grid-cols-12 gap-4 items-center border-b border-cream-50 pb-4">
               <label className="col-span-3 text-right text-[11px] font-bold text-text-muted uppercase font-montserrat">Categories</label>
               <div className="col-span-9">
                 <select name="categories" value={formData.categories} onChange={handleChange} className="theme-input w-full">
                   <option value="">Select Category</option>
-                  {categoryList.map((cat) => (
+                  {pageData?.categories && pageData.categories.map((cat) => (
                     <option key={cat._id} value={cat._id}>
-                      {cat.categorytitle} {/* Display Name */}
+                      {cat.categorytitle}
                     </option>
                   ))}
                 </select>
               </div>
             </div>
 
-            {/* --- ACTION BUTTONS --- */}
+            {/* ACTION BUTTONS */}
             <div className="flex justify-center items-center gap-4 pt-8 border-t mt-4 font-montserrat">
-              <button onClick={(e) => handleSubmit(e, 'stay')} disabled={loading} className="bg-primary text-white px-8 py-2.5 rounded font-bold text-[10px] uppercase shadow-md active:scale-95 transition-all flex items-center gap-2">
-                {loading ? <Loader2 size={14} className="animate-spin"/> : <Check size={14}/>} Update
+              <button type="button" onClick={(e) => handleSubmit(e, 'stay')} disabled={updateCouponMutation.isPending} className="bg-primary text-white px-8 py-2.5 rounded font-bold text-[10px] uppercase shadow-md active:scale-95 hover:brightness-110 transition-all flex items-center gap-2 disabled:opacity-70">
+                {updateCouponMutation.isPending ? <Loader2 size={14} className="animate-spin"/> : <Check size={14}/>} Update
               </button>
               
-              <button onClick={(e) => handleSubmit(e, 'back')} disabled={loading} className="bg-text-main text-white px-8 py-2.5 rounded font-bold text-[10px] uppercase shadow-md active:scale-95 transition-all flex items-center gap-2">
+              <button type="button" onClick={(e) => handleSubmit(e, 'back')} disabled={updateCouponMutation.isPending} className="bg-text-main text-white px-8 py-2.5 rounded font-bold text-[10px] uppercase shadow-md active:scale-95 hover:opacity-90 transition-all flex items-center gap-2 disabled:opacity-70">
                 <RotateCcw size={14}/> Update and go back to list
               </button>
 
-              <button type="button" onClick={() => navigate('/admin/coupons')} className="bg-white border border-cream-200 text-text-main px-8 py-2.5 rounded font-bold text-[10px] uppercase shadow-sm hover:bg-cream-50 active:scale-95 transition-all flex items-center gap-2">
+              <button type="button" onClick={() => navigate('/admin/coupons')} disabled={updateCouponMutation.isPending} className="bg-white border border-cream-200 text-text-main px-8 py-2.5 rounded font-bold text-[10px] uppercase shadow-sm hover:bg-cream-50 active:scale-95 transition-all flex items-center gap-2 disabled:opacity-70">
                 <X size={14} className="text-red-600" /> Cancel
               </button>
             </div>

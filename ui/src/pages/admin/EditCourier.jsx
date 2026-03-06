@@ -3,91 +3,103 @@ import { Save, RotateCcw, X, Check, Loader2 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // 🟢 React Query added
 
 const EditCourier = () => {
   const navigate = useNavigate();
-  const { id } = useParams(); // 🟢 Get ID from URL
+  const { id } = useParams(); // Get ID from URL
+  const queryClient = useQueryClient(); // 🟢 Cache manage karne ke liye
   
-  // Loading states
-  const [loading, setLoading] = useState(false); // For Update button
-  const [fetching, setFetching] = useState(true); // For Initial Data Load
-
   // State for form fields
   const [title, setTitle] = useState('');
   const [trackingPage, setTrackingPage] = useState('');
   const [isActive, setIsActive] = useState(true);
 
-  // 🟢 1. FETCH EXISTING DATA
-  useEffect(() => {
-    const fetchCourierDetails = async () => {
-      try {
-        const API_URL = process.env.REACT_APP_API_URL;
-        const res = await axios.get(`${API_URL}/couriers/get/${id}`);
+  // Ek flag lagaya taaki form ka data sirf pehli baar (mount hone par) fill ho
+  const [isDataInitialized, setIsDataInitialized] = useState(false);
 
-        if (res.data.status) {
-          const data = res.data.data;
-          setTitle(data.title);
-          setTrackingPage(data.trackingPage);
-          setIsActive(data.isActive);
-        } else {
-          toast.error("Courier not found");
-          navigate('/admin/couriers');
-        }
-      } catch (error) {
-        console.error("Fetch Error:", error);
-        toast.error("Failed to fetch courier details");
-        navigate('/admin/couriers');
-      } finally {
-        setFetching(false);
+  // 🚀 OPTIMIZATION 1: FETCH EXISTING DATA WITH useQuery
+  const { data: courierData, isLoading: fetching } = useQuery({
+    queryKey: ['editCourierData', id],
+    queryFn: async () => {
+      const API_URL = process.env.REACT_APP_API_URL;
+      const res = await axios.get(`${API_URL}/couriers/get/${id}`);
+      
+      if (!res.data.status) {
+        throw new Error("Courier not found");
       }
-    };
-
-    if (id) {
-      fetchCourierDetails();
+      return res.data.data;
+    },
+    enabled: !!id, // Run only if ID exists
+    staleTime: 1000 * 60 * 5, // Cache for 5 mins
+    refetchOnWindowFocus: false, // Auto-refresh roko taaki form data overwrite na ho
+    onError: (error) => {
+      console.error("Fetch Error:", error);
+      toast.error("Failed to fetch courier details");
+      navigate('/admin/couriers');
     }
-  }, [id, navigate]);
+  });
+
+  // 🟢 Effect to populate state ONLY ONCE when data arrives
+  useEffect(() => {
+    if (courierData && !isDataInitialized) {
+      setTitle(courierData.title || '');
+      setTrackingPage(courierData.trackingPage || '');
+      setIsActive(courierData.isActive);
+      
+      setIsDataInitialized(true); // Lock it
+    }
+  }, [courierData, isDataInitialized]);
+
+  // 🚀 OPTIMIZATION 2: UPDATE MUTATION
+  const updateCourierMutation = useMutation({
+    mutationFn: async (payload) => {
+      const API_URL = process.env.REACT_APP_API_URL;
+      const res = await axios.patch(`${API_URL}/couriers/update/${id}`, payload);
+      return res.data;
+    }
+  });
 
   // 🟢 2. HANDLE UPDATE
-  const handleUpdate = async (e, actionType) => {
+  const handleUpdate = (e, actionType) => {
     e.preventDefault();
 
     // Validation
     if (!title.trim()) return toast.error("Title is required");
     if (!trackingPage.trim()) return toast.error("Tracking Page URL is required");
 
-    setLoading(true);
     const toastId = toast.loading("Updating courier...");
 
-    try {
-      const API_URL = process.env.REACT_APP_API_URL;
-      
-      const payload = {
-        title: title,
-        trackingPage: trackingPage,
-        isActive: isActive
-      };
+    const payload = {
+      title: title,
+      trackingPage: trackingPage,
+      isActive: isActive
+    };
 
-      // PUT Request for Update
-      const res = await axios.patch(`${API_URL}/couriers/update/${id}`, payload);
+    updateCourierMutation.mutate(payload, {
+      onSuccess: (resData) => {
+        if (resData.status) {
+          toast.success("Courier Updated Successfully!", { id: toastId });
+          
+          // Purana cache delete karo taaki updated data reflect ho
+          queryClient.invalidateQueries({ queryKey: ['editCourierData', id] });
 
-      if (res.data.status) {
-        toast.success("Courier Updated Successfully!", { id: toastId });
-        
-        if (actionType === 'back') {
-          navigate('/admin/couriers');
+          if (actionType === 'back') {
+            navigate('/admin/couriers');
+          }
+        } else {
+          toast.error(resData.msg || "Failed to update courier", { id: toastId });
         }
-        // If actionType is 'stay', we just stay on the page with updated data
+      },
+      onError: (error) => {
+        console.error("Update Error:", error);
+        toast.error(error.response?.data?.msg || "Failed to update courier", { id: toastId });
       }
-    } catch (error) {
-      console.error("Update Error:", error);
-      toast.error(error.response?.data?.msg || "Failed to update courier", { id: toastId });
-    } finally {
-      setLoading(false);
-    }
+    });
   };
 
   // 🟢 SHOW LOADER WHILE FETCHING
-  if (fetching) {
+  if (fetching || !isDataInitialized) {
     return (
       <div className="min-h-screen flex flex-col justify-center items-center bg-cream-50 font-body text-text-muted">
         <Loader2 className="w-10 h-10 animate-spin text-primary mb-2" />
@@ -159,14 +171,15 @@ const EditCourier = () => {
             </div>
 
             {/* Action Buttons */}
+            {/* 🟢 Disabled logic bound to useMutation's isPending */}
             <div className="flex flex-wrap justify-center items-center gap-4 pt-6">
-              <button onClick={(e) => handleUpdate(e, 'stay')} disabled={loading} className="flex items-center bg-white border border-gray-300 text-text-main px-6 py-2 rounded font-bold text-xs uppercase shadow-sm hover:bg-gray-50 active:scale-95 transition-all">
-                {loading ? "Updating..." : <><Check size={16} className="mr-2" /> Update</>}
+              <button onClick={(e) => handleUpdate(e, 'stay')} disabled={updateCourierMutation.isPending} className="flex items-center bg-white border border-gray-300 text-text-main px-6 py-2 rounded font-bold text-xs uppercase shadow-sm hover:bg-gray-50 active:scale-95 transition-all disabled:opacity-50">
+                {updateCourierMutation.isPending ? "Updating..." : <><Check size={16} className="mr-2" /> Update</>}
               </button>
-              <button onClick={(e) => handleUpdate(e, 'back')} disabled={loading} className="flex items-center bg-gray-100 border border-gray-300 text-text-main px-6 py-2 rounded font-bold text-xs uppercase shadow-sm hover:bg-gray-200 active:scale-95 transition-all">
+              <button onClick={(e) => handleUpdate(e, 'back')} disabled={updateCourierMutation.isPending} className="flex items-center bg-gray-100 border border-gray-300 text-text-main px-6 py-2 rounded font-bold text-xs uppercase shadow-sm hover:bg-gray-200 active:scale-95 transition-all disabled:opacity-50">
                 <RotateCcw size={16} className="mr-2" /> Update and go back
               </button>
-              <button onClick={() => navigate('/admin/couriers')} className="flex items-center bg-white border border-gray-300 text-gray-600 px-6 py-2 rounded font-bold text-xs uppercase shadow-sm hover:bg-gray-50 active:scale-95 transition-all">
+              <button onClick={() => navigate('/admin/couriers')} disabled={updateCourierMutation.isPending} className="flex items-center bg-white border border-gray-300 text-gray-600 px-6 py-2 rounded font-bold text-xs uppercase shadow-sm hover:bg-gray-50 active:scale-95 transition-all disabled:opacity-50">
                 <X size={16} className="mr-2" /> Cancel
               </button>
             </div>

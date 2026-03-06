@@ -1,50 +1,38 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import axios from 'axios';
 import { Loader2 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query'; // 🟢 React Query Import
 
 const ProtectedRoute = ({ allowedRole }) => {
-  const [isAuth, setIsAuth] = useState(null); 
-  const [userRole, setUserRole] = useState(null);
+  const token = localStorage.getItem('token');
 
-  useEffect(() => {
-    const verifyUser = async () => {
-      try {
-        const token = localStorage.getItem('token'); 
-        
-        if (!token) {
-          console.warn("No token found in localStorage");
-          setIsAuth(false);
-          return;
-        }
-
-        // 🟢 Debugging: Check karein backend URL sahi hai ya nahi
-        const API_URL = process.env.REACT_APP_API_URL;
-        
-        // MongoDB se verify karne ke liye call
-        const res = await axios.get(`${API_URL}/user/verify`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-
-        // 🟢 Backend success check karein (Aapke controller ke status key ke hisab se)
-        if (res.data.success || res.data.status) {
-          setIsAuth(true);
-          // MongoDB se aaya latest role set karein
-          setUserRole(res.data.user?.role || res.data.userDetails?.role); 
-        } else {
-          setIsAuth(false);
-        }
-      } catch (error) {
-        // 🔴 Agar 404 User Not Found aa raha hai toh yahan error dikhega
-        console.error("Verification Error details:", error.response?.data);
-        setIsAuth(false);
+  // 🚀 OPTIMIZATION: React Query for Auth Caching & Speed
+  const { data: user, isLoading, isError } = useQuery({
+    queryKey: ['authUser', token],
+    queryFn: async () => {
+      if (!token) {
+        console.warn("No token found in localStorage");
+        throw new Error("No token"); // Seedha error throw karega
       }
-    };
 
-    verifyUser();
-  }, []);
+      const API_URL = process.env.REACT_APP_API_URL;
+      const res = await axios.get(`${API_URL}/user/verify`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
 
-  if (isAuth === null) {
+      // Backend success check
+      if (res.data.success || res.data.status) {
+        return res.data.user || res.data.userDetails; // Return actual user object
+      }
+      throw new Error("Verification failed");
+    },
+    retry: false, // 🟢 OPTIMIZATION: Agar 401/404 aaye toh bar-bar retry karke time waste na kare
+    staleTime: 1000 * 60 * 5, // 🟢 OPTIMIZATION: 5 minute tak session cache rahega. Page change karne par loader nahi aayega!
+  });
+
+  // 1. Loading State (Aapka exact same layout aur design)
+  if (isLoading) {
     return (
       <div className="h-screen flex justify-center items-center bg-cream-50 font-body">
         <div className="text-center">
@@ -57,15 +45,18 @@ const ProtectedRoute = ({ allowedRole }) => {
     );
   }
 
-  if (!isAuth) {
+  // 2. Not Authenticated State (Token nahi hai ya expire ho gaya)
+  if (isError || !user) {
     return <Navigate to="/login" replace />;
   }
 
-  if (allowedRole && userRole !== allowedRole) {
-    console.error(`Access Denied: Required ${allowedRole}, but user is ${userRole}`);
+  // 3. Role Based Access Control State
+  if (allowedRole && user.role !== allowedRole) {
+    console.error(`Access Denied: Required ${allowedRole}, but user is ${user.role}`);
     return <Navigate to="/" replace />;
   }
 
+  // 4. Fully Authenticated & Authorized State
   return <Outlet />;
 };
 

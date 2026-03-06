@@ -1,13 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Check, RotateCcw, X, Loader2 } from 'lucide-react';
 import axios from '../../utils/axiosConfig.js';
 import toast from 'react-hot-toast';
+import { useQuery, useMutation } from '@tanstack/react-query'; // 🟢 React Query Import
 
 const AddFormats = () => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
-  const [categories, setCategories] = useState([]); // Category dropdown ke liye
 
   const [formData, setFormData] = useState({
     title: '',
@@ -16,50 +15,63 @@ const AddFormats = () => {
     order: ''
   });
 
-  // 🟢 1. Categories load karein (Dropdown ke liye)
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const API_URL = process.env.REACT_APP_API_URL;
-        const res = await axios.get(`${API_URL}/category/fetch`);
-        if (res.data.status) {
-          setCategories(res.data.data);
-        }
-      } catch (error) {
-        console.error("Categories fetch error");
+  // 🚀 OPTIMIZATION 1: Fetch Categories with React Query
+  const { data: categories = [], isLoading: isCategoriesLoading } = useQuery({
+    queryKey: ['categoriesListDropdown'],
+    queryFn: async () => {
+      const API_URL = process.env.REACT_APP_API_URL;
+      const res = await axios.get(`${API_URL}/category/fetch`);
+      if (res.data.status) {
+        return res.data.data || [];
       }
-    };
-    fetchCategories();
+      return [];
+    },
+    staleTime: 1000 * 60 * 10, // Cache for 10 minutes for speed boost
+    onError: (error) => {
+      console.error("Categories fetch error", error);
+      toast.error("Failed to load categories");
+    }
+  });
+
+  // 🚀 OPTIMIZATION 2: Save Format Mutation
+  const saveFormatMutation = useMutation({
+    mutationFn: async (submitData) => {
+      const API_URL = process.env.REACT_APP_API_URL;
+      const res = await axios.post(`${API_URL}/formats/save`, submitData);
+      return res.data;
+    }
+  });
+
+  // Safe and optimized handler
+  const handleChange = useCallback((e) => {
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   }, []);
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleSubmit = async (e, actionType) => {
+  // 🟢 Handle Submit
+  const handleSubmit = (e, actionType) => {
     e.preventDefault();
     if (!formData.title) return toast.error("Title is required!");
 
-    setLoading(true);
     const toastId = toast.loading("Saving format...");
 
-    try {
-      const API_URL = process.env.REACT_APP_API_URL;
-      const res = await axios.post(`${API_URL}/formats/save`, formData);
-
-      if (res.data.status) {
-        toast.success("Format added successfully! 🎬", { id: toastId });
-        if (actionType === 'back') {
-          navigate('/admin/formats');
+    saveFormatMutation.mutate(formData, {
+      onSuccess: (resData) => {
+        if (resData.status) {
+          toast.success("Format added successfully! 🎬", { id: toastId });
+          if (actionType === 'back') {
+            navigate('/admin/formats');
+          } else {
+            // Reset form completely if staying on page
+            setFormData({ title: '', status: 'active', category_id: '', order: '' });
+          }
         } else {
-          setFormData({ title: '', status: 'active', category_id: '', order: '' });
+          toast.error(resData.msg || "Failed to save", { id: toastId });
         }
+      },
+      onError: (error) => {
+        toast.error(error.response?.data?.msg || "Failed to save", { id: toastId });
       }
-    } catch (error) {
-      toast.error(error.response?.data?.msg || "Failed to save", { id: toastId });
-    } finally {
-      setLoading(false);
-    }
+    });
   };
 
   return (
@@ -73,7 +85,7 @@ const AddFormats = () => {
       </div>
 
       <div className="max-w-6xl mx-auto p-6 mt-4">
-        <form className="bg-white rounded border border-cream-200 shadow-sm overflow-hidden">
+        <form className="bg-white rounded border border-cream-200 shadow-sm overflow-hidden" onSubmit={(e) => e.preventDefault()}>
           
           <div className="bg-cream-100 px-6 py-2 border-b border-cream-200">
              <h2 className="text-[11px] font-bold uppercase tracking-wider font-montserrat text-text-muted">
@@ -99,7 +111,7 @@ const AddFormats = () => {
               </div>
             </div>
 
-            {/* 2. Active Status (Radio Buttons as per image_74986e.png) */}
+            {/* 2. Active Status */}
             <div className="grid grid-cols-12 gap-4 items-start">
               <label className="col-span-3 text-right text-[11px] font-bold text-text-muted uppercase font-montserrat pt-1">
                 Active
@@ -140,9 +152,10 @@ const AddFormats = () => {
                   name="category_id" 
                   value={formData.category_id} 
                   onChange={handleChange} 
+                  disabled={isCategoriesLoading}
                   className="w-1/3 border border-gray-300 rounded px-4 py-2 text-[13px] outline-none transition-all focus:border-primary bg-white text-gray-500"
                 >
-                  <option value="">Select Category</option>
+                  <option value="">{isCategoriesLoading ? 'Loading...' : 'Select Category'}</option>
                   {categories.map((cat) => (
                     <option key={cat._id} value={cat._id}>{cat.categorytitle}</option>
                   ))}
@@ -167,33 +180,35 @@ const AddFormats = () => {
               </div>
             </div>
 
-            {/* --- ACTION BUTTONS (As per Image Layout) --- */}
+            {/* --- ACTION BUTTONS --- */}
+            {/* 🟢 Bound dynamically to saveFormatMutation.isPending */}
             <div className="flex justify-center items-center gap-3 pt-8 border-t mt-10 font-montserrat">
               
               <button 
                 type="button"
                 onClick={(e) => handleSubmit(e, 'stay')} 
-                disabled={loading} 
-                className="bg-white border border-gray-300 hover:bg-gray-50 text-text-main px-6 py-2 rounded font-bold text-[11px] uppercase transition-all flex items-center gap-2 shadow-sm"
+                disabled={saveFormatMutation.isPending} 
+                className="bg-white border border-gray-300 hover:bg-gray-50 text-text-main px-6 py-2 rounded font-bold text-[11px] uppercase transition-all flex items-center gap-2 shadow-sm disabled:opacity-70"
               >
-                {loading ? <Loader2 size={14} className="animate-spin"/> : <Check size={16} className="text-green-600"/>} 
+                {saveFormatMutation.isPending ? <Loader2 size={14} className="animate-spin"/> : <Check size={16} className="text-green-600"/>} 
                 <span className="font-bold">Save</span>
               </button>
               
               <button 
                 type="button"
                 onClick={(e) => handleSubmit(e, 'back')} 
-                disabled={loading} 
-                className="bg-white border border-gray-300 hover:bg-gray-50 text-text-main px-6 py-2 rounded font-bold text-[11px] uppercase transition-all flex items-center gap-2 shadow-sm"
+                disabled={saveFormatMutation.isPending} 
+                className="bg-white border border-gray-300 hover:bg-gray-50 text-text-main px-6 py-2 rounded font-bold text-[11px] uppercase transition-all flex items-center gap-2 shadow-sm disabled:opacity-70"
               >
-                <RotateCcw size={16} className="text-primary"/> 
+                {saveFormatMutation.isPending ? <Loader2 size={14} className="animate-spin"/> : <RotateCcw size={16} className="text-primary"/>} 
                 <span className="font-bold">Save and go back to list</span>
               </button>
 
               <button 
                 type="button" 
                 onClick={() => navigate('/admin/formats')} 
-                className="bg-white border border-gray-300 hover:bg-gray-50 text-text-main px-6 py-2 rounded font-bold text-[11px] uppercase transition-all flex items-center gap-2 shadow-sm"
+                disabled={saveFormatMutation.isPending}
+                className="bg-white border border-gray-300 hover:bg-gray-50 text-text-main px-6 py-2 rounded font-bold text-[11px] uppercase transition-all flex items-center gap-2 shadow-sm disabled:opacity-70"
               >
                 <X size={16} className="text-red-600" /> 
                 <span className="font-bold">Cancel</span>

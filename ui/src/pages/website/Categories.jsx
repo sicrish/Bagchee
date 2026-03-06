@@ -1,37 +1,57 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+'use client';
+
+import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import { ChevronDown, ChevronRight, Book, Loader2, CornerDownRight, Eye, Tag } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query'; // 🟢 React Query Import
 
 const Categories = () => {
-  const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [tags, setTags] = useState([]); // 🟢 New state for Tags
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Fetch Categories
-        const categoriesResponse = await axios.get(`${process.env.REACT_APP_API_URL}/category/fetch`); 
-        if (categoriesResponse.data.status) {
-          const rawData = categoriesResponse.data.data || categoriesResponse.data.categories;
-          const tree = buildCategoryTree(rawData);
-          setCategories(tree);
-        }
-
-        // 🟢 Fetch Tags for Special Topics
-        const tagsResponse = await axios.get(`${process.env.REACT_APP_API_URL}/tags/list`);
-        if (tagsResponse.data.status && tagsResponse.data.data) {
-          setTags(tagsResponse.data.data);
-        }
-      } catch (error) {
-        console.error("Error loading data:", error);
-      } finally {
-        setLoading(false);
+  // Helper function to build tree (Keeping your original logic)
+  const buildCategoryTree = (categories) => {
+    const categoryMap = {};
+    const tree = [];
+    categories.forEach(cat => {
+      categoryMap[cat._id] = { ...cat, children: [] };
+    });
+    categories.forEach(cat => {
+      if (cat.parentid && categoryMap[cat.parentid]) {
+        categoryMap[cat.parentid].children.push(categoryMap[cat._id]);
+      } else {
+        tree.push(categoryMap[cat._id]);
       }
-    };
-    fetchData();
-  }, []);
+    });
+    return tree;
+  };
+
+  // 🟢 1. FETCH CATEGORIES & TAGS (React Query useQuery)
+  const { data, isLoading: loading } = useQuery({
+    queryKey: ['all-categories-and-tags'],
+    queryFn: async () => {
+      const [categoriesResponse, tagsResponse] = await Promise.all([
+        axios.get(`${process.env.REACT_APP_API_URL}/category/fetch`),
+        axios.get(`${process.env.REACT_APP_API_URL}/tags/list`)
+      ]);
+
+      let tree = [];
+      let tagsList = [];
+
+      if (categoriesResponse.data.status) {
+        const rawData = categoriesResponse.data.data || categoriesResponse.data.categories;
+        tree = buildCategoryTree(rawData);
+      }
+
+      if (tagsResponse.data.status && tagsResponse.data.data) {
+        tagsList = tagsResponse.data.data;
+      }
+
+      return { categories: tree, tags: tagsList };
+    },
+    staleTime: 1000 * 60 * 15, // 15 minute cache (Categories bar bar nahi badalti)
+  });
+
+  const categories = data?.categories || [];
+  const tags = data?.tags || [];
 
   if (loading) {
     return (
@@ -103,24 +123,17 @@ const CategoryItem = ({ category, level }) => {
     }
   };
 
-  // Color Logic
   const getLevelStyles = () => {
     switch (level) {
-      case 0: 
-        return 'bg-primary text-white shadow-lg border-primary';
-      case 1: 
-        return 'bg-white text-text-main shadow-sm border-l-4 border-secondary mt-2';
-      case 2: 
-        return 'bg-cream-100 text-text-main shadow-inner border-l-4 border-accent mt-2';
-      default: 
-        return 'bg-gray-100 text-gray-600 border-l-4 border-gray-300 mt-1';
+      case 0: return 'bg-primary text-white shadow-lg border-primary';
+      case 1: return 'bg-white text-text-main shadow-sm border-l-4 border-secondary mt-2';
+      case 2: return 'bg-cream-100 text-text-main shadow-inner border-l-4 border-accent mt-2';
+      default: return 'bg-gray-100 text-gray-600 border-l-4 border-gray-300 mt-1';
     }
   };
 
   return (
     <div className="w-full transition-all duration-300">
-      
-      {/* --- CATEGORY BOX --- */}
       <div 
         onClick={handleClick}
         className={`
@@ -134,12 +147,10 @@ const CategoryItem = ({ category, level }) => {
         <div className="flex items-center gap-3">
           {level === 0 && <Book size={18} className="text-white opacity-90" />}
           {level > 0 && <CornerDownRight size={14} className="opacity-50" />}
-
           <span className="truncate leading-none pt-1">
             {category.categorytitle || category.title}
           </span>
         </div>
-
         {hasChildren ? (
           <div className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : 'rotate-0'}`}>
             <ChevronDown size={16} />
@@ -149,14 +160,8 @@ const CategoryItem = ({ category, level }) => {
         )}
       </div>
 
-      {/* --- DROPDOWN ANIMATION --- */}
-      <div 
-        className={`overflow-hidden transition-[max-height] duration-500 ease-in-out ${isOpen ? 'max-h-[1500px] opacity-100' : 'max-h-0 opacity-0'}`}
-      >
+      <div className={`overflow-hidden transition-[max-height] duration-500 ease-in-out ${isOpen ? 'max-h-[1500px] opacity-100' : 'max-h-0 opacity-0'}`}>
         <div className="pb-1">
-          
-          {/* 🟢 VIEW ALL BUTTON (Only inside Level 0) */}
-          {/* Blue Border added via 'border-secondary' to match sub-categories */}
           {level === 0 && hasChildren && (
              <div 
                 className={`
@@ -166,39 +171,22 @@ const CategoryItem = ({ category, level }) => {
                   ml-4 md:ml-6
                   hover:bg-gray-50 transition-colors
                 `}
-                // onClick={() => {}} // Navigation logic removed for now as requested
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/books/${category.slug}`);
+                }}
              >
                 <Eye size={16} className="text-primary" />
                 <span>View All</span>
              </div>
           )}
-
-          {/* Children List */}
           {hasChildren && category.children.map((child) => (
             <CategoryItem key={child._id} category={child} level={level + 1} />
           ))}
         </div>
       </div>
-
     </div>
   );
-};
-
-// Tree Builder Helper
-const buildCategoryTree = (categories) => {
-  const categoryMap = {};
-  const tree = [];
-  categories.forEach(cat => {
-    categoryMap[cat._id] = { ...cat, children: [] };
-  });
-  categories.forEach(cat => {
-    if (cat.parentid && categoryMap[cat.parentid]) {
-      categoryMap[cat.parentid].children.push(categoryMap[cat._id]);
-    } else {
-      tree.push(categoryMap[cat._id]);
-    }
-  });
-  return tree;
 };
 
 export default Categories;

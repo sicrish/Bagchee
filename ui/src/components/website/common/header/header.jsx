@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useEffect, Fragment, useContext, useMemo, useRef } from 'react';
+import React, { useState, useEffect, Fragment, useContext, useMemo, useRef, useCallback, memo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Search, ShoppingCart, User, Heart, Menu as MenuIcon, X, ChevronDown, Globe, LogIn, UserPlus, LogOut, List, MapPin, ChevronRight } from 'lucide-react';
 import { Transition, Dialog, TransitionChild, DialogPanel } from '@headlessui/react';
+import { useQuery } from '@tanstack/react-query'; // 🟢 React Query added for super-fast caching
 import Logo from '../../../common/Logo.jsx';
 import logoImg from '../../../../assets/images/common/logo.png';
 import { CurrencyContext } from '../../../../context/CurrencyContext';
@@ -11,10 +12,9 @@ import { useCart } from '../../../../context/CartContext.jsx';
 import axios from '../../../../utils/axiosConfig.js';
 
 /* ---------------------------------------------------------
-  🟢 HELPER COMPONENT: Dropdown Content Renderer
-  ---------------------------------------------------------
-*/
-const DropdownContent = ({ htmlContent, onLinkClick }) => {
+  🟢 HELPER COMPONENT: Dropdown Content Renderer (Memoized)
+  --------------------------------------------------------- */
+const DropdownContent = memo(({ htmlContent, onLinkClick }) => {
   const contentRef = useRef(null);
 
   useEffect(() => {
@@ -57,13 +57,14 @@ const DropdownContent = ({ htmlContent, onLinkClick }) => {
       }}
     />
   );
-};
+});
+
+DropdownContent.displayName = 'DropdownContent';
 
 /* ---------------------------------------------------------
-  🟢 HELPER COMPONENT: Mobile HTML Parser & Accordion
-  ---------------------------------------------------------
-*/
-const MobileHtmlAccordion = ({ htmlContent, onLinkClick }) => {
+  🟢 HELPER COMPONENT: Mobile HTML Parser & Accordion (Memoized)
+  --------------------------------------------------------- */
+const MobileHtmlAccordion = memo(({ htmlContent, onLinkClick }) => {
   const sections = useMemo(() => {
     if (!htmlContent) return [];
 
@@ -155,10 +156,9 @@ const MobileHtmlAccordion = ({ htmlContent, onLinkClick }) => {
                   onClick={(e) => {
                     if (link.href && link.href.startsWith("/")) {
                       e.preventDefault();
-                      // 🟢 YAHAN BHI PROCESSED HREF LAGAO
                       const processedHref = link.href
-                        .replace(/&/g, "and") // '&' ko 'and' banao
-                        .replace(/\s+/g, "-") // Spaces ko '-' banao
+                        .replace(/&/g, "and")
+                        .replace(/\s+/g, "-")
                         .toLowerCase();
 
                       onLinkClick(processedHref);
@@ -188,8 +188,9 @@ const MobileHtmlAccordion = ({ htmlContent, onLinkClick }) => {
       </div>
     </div>
   );
-};
+});
 
+MobileHtmlAccordion.displayName = 'MobileHtmlAccordion';
 
 /* ---------------------------------------------------------
    MAIN HEADER COMPONENT
@@ -204,9 +205,7 @@ const PremiumHeader = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [openCategory, setOpenCategory] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [menuKey, setMenuKey] = useState(0);
   const [forceHideDropdown, setForceHideDropdown] = useState(false);
-  const [navItems, setNavItems] = useState([]);
   const [activeDropdown, setActiveDropdown] = useState(null);
 
   const currencies = ['INR', 'EUR', 'GBP', 'USD'];
@@ -219,6 +218,24 @@ const PremiumHeader = () => {
 
   const dropdownTimerRef = useRef(null);
   const searchInputRef = useRef(null);
+
+  // 🟢 OPTIMIZATION 1: React Query implementation for Navigation Links
+  // Yeh navigation links ko 10 minute tak browser me cache kar lega.
+  const { data: navItems = [] } = useQuery({
+    queryKey: ['navigationList'],
+    queryFn: async () => {
+      const API_URL = process.env.REACT_APP_API_URL;
+      const res = await axios.get(`${API_URL}/navigation/list`);
+      if (res.data.status) {
+        return res.data.data
+          .filter(item => (item.status === 'active' || item.active === 'active'))
+          .sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
+      }
+      return [];
+    },
+    staleTime: 1000 * 60 * 10, // 10 minutes cache
+    refetchOnWindowFocus: false, // Window par focus aane par faltu fetch nahi karega
+  });
 
   useEffect(() => {
     const authData = localStorage.getItem("auth");
@@ -253,89 +270,48 @@ const PremiumHeader = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  useEffect(() => {
-    const fetchNavigations = async () => {
-      try {
-        const API_URL = process.env.REACT_APP_API_URL;
-        const res = await axios.get(`${API_URL}/navigation/list`);
-
-        if (res.data.status) {
-          const activeNavs = res.data.data
-            .filter(item => (item.status === 'active' || item.active === 'active'))
-            .sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
-
-          setNavItems(activeNavs);
-        }
-      } catch (error) {
-        console.error("Nav Fetch Error:", error);
-      }
-    };
-    fetchNavigations();
-  }, []);
-
-  const handleNavigation = () => {
+  // 🚀 OPTIMIZATION 2: Memory bachaane ke liye useCallback ka istemal
+  const handleNavigation = useCallback(() => {
     setForceHideDropdown(true);
     setTimeout(() => {
       setForceHideDropdown(false);
     }, 300);
-  };
+  }, []);
 
-  const handleInternalLink = (href) => {
-    // const safePath = encodeURI(href.toLowerCase());
+  const handleInternalLink = useCallback((href) => {
     navigate(href.toLowerCase());
     setMobileMenuOpen(false);
     setOpenCategory(null);
     handleNavigation();
-  };
+  }, [navigate, handleNavigation]);
 
-  const handleHtmlClick = (e) => {
-    const link = e.target.closest('a');
-    if (link) {
-      const href = link.getAttribute('href');
-      // console.log("🖱️ RAW HREF CLICKED:", href); // <--- LOG 1
-      if (href && href.startsWith('/')) {
-        e.preventDefault();
-
-        const processedHref = href
-          .toLowerCase()
-          .replace(/&/g, 'and')    // '&' ko 'and' banao
-          .replace(/\s+/g, '-')    // Spaces ko '-' banao
-          .replace(/-+/g, '-');    // Double dash hatao
-        // console.log("🚀 FINAL PROCESSED URL:", processedHref);
-        handleInternalLink(processedHref);
-      }
-    }
-  };
-
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     localStorage.removeItem("auth");
     setIsLoggedIn(false);
     setUserName("Guest");
-    navigate("/login");
+    navigate("/");
     window.location.reload();
-  };
+  }, [navigate]);
 
-  const toggleCategory = (name) => setOpenCategory(openCategory === name ? null : name);
+  const toggleCategory = useCallback((name) => {
+    setOpenCategory(prev => prev === name ? null : name);
+  }, []);
 
-  const isSpecialLink = (name) => {
-    return name && (name.toLowerCase().includes('sale') || name.toLowerCase().includes('offer'));
-  };
-
-  const handleDropdownEnter = (id) => {
+  const handleDropdownEnter = useCallback((id) => {
     if (dropdownTimerRef.current) {
       clearTimeout(dropdownTimerRef.current);
     }
     setActiveDropdown(id);
-  };
+  }, []);
 
-  const handleDropdownLeave = () => {
+  const handleDropdownLeave = useCallback(() => {
     if (dropdownTimerRef.current) {
       clearTimeout(dropdownTimerRef.current);
     }
     dropdownTimerRef.current = setTimeout(() => {
       setActiveDropdown(null);
     }, 150);
-  };
+  }, []);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -365,6 +341,9 @@ const PremiumHeader = () => {
                   src={logoImg}
                   alt="Bagchee"
                   className="w-10 h-10 object-contain"
+                  // 🚀 OPTIMIZATION 3: High priority image loading for LCP (Speed boost)
+                  fetchPriority="high"
+                  decoding="async"
                   style={{
                     filter: 'brightness(0) saturate(100%) invert(45%) sepia(89%) saturate(2448%) hue-rotate(165deg) brightness(95%) contrast(101%)',
                   }}
@@ -389,6 +368,8 @@ const PremiumHeader = () => {
                   src={logoImg}
                   alt="Bagchee"
                   className="w-5 h-5 sm:w-7 sm:h-7 object-contain"
+                  fetchPriority="high"
+                  decoding="async"
                   style={{
                     filter: 'brightness(0) saturate(100%) invert(45%) sepia(89%) saturate(2448%) hue-rotate(165deg) brightness(95%) contrast(101%)',
                   }}
@@ -408,19 +389,12 @@ const PremiumHeader = () => {
           {/* Desktop Search Bar */}
           <div className="hidden lg:flex flex-1 items-center max-w-2xl mx-auto">
             <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (searchTerm.trim()) {
-                  navigate(`/books?search=${encodeURIComponent(searchTerm)}`);
-                }
-              }}
+              onSubmit={handleSearchSubmit}
               className="flex-1 relative group"
             >
-              {/* Premium outer glow effect */}
               <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/30 via-accent/30 to-secondary/30 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-500"></div>
 
               <div className="relative flex items-center bg-white rounded-full shadow-xl border-2 border-gray-100 group-hover:border-primary/50 group-focus-within:border-primary/70 transition-all duration-300 overflow-hidden">
-                {/* Input Field */}
                 <input
                   type="text"
                   value={searchTerm}
@@ -430,7 +404,6 @@ const PremiumHeader = () => {
                   autoComplete="off"
                 />
 
-                {/* Clear Button */}
                 {searchTerm && (
                   <button
                     type="button"
@@ -441,7 +414,6 @@ const PremiumHeader = () => {
                   </button>
                 )}
 
-                {/* Premium Search Button */}
                 <button
                   type="submit"
                   disabled={!searchTerm.trim()}
@@ -470,10 +442,8 @@ const PremiumHeader = () => {
 
             <button onClick={openSearchDialog} className="lg:hidden flex flex-col items-center justify-center px-2 sm:px-2.5 md:px-3 py-2 rounded-lg text-text-light hover:bg-white/10 transition-all duration-200 border border-transparent hover:border-white/20" aria-label="Search">
               <Search size={20} strokeWidth={2.5} className="mb-0.5" />
-              {/* <span className="text-[9px] font-bold font-montserrat">Search</span> */}
             </button>
 
-            {/* Search button ke baad aur Account icon se pehle sirf ye rahega */}
             <div className="hidden sm:block relative group">
               <Link to="/account/wishlist">
                 <ActionIcon icon={<Heart size={20} />} label="Wishlist" />
@@ -516,7 +486,7 @@ const PremiumHeader = () => {
               </div>
             </div>
 
-            {/* 🟢 MOBILE ACCOUNT DROPDOWN (Exactly like Desktop) */}
+            {/* MOBILE ACCOUNT DROPDOWN */}
             <div className="block md:hidden relative">
               <button
                 onClick={() => setMobileAccountOpen(!mobileAccountOpen)}
@@ -525,21 +495,14 @@ const PremiumHeader = () => {
                 <ActionIcon icon={<User size={22} />} label="Account" />
               </button>
 
-              {/* Mobile Floating Menu Drawer */}
               {mobileAccountOpen && (
                 <>
-                  {/* Background overlay to close dropdown on outside tap */}
                   <div className="fixed inset-0 z-40 bg-black/5" onClick={() => setMobileAccountOpen(false)}></div>
-
-                  {/* The Dropdown Box (Positioned under icon) */}
                   <div className="absolute top-full right-[-10px] mt-3 w-64 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden transition-all duration-300 z-50 text-text-main origin-top-right animate-in fade-in zoom-in">
-
-                    {/* Header: User Detail */}
                     <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/50">
                       <p className="text-xs font-medium text-text-muted font-body">Hello, {isLoggedIn ? userName : "Guest"}</p>
                       <p className="text-xs font-bold text-primary mt-0.5 font-montserrat">{isLoggedIn ? "Welcome Back!" : "Welcome to Bagchee"}</p>
                     </div>
-
                     <div className="py-2">
                       {isLoggedIn ? (
                         <>
@@ -556,20 +519,19 @@ const PremiumHeader = () => {
                             <MapPin size={16} /> Address
                           </Link>
                           <Link 
-  to="/account/wishlist" 
-  onClick={() => setMobileAccountOpen(false)} 
-  className="flex items-center justify-between px-5 py-2.5 text-sm text-gray-700 hover:bg-primary/5 hover:text-primary transition-colors font-bold normal-case font-montserrat"
->
-  <div className="flex items-center gap-3">
-    <Heart size={16} /> Wishlist
-  </div>
-  {/* 🟢 Badge right side me dikhega bilkul clean */}
-  {wishlistCount > 0 && (
-    <span className="bg-accent text-text-main text-[10px] font-black h-5 w-5 flex items-center justify-center rounded-full shadow-sm">
-      {wishlistCount}
-    </span>
-  )}
-</Link>
+                            to="/account/wishlist" 
+                            onClick={() => setMobileAccountOpen(false)} 
+                            className="flex items-center justify-between px-5 py-2.5 text-sm text-gray-700 hover:bg-primary/5 hover:text-primary transition-colors font-bold normal-case font-montserrat"
+                          >
+                            <div className="flex items-center gap-3">
+                              <Heart size={16} /> Wishlist
+                            </div>
+                            {wishlistCount > 0 && (
+                              <span className="bg-accent text-text-main text-[10px] font-black h-5 w-5 flex items-center justify-center rounded-full shadow-sm">
+                                {wishlistCount}
+                              </span>
+                            )}
+                          </Link>
                           <div className="border-t border-gray-100 my-1"></div>
                           <button onClick={() => { handleLogout(); setMobileAccountOpen(false); }} className="w-full flex items-center gap-3 px-5 py-2.5 text-sm text-text-main hover:bg-red-50 hover:text-red-600 transition-colors font-bold normal-case font-montserrat text-left">
                             <LogOut size={16} /> Sign Out
@@ -594,7 +556,6 @@ const PremiumHeader = () => {
             <div className="relative">
               <Link to="/cart">
                 <ActionIcon icon={<ShoppingCart className="w-5 h-5 md:w-6 md:h-6" />} label="Cart" />
-                {/* 🟢 Static '2' ko cartItemCount se replace kiya */}
                 {cartItemCount > 0 && (
                   <span className="absolute -top-1 -right-1 bg-accent text-text-main text-[10px] font-bold h-4 w-4 flex items-center justify-center rounded-full font-montserrat shadow-sm animate-in zoom-in">
                     {cartItemCount}
@@ -626,7 +587,6 @@ const PremiumHeader = () => {
                   onMouseEnter={() => hasDropdown && handleDropdownEnter(dropdownId)}
                   onMouseLeave={handleDropdownLeave}
                 >
-                  {/* Navigation Link */}
                   <Link
                     to={nav.link || "#"}
                     onClick={handleNavigation}
@@ -634,7 +594,6 @@ const PremiumHeader = () => {
                   >
                     <span className="relative">
                       {navName}
-                      {/* Active underline indicator */}
                       <span
                         className={`absolute left-0 right-0 bottom-0 h-0.5 bg-primary transform origin-center transition-transform duration-300 ${
                           activeDropdown === dropdownId
@@ -652,7 +611,6 @@ const PremiumHeader = () => {
                     )}
                   </Link>
 
-                  {/* Dropdown Menu - Raw HTML Content Display */}
                   {hasDropdown && !forceHideDropdown && (
                     <div
                       className={`fixed left-1/2 -translate-x-1/2 bg-white rounded-lg shadow-2xl border-2 border-gray-200 overflow-hidden transition-all duration-200 ease-out origin-top z-50 ${
@@ -666,7 +624,6 @@ const PremiumHeader = () => {
                         top: isScrolled ? "48px" : "140px",
                       }}
                     >
-                      {/* Dropdown Content - Render HTML as-is */}
                       <DropdownContent
                         htmlContent={nav.dropdown_content}
                         onLinkClick={(href) => {
@@ -694,14 +651,12 @@ const PremiumHeader = () => {
             <TransitionChild as={Fragment} enter="transition ease-in-out duration-300 transform" enterFrom="-translate-x-full" enterTo="translate-x-0" leave="transition ease-in-out duration-300 transform" leaveFrom="translate-x-0" leaveTo="-translate-x-full">
               <DialogPanel className="relative flex w-[85%] max-w-xs flex-col overflow-y-auto bg-white pb-12 shadow-2xl h-full border-r border-cream-200 text-text-main">
 
-                {/* 🔵 Mobile Menu Header - CHANGED TO BLUE (Primary) */}
                 <div className="flex px-5 pt-6 pb-4 justify-between items-center border-b border-primary-dark bg-primary">
-                  <Logo className="h-10 w-auto text-white" /> {/* Logo white for blue bg */}
+                  <Logo className="h-10 w-auto text-white" /> 
                   <button onClick={() => setMobileMenuOpen(false)} className="p-2 text-white hover:text-accent hover:bg-primary-dark rounded-full transition-colors"><X size={24} /></button>
                 </div>
 
                 <div className="flex-1 px-4 py-4 space-y-2 font-montserrat">
-                  {/* DYNAMIC MOBILE LIST */}
                   {navItems.map((nav) => {
                     const navName = nav.item || nav.name || "Link";
                     const hasDropdown = nav.dropdown === 'active' && nav.dropdown_content;
@@ -740,10 +695,7 @@ const PremiumHeader = () => {
                   })}
                 </div>
 
-                {/* Mobile Account & Currency */}
                 <div className="flex px-5 pt-6 pb-6 justify-between items-start border-b border-cream-200 bg-cream-50 mt-auto gap-4">
-
-
                   <div className="relative">
                     <button onClick={() => setMobileCurrencyOpen(!mobileCurrencyOpen)} className="flex items-center gap-2 text-text-muted hover:text-primary transition-colors bg-white border border-cream-200 px-3 py-1.5 rounded-full h-8 shadow-sm">
                       <Globe size={14} /><span className="text-sm font-bold font-montserrat">{currency}</span><ChevronDown size={14} className={`transition-transform ${mobileCurrencyOpen ? 'rotate-180' : ''}`} />
@@ -788,7 +740,6 @@ const PremiumHeader = () => {
                 leaveTo="opacity-0 scale-95"
               >
                 <DialogPanel className="w-full max-w-2xl transform overflow-hidden rounded-xl bg-white shadow-xl transition-all">
-                  {/* Header */}
                   <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
                     <h3 className="text-lg font-bold text-gray-900 font-montserrat">Search Books</h3>
                     <button
@@ -799,7 +750,6 @@ const PremiumHeader = () => {
                     </button>
                   </div>
 
-                  {/* Search Form */}
                   <form onSubmit={handleSearchSubmit} className="p-6">
                     <div className="relative">
                       <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" strokeWidth={2} />
@@ -832,11 +782,13 @@ const PremiumHeader = () => {
   );
 };
 
-const ActionIcon = ({ icon, label }) => (
+// 🟢 ActionIcon wrapped in memo to prevent re-renders when parent states change
+const ActionIcon = memo(({ icon, label }) => (
   <div className="flex flex-col items-center cursor-pointer group text-text-light hover:text-accent transition-colors">
     {icon}
     <span className="text-[10px] font-bold mt-1 hidden lg:block opacity-80 group-hover:opacity-100 font-montserrat tracking-widest">{label}</span>
   </div>
-);
+));
+ActionIcon.displayName = 'ActionIcon';
 
 export default PremiumHeader;

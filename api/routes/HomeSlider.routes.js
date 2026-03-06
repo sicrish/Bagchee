@@ -20,6 +20,6 @@ router.delete('/delete/:id', HomeSliderController.remove);
 router.get('/get/:id', HomeSliderController.getOne);
 
 // 5. Update
-router.put('/update/:id', HomeSliderController.update);
+router.patch('/update/:id', HomeSliderController.update);
 
 export default router;

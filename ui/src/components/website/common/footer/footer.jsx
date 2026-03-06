@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, Mail, Facebook, Twitter, Instagram, ArrowRight } from 'lucide-react';
 import Logo from '../../../../components/common/Logo.jsx';
@@ -74,7 +74,6 @@ const Footer = () => {
 
             {/* --- MOBILE NEWSLETTER (Visible only on Mobile, under Logo) --- */}
             <div className="block lg:hidden pt-6 border-t border-white/10 mt-6">
-              {/* <p className="text-xs font-bold text-accent uppercase tracking-widest mb-3">Subscribe to Newsletter</p> */}
               <NewsletterForm mobile />
             </div>
           </div>
@@ -286,7 +285,7 @@ const Footer = () => {
               We Accept
             </span>
 
-            {/* MODERN PAYMENT ICONS (Slick Style) */}
+            {/* MODERN PAYMENT ICONS */}
             <div className="flex flex-wrap justify-center items-center gap-2">
               <PaymentCard
                 src="https://upload.wikimedia.org/wikipedia/commons/4/41/Visa_Logo.png"
@@ -316,34 +315,45 @@ const Footer = () => {
   );
 };
 
-// --- SUB COMPONENTS ---
+// --- SUB COMPONENTS (Memoized for Speed) ---
 
 // 1. Newsletter Form Component
-const NewsletterForm = ({ mobile }) => (
-    <form className={`relative flex items-center shadow-lg rounded-full overflow-hidden bg-white/10 backdrop-blur-sm border border-white/20 hover:border-accent/50 transition-colors duration-300 ${mobile ? 'w-full' : ''}`}>
-        <input 
-            type="email" 
-            placeholder="Enter your email for updates..." 
-            className="w-full bg-transparent text-white placeholder-gray-300 px-6 py-3 focus:outline-none text-sm"
-        />
-        <button className="bg-accent text-text-main hover:bg-white hover:text-primary transition-colors px-6 py-3 flex items-center justify-center font-bold">
-            <ArrowRight size={18} />
-        </button>
-    </form>
-);
+const NewsletterForm = memo(({ mobile }) => (
+  <form className={`relative flex items-center shadow-lg rounded-full overflow-hidden bg-white/10 backdrop-blur-sm border border-white/20 hover:border-accent/50 transition-colors duration-300 ${mobile ? 'w-full' : ''}`}>
+    <input 
+      type="email" 
+      placeholder="Enter your email for updates..." 
+      className="w-full bg-transparent text-white placeholder-gray-300 px-6 py-3 focus:outline-none text-sm"
+    />
+    <button className="bg-accent text-text-main hover:bg-white hover:text-primary transition-colors px-6 py-3 flex items-center justify-center font-bold">
+      <ArrowRight size={18} />
+    </button>
+  </form>
+));
+NewsletterForm.displayName = 'NewsletterForm';
 
 // 2. Social Icon Component
-const SocialIcon = ({ icon }) => (
+const SocialIcon = memo(({ icon }) => (
   <a href="#" className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-300 hover:bg-accent hover:text-text-main hover:border-accent transition-all duration-300">
     {icon}
   </a>
-);
+));
+SocialIcon.displayName = 'SocialIcon';
 
-// 3. New Slick Payment Card Component
-const PaymentCard = ({ src, alt }) => (
-    <div className="h-8 w-12 bg-white rounded flex items-center justify-center shadow-md opacity-90 hover:opacity-100 hover:scale-105 hover:shadow-lg transition-all duration-300 cursor-pointer">
-        <img src={src} alt={alt} className="h-4 max-w-[80%] object-contain" />
-    </div>
-);
+// 3. New Slick Payment Card Component (Optimized Image Loading)
+const PaymentCard = memo(({ src, alt }) => (
+  <div className="h-8 w-12 bg-white rounded flex items-center justify-center shadow-md opacity-90 hover:opacity-100 hover:scale-105 hover:shadow-lg transition-all duration-300 cursor-pointer">
+    <img 
+      src={src} 
+      alt={alt} 
+      className="h-4 max-w-[80%] object-contain" 
+      // 🚀 OPTIMIZATION: Jab tak user footer tak scroll nahi karta, ye 5 images download nahi hongi
+      loading="lazy" 
+      decoding="async"
+    />
+  </div>
+));
+PaymentCard.displayName = 'PaymentCard';
 
-export default Footer;  
+// 🚀 OPTIMIZATION: Main Footer Export
+export default memo(Footer);

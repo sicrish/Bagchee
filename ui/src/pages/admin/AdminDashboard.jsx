@@ -1,41 +1,47 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom'; // 🟢 1. Import useNavigate
+'use client';
+
+import React, { useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom'; 
 import DashboardCard from '../../components/admin/DashboardCard';
 
-// Icons Import
+// 🟢 SAFE IMPORTS: Native names clash se bachne ke liye 'Image' ki jagah 'ImageIcon' use karte hain
 import { 
   Sliders, List, Type, ShoppingBag, Percent, 
-  Newspaper, Image, Users, LayoutTemplate 
+  Newspaper, Image as ImageIcon, Users, LayoutTemplate 
 } from 'lucide-react';
 
 const AdminDashboard = () => {
-  const navigate = useNavigate(); // 🟢 2. Initialize hook
+  const navigate = useNavigate(); 
   
-  const cards = [
+  // 🚀 OPTIMIZATION 1: Navigation function ko memoize kiya
+  // Isse har card ke liye naya function memory mein nahi banega (Speed boost)
+  const handleNavigate = useCallback((path) => {
+    if (path) navigate(path);
+  }, [navigate]);
+
+  // 🚀 OPTIMIZATION 2: useMemo ka use kiya
+  // Iska matlab hai ki jab bhi admin dashboard par state change hogi,
+  // ye lamba chauda array dobara calculate nahi hoga. 
+  const cards = useMemo(() => [
     { title: "SLIDER", icon: Sliders, link: "/admin/home-slider" },
-    // { title: "SERVICES", icon: List, link: "/admin/services" },
     { title: "SECTIONS TITLES", icon: Type, link: "/admin/titles" },
     { title: "FEATURED TODAY", icon: ShoppingBag, link: "/admin/home-section-1" },
     { title: "IN THE SPOTLIGHT", icon: ShoppingBag, link: "/admin/home-section-2" },
-    // { title: "SECTION 3 PRODUCTS", icon: ShoppingBag, link: "/admin/home-section-3" },
-    // { title: "SECTION 4 PRODUCTS", icon: ShoppingBag, link: "/admin/home-section-4" },
     { title: "SALE TODAY", icon: Percent, link: "/admin/sale-today" },
     { title: "NEW AND NOTEWORTHY", icon: Newspaper, link: "/admin/new-and-noteworthy" },
     { title: "BestSellers", icon: Newspaper, link: "/admin/home-best-seller" },
     { title: "Books of the Month", icon: Newspaper, link: "/admin/books-of-the-month" },
 
-    { title: "side banner1", icon: Image, link: "/admin/side-banner-one" },
-    { title: "side banner2", icon: Image, link: "/admin/side-banner-two" },
+    // 🟢 BUG FIX: Yahan 'Image' ki jagah 'ImageIcon' use kiya gaya hai
+    { title: "side banner1", icon: ImageIcon, link: "/admin/side-banner-one" }, 
+    { title: "side banner2", icon: ImageIcon, link: "/admin/side-banner-two" },
 
-    { title: "CATEGORIES", icon: List, link: "/admin/main-categories" }, // Link to Add Category
+    { title: "CATEGORIES", icon: List, link: "/admin/main-categories" }, 
     { title: "TOP AUTHORS", icon: Users, link: "/admin/top-authors" },
     { title: "FOOTER", icon: LayoutTemplate, link: "/admin/footer" },
-   
-
-  ];
+  ], []);
 
   return (
-    // 🟢 3. Sirf Content Wrapper rakha hai (Sidebar hata diya)
     <div className="p-8 md:p-12 max-w-7xl mx-auto">
       
       {/* Page Title */}
@@ -55,8 +61,8 @@ const AdminDashboard = () => {
             key={index}
             title={card.title}
             icon={card.icon}
-            // 🟢 4. Navigate Function lagaya
-            onClick={() => navigate(card.link)} 
+            // 🟢 Optimized handler pass kiya
+            onClick={() => handleNavigate(card.link)} 
           />
         ))}
       </div>

@@ -55,12 +55,7 @@ const Products = () => {
           </h1>
           <p className="text-gray-500 mt-2">Manage your product categories below.</p>
         </div>
-        <button
-          onClick={() => navigate('/admin/books')}
-          className="bg-primary text-white px-6 py-2.5 rounded-lg shadow-md hover:brightness-110 active:scale-95 transition-all font-bold text-sm uppercase tracking-wide"
-        >
-          Books
-        </button>
+      
       </div>
 
       {/* --- PRODUCT GRID --- */}

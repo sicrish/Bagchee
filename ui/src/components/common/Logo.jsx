@@ -1,6 +1,6 @@
-import React from 'react';
-import { memo } from 'react';
+import React, { memo } from 'react';
 import logoImg from '../../assets/images/common/logo.png';
+
 const Logo = () => {
   return (
     <div className="flex items-center group gap-2">
@@ -9,6 +9,9 @@ const Logo = () => {
         src={logoImg} 
         alt="Bagchee Icon" 
         className="h-10 md:h-12 w-auto object-contain" 
+        // 🚀 OPTIMIZATION: Loading Speed Boosters
+        fetchPriority="high" // Browser ko signal deta hai ki ye LCP (main image) hai, isey sabse pehle load karo
+        decoding="async"     // Image process hote waqt website ki baaki cheezein block nahi hongi
       />
 
       {/* 2. Niche wala Text (Code se) */}
@@ -25,4 +28,5 @@ const Logo = () => {
   );
 };
 
+// 🚀 OPTIMIZATION: memo() already laga hai, jo ki perfect hai taaki header re-render na ho.
 export default memo(Logo);

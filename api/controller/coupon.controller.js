@@ -108,25 +108,42 @@ export const getCouponById = async (req, res) => {
   }
 };
 
+
 // ==========================================
-// 🟠 5. UPDATE (SAFE LOGIC)
+// 🟠 5. UPDATE (SAFE LOGIC WITH SANITIZATION)
 // ==========================================
 export const updateCoupon = async (req, res) => {
   try {
     const { id } = req.params;
     let data = { ...req.body };
 
-    // 1. If Code is being updated, clean and check duplicates
+    // 1. Code Clean & Duplicate Check
     if (data.code) {
         data.code = data.code.trim().toUpperCase();
         const existingCoupon = await Coupon.findOne({ 
             code: data.code, 
             _id: { $ne: id } 
         });
-
         if (existingCoupon) {
             return res.status(400).json({ status: false, msg: "This Coupon Code is already in use." });
         }
+    }
+
+    // 🟢 2. SANITIZATION (The Fix for Edit Issues)
+    // Convert empty strings to null for Dates
+    if (data.valid_from === "") data.valid_from = null;
+    if (data.valid_to === "") data.valid_to = null;
+    
+    // Convert empty strings to 0 for Numbers
+    if (data.amount === "") data.amount = 0;
+    if (data.minimum_buy === "") data.minimum_buy = 0;
+    if (data.price_over_only === "") data.price_over_only = 0;
+
+    // Force Category to be an Array as per Schema
+    if (data.categories === "") {
+        data.categories = [];
+    } else if (typeof data.categories === 'string') {
+        data.categories = [data.categories]; // Convert single ID string to Array
     }
     
     const updatedCoupon = await Coupon.findByIdAndUpdate(
@@ -146,6 +163,7 @@ export const updateCoupon = async (req, res) => {
     });
 
   } catch (error) {
+    console.error("Update failed:", error);
     res.status(500).json({ status: false, msg: "Update failed", error: error.message });
   }
 };

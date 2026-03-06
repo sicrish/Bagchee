@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight, LogOut, Menu, X } from 'lucide-react';
-import { Link, useLocation ,useNavigate } from 'react-router-dom';
-import toast from 'react-hot-toast';
+'use client';
 
+import React, { useState, useCallback, memo } from 'react';
+import { ChevronLeft, ChevronRight, LogOut, Menu, X } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 
 const AdminSidebar = () => {
   const location = useLocation();
@@ -14,11 +15,8 @@ const AdminSidebar = () => {
     { name: "Home page", path: "/admin" },
     { name: "Products", path: "/admin/products" },
     { name: "Products types", path: "/admin/product-types" },
-    { name: "Add book", path: "/admin/add-book" },
     { name: "Categories", path: "/admin/categories" },
     { name: "Navigation", path: "/admin/navigation" },
-    // { name: "Actors", path: "/admin/actors" },
-    // { name: "Artists", path: "/admin/artists" },
     { name: "Authors", path: "/admin/authors" },
     { name: "Coupons", path: "/admin/coupons" },
     { name: "Languages", path: "/admin/languages" },
@@ -26,11 +24,9 @@ const AdminSidebar = () => {
     { name: "Formats", path: "/admin/formats" },
     { name: "Publishers", path: "/admin/publishers" },
     { name: "Series", path: "/admin/series" },
-    // { name: "Labels", path: "/admin/labels" },
     { name: "Pages", path: "/admin/pages" },
     { name: "Help pages", path: "/admin/help-pages" },
     { name: "Socials", path: "/admin/socials" },
-
     { name: "Orders", path: "/admin/orders" },
     { name: "Order status", path: "/admin/order-status" },
     { name: "Reviews", path: "/admin/reviews" },
@@ -41,31 +37,24 @@ const AdminSidebar = () => {
     { name: "NewsLetter subs", path: "/admin/newsletter-subs" },
     { name: "Meta", path: "/admin/meta-tags" },
     { name: "Setting", path: "/admin/settings" },
-
-
-
-
   ];
 
-// 🟢 LOGOUT FUNCTION
-const handleLogout = () => {
-  
-    // 1. Clear LocalStorage (Jo bhi key aapne login ke waqt set ki thi)
-    localStorage.removeItem('token'); 
-    localStorage.removeItem('admin'); 
+  // 🟢 LOGOUT FUNCTION (Optimized with useCallback)
+  const handleLogout = useCallback(() => {
+    // 1. Clear LocalStorage
+    localStorage.removeItem('token');
+    localStorage.removeItem('admin');
 
     // 2. Show Success Message
     toast.success("Logged out successfully");
 
     // 3. Redirect to Login Page
-    navigate('/login'); // Ya '/' jahan bhi login route ho
-  
-};
+    navigate('/login');
+  }, [navigate]);
 
-
-  const handleLinkClick = () => {
+  const handleLinkClick = useCallback(() => {
     setIsOpen(false);
-  };
+  }, []);
 
   return (
     <>
@@ -90,23 +79,21 @@ const handleLogout = () => {
         className={`
           fixed inset-y-0 left-0 z-50 bg-text-main text-gray-300 shadow-2xl flex flex-col font-body
           transition-all duration-300 ease-in-out whitespace-nowrap overflow-hidden
-          ${isOpen ? 'translate-x-0' : '-translate-x-full'}  // Mobile Logic
-          md:translate-x-0 md:relative                       // Desktop Logic
-          ${isCollapsed ? 'w-10' : 'w-60'}                   // 🟢 Width Logic (64px expanded -> 12px collapsed)
+          ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+          md:translate-x-0 md:relative
+          ${isCollapsed ? 'w-10' : 'w-60'}
         `}
       >
         
-        {/* --- HEADER (Toggle Button Only when Collapsed) --- */}
+        {/* --- HEADER --- */}
         <div className={`
             flex items-center h-16 border-b border-gray-700 bg-black/20 font-display tracking-wide text-white transition-all
             ${isCollapsed ? 'justify-center px-0' : 'justify-between px-5'}
         `}>
-          {/* Logo / Title (Hidden when collapsed) */}
           {!isCollapsed && (
             <span className="font-bold truncate text-lg animate-fadeIn">Admin</span>
           )}
           
-          {/* Mobile Close Button */}
           <button 
              onClick={() => setIsOpen(false)} 
              className="md:hidden hover:bg-white/10 p-1 rounded transition-colors"
@@ -114,7 +101,6 @@ const handleLogout = () => {
               <X size={20} />
           </button>
 
-          {/* 🟢 Desktop Shrink Toggle Button */}
           <button 
             onClick={() => setIsCollapsed(!isCollapsed)}
             className={`
@@ -127,7 +113,7 @@ const handleLogout = () => {
           </button>
         </div>
 
-        {/* --- MENU LIST (Hidden Completely when Collapsed) --- */}
+        {/* --- MENU LIST --- */}
         <nav className={`flex-1 overflow-y-auto overflow-x-hidden py-4 custom-scrollbar ${isCollapsed ? 'hidden' : 'block'}`}>
           <ul className="space-y-1">
             {menuItems.map((item, index) => {
@@ -145,7 +131,6 @@ const handleLogout = () => {
                       }
                     `}
                   >
-                    {/* Sirf Text dikhega, icons hata diye kyunki aapne bola tha */}
                     <span className="truncate">{item.name}</span>
                   </Link>
                 </li>
@@ -154,7 +139,7 @@ const handleLogout = () => {
           </ul>
         </nav>
 
-        {/* --- FOOTER (Hidden Completely when Collapsed) --- */}
+        {/* --- FOOTER --- */}
         <div className={`p-4 border-t border-gray-700 bg-black/20 ${isCollapsed ? 'hidden' : 'block'}`}>
             <button 
             onClick={handleLogout}
@@ -169,4 +154,4 @@ const handleLogout = () => {
   );
 };
 
-export default AdminSidebar;
+export default memo(AdminSidebar); // 🟢 Memoized for Performance

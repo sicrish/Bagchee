@@ -165,23 +165,33 @@ export const deleteOrder = async (req, res) => {
     }
 };
 
-// ==========================================
-// 🟣 6. USER MY ORDERS (Specific Route Logic)
-// ==========================================
-// Ye function frontend ke '/my-orders' call ko handle karega
 export const getUserOrders = async (req, res) => {
     try {
-        // Frontend se 'customer_id' query me aayega (e.g., ?customer_id=123)
-        // Ya agar Auth Middleware hai to 'req.user._id'
         const customer_id = req.query.customer_id || req.user?._id;
+        const page = Number(req.query.page) || 1;
+        const limit = Number(req.query.limit) || 5; // Ek page par 5 orders
+        const skip = (page - 1) * limit;
 
         if (!customer_id) {
             return res.status(400).json({ status: false, msg: "User ID is required" });
         }
 
-        const orders = await OrderModel.find({ customer_id }).sort({ created_at: -1 });
+        // 1. Total orders count karein (Pagination calculation ke liye)
+        const total = await OrderModel.countDocuments({ customer_id });
+
+        // 2. Sirf specific page ka data nikalen
+        const orders = await OrderModel.find({ customer_id })
+            .sort({ created_at: -1 })
+            .skip(skip)
+            .limit(limit);
         
-        res.status(200).json({ status: true, data: orders });
+        res.status(200).json({ 
+            status: true, 
+            data: orders,
+            total,
+            page,
+            totalPages: Math.ceil(total / limit)
+        });
 
     } catch (error) {
         res.status(500).json({ status: false, msg: "Server Error", error: error.message });

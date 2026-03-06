@@ -1,28 +1,32 @@
-import React, { useState, useEffect } from 'react';
+'use client';
+
+import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Heart, Trash2, ShoppingCart, Star, Package, BookOpen, Globe, FileText, Plus, Minus } from 'lucide-react';
 import axios from '../../../utils/axiosConfig';
 import toast from 'react-hot-toast';
 import AccountLayout from '../../../layouts/AccountLayout';
 import { useCart } from '../../../context/CartContext';
+import { useQuery } from '@tanstack/react-query'; // 🟢 React Query
 
 const Wishlist = () => {
     const { wishlist, toggleWishlist, cart, addToCart, updateQuantity } = useCart();
-    const [loading, setLoading] = useState(false);
     const [removing, setRemoving] = useState(null);
-    const [productsData, setProductsData] = useState({});
 
     const API_BASE_URL = process.env.REACT_APP_API_URL;
 
-    // Fetch full product details for each wishlist item
-    useEffect(() => {
-        const fetchProductDetails = async () => {
+    // 🟢 1. FETCH PRODUCT DETAILS FOR WISHLIST ITEMS
+    // Hum useQuery ka use karke poore wishlist data ko ek saath manage karenge
+    const { data: productsData = {}, isLoading: loading } = useQuery({
+        queryKey: ['wishlist-details', wishlist.map(item => item._id)], // Depend on wishlist IDs
+        queryFn: async () => {
             const productDetails = {};
-            for (const product of wishlist) {
+            // Wishlist ke har item ke liye detail fetch karenge
+            const detailPromises = wishlist.map(async (product) => {
+                const productId = product.bagchee_id || product._id;
                 try {
                     let response;
-                    const productId = product.bagchee_id || product._id;
-                    
+                    // Aapka purana fallback logic
                     try {
                         response = await axios.get(`${API_BASE_URL}/product/fetch?bagchee_id=${productId}`);
                     } catch (error) {
@@ -40,14 +44,14 @@ const Wishlist = () => {
                 } catch (error) {
                     console.error(`Error fetching product ${product._id}:`, error);
                 }
-            }
-            setProductsData(productDetails);
-        };
+            });
 
-        if (wishlist.length > 0) {
-            fetchProductDetails();
-        }
-    }, [wishlist]);
+            await Promise.all(detailPromises);
+            return productDetails;
+        },
+        enabled: wishlist.length > 0, // Sirf tabhi chale jab wishlist me items hon
+        staleTime: 1000 * 60 * 5, // 5 minute tak data fresh rahega
+    });
 
     const handleRemove = async (productId) => {
         try {
@@ -94,7 +98,7 @@ const Wishlist = () => {
             .replace(/-+/g, '-');
     };
 
-    if (loading) {
+    if (loading && wishlist.length > 0) {
         return (
             <AccountLayout>
                 <div className="flex items-center justify-center min-h-[400px]">
@@ -144,23 +148,16 @@ const Wishlist = () => {
             /* Wishlist List View */
             <div className="flex flex-col gap-4">
               {wishlist.map((product) => {
-                // Use fetched data if available, otherwise use cart data
                 const fullProduct = productsData[product._id] || product;
 
-                // Correct field names from API
                 const price = fullProduct.price || 0;
-                const realPrice =
-                  fullProduct.real_price || fullProduct.price || 0;
+                const realPrice = fullProduct.real_price || fullProduct.price || 0;
                 const hasDiscount = realPrice > price;
-                const discount = hasDiscount
-                  ? Math.round(((realPrice - price) / realPrice) * 100)
-                  : 0;
+                const discount = hasDiscount ? Math.round(((realPrice - price) / realPrice) * 100) : 0;
                 const rating = fullProduct.rating || 0;
                 const ratingCount = fullProduct.rated_times || 0;
-                const availability =
-                  fullProduct.availability || fullProduct.stock || 0;
+                const availability = fullProduct.availability || fullProduct.stock || 0;
 
-                // Generate correct URL
                 const slug = createSlug(fullProduct.title);
                 const productUrl = `/books/${fullProduct.bagchee_id || fullProduct._id}/${slug}`;
 
@@ -169,7 +166,7 @@ const Wishlist = () => {
                     key={product._id}
                     className="bg-cream-100 rounded-xl border border-gray-200 hover:shadow-xl transition-all duration-300 p-4 sm:p-5 flex flex-col sm:flex-row gap-5 relative group"
                   >
-                    {/* Image Section - Padded Style */}
+                    {/* Image Section */}
                     <Link
                       to={productUrl}
                       className="shrink-0 w-full sm:w-44 bg-cream-100 rounded-lg p-3 border border-gray-100 flex items-center justify-center hover:bg-gray-100 transition-colors"
@@ -179,10 +176,7 @@ const Wishlist = () => {
                           src={getImageUrl(fullProduct)}
                           alt={fullProduct.title}
                           className="w-full h-full object-contain mix-blend-multiply drop-shadow-sm transition-transform duration-300 group-hover:scale-105"
-                          onError={(e) => {
-                            e.target.src =
-                              "https://via.placeholder.com/300x400?text=No+Image";
-                          }}
+                          onError={(e) => { e.target.src = "https://via.placeholder.com/300x400?text=No+Image"; }}
                         />
                       </div>
                     </Link>
@@ -197,17 +191,12 @@ const Wishlist = () => {
                             </h3>
                           </Link>
 
-                          {/* Author */}
                           {fullProduct.author && (
                             <p className="text-sm font-medium text-gray-600 mb-3 line-clamp-1">
-                              by{" "}
-                              <span className="text-gray-800">
-                                {getAuthorName(fullProduct.author)}
-                              </span>
+                              by <span className="text-gray-800">{getAuthorName(fullProduct.author)}</span>
                             </p>
                           )}
 
-                          {/* Rating */}
                           {rating > 0 && (
                             <div className="flex items-center gap-2 mb-4">
                               <div className="flex gap-0.5">
@@ -215,202 +204,99 @@ const Wishlist = () => {
                                   <Star
                                     key={i}
                                     size={16}
-                                    className={`${
-                                      i < Math.floor(rating)
-                                        ? "fill-orange-400 text-orange-400"
-                                        : "fill-gray-100 text-gray-200"
-                                    }`}
+                                    className={`${i < Math.floor(rating) ? "fill-orange-400 text-orange-400" : "fill-gray-100 text-gray-200"}`}
                                   />
                                 ))}
                               </div>
-                              <span className="text-sm font-medium text-gray-700">
-                                {rating.toFixed(1)}
-                              </span>
-                              <span className="text-sm text-gray-400">
-                                ({ratingCount} reviews)
-                              </span>
+                              <span className="text-sm font-medium text-gray-700">{rating.toFixed(1)}</span>
+                              <span className="text-sm text-gray-400">({ratingCount} reviews)</span>
                             </div>
                           )}
 
-                          {/* Book Details Grid */}
                           <div className="grid grid-cols-2 gap-3 mt-4 pb-4 border-b border-gray-100">
-                            {/* Format */}
                             {fullProduct.binding && (
                               <div className="flex items-start gap-2">
-                                <div className="mt-0.5 text-gray-400 flex-shrink-0">
-                                  <BookOpen size={14} />
-                                </div>
+                                <div className="mt-0.5 text-gray-400 flex-shrink-0"><BookOpen size={14} /></div>
                                 <div className="min-w-0">
-                                  <p className="text-xs text-gray-500 font-medium">
-                                    Format
-                                  </p>
-                                  <p className="text-sm text-gray-800 font-medium truncate">
-                                    {fullProduct.binding}
-                                  </p>
+                                  <p className="text-xs text-gray-500 font-medium">Format</p>
+                                  <p className="text-sm text-gray-800 font-medium truncate">{fullProduct.binding}</p>
                                 </div>
                               </div>
                             )}
-
-                            {/* Language */}
                             {fullProduct.language && (
                               <div className="flex items-start gap-2">
-                                <div className="mt-0.5 text-gray-400 flex-shrink-0">
-                                  <Globe size={14} />
-                                </div>
+                                <div className="mt-0.5 text-gray-400 flex-shrink-0"><Globe size={14} /></div>
                                 <div className="min-w-0">
-                                  <p className="text-xs text-gray-500 font-medium">
-                                    Language
-                                  </p>
-                                  <p className="text-sm text-gray-800 font-medium truncate">
-                                    {fullProduct.language}
-                                  </p>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Pages */}
-                            {fullProduct.pages && (
-                              <div className="flex items-start gap-2">
-                                <div className="mt-0.5 text-gray-400 flex-shrink-0">
-                                  <FileText size={14} />
-                                </div>
-                                <div className="min-w-0">
-                                  <p className="text-xs text-gray-500 font-medium">
-                                    Pages
-                                  </p>
-                                  <p className="text-sm text-gray-800 font-medium">
-                                    {fullProduct.pages}
-                                  </p>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Edition */}
-                            {fullProduct.edition && (
-                              <div className="flex items-start gap-2">
-                                <div className="mt-0.5 text-gray-400 flex-shrink-0">
-                                  <FileText size={14} />
-                                </div>
-                                <div className="min-w-0">
-                                  <p className="text-xs text-gray-500 font-medium">
-                                    Edition
-                                  </p>
-                                  <p className="text-sm text-gray-800 font-medium truncate">
-                                    {fullProduct.edition}
-                                  </p>
+                                  <p className="text-xs text-gray-500 font-medium">Language</p>
+                                  <p className="text-sm text-gray-800 font-medium truncate">{fullProduct.language}</p>
                                 </div>
                               </div>
                             )}
                           </div>
                         </div>
 
-                        {/* Remove Button (Desktop) */}
                         <button
                           onClick={() => handleRemove(product._id)}
                           disabled={removing === product._id}
                           className="hidden sm:flex items-center justify-center w-10 h-10 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-all flex-shrink-0"
                           title="Remove from wishlist"
                         >
-                          {removing === product._id ? (
-                            <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
-                          ) : (
-                            <Trash2 size={20} />
-                          )}
+                          {removing === product._id ? <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div> : <Trash2 size={20} />}
                         </button>
                       </div>
 
-                      {/* Bottom Section: Price & Actions */}
+                      {/* Price & Actions */}
                       <div className="mt-auto pt-4 border-t border-gray-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                         <div className="w-full sm:w-auto flex flex-col gap-2">
                           <div className="flex flex-wrap items-baseline gap-2.5">
-                            <span className="text-2xl font-bold text-gray-900">
-                              ₹{price.toLocaleString("en-IN")}
-                            </span>
+                            <span className="text-2xl font-bold text-gray-900">₹{price.toLocaleString("en-IN")}</span>
                             {hasDiscount && (
                               <>
-                                <span className="text-base text-gray-400 line-through font-medium">
-                                  ₹{realPrice.toLocaleString("en-IN")}
-                                </span>
-                                <span className="text-xs font-bold text-green-700 bg-green-50 px-2.5 py-1 rounded-md border border-green-100">
-                                  {discount}% OFF
-                                </span>
+                                <span className="text-base text-gray-400 line-through font-medium">₹{realPrice.toLocaleString("en-IN")}</span>
+                                <span className="text-xs font-bold text-green-700 bg-green-50 px-2.5 py-1 rounded-md border border-green-100">{discount}% OFF</span>
                               </>
                             )}
                           </div>
-
-                          {/* Stock Status */}
                           {availability && availability > 0 ? (
-                            <span className="text-xs font-medium text-green-700 flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 bg-green-600 rounded-full"></span>
-                              In Stock
-                            </span>
+                            <span className="text-xs font-medium text-green-700 flex items-center gap-1"><span className="w-1.5 h-1.5 bg-green-600 rounded-full"></span>In Stock</span>
                           ) : (
-                            <span className="text-xs font-medium text-red-600 flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 bg-red-600 rounded-full"></span>
-                              Out of Stock
-                            </span>
+                            <span className="text-xs font-medium text-red-600 flex items-center gap-1"><span className="w-1.5 h-1.5 bg-red-600 rounded-full"></span>Out of Stock</span>
                           )}
                         </div>
 
-                         <div className="w-full sm:w-auto flex items-center gap-3">
-                           <div className="sm:w-48 w-full">
-                             {(() => {
-                               const cartItem = cart.find(item => item._id === fullProduct._id);
-                               const qty = cartItem ? cartItem.quantity : 0;
-                               const outOfStock = (fullProduct.stock <= 0);
-                               if (qty > 0) {
-                                 return (
-                                   <div className="flex items-center bg-primary text-white rounded-md overflow-hidden shadow-sm w-full justify-center">
-                                     <button
-                                       onClick={() => updateQuantity(fullProduct._id, 'dec')}
-                                       className="px-3 py-2 hover:bg-primary-dark transition-colors flex items-center justify-center"
-                                     >
-                                       <Minus size={16} />
-                                     </button>
-                                     <span className="px-2 font-bold min-w-[20px] text-center text-sm">{qty}</span>
-                                     <button
-                                       onClick={() => updateQuantity(fullProduct._id, 'inc')}
-                                       disabled={qty >= (fullProduct.stock || 10)}
-                                       className="px-3 py-2 hover:bg-primary-dark transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-                                     >
-                                       <Plus size={16} />
-                                     </button>
-                                   </div>
-                                 );
-                               }
-                               return (
-                                 <button
-                                   onClick={() => {
-                                     if (outOfStock) { toast.error("Product is out of stock"); return; }
-                                     const productWithLink = {
-                                       ...fullProduct,
-                                       bagcheeId: fullProduct.bagchee_id || fullProduct._id,
-                                       slug: fullProduct.title ? fullProduct.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') : 'book'
-                                     };
-                                     addToCart(productWithLink);
-                                     toast.success("Added to Cart");
-                                   }}
-                                   disabled={outOfStock}
-                                   className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary-dark transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed w-full justify-center"
-                                 >
-                                   <ShoppingCart size={18} />
-                                   <span>{outOfStock ? 'Out of Stock' : 'Add to Cart'}</span>
-                                 </button>
-                               );
-                             })()}
-                           </div>
-
-                          {/* Mobile Remove Button */}
-                          <button
-                            onClick={() => handleRemove(product._id)}
-                            disabled={removing === product._id}
-                            className="sm:hidden flex items-center justify-center w-12 h-12 border border-gray-200 text-gray-500 hover:text-red-500 hover:border-red-500 rounded-lg transition-colors flex-shrink-0"
-                          >
-                            {removing === product._id ? (
-                              <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
-                            ) : (
-                              <Trash2 size={20} />
-                            )}
+                        <div className="w-full sm:w-auto flex items-center gap-3">
+                          <div className="sm:w-48 w-full">
+                            {(() => {
+                              const cartItem = cart.find(item => item._id === fullProduct._id);
+                              const qty = cartItem ? cartItem.quantity : 0;
+                              const outOfStock = (fullProduct.stock <= 0);
+                              if (qty > 0) {
+                                return (
+                                  <div className="flex items-center bg-primary text-white rounded-md overflow-hidden shadow-sm w-full justify-center">
+                                    <button onClick={() => updateQuantity(fullProduct._id, 'dec')} className="px-3 py-2 hover:bg-primary-dark transition-colors flex items-center justify-center"><Minus size={16} /></button>
+                                    <span className="px-2 font-bold min-w-[20px] text-center text-sm">{qty}</span>
+                                    <button onClick={() => updateQuantity(fullProduct._id, 'inc')} disabled={qty >= (fullProduct.stock || 10)} className="px-3 py-2 hover:bg-primary-dark transition-colors flex items-center justify-center disabled:opacity-50"><Plus size={16} /></button>
+                                  </div>
+                                );
+                              }
+                              return (
+                                <button
+                                  onClick={() => {
+                                    if (outOfStock) { toast.error("Product is out of stock"); return; }
+                                    addToCart({ ...fullProduct, bagcheeId: fullProduct.bagchee_id || fullProduct._id, slug });
+                                    toast.success("Added to Cart");
+                                  }}
+                                  disabled={outOfStock}
+                                  className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary-dark transition-colors disabled:bg-gray-300 w-full justify-center"
+                                >
+                                  <ShoppingCart size={18} />
+                                  <span>{outOfStock ? 'Out of Stock' : 'Add to Cart'}</span>
+                                </button>
+                              );
+                            })()}
+                          </div>
+                          <button onClick={() => handleRemove(product._id)} disabled={removing === product._id} className="sm:hidden flex items-center justify-center w-12 h-12 border border-gray-200 text-gray-500 rounded-lg transition-colors">
+                            {removing === product._id ? <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div> : <Trash2 size={20} />}
                           </button>
                         </div>
                       </div>

@@ -1,15 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Check, RotateCcw, X, Loader2 } from 'lucide-react';
 import axios from '../../utils/axiosConfig.js';
 import toast from 'react-hot-toast';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // 🟢 React Query added
 
 const EditFormats = () => {
   const navigate = useNavigate();
   const { id } = useParams(); // URL se ID nikalne ke liye
-  const [loading, setLoading] = useState(false);
-  const [fetching, setFetching] = useState(true);
-  const [categories, setCategories] = useState([]);
+  const queryClient = useQueryClient();
+
+  // 🟢 Data lock to prevent auto overwrite when typing
+  const [isDataInitialized, setIsDataInitialized] = useState(false);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -18,71 +20,107 @@ const EditFormats = () => {
     order: ''
   });
 
-  // 🟢 1. Categories aur Single Format Data load karein
-  useEffect(() => {
-    const loadInitialData = async () => {
-      try {
-        const API_URL = process.env.REACT_APP_API_URL;
-        
-        // Parallel requests for Categories and the Format details
-        const [catRes, formatRes] = await Promise.all([
-          axios.get(`${API_URL}/category/fetch`),
-          axios.get(`${API_URL}/formats/get/${id}`) // Backend route verify karein
-        ]);
-
-        if (catRes.data.status) setCategories(catRes.data.data);
-        
-        if (formatRes.data.status) {
-          const data = formatRes.data.data;
-          setFormData({
-            title: data.title || '',
-            status: data.status || 'active',
-            category_id: data.category_id || '',
-            order: data.order || ''
-          });
-        }
-      } catch (error) {
-        console.error("Data fetch error:", error);
-        toast.error("Failed to load format details");
-        navigate('/admin/formats');
-      } finally {
-        setFetching(false);
+  // 🚀 OPTIMIZATION 1: Fetch Categories (Cached independently)
+  const { data: categories = [], isLoading: isCategoriesLoading } = useQuery({
+    queryKey: ['categoriesListDropdown'],
+    queryFn: async () => {
+      const API_URL = process.env.REACT_APP_API_URL;
+      const res = await axios.get(`${API_URL}/category/fetch`);
+      if (res.data.status) {
+        return res.data.data || [];
       }
-    };
-    loadInitialData();
-  }, [id, navigate]);
+      return [];
+    },
+    staleTime: 1000 * 60 * 10, // Cache for 10 mins
+  });
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  // 🚀 OPTIMIZATION 2: Fetch Format Details
+  const { data: formatData, isLoading: isFormatLoading } = useQuery({
+    queryKey: ['editFormatData', id],
+    queryFn: async () => {
+      const API_URL = process.env.REACT_APP_API_URL;
+      const res = await axios.get(`${API_URL}/formats/get/${id}`);
+      if (!res.data.status) {
+        throw new Error("Failed to load format details");
+      }
+      return res.data.data;
+    },
+    enabled: !!id, // Run only if ID is present
+    staleTime: 1000 * 60 * 5, // Cache for 5 mins
+    refetchOnWindowFocus: false, // Prevent background overwrite
+    onError: (error) => {
+      console.error("Data fetch error:", error);
+      toast.error("Failed to load format details");
+      navigate('/admin/formats');
+    }
+  });
+
+  // 🟢 1. Initialize State ONCE when data arrives
+  useEffect(() => {
+    if (formatData && !isDataInitialized) {
+      setFormData({
+        title: formatData.title || '',
+        status: formatData.active || 'active', // Adjusted based on schema field name
+        category_id: formatData.category || '', // Adjusted based on schema reference
+        order: formatData.order || ''
+      });
+      setIsDataInitialized(true); // Lock it!
+    }
+  }, [formatData, isDataInitialized]);
+
+  // Safe handler
+  const handleChange = useCallback((e) => {
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  }, []);
+
+  // 🚀 OPTIMIZATION 3: Update Mutation
+  const updateFormatMutation = useMutation({
+    mutationFn: async (submitData) => {
+      const API_URL = process.env.REACT_APP_API_URL;
+      // PATCH request for updating existing record
+      const res = await axios.patch(`${API_URL}/formats/update/${id}`, submitData);
+      return res.data;
+    }
+  });
 
   // 🔵 2. Update Handle Function
-  const handleSubmit = async (e, actionType) => {
+  const handleSubmit = (e, actionType) => {
     e.preventDefault();
     if (!formData.title.trim()) return toast.error("Title is required!");
 
-    setLoading(true);
     const toastId = toast.loading("Updating format...");
 
-    try {
-      const API_URL = process.env.REACT_APP_API_URL;
-      // PATCH request for updating existing record
-      const res = await axios.patch(`${API_URL}/formats/update/${id}`, formData);
+    // Formatting payload based on mongoose schema matching
+    const payload = {
+       title: formData.title,
+       active: formData.status, // status dropdown mapping to 'active' field in schema
+       category: formData.category_id, // dropdown mapping to 'category' field
+       order: formData.order
+    };
 
-      if (res.data.status) {
-        toast.success("Format updated successfully! 🎬", { id: toastId });
-        if (actionType === 'back') {
-          navigate('/admin/formats');
+    updateFormatMutation.mutate(payload, {
+      onSuccess: (resData) => {
+        if (resData.status) {
+          toast.success("Format updated successfully! 🎬", { id: toastId });
+          
+          // Clear old cache so it updates instantly next time
+          queryClient.invalidateQueries({ queryKey: ['editFormatData', id] });
+
+          if (actionType === 'back') {
+            navigate('/admin/formats');
+          }
+        } else {
+          toast.error(resData.msg || "Failed to update", { id: toastId });
         }
+      },
+      onError: (error) => {
+        toast.error(error.response?.data?.msg || "Failed to update", { id: toastId });
       }
-    } catch (error) {
-      toast.error(error.response?.data?.msg || "Failed to update", { id: toastId });
-    } finally {
-      setLoading(false);
-    }
+    });
   };
 
-  if (fetching) {
+  // Full Screen Loader for Setup
+  if (isFormatLoading || !isDataInitialized) {
     return (
       <div className="min-h-screen bg-cream-50 flex items-center justify-center">
         <Loader2 className="animate-spin text-primary" size={40} />
@@ -101,7 +139,7 @@ const EditFormats = () => {
       </div>
 
       <div className="max-w-6xl mx-auto p-6 mt-4">
-        <form className="bg-white rounded border border-cream-200 shadow-sm overflow-hidden">
+        <form className="bg-white rounded border border-cream-200 shadow-sm overflow-hidden" onSubmit={(e) => e.preventDefault()}>
           
           <div className="bg-cream-100 px-6 py-2 border-b border-cream-200">
              <h2 className="text-[11px] font-bold uppercase tracking-wider font-montserrat text-text-muted">
@@ -167,9 +205,10 @@ const EditFormats = () => {
                   name="category_id" 
                   value={formData.category_id} 
                   onChange={handleChange} 
+                  disabled={isCategoriesLoading}
                   className="w-1/3 border border-gray-300 rounded px-4 py-2 text-[13px] outline-none transition-all focus:border-primary bg-white text-gray-500"
                 >
-                  <option value="">Select Category</option>
+                  <option value="">{isCategoriesLoading ? 'Loading...' : 'Select Category'}</option>
                   {categories.map((cat) => (
                     <option key={cat._id} value={cat._id}>{cat.categorytitle}</option>
                   ))}
@@ -194,31 +233,33 @@ const EditFormats = () => {
             </div>
 
             {/* --- ACTION BUTTONS --- */}
+            {/* 🟢 Bound dynamically to updateFormatMutation.isPending */}
             <div className="flex justify-center items-center gap-3 pt-8 border-t mt-10 font-montserrat">
               <button 
                 type="button"
                 onClick={(e) => handleSubmit(e, 'stay')} 
-                disabled={loading} 
-                className="bg-white border border-gray-300 hover:bg-gray-50 text-text-main px-6 py-2 rounded font-bold text-[11px] uppercase transition-all flex items-center gap-2 shadow-sm"
+                disabled={updateFormatMutation.isPending} 
+                className="bg-white border border-gray-300 hover:bg-gray-50 text-text-main px-6 py-2 rounded font-bold text-[11px] uppercase transition-all flex items-center gap-2 shadow-sm disabled:opacity-70"
               >
-                {loading ? <Loader2 size={14} className="animate-spin"/> : <Check size={16} className="text-green-600"/>} 
+                {updateFormatMutation.isPending ? <Loader2 size={14} className="animate-spin"/> : <Check size={16} className="text-green-600"/>} 
                 <span className="font-bold">Update</span>
               </button>
               
               <button 
                 type="button"
                 onClick={(e) => handleSubmit(e, 'back')} 
-                disabled={loading} 
-                className="bg-white border border-gray-300 hover:bg-gray-50 text-text-main px-6 py-2 rounded font-bold text-[11px] uppercase transition-all flex items-center gap-2 shadow-sm"
+                disabled={updateFormatMutation.isPending} 
+                className="bg-white border border-gray-300 hover:bg-gray-50 text-text-main px-6 py-2 rounded font-bold text-[11px] uppercase transition-all flex items-center gap-2 shadow-sm disabled:opacity-70"
               >
-                <RotateCcw size={16} className="text-primary"/> 
+                {updateFormatMutation.isPending ? <Loader2 size={14} className="animate-spin"/> : <RotateCcw size={16} className="text-primary"/>} 
                 <span className="font-bold">Update and go back to list</span>
               </button>
 
               <button 
                 type="button" 
                 onClick={() => navigate('/admin/formats')} 
-                className="bg-white border border-gray-300 hover:bg-gray-50 text-text-main px-6 py-2 rounded font-bold text-[11px] uppercase transition-all flex items-center gap-2 shadow-sm"
+                disabled={updateFormatMutation.isPending}
+                className="bg-white border border-gray-300 hover:bg-gray-50 text-text-main px-6 py-2 rounded font-bold text-[11px] uppercase transition-all flex items-center gap-2 shadow-sm disabled:opacity-70"
               >
                 <X size={16} className="text-red-600" /> 
                 <span className="font-bold">Cancel</span>

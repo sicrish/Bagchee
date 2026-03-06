@@ -2,20 +2,31 @@ import React, { memo, useMemo, useCallback } from 'react';
 import { X, ShoppingCart, Heart } from 'lucide-react';
 import { Dialog, Transition, TransitionChild, DialogPanel } from '@headlessui/react';
 import { Link } from 'react-router-dom';
-import { useCart } from '../../context/CartContext.jsx'; // 🟢 Context Import
+import { useCart } from '../../context/CartContext.jsx';
 import toast from 'react-hot-toast';
+import { useMutation, useQueryClient } from '@tanstack/react-query'; // 🟢 Mutations use karenge
+import axios from '../../utils/axiosConfig.js';
 
 const ProductModal = ({ product, isOpen, onClose }) => {
-    // 🟢 1. Hooks (Top Level - Cart functions extracted)
     const { addToCart, toggleWishlist, isInWishlist } = useCart();
+    const queryClient = useQueryClient();
+
+    // 🟢 Wishlist Mutation (Syncing with backend in background)
+    const wishlistMutation = useMutation({
+        mutationFn: async (productId) => {
+            return await axios.post('/user/wishlist/toggle', { productId });
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries(['wishlist']); // 🛡️ Header/Cards ko update karega
+        }
+    });
 
     const previewImage = useMemo(() => {
         if (!product) return "";
         const path = product.toc_image || product.default_image;
         if (!path) return "https://via.placeholder.com/500x700?text=No+Preview+Available";
         if (path.startsWith('http')) return path;
-        
-        const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000";
+        const API_BASE = process.env.REACT_APP_API_URL?.replace('/api', '') || "http://localhost:5000";
         return `${API_BASE}${path.startsWith('/') ? '' : '/'}${path}`;
     }, [product]);
 
@@ -23,7 +34,6 @@ const ProductModal = ({ product, isOpen, onClose }) => {
         onClose();
     }, [onClose]);
 
-    // 🟢 2. Action Handlers
     const handleAddToCart = () => {
         if (product) {
             addToCart(product);
@@ -34,18 +44,16 @@ const ProductModal = ({ product, isOpen, onClose }) => {
     const handleWishlist = (e) => {
         e.preventDefault();
         if (product) {
-            toggleWishlist(product);
+            toggleWishlist(product); // Local state update (Instant UI change)
+            wishlistMutation.mutate(product._id); // Server sync
         }
     };
 
-    // 🟢 3. Guard Clause
     if (!product) return null;
 
     return (
         <Transition show={isOpen} as={React.Fragment}>
             <Dialog as="div" className="relative z-[60]" onClose={handleClose}>
-                
-                {/* Backdrop with Blur */}
                 <TransitionChild
                     as={React.Fragment}
                     enter="ease-out duration-300"
@@ -60,7 +68,6 @@ const ProductModal = ({ product, isOpen, onClose }) => {
 
                 <div className="fixed inset-0 z-10 overflow-y-auto">
                     <div className="flex min-h-full items-center justify-center p-2 sm:p-4 text-center">
-                        
                         <TransitionChild
                             as={React.Fragment}
                             enter="ease-out duration-300"
@@ -72,7 +79,6 @@ const ProductModal = ({ product, isOpen, onClose }) => {
                         >
                             <DialogPanel className="w-full max-w-4xl transform overflow-hidden rounded-xl bg-white text-left align-middle shadow-2xl transition-all font-body relative flex flex-col md:flex-row max-h-[95vh] md:h-[600px]">
                                 
-                                {/* 📱 Close Button */}
                                 <button 
                                     onClick={handleClose}
                                     className="absolute top-3 right-3 z-[70] p-2 bg-white/80 backdrop-blur-md rounded-full hover:bg-gray-200 text-text-main shadow-md transition-all active:scale-90"
@@ -80,14 +86,12 @@ const ProductModal = ({ product, isOpen, onClose }) => {
                                     <X size={20} />
                                 </button>
 
-                                {/* --- LEFT: PREVIEW IMAGE --- */}
+                                {/* --- LEFT: IMAGE --- */}
                                 <div className="w-full md:w-1/2 bg-gray-50 overflow-y-auto custom-scrollbar border-b md:border-b-0 md:border-r border-gray-100 p-6 flex items-center justify-center min-h-[300px] md:min-h-full">
                                     <img 
                                         src={previewImage} 
                                         alt={product.title} 
-                                        decoding="async"
-                                        className="max-w-full h-auto shadow-lg rounded-sm object-contain max-h-[400px] md:max-h-full transition-transform duration-500"
-                                        style={{ transform: "translateZ(0)" }}
+                                        className="max-w-full h-auto shadow-lg rounded-sm object-contain max-h-[400px] md:max-h-full"
                                         onError={(e) => { e.target.src = "https://via.placeholder.com/500x700?text=No+Preview+Available" }}
                                     />
                                 </div>
@@ -111,7 +115,6 @@ const ProductModal = ({ product, isOpen, onClose }) => {
                                             )}
                                         </div>
 
-                                        {/* Key Features Grid */}
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6 bg-cream-50 p-4 rounded-lg border border-cream-200">
                                             <div className="flex flex-col">
                                                 <span className="text-[10px] uppercase tracking-wider text-text-muted font-bold font-montserrat">ISBN</span>
@@ -121,17 +124,10 @@ const ProductModal = ({ product, isOpen, onClose }) => {
                                                 <span className="text-[10px] uppercase tracking-wider text-text-muted font-bold font-montserrat">Format</span>
                                                 <span className="font-bold text-text-main text-xs sm:text-sm capitalize">{product.binding || 'Paperback'}</span>
                                             </div>
-                                            <div className="flex flex-col">
-                                                <span className="text-[10px] uppercase tracking-wider text-text-muted font-bold font-montserrat">Language</span>
-                                                <span className="font-bold text-text-main text-xs sm:text-sm">{product.language || 'English'}</span>
-                                            </div>
                                         </div>
 
                                         <div className="text-sm text-text-muted leading-relaxed mb-4">
-                                            <div 
-                                                className="line-clamp-[8] md:line-clamp-none"
-                                                dangerouslySetInnerHTML={{ __html: product.synopsis || "No description available." }} 
-                                            />
+                                            <div dangerouslySetInnerHTML={{ __html: product.synopsis || "No description available." }} />
                                         </div>
                                     </div>
 
@@ -153,7 +149,8 @@ const ProductModal = ({ product, isOpen, onClose }) => {
                                             </Link>
                                             <button 
                                                 onClick={handleWishlist}
-                                                className={`px-4 rounded-lg transition-colors group ${
+                                                disabled={wishlistMutation.isPending}
+                                                className={`px-4 rounded-lg transition-colors ${
                                                     isInWishlist(product._id) 
                                                     ? 'bg-red-50 text-red-600 border border-red-100' 
                                                     : 'bg-gray-100 hover:bg-red-50 hover:text-red-500 border border-transparent'
@@ -162,13 +159,12 @@ const ProductModal = ({ product, isOpen, onClose }) => {
                                                 <Heart 
                                                     size={20} 
                                                     fill={isInWishlist(product._id) ? "currentColor" : "none"}
-                                                    className="group-active:scale-125 transition-transform duration-200" 
+                                                    className={wishlistMutation.isPending ? "animate-pulse" : ""}
                                                 />
                                             </button>
                                         </div>
                                     </div>
                                 </div>
-
                             </DialogPanel>
                         </TransitionChild>
                     </div>

@@ -1,16 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { RotateCcw, Check, Loader2, ChevronDown } from 'lucide-react';
+import { RotateCcw, Check, Loader2, ChevronDown, Upload, XCircle, X } from 'lucide-react';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
+import { useQuery, useMutation } from '@tanstack/react-query'; // 🟢 React Query added
+import { validateImageFiles } from '../../utils/fileValidator'; // 🟢 Image Validator added
 
 const EditCategory = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const [loading, setLoading] = useState(true);
-    const [updating, setUpdating] = useState(false);
+    const fileInputRef = useRef(null); // 🟢 Input control ke liye
+    
     const [selectedFile, setSelectedFile] = useState(null);
-    const [parentCategories, setParentCategories] = useState([]);
+    const [previewImage, setPreviewImage] = useState(null); // 🟢 Server wali purani image
+    const [localPreview, setLocalPreview] = useState(null); // 🟢 Nayi select ki hui image ka preview
 
     const API_URL = process.env.REACT_APP_API_URL;
 
@@ -35,66 +38,84 @@ const EditCategory = () => {
         categoryiconname: '' // Purani image path ke liye
     });
 
-    useEffect(() => {
-        const getData = async () => {
-            try {
-                // 1. Sabhi categories fetch karein dropdown ke liye
-                const allCatsRes = await axios.get(`${API_URL}/category/fetch`);
-                if (allCatsRes.data.status) {
-                    setParentCategories(allCatsRes.data.data || []);
-                }
-
-                // 2. Specific category fetch karein edit ke liye
-                const res = await axios.get(`${API_URL}/category/fetch?_id=${id}`);
-                if (res.data.status && res.data.data) {
-                    const fetchedData = res.data.data; // Kyunki single object aa raha hai fetch controller se
-                    
-                    setFormData({
-                        slug: fetchedData.slug || '',
-                        parentslug: fetchedData.parentslug || '',
-                        mainmodule: fetchedData.mainmodule || '',
-                        oldid: fetchedData.oldid || '',
-                        parentid: fetchedData.parentid || '',
-                        categorytitle: fetchedData.categorytitle || '',
-                        active: fetchedData.active || 'active',
-                        lft: fetchedData.lft || '',
-                        rght: fetchedData.rght || '',
-                        level: fetchedData.level || '',
-                        metatitle: fetchedData.metatitle || '',
-                        metakeywords: fetchedData.metakeywords || '',
-                        metadescription: fetchedData.metadescription || '',
-                        producttype: fetchedData.producttype || '',
-                        newslettercategory: fetchedData.newslettercategory || 'No',
-                        newsletterorder: fetchedData.newsletterorder || '',
-                        categoryiconname: fetchedData.categoryiconname || ''
-                    });
-                }
-            } catch (err) {
-                console.error(err);
-                toast.error("Data loading failed");
-            } finally {
-                setLoading(false);
+    // 🟢 React Query 1: Dropdown ke liye sabhi categories fetch karein (Cached)
+    const { data: parentCategories = [] } = useQuery({
+        queryKey: ['allCategoriesDropdown'],
+        queryFn: async () => {
+            const res = await axios.get(`${API_URL}/category/fetch`);
+            if (res.data.status) {
+                return res.data.data || [];
             }
-        };
-        if (id) getData();
-    }, [id, API_URL]);
+            return [];
+        },
+        staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+    });
 
-    const handleChange = (e) => {
+    // 🟢 React Query 2: Jis category ko edit karna hai, uska data fetch karein
+    const { isLoading: loadingCategory } = useQuery({
+        queryKey: ['categoryDetail', id],
+        queryFn: async () => {
+            if (!id) return null;
+            const res = await axios.get(`${API_URL}/category/fetch?_id=${id}`);
+            if (res.data.status && res.data.data) {
+                const fetchedData = res.data.data;
+                
+                setFormData({
+                    slug: fetchedData.slug || '',
+                    parentslug: fetchedData.parentslug || '',
+                    mainmodule: fetchedData.mainmodule || '',
+                    oldid: fetchedData.oldid || '',
+                    parentid: fetchedData.parentid || '',
+                    categorytitle: fetchedData.categorytitle || '',
+                    active: fetchedData.active || 'active',
+                    lft: fetchedData.lft || '',
+                    rght: fetchedData.rght || '',
+                    level: fetchedData.level || '',
+                    metatitle: fetchedData.metatitle || '',
+                    metakeywords: fetchedData.metakeywords || '',
+                    metadescription: fetchedData.metadescription || '',
+                    producttype: fetchedData.producttype || '',
+                    newslettercategory: fetchedData.newslettercategory || 'No',
+                    newsletterorder: fetchedData.newsletterorder || '',
+                    categoryiconname: fetchedData.categoryiconname || ''
+                });
+
+                // Agar purani image (icon) hai toh preview me dikhao
+                if (fetchedData.categoryiconname) {
+                    setPreviewImage(`${API_URL}${fetchedData.categoryiconname}`);
+                }
+                return fetchedData;
+            }
+            throw new Error("Category not found");
+        },
+        enabled: !!id, // Jab id ho tabhi chalaye
+        onError: (err) => {
+            console.error(err);
+            toast.error("Data loading failed");
+            navigate('/admin/categories');
+        }
+    });
+
+    // 🟢 Memory cleanup for local preview
+    useEffect(() => {
+        return () => {
+            if (localPreview) URL.revokeObjectURL(localPreview);
+        };
+    }, [localPreview]);
+
+    const handleChange = useCallback((e) => {
         const { name, value } = e.target;
     
         setFormData((prev) => {
             let updatedData = { ...prev, [name]: value };
     
-            // 🟢 Case 1: Jab Category Title edit karein (Slug aur Path update logic)
             if (name === 'categorytitle') {
                 const newSlug = value.toLowerCase().replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-');
                 updatedData.slug = newSlug;
     
-                // Agar Parent selected hai toh path update karein
                 if (prev.parentid && prev.parentid !== 'root') {
                     const parent = parentCategories.find(cat => cat._id === prev.parentid);
                     if (parent) {
-                        // Parent ka backend vala path ('parentslug') base banayein
                         const basePath = (parent.parentslug && parent.parentslug !== 'root-category') 
                             ? parent.parentslug 
                             : parent.slug;
@@ -105,27 +126,21 @@ const EditCategory = () => {
                 }
             }
     
-            // 🟢 Case 2: Jab Parent badlein (Hierarchy update logic)
             if (name === 'parentid') {
                 const selectedParent = parentCategories.find(cat => cat._id === value);
                 
                 if (selectedParent) {
-                    // Level set karein (Parent Level + 1)
                     updatedData.level = (Number(selectedParent.level) || 0) + 1;
-                    
                     const currentSlug = updatedData.slug || prev.slug || '';
                     
-                    // Parent ka pura rasta base banayein
                     const basePath = (selectedParent.parentslug && selectedParent.parentslug !== 'root-category')
                         ? selectedParent.parentslug
                         : selectedParent.slug;
     
-                    // Final Path = ParentPath + CurrentSlug
                     updatedData.parentslug = currentSlug 
                         ? `${basePath}/${currentSlug}` 
                         : basePath;
                 } else {
-                    // Agar 'Root Category' select kiya
                     updatedData.parentslug = 'root-category';
                     updatedData.level = 0;
                 }
@@ -133,44 +148,80 @@ const EditCategory = () => {
     
             return updatedData;
         });
-    };
+    }, [parentCategories]);
 
-    const handleUpdate = async (e) => {
+    // 🟢 Image Handler with Validation & Local Preview
+    const handleImageChange = useCallback((e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (validateImageFiles(file)) {
+            setSelectedFile(file);
+            setLocalPreview(URL.createObjectURL(file)); // Naya temporary URL banaya
+        } else {
+            e.target.value = ""; 
+            setLocalPreview(null);
+        }
+    }, []);
+
+    // 🟢 Remove NEW Image Logic (Purani image wapas layega)
+    const handleRemoveImage = useCallback(() => {
+        setSelectedFile(null);
+        if (localPreview) {
+            URL.revokeObjectURL(localPreview); // Memory free
+        }
+        setLocalPreview(null);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = ""; // Form input clear
+        }
+    }, [localPreview]);
+
+    // 🟢 React Query: Mutation for submitting form
+    const updateCategoryMutation = useMutation({
+        mutationFn: async (submitData) => {
+            const res = await axios.post(`${API_URL}/category/update`, submitData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            return res.data;
+        }
+    });
+
+    const handleUpdate = (e) => {
         e.preventDefault();
-        setUpdating(true);
-        const data = new FormData();
         
-        // Backend requirement ke hisaab se _id append karein
+        if (!formData.categorytitle || !formData.slug) {
+            return toast.error("Category Title and Slug are required!");
+        }
+
+        const data = new FormData();
         data.append('_id', id);
 
-        // Sabhi fields ko backend model keys ke hisaab se append karein
         Object.keys(formData).forEach(key => {
-            // categoryiconname ko file upload ke waqt skip kar sakte hain agar naya file select hua ho
             data.append(key, formData[key]);
         });
 
-        // Nayi image append karein agar select ki gayi hai
         if (selectedFile) {
             data.append('categoryicon', selectedFile); 
         }
 
-        try {
-            const res = await axios.post(`${API_URL}/category/update`, data, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
+        const toastId = toast.loading("Updating Category...");
 
-            if (res.data.status) {
-                toast.success("Category Updated Successfully!");
-                navigate('/admin/categories');
+        updateCategoryMutation.mutate(data, {
+            onSuccess: (resData) => {
+                if (resData.status) {
+                    toast.success("Category Updated Successfully!", { id: toastId });
+                    navigate('/admin/categories');
+                } else {
+                    toast.error(resData.msg || "Update failed", { id: toastId });
+                }
+            },
+            onError: (err) => {
+                toast.error(err.response?.data?.msg || "Update failed", { id: toastId });
             }
-        } catch (err) {
-            toast.error(err.response?.data?.msg || "Update failed");
-        } finally {
-            setUpdating(false);
-        }
+        });
     };
 
-    if (loading) return <div className="h-screen flex items-center justify-center font-bold">Loading Category Data...</div>;
+    if (loadingCategory) return <div className="h-screen flex items-center justify-center font-bold text-primary"><Loader2 className="animate-spin mr-2" /> Loading Category Data...</div>;
 
     return (
         <div className="p-8 bg-gray-50 min-h-screen font-roboto">
@@ -180,7 +231,6 @@ const EditCategory = () => {
                 </div>
 
                 <form onSubmit={handleUpdate} className="p-8 space-y-4">
-                    {/* Form Rows for all 16 fields */}
                     <FormRow label="Slug *">
                         <input name="slug" value={formData.slug} onChange={handleChange} className="theme-input" required />
                     </FormRow>
@@ -198,15 +248,18 @@ const EditCategory = () => {
                     </FormRow>
 
                     <FormRow label="Parent id">
-                        <select name="parentid" value={formData.parentid} onChange={handleChange} className="theme-input bg-white cursor-pointer">
-                            <option value="">Select Parent</option>
-                            <option value="root">Root Category</option>
-                            {parentCategories.filter(c => c._id !== id).map((cat) => (
-                                <option key={cat._id} value={cat._id}>
-                                    {cat.categorytitle}
-                                </option>
-                            ))}
-                        </select>
+                        <div className="relative">
+                            <select name="parentid" value={formData.parentid} onChange={handleChange} className="theme-input appearance-none bg-white cursor-pointer w-full">
+                                <option value="">Select Parent</option>
+                                <option value="root">Root Category</option>
+                                {parentCategories.filter(c => c._id !== id).map((cat) => (
+                                    <option key={cat._id} value={cat._id}>
+                                        {cat.categorytitle || cat.categoryTitle || cat.title || "Unnamed Category"}
+                                    </option>
+                                ))}
+                            </select>
+                            <ChevronDown size={14} className="absolute right-3 top-3.5 text-gray-500 pointer-events-none" />
+                        </div>
                     </FormRow>
 
                     <FormRow label="Category Title *">
@@ -249,26 +302,61 @@ const EditCategory = () => {
                     </FormRow>
 
                     <FormRow label="Product type">
-                        <select name="producttype" value={formData.producttype} onChange={handleChange} className="theme-input bg-white cursor-pointer">
-                            <option value="">Select Product type</option>
-                            <option value="book">Book</option>
-                            <option value="cd">CD/DVD</option>
-                        </select>
+                        <div className="relative">
+                            <select name="producttype" value={formData.producttype} onChange={handleChange} className="theme-input appearance-none bg-white cursor-pointer w-full">
+                                <option value="">Select Product type</option>
+                                <option value="book">Book</option>
+                                <option value="cd">CD/DVD</option>
+                            </select>
+                            <ChevronDown size={14} className="absolute right-3 top-3.5 text-gray-500 pointer-events-none" />
+                        </div>
                     </FormRow>
 
+                    {/* 🟢 SMART PREVIEW AND UPLOAD LOGIC */}
                     <FormRow label="Category Image">
-                        <div className="flex items-center gap-4">
-                            <input type="file" onChange={(e) => setSelectedFile(e.target.files[0])} className="text-xs" accept="image/*" />
-                            {formData.categoryiconname && !selectedFile && (
-                                <div className="flex flex-col items-center">
-                                    <img 
-                                        src={`${API_URL}${formData.categoryiconname}`} 
-                                        className="h-12 w-12 object-cover border rounded shadow-sm" 
-                                        alt="current icon" 
-                                        onError={(e) => e.target.style.display='none'}
-                                    />
-                                    <span className="text-[9px] text-gray-400">Current Icon</span>
+                        <div className="flex items-start gap-4">
+                            <div className="flex flex-col gap-2 justify-center min-h-[64px]">
+                                <div className="flex items-center gap-3">
+                                    <label className="cursor-pointer bg-white border border-dashed border-gray-300 px-4 py-2 rounded-lg text-[11px] font-bold uppercase hover:border-primary hover:text-primary transition-all flex items-center gap-2 text-gray-500 shadow-sm">
+                                        <Upload size={14} />
+                                        {localPreview || previewImage ? "Change Image" : "Upload Image"}
+                                        <input
+                                            type="file"
+                                            className="hidden"
+                                            ref={fileInputRef}
+                                            onChange={handleImageChange}
+                                            accept="image/*"
+                                        />
+                                    </label>
                                 </div>
+                            </div>
+                            
+                            {/* Premium Image Preview (Local ya Server) */}
+                            {(localPreview || previewImage) && (
+                                <div className="relative inline-block w-20 h-20 border border-gray-200 rounded-md shadow-sm p-1 bg-white group">
+                                    <img
+                                        src={localPreview || previewImage}
+                                        alt="Category Preview"
+                                        className="w-full h-full object-contain rounded-sm"
+                                    />
+                                    
+                                    {/* Delete Cross Button (Sirf Nayi file select hone par) */}
+                                    {localPreview && (
+                                        <button
+                                            type="button"
+                                            onClick={handleRemoveImage}
+                                            className="absolute -top-2 -right-2 bg-red-500 rounded-full shadow-md text-white hover:bg-red-700 hover:scale-110 transition-all z-10"
+                                            title="Remove new image"
+                                        >
+                                            <X size={16} className="m-0.5" />
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Server Icon Name Fallback text if needed */}
+                            {formData.categoryiconname && !localPreview && !previewImage && (
+                                <span className="text-[10px] text-gray-500 mt-2">Current File: {formData.categoryiconname}</span>
                             )}
                         </div>
                     </FormRow>
@@ -291,14 +379,15 @@ const EditCategory = () => {
                     <div className="flex justify-center gap-4 pt-6 border-t mt-6">
                         <button 
                             type="submit" 
-                            disabled={updating} 
+                            disabled={updateCategoryMutation.isPending} 
                             className="bg-primary text-white px-10 py-2.5 rounded font-bold text-xs uppercase flex items-center gap-2 shadow-lg hover:bg-opacity-90 disabled:opacity-50 transition-all"
                         >
-                            {updating ? <Loader2 className="animate-spin" size={16} /> : <Check size={18} />} 
+                            {updateCategoryMutation.isPending ? <Loader2 className="animate-spin" size={16} /> : <Check size={18} />} 
                             Update Category
                         </button>
                         <button 
                             type="button" 
+                            disabled={updateCategoryMutation.isPending} 
                             onClick={() => navigate('/admin/categories')} 
                             className="bg-gray-800 text-white px-10 py-2.5 rounded font-bold text-xs uppercase flex items-center gap-2 shadow-md hover:bg-black transition-all"
                         >
@@ -327,7 +416,7 @@ const EditCategory = () => {
     );
 };
 
-// Form Row Component for structured layout
+// Form Row Component
 const FormRow = ({ label, children }) => (
     <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4 last:border-0 last:pb-0">
         <label className="col-span-12 md:col-span-3 text-left md:text-right text-[11px] font-bold text-gray-500 uppercase tracking-wider">

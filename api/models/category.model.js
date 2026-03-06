@@ -29,7 +29,7 @@ const categorySchema = mongoose.Schema({
     
     // Media & Product Settings
     categoryiconname: { type: String, default: "" }, // Image file name store karne ke liye
-    producttype: { type: String, default: "" }, // Books, CDs etc.
+    producttype: { type: String, default: "Book" }, // Books, CDs etc.
     
     // Newsletter Settings
     newslettercategory: { type: String, enum: ['Yes', 'No'], default: 'No' },

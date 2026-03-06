@@ -1,16 +1,31 @@
 import React, { useState, useContext, memo, useMemo, useCallback } from 'react';
-import { Heart, ShoppingCart, Eye, Globe, Truck } from 'lucide-react';
+import { Heart, ShoppingCart, Globe, Truck } from 'lucide-react';
 import { useCart } from '../../context/CartContext.jsx';
 import { CurrencyContext } from '../../context/CurrencyContext.jsx';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { useMutation, useQueryClient } from '@tanstack/react-query'; // 🟢 React Query
+import axios from '../../utils/axiosConfig.js';
 
-const ProductCardList = ({ data, onQuickView }) => {
+const ProductCardList = ({ data }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const { formatPrice } = useContext(CurrencyContext);
     const { addToCart, toggleWishlist, isInWishlist } = useCart();
+    const queryClient = useQueryClient();
 
-    // 🟢 Optimization 1: Memoize Synopsis Calculation
+    // 🟢 Optimization 1: Memoize Product URL (Slug Logic)
+    const productUrl = useMemo(() => {
+        if (!data.title) return `/books/${data.bagchee_id || data._id}/product`;
+        const slug = data.title
+            .toLowerCase()
+            .trim()
+            .replace(/[^a-z0-9\s-]/g, '')
+            .replace(/\s+/g, '-')
+            .replace(/-+/g, '-');
+        return `/books/${data.bagchee_id || data._id}/${slug}`;
+    }, [data.title, data.bagchee_id, data._id]);
+
+    // 🟢 Optimization 2: Memoize Synopsis Calculation
     const synopsisData = useMemo(() => {
         const rawSynopsis = data.synopsis || "No description available.";
         const canExpand = rawSynopsis.length > 250;
@@ -20,20 +35,41 @@ const ProductCardList = ({ data, onQuickView }) => {
 
     const displaySynopsis = isExpanded ? synopsisData.rawSynopsis : synopsisData.truncated;
 
-    // 🟢 Optimization 2: Stable Handlers (Re-renders rokne ke liye)
+    // 🟢 React Query Mutation for Wishlist
+    const wishlistMutation = useMutation({
+        mutationFn: async (product) => {
+            return await axios.post('/user/wishlist/toggle', { productId: product._id });
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries(['wishlist']);
+            queryClient.invalidateQueries(['userProfile']);
+        }
+    });
+
+    // 🟢 React Query Mutation for Cart Sync
+    const cartMutation = useMutation({
+        mutationFn: async (product) => {
+            // Backend sync logic if exists
+            return product;
+        }
+    });
+
+    // 🟢 Optimization 3: Stable Handlers
     const handleAdd = useCallback(() => {
         addToCart(data);
+        cartMutation.mutate(data);
         toast.success(`${data.title.substring(0, 20)}... added to cart!`, {
             style: { fontSize: '12px', fontFamily: 'Montserrat' }
         });
-    }, [data, addToCart]);
+    }, [data, addToCart, cartMutation]);
 
     const handleWishlist = useCallback((e) => {
         e.preventDefault();
         toggleWishlist(data);
-    }, [data, toggleWishlist]);
+        wishlistMutation.mutate(data);
+    }, [data, toggleWishlist, wishlistMutation]);
 
-    // 🟢 Optimization 3: Smart Image URL
+    // 🟢 Optimization 4: Smart Image URL
     const imageUrl = useMemo(() => {
         if (!data.default_image) return "https://via.placeholder.com/300x400?text=No+Image";
         if (data.default_image.startsWith('http')) return data.default_image;
@@ -44,26 +80,24 @@ const ProductCardList = ({ data, onQuickView }) => {
     return (
         <div className="bg-white rounded-lg border border-cream-200 p-3 md:p-6 flex flex-col md:flex-row gap-4 md:gap-6 shadow-sm hover:shadow-md transition-all duration-300 font-body">
 
-            {/* --- LEFT: IMAGE --- */}
+            {/* --- LEFT: IMAGE (Click to Product Page) --- */}
             <div className="w-full h-64 md:h-72 md:w-48 shrink-0 relative bg-cream-50 rounded overflow-hidden group">
-                <img
-                    src={imageUrl}
-                    alt={data.title}
-                    loading="lazy"
-                    decoding="async" // 🟢 MNC Standard: Parallel decoding
-                    className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-500"
-                    onClick={() => onQuickView(data)}
-                    onError={(e) => { e.target.src = "https://via.placeholder.com/300x400?text=No+Image" }}
-                />
-                <div className="absolute top-2 left-2 bg-white/95 backdrop-blur px-2 py-1 text-[10px] font-bold text-text-main rounded shadow-sm uppercase tracking-wide font-montserrat opacity-0 group-hover:opacity-100 transition-opacity">
-                    Quick View
-                </div>
+                <Link to={productUrl} className="block w-full h-full">
+                    <img
+                        src={imageUrl}
+                        alt={data.title}
+                        loading="lazy"
+                        decoding="async"
+                        className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-500"
+                        onError={(e) => { e.target.src = "https://via.placeholder.com/300x400?text=No+Image" }}
+                    />
+                </Link>
             </div>
 
             {/* --- MIDDLE: CONTENT --- */}
             <div className="flex-1">
                 <h2 className="text-lg md:text-xl font-display font-bold text-text-main hover:text-primary transition-colors mb-1 leading-tight">
-                    <Link to={`/product/${data._id}`}>{data.title}</Link>
+                    <Link to={productUrl}>{data.title}</Link>
                 </h2>
 
                 <div className="flex items-center gap-1 text-sm text-accent font-bold mb-2 md:mb-3">
@@ -72,7 +106,9 @@ const ProductCardList = ({ data, onQuickView }) => {
                 </div>
 
                 <p className="text-xs md:text-sm font-bold text-text-main mb-1 font-montserrat">
-                    By <span className="text-primary hover:underline cursor-pointer">{data.author?.first_name || 'Author'} {data.author?.last_name || ''}</span>
+                    By <span className="text-primary hover:underline cursor-pointer">
+                        {data.author?.first_name || 'Author'} {data.author?.last_name || ''}
+                    </span>
                 </p>
 
                 <div className="text-xs md:text-sm text-text-muted mt-2 md:mt-3 leading-relaxed font-body">
@@ -118,23 +154,27 @@ const ProductCardList = ({ data, onQuickView }) => {
                         Add to Cart
                     </button>
 
-                    <button className="w-full bg-red-600 hover:bg-red-500 text-white py-2 rounded font-bold text-xs md:text-sm transition-all uppercase tracking-slick font-montserrat shadow-sm hover:shadow-md active:scale-95">
+                    <Link 
+                        to={productUrl}
+                        className="w-full bg-red-600 hover:bg-red-500 text-white py-2 rounded font-bold text-xs md:text-sm transition-all uppercase tracking-slick font-montserrat shadow-sm hover:shadow-md active:scale-95 text-center"
+                    >
                         Buy Now
-                    </button>
+                    </Link>
 
                     <button
                         onClick={handleWishlist}
+                        disabled={wishlistMutation.isPending}
                         className={`w-full border-2 py-2 md:py-2.5 rounded-xl font-bold text-xs md:text-sm transition-all uppercase font-montserrat flex items-center justify-center gap-2 active:scale-95 group/wish ${isInWishlist(data._id)
                                 ? 'border-red-500 bg-red-50 text-red-600'
                                 : 'border-secondary text-text-main hover:bg-secondary hover:text-white'
-                            }`}
+                            } ${wishlistMutation.isPending ? 'opacity-70' : ''}`}
                     >
                         <Heart
                             size={18}
                             fill={isInWishlist(data._id) ? "currentColor" : "none"}
                             className={isInWishlist(data._id) ? "text-red-600" : "text-secondary group-hover/wish:text-white transition-colors"}
                         />
-                        {isInWishlist(data._id) ? 'In Wishlist' : 'Add to Wishlist'}
+                        {wishlistMutation.isPending ? 'Updating...' : (isInWishlist(data._id) ? 'In Wishlist' : 'Add to Wishlist')}
                     </button>
                 </div>
 
@@ -143,5 +183,4 @@ const ProductCardList = ({ data, onQuickView }) => {
     );
 };
 
-// 🟢 Wrap with memo to prevent list re-rendering when other items change
 export default memo(ProductCardList);

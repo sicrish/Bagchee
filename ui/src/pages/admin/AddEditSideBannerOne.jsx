@@ -1,29 +1,33 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-  RotateCcw, TriangleAlert, Upload, Check, ChevronDown, X, Link as LinkIcon
+  RotateCcw, TriangleAlert, Upload, Check, ChevronDown, X, Link as LinkIcon, Loader2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import axios from '../../utils/axiosConfig';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // 🟢 React Query added
+import { validateImageFiles } from '../../utils/fileValidator'; // 🟢 Validation Helper added
 
 const AddEditSideBannerOne = () => {
   const navigate = useNavigate();
   const { id } = useParams(); // Get ID for Edit Mode
   const isEditMode = Boolean(id);
+  const queryClient = useQueryClient();
 
-  const [loading, setLoading] = useState(false);
+  // 🟢 Data lock to prevent auto overwrite
+  const [isDataInitialized, setIsDataInitialized] = useState(false);
 
-  // 🟢 1. States for Left (Image 1) & Right (Image 2)
-  const [image1, setImage1] = useState(null); // Left Banner
+  // States for Left (Image 1) & Right (Image 2)
+  const [image1, setImage1] = useState(null); 
   const [preview1, setPreview1] = useState(null);
 
-  const [image2, setImage2] = useState(null); // Right Banner
+  const [image2, setImage2] = useState(null); 
   const [preview2, setPreview2] = useState(null);
 
   // Form State
   const [formData, setFormData] = useState({
-    link1: '', // Link for Left Image
-    link2: '', // Link for Right Image
+    link1: '', 
+    link2: '', 
     active: 'yes',
     order: ''
   });
@@ -36,41 +40,42 @@ const AddEditSideBannerOne = () => {
       return `${API_BASE}/${path.replace(/^\//, '')}`;
   };
 
-  // 🟢 2. FETCH DATA FOR EDIT MODE
-  useEffect(() => {
-    if (isEditMode) {
-      const fetchData = async () => {
-        setLoading(true);
-        try {
-          console.log("🔍 Fetching Side Banner 1 data for ID:", id);
-          const response = await axios.get(`${process.env.REACT_APP_API_URL}/side-banner-one/get/${id}`);
-          
-          if (response.data.status) {
-            const data = response.data.data;
-            setFormData({
-              link1: data.link1 || '',
-              link2: data.link2 || '',
-              active: data.isActive ? 'yes' : 'no',
-              order: data.order || ''
-            });
-
-            // Set existing previews
-            if (data.image1) setPreview1(getFullImageUrl(data.image1));
-            if (data.image2) setPreview2(getFullImageUrl(data.image2));
-          }
-        } catch (error) {
-          console.error("Error fetching data:", error);
-          toast.error("Could not load banner details");
-          navigate('/admin/side-banner-one');
-        } finally {
-          setLoading(false);
-        }
-      };
-      fetchData();
+  // 🚀 OPTIMIZATION 1: Fetch Existing Data using useQuery
+  const { data: bannerData, isLoading: fetching } = useQuery({
+    queryKey: ['sideBannerOneData', id],
+    queryFn: async () => {
+      // console.log("🔍 Fetching Side Banner 1 data for ID:", id);
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/side-banner-one/get/${id}`);
+      if (!response.data.status) throw new Error("Failed to fetch banner");
+      return response.data.data;
+    },
+    enabled: isEditMode, // Only run in edit mode
+    staleTime: 1000 * 60 * 5, // 5 mins cache
+    refetchOnWindowFocus: false, // Prevent overwrite on window focus
+    onError: (error) => {
+      console.error("Error fetching data:", error);
+      toast.error("Could not load banner details");
+      navigate('/admin/side-banner-one');
     }
-  }, [id, isEditMode, navigate]);
+  });
 
-  // 🟢 3. AUTO-GENERATE PREVIEW (Image 1 - Left)
+  // 🟢 Populate State Once
+  useEffect(() => {
+    if (isEditMode && bannerData && !isDataInitialized) {
+      setFormData({
+        link1: bannerData.link1 || '',
+        link2: bannerData.link2 || '',
+        active: bannerData.isActive ? 'yes' : 'no',
+        order: bannerData.order || ''
+      });
+      if (bannerData.image1) setPreview1(getFullImageUrl(bannerData.image1));
+      if (bannerData.image2) setPreview2(getFullImageUrl(bannerData.image2));
+
+      setIsDataInitialized(true); // Lock it
+    }
+  }, [isEditMode, bannerData, isDataInitialized]);
+
+  // AUTO-GENERATE PREVIEW (Image 1 - Left)
   useEffect(() => {
     if (!image1) return;
     const objectUrl = URL.createObjectURL(image1);
@@ -78,7 +83,7 @@ const AddEditSideBannerOne = () => {
     return () => URL.revokeObjectURL(objectUrl);
   }, [image1]);
 
-  // 🟢 4. AUTO-GENERATE PREVIEW (Image 2 - Right)
+  // AUTO-GENERATE PREVIEW (Image 2 - Right)
   useEffect(() => {
     if (!image2) return;
     const objectUrl = URL.createObjectURL(image2);
@@ -101,91 +106,93 @@ const AddEditSideBannerOne = () => {
     if (input) input.value = "";
   };
 
-  const handleChange = (e) => {
+  const handleChange = useCallback((e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-  };
+  }, []);
+
+  // 🚀 OPTIMIZATION 2: Unified Save/Update Mutation
+  const saveBannerMutation = useMutation({
+    mutationFn: async (payloadData) => {
+      const API_URL = process.env.REACT_APP_API_URL;
+      if (isEditMode) {
+        // MNC Standard logic: use PUT or PATCH appropriately. We use PUT to match your previous setup safely.
+        const res = await axios.patch(`${API_URL}/side-banner-one/update/${id}`, payloadData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        return res.data;
+      } else {
+        const res = await axios.post(`${API_URL}/side-banner-one/save`, payloadData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        return res.data;
+      }
+    }
+  });
 
   // 🟢 SUBMIT HANDLER
-  const handleSubmit = async (e, actionType) => {
+  const handleSubmit = (e, actionType) => {
     e.preventDefault();
 
     if (!isEditMode && (!image1 && !preview1)) return toast.error("Left image is required.");
     if (!isEditMode && (!image2 && !preview2)) return toast.error("Right image is required.");
 
-    setLoading(true);
     const toastId = toast.loading(isEditMode ? "Updating banners..." : "Saving banners...");
 
-    try {
-      const data = new FormData();
-      data.append('link1', formData.link1);
-      data.append('link2', formData.link2);
-      data.append('isActive', formData.active === 'yes');
-      data.append('order', formData.order);
+    const data = new FormData();
+    data.append('link1', formData.link1);
+    data.append('link2', formData.link2);
+    data.append('isActive', formData.active === 'yes');
+    data.append('order', formData.order);
 
-      if (image1) data.append('image1', image1);
-      if (image2) data.append('image2', image2);
+    if (image1) data.append('image1', image1);
+    if (image2) data.append('image2', image2);
 
-      let response;
-      if (isEditMode) {
-        response = await axios.put(`${process.env.REACT_APP_API_URL}/side-banner-one/update/${id}`, data, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-        });
-      } else {
-        response = await axios.post(`${process.env.REACT_APP_API_URL}/side-banner-one/save`, data, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-        });
-      }
+    saveBannerMutation.mutate(data, {
+      onSuccess: (resData) => {
+        if (resData.status) {
+          toast.success(resData.msg || "Success!", { id: toastId });
+          
+          if (isEditMode) {
+             queryClient.invalidateQueries({ queryKey: ['sideBannerOneData', id] });
+          }
 
-      if (response.data.status) {
-        toast.success(response.data.msg || "Success!", { id: toastId });
-
-        if (actionType === 'back') {
-           navigate('/admin/side-banner-one');
+          if (actionType === 'back') {
+             navigate('/admin/side-banner-one');
+          } else if (!isEditMode) {
+             setFormData({ link1: '', link2: '', active: 'yes', order: '' });
+             setImage1(null); setPreview1(null);
+             setImage2(null); setPreview2(null);
+             document.getElementById('image1-input').value = "";
+             document.getElementById('image2-input').value = "";
+          }
         } else {
-           if (!isEditMode) {
-               setFormData({ link1: '', link2: '', active: 'yes', order: '' });
-               setImage1(null); setPreview1(null);
-               setImage2(null); setPreview2(null);
-               const input1 = document.getElementById('image1-input');
-               if(input1) input1.value = "";
-               const input2 = document.getElementById('image2-input');
-               if(input2) input2.value = "";
-           }
+          toast.error(resData.msg || "Operation failed", { id: toastId });
         }
+      },
+      onError: (error) => {
+        console.error("Submit Error:", error);
+        toast.error(error.response?.data?.msg || "Failed to connect to server", { id: toastId });
       }
-    } catch (error) {
-      console.error("Submit Error:", error);
-      const errorMsg = error.response?.data?.msg || "Failed to connect to server";
-      toast.error(errorMsg, { id: toastId });
-    } finally {
-      setLoading(false);
+    });
+  };
+
+  // 🟢 Centralized Image File Selection with Validation
+  const onFileSelect = (e, setImage) => {
+    if (e.target.files && e.target.files[0]) {
+        const file = e.target.files[0];
+        if (validateImageFiles(file)) {
+            setImage(file);
+        } else {
+            e.target.value = ""; // Reset input if validation fails
+        }
     }
   };
 
-
-  const onFileSelect = (e, setImage) => {
-    if(e.target.files && e.target.files[0]) {
-        const file = e.target.files[0];
-        
-        // 🟢 Validation 1: Format Check (Mime-type)
-        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-        if (!allowedTypes.includes(file.type)) {
-            toast.error("Invalid format! Only JPG, PNG, and WebP allowed.");
-            e.target.value = ""; // Input reset
-            return;
-        }
-
-        // 🟢 Validation 2: Size Check (10MB)
-        const MAX_SIZE = 10 * 1024 * 1024; 
-        if (file.size > MAX_SIZE) {
-            toast.error("File size exceeds 10MB!");
-            e.target.value = "";
-            return;
-        }
-        setImage(file);
-    }
-};
+  // Loader Setup
+  if (isEditMode && (fetching || !isDataInitialized)) {
+    return <div className="h-screen flex items-center justify-center bg-cream-50"><Loader2 className="animate-spin text-primary" size={48}/></div>;
+  }
 
   return (
     <div className="bg-gray-50 min-h-screen font-body p-4 md:p-8">
@@ -327,15 +334,31 @@ const AddEditSideBannerOne = () => {
 
            {/* ACTION BUTTONS */}
            <div className="pt-8 flex flex-wrap justify-center gap-4 border-t border-gray-100 mt-8 font-montserrat">
-              <button type="button" disabled={loading} onClick={(e) => handleSubmit(e, 'stay')} className={`flex items-center gap-2 bg-primary hover:bg-primary-hover text-white px-6 py-2.5 rounded shadow-lg shadow-primary/30 transition-all transform active:scale-95 text-sm font-bold uppercase tracking-wider ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}>
-                 {loading ? 'Processing...' : <><Check size={18} strokeWidth={3} /> {isEditMode ? "Update" : "Save"}</>}
+              <button 
+                type="button" 
+                disabled={saveBannerMutation.isPending} 
+                onClick={(e) => handleSubmit(e, 'stay')} 
+                className={`flex items-center gap-2 bg-primary hover:bg-primary-hover text-white px-6 py-2.5 rounded shadow-lg shadow-primary/30 transition-all transform active:scale-95 text-sm font-bold uppercase tracking-wider ${saveBannerMutation.isPending ? 'opacity-70 cursor-not-allowed' : ''}`}
+              >
+                 {saveBannerMutation.isPending ? 'Processing...' : <><Check size={18} strokeWidth={3} /> {isEditMode ? "Update" : "Save"}</>}
               </button>
 
-              <button type="button" disabled={loading} onClick={(e) => handleSubmit(e, 'back')} className="flex items-center gap-2 bg-text-main hover:bg-black text-white px-6 py-2.5 rounded shadow-md transition-all transform active:scale-95 text-sm font-bold uppercase tracking-wider">
-                 <RotateCcw size={16} /> {isEditMode ? "Update & Go Back" : "Save & Go Back"}
+              <button 
+                type="button" 
+                disabled={saveBannerMutation.isPending} 
+                onClick={(e) => handleSubmit(e, 'back')} 
+                className={`flex items-center gap-2 bg-text-main hover:bg-black text-white px-6 py-2.5 rounded shadow-md transition-all transform active:scale-95 text-sm font-bold uppercase tracking-wider ${saveBannerMutation.isPending ? 'opacity-70 cursor-not-allowed' : ''}`}
+              >
+                 {saveBannerMutation.isPending ? <Loader2 size={16} className="animate-spin"/> : <RotateCcw size={16} />} 
+                 {isEditMode ? "Update & Go Back" : "Save & Go Back"}
               </button>
 
-              <button type="button" onClick={() => navigate('/admin/side-banner-one')} className="flex items-center gap-2 bg-white border border-gray-300 text-text-muted hover:text-red-500 hover:border-red-500 px-6 py-2.5 rounded shadow-sm transition-all text-sm font-bold uppercase tracking-wider">
+              <button 
+                type="button" 
+                disabled={saveBannerMutation.isPending}
+                onClick={() => navigate('/admin/side-banner-one')} 
+                className="flex items-center gap-2 bg-white border border-gray-300 text-text-muted hover:text-red-500 hover:border-red-500 px-6 py-2.5 rounded shadow-sm transition-all text-sm font-bold uppercase tracking-wider disabled:opacity-50"
+              >
                  <TriangleAlert size={16} /> Cancel
               </button>
            </div>

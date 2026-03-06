@@ -5,11 +5,13 @@ import { useNavigate, Link } from 'react-router-dom';
 import axios from '../../utils/axiosConfig.js';
 import toast from 'react-hot-toast';
 import Logo from '../../components/common/Logo.jsx';
+import { useMutation } from '@tanstack/react-query'; // 🟢 React Query Mutation
+import { encryptData } from '../../utils/encryption.js'; // 🔒 Encryption Utility
 
 const Register = () => {
     const navigate = useNavigate();
 
-    // 1. State Management (Matching Backend Controller fields)
+    // 1. State Management
     const [formData, setFormData] = useState({
         firstName: "",
         lastName: "",
@@ -18,15 +20,40 @@ const Register = () => {
         repeatPassword: ""
     });
 
-    const [loading, setLoading] = useState(false);
-
     // 2. Handle Input Change
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    // 3. Handle Form Submit
-    const handleSubmit = async (e) => {
+    // 🟢 3. React Query Mutation Setup
+    const registerMutation = useMutation({
+        mutationFn: async (registerData) => {
+            const url = `${process.env.REACT_APP_API_URL}/user/register`;
+            
+            // 🔒 Step: Data ko encrypt karke bhej rahe hain (MNC Standard)
+            const encryptedPayload = encryptData(registerData);
+            
+            // Backend middleware 'payload' key dhundega
+            const response = await axios.post(url, { payload: encryptedPayload });
+            return response.data;
+        },
+        onSuccess: (data) => {
+            if (data.status) {
+                toast.success(data.msg || "User registered successfully");
+                navigate('/login'); // Redirect to login
+            } else {
+                toast.error(data.msg);
+            }
+        },
+        onError: (error) => {
+            console.error("🔴 Registration Error Details:", error);
+            const errorMsg = error.response?.data?.msg || "Registration failed. Try again.";
+            toast.error(errorMsg);
+        }
+    });
+
+    // 4. Handle Form Submit
+    const handleSubmit = (e) => {
         e.preventDefault();
 
         // Client Side Validation
@@ -34,39 +61,15 @@ const Register = () => {
             return toast.error("Passwords do not match");
         }
 
-        setLoading(true);
-
-        try {
-            // 🟢 API CALL
-            // Make sure this URL matches your Backend Route file (e.g., /api/user/register)
-            const url = `${process.env.REACT_APP_API_URL}/user/register`;
-         
-
-            const response = await axios.post(url, formData);
-           
-            // 🟢 Handling Backend Response (Your controller sends 'status: true')
-            if (response.data.status) {
-                toast.success(response.data.msg); // "User registered successfully"
-                navigate('/login'); // Redirect to login
-            } else {
-                toast.error(response.data.msg);
-            }
-
-        } catch (error) {
-            console.error("🔴 Registration Error Details:", error);
-            // Backend controller sends error in 'msg' or 'error' property
-            const errorMsg = error.response?.data?.msg || "Registration failed. Try again.";
-            toast.error(errorMsg);
-        } finally {
-            setLoading(false);
-        }
+        // 🟢 Trigger Mutation
+        registerMutation.mutate(formData);
     };
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 ">
 
             {/* --- PAGE TITLE --- */}
-            <h2 className="text-3xl  text-text-main mb-8 uppercase tracking-wide font-display">
+            <h2 className="text-3xl text-text-main mb-8 uppercase tracking-wide font-display">
                 REGISTER
             </h2>
 
@@ -88,7 +91,7 @@ const Register = () => {
                         <div className="w-full">
                             <input
                                 type="text"
-                                name="firstName" // Must match state key
+                                name="firstName"
                                 value={formData.firstName}
                                 onChange={handleChange}
                                 placeholder="First name."
@@ -99,7 +102,7 @@ const Register = () => {
                         <div className="w-full">
                             <input
                                 type="text"
-                                name="lastName" // Must match state key
+                                name="lastName"
                                 value={formData.lastName}
                                 onChange={handleChange}
                                 placeholder="Last name."
@@ -148,14 +151,14 @@ const Register = () => {
                         </div>
                     </div>
 
-                    {/* Button */}
+                    {/* Button - registerMutation.isPending manages loading state */}
                     <div className="pt-4 flex justify-center">
                         <button
                             type="submit"
-                            disabled={loading}
-                            className={`px-10 py-3.5 bg-gradient-to-r from-primary to-primary-dark text-white font-bold rounded-lg text-sm uppercase tracking-wider shadow-lg shadow-primary/30 hover:shadow-primary/50 transform hover:-translate-y-0.5 transition-all duration-300 font-montserrat ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                            disabled={registerMutation.isPending}
+                            className={`px-10 py-3.5 bg-gradient-to-r from-primary to-primary-dark text-white font-bold rounded-lg text-sm uppercase tracking-wider shadow-lg shadow-primary/30 hover:shadow-primary/50 transform hover:-translate-y-0.5 transition-all duration-300 font-montserrat ${registerMutation.isPending ? 'opacity-70 cursor-not-allowed' : ''}`}
                         >
-                            {loading ? 'Creating...' : 'CREATE ACCOUNT'}
+                            {registerMutation.isPending ? 'Creating Account...' : 'CREATE ACCOUNT'}
                         </button>
                     </div>
 

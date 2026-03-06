@@ -1,15 +1,18 @@
 import React, { useContext, memo, useMemo, useCallback } from 'react';
 import { CurrencyContext } from '../../context/CurrencyContext.jsx';
 import { useCart } from '../../context/CartContext.jsx';
-import { Heart, ShoppingCart, Eye } from 'lucide-react';
+import { Heart, ShoppingCart } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { useMutation, useQueryClient } from '@tanstack/react-query'; 
+import axios from '../../utils/axiosConfig.js';
 
-const ProductCardGrid = ({ data, onQuickView }) => {
+const ProductCardGrid = ({ data }) => {
     const { formatPrice } = useContext(CurrencyContext);
     const { addToCart, toggleWishlist, isInWishlist } = useCart();
+    const queryClient = useQueryClient();
 
-    // 🟢 Optimization 1: Memoize Slug Creation (Expensive string operations avoid honge)
+    // 🟢 Optimization 1: Memoize Slug Creation
     const productUrl = useMemo(() => {
         if (!data.title) return `/books/${data.bagchee_id || data._id}/product`;
         const slug = data.title
@@ -32,21 +35,45 @@ const ProductCardGrid = ({ data, onQuickView }) => {
         return { price, realPrice, showDiscount, discountPercentage };
     }, [data.price, data.real_price]);
 
-    // 🟢 Optimization 3: Stable Handlers (Re-renders rokne ke liye)
+    // 🟢 React Query Mutation for Cart (Background Sync)
+    const cartMutation = useMutation({
+        mutationFn: async (product) => {
+            return product;
+        }
+    });
+
+    // 🟢 React Query Mutation for Wishlist
+    const wishlistMutation = useMutation({
+        mutationFn: async (product) => {
+            const response = await axios.post('/user/wishlist/toggle', { productId: product._id });
+            return response.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries(['wishlist']);
+            queryClient.invalidateQueries(['userProfile']);
+        }
+    });
+
+    // 🟢 Optimization 3: Stable Handlers
     const handleAddToCart = useCallback((e) => {
         e.preventDefault();
-        e.stopPropagation(); // Parent link click na ho jaye
+        e.stopPropagation();
+        
         addToCart(data);
+        cartMutation.mutate(data); 
+        
         toast.success(`${data.title.substring(0, 20)}... added to cart!`, {
             style: { fontSize: '12px', fontFamily: 'Montserrat' }
         });
-    }, [data, addToCart]);
+    }, [data, addToCart, cartMutation]);
 
     const handleWishlist = useCallback((e) => {
         e.preventDefault();
         e.stopPropagation();
+        
         toggleWishlist(data);
-    }, [data, toggleWishlist]);
+        wishlistMutation.mutate(data); 
+    }, [data, toggleWishlist, wishlistMutation]);
 
     // 🟢 Optimization 4: Smart Image URL
     const imageUrl = useMemo(() => {
@@ -59,7 +86,7 @@ const ProductCardGrid = ({ data, onQuickView }) => {
     return (
         <div className="group bg-white rounded-lg border border-cream-200 overflow-hidden hover:shadow-xl transition-all duration-300 relative font-body flex flex-col h-full translate-z-0">
             
-            {/* --- IMAGE SECTION --- */}
+            {/* --- IMAGE SECTION (Click to Product Page) --- */}
             <div className="relative overflow-hidden aspect-[3/4] bg-cream-50">
                 {/* Discount Badge */}
                 {priceData.showDiscount && priceData.discountPercentage > 0 && (
@@ -73,20 +100,12 @@ const ProductCardGrid = ({ data, onQuickView }) => {
                         src={imageUrl}
                         alt={data.title}
                         loading="lazy"
-                        decoding="async" // 🟢 MNC Standard: Decoding background mein hogi
+                        decoding="async"
                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                        style={{ willChange: 'transform' }} // 🟢 Smooth animation
+                        style={{ willChange: 'transform' }}
                         onError={(e) => { e.target.src = "https://placehold.co/300x400?text=Error" }}
                     />
                 </Link>
-
-                {/* QUICK VIEW POPUP */}
-                <div
-                    onClick={(e) => { e.preventDefault(); onQuickView(data); }}
-                    className="absolute bottom-0 left-0 w-full bg-primary/80 backdrop-blur-sm text-white text-center py-2 translate-y-full group-hover:translate-y-0 transition-transform duration-300 cursor-pointer hidden md:block z-20"
-                >
-                    <span className="text-xs font-semibold font-montserrat tracking-wider uppercase">Quick View</span>
-                </div>
             </div>
 
             {/* --- CONTENT SECTION --- */}
@@ -121,12 +140,13 @@ const ProductCardGrid = ({ data, onQuickView }) => {
                     <div className="flex gap-1.5 md:gap-2">
                         <button
                             onClick={handleWishlist}
+                            disabled={wishlistMutation.isPending} 
                             aria-label="Toggle Wishlist"
                             className={`p-2 rounded-full border transition-all duration-300 active:scale-75 ${
                                 isInWishlist(data._id)
                                 ? 'bg-red-50 text-red-600 border-red-200'
                                 : 'bg-cream-50 text-text-muted border-cream-200 hover:bg-red-50 hover:text-red-600'
-                            }`}
+                            } ${wishlistMutation.isPending ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
                             <Heart size={16} fill={isInWishlist(data._id) ? "currentColor" : "none"} className="md:w-[18px] md:h-[18px]" />
                         </button>
@@ -144,5 +164,4 @@ const ProductCardGrid = ({ data, onQuickView }) => {
     );
 };
 
-// 🟢 Optimization 5: Use memo to prevent re-rendering if props haven't changed
 export default memo(ProductCardGrid);

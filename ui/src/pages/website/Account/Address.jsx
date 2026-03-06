@@ -1,15 +1,17 @@
+'use client';
+
 import React, { useState, useEffect } from 'react';
 import { Plus, MapPin, Phone, Edit, Trash2, Home, Briefcase, X, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
 import axios from '../../../utils/axiosConfig';
 import AccountLayout from '../../../layouts/AccountLayout';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // 🟢 React Query
 
 const API_BASE_URL = process.env.REACT_APP_API_URL;
 
 const Address = () => {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState({ name: 'Guest', id: null });
-  const [addresses, setAddresses] = useState([]);
-  const [loading, setLoading] = useState(false);
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
@@ -31,27 +33,69 @@ const Address = () => {
   };
   const [formData, setFormData] = useState(initialFormState);
 
-  // Load User & Fetch Addresses
+  // Load User from LocalStorage
   useEffect(() => {
     const authData = localStorage.getItem("auth");
     if (authData) {
       const parsedData = JSON.parse(authData);
       const userData = parsedData.userDetails;
       setUser(userData); 
-      fetchAddresses(userData.id);
     }
   }, []);
 
-  const fetchAddresses = async (userId) => {
-    try {
-      const res = await axios.get(`${API_BASE_URL}/user/get-addresses?userId=${userId}`);
-      if (res.data.status) {
-        setAddresses(res.data.addresses || []); 
+  // 🟢 1. FETCH ADDRESSES (useQuery)
+  const { data: addresses = [], isLoading: isFetching } = useQuery({
+    queryKey: ['addresses', user?.id],
+    queryFn: async () => {
+      const res = await axios.get(`${API_BASE_URL}/user/get-addresses?userId=${user.id}`);
+      return res.data.addresses || [];
+    },
+    enabled: !!user?.id, // Jab tak user ID na ho, tab tak fetch na kare
+  });
+
+  // 🟢 2. SAVE/UPDATE ADDRESS (useMutation)
+  const saveMutation = useMutation({
+    mutationFn: async (newAddress) => {
+      // Agar editing hai, toh pehle purana delete karke naya add (Vahi logic jo aapne diya tha)
+      if (isEditing) {
+        await axios.post(`${API_BASE_URL}/user/delete-address`, {
+          userId: user.id,
+          addressId: currentAddressId
+        });
       }
-    } catch (error) {
-      console.error("Error fetching addresses", error);
+      const res = await axios.post(`${API_BASE_URL}/user/add-address`, {
+        userId: user.id,
+        ...newAddress
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['addresses', user?.id]); // Refresh list
+      toast.success(isEditing ? "Address updated successfully!" : "New address added!");
+      setShowModal(false);
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.msg || "Something went wrong");
     }
-  };
+  });
+
+  // 🟢 3. DELETE ADDRESS (useMutation)
+  const deleteMutation = useMutation({
+    mutationFn: async (addressId) => {
+      const res = await axios.post(`${API_BASE_URL}/user/delete-address`, {
+        userId: user.id,
+        addressId: addressId
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['addresses', user?.id]); // Refresh list
+      toast.success("Address deleted successfully");
+    },
+    onError: () => {
+      toast.error("Failed to delete address");
+    }
+  });
 
   const handleAddNew = () => {
     setFormData(initialFormState);
@@ -66,51 +110,14 @@ const Address = () => {
     setShowModal(true);
   };
 
-  const handleDelete = async (addressId) => {
+  const handleDelete = (addressId) => {
     if(!window.confirm("Are you sure you want to delete this address?")) return;
-
-    try {
-        const res = await axios.post(`${API_BASE_URL}/user/delete-address`, {
-            userId: user.id,
-            addressId: addressId
-        });
-
-        if (res.data.status) {
-            setAddresses(res.data.addresses);
-            toast.success("Address deleted successfully");
-        }
-    } catch (error) {
-        toast.error("Failed to delete address");
-    }
+    deleteMutation.mutate(addressId);
   };
 
-  const handleSave = async (e) => {
+  const handleSave = (e) => {
     e.preventDefault();
-    setLoading(true);
-
-    try {
-        if (isEditing) {
-            await axios.post(`${API_BASE_URL}/user/delete-address`, {
-                userId: user.id,
-                addressId: currentAddressId
-            });
-        }
-            
-        const res = await axios.post(`${API_BASE_URL}/user/add-address`, {
-            userId: user.id,
-            ...formData
-        });
-
-        if (res.data.status) {
-            setAddresses(res.data.addresses);
-            toast.success(isEditing ? "Address updated successfully!" : "New address added!");
-            setShowModal(false);
-        }
-    } catch (error) {
-        toast.error(error.response?.data?.msg || "Something went wrong");
-    } finally {
-        setLoading(false);
-    }
+    saveMutation.mutate(formData);
   };
 
   const handleChange = (e) => {
@@ -139,7 +146,7 @@ const Address = () => {
 
         {/* Addresses Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {addresses.length === 0 && (
+          {!isFetching && addresses.length === 0 && (
             <div className="col-span-2 bg-cream-100 rounded-xl border-2 border-dashed border-gray-200 p-12 text-center">
               <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <MapPin size={40} className="text-gray-300" />
@@ -223,9 +230,10 @@ const Address = () => {
                 </button>
                 <button
                   onClick={() => handleDelete(addr._id)}
-                  className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all duration-300"
+                  disabled={deleteMutation.isPending}
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all duration-300 disabled:opacity-50"
                 >
-                  <Trash2 size={16} /> Delete
+                  <Trash2 size={16} /> {deleteMutation.isPending ? "Deleting..." : "Delete"}
                 </button>
               </div>
             </div>
@@ -385,10 +393,10 @@ const Address = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={saveMutation.isPending}
                   className="px-8 py-2.5 bg-primary hover:bg-primary-hover text-white font-bold text-sm uppercase rounded shadow-lg transition-all transform active:scale-95 disabled:opacity-50"
                 >
-                  {loading
+                  {saveMutation.isPending
                     ? "Saving..."
                     : isEditing
                       ? "Update Address"

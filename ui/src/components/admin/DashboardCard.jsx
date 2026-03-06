@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { memo } from 'react';
 
-const DashboardCard = ({ title, icon: Icon, onClick }) => {
+const DashboardCard = memo(({ title, icon: Icon, onClick }) => {
   return (
     <div 
       onClick={onClick}
@@ -8,7 +8,14 @@ const DashboardCard = ({ title, icon: Icon, onClick }) => {
     >
       {/* 🔴 Theme Based Background */}
       <div className="bg-primary text-white w-16 h-16 rounded-lg flex items-center justify-center shrink-0 shadow-md group-hover:bg-primary-dark transition-colors">
-        <Icon size={32} strokeWidth={2} />
+        
+        {/* 🟢 THE FIX: Strict 'typeof' check hata diya. Agar Icon prop aayi hai, toh usey render karo */}
+        {Icon ? (
+          <Icon size={32} strokeWidth={2} />
+        ) : (
+          <span className="text-white text-xs">No Icon</span> // Fallback agar icon miss ho jaye
+        )}
+        
       </div>
       
       {/* Text Styling from Config */}
@@ -17,6 +24,9 @@ const DashboardCard = ({ title, icon: Icon, onClick }) => {
       </h3>
     </div>
   );
-};
+});
+
+// Debugging ke liye naam set kiya hai
+DashboardCard.displayName = 'DashboardCard';
 
 export default DashboardCard;
