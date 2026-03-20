@@ -1,119 +1,125 @@
-import React from 'react';
+import React , { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import axios from 'axios';
+import { ChevronRight } from 'lucide-react';
+
 
 const FeaturedAuthors = () => {
-  const authors = [
-    {
-      id: 1,
-      name: "Ruskin Bond",
-      image: "https://images.unsplash.com/photo-1552374196-c4e7ffc6e126?q=80&w=200&h=200&auto=format&fit=crop", 
-      books: [
-        "https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=300&h=450&auto=format&fit=crop",
-      ],
-      role: "Padma Bhushan Awardee",
-      quote: "“And when all the wars are over, a butterfly will still be beautiful.”",
+  
+  const [expandedId, setExpandedId] = useState(null);
+  // 1. Data Fetching Logic
+  const { data: authorsData, isLoading } = useQuery({
+    queryKey: ['featured-authors'],
+    queryFn: async () => {
+      const API_URL = process.env.REACT_APP_API_URL;
+      const res = await axios.get(`${API_URL}/top-authors/list?active=true`);
+      return res.data?.data || [];
     },
-    {
-      id: 2,
-      name: "J.K. Rowling",
-      image: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=200&h=200&auto=format&fit=crop",
-      books: [
-        "https://images.unsplash.com/photo-1629198688000-71f23e745b6e?q=80&w=300&h=450&auto=format&fit=crop",
-      ],
-      role: "British Book Award Winner",
-      quote: "“It is our choices, Harry, that show what we truly are, far more than our abilities.”",
-    },
-    {
-      id: 3,
-      name: "Arundhati Roy",
-      image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=200&h=200&auto=format&fit=crop",
-      books: [
-        "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?q=80&w=300&h=450&auto=format&fit=crop",
-      ],
-      role: "Booker Prize Winner",
-      quote: "“To love. To be loved. To never forget your own insignificance.”",
-    }
-  ];
+    staleTime: 300000,
+  });
+
+  // 2. Image URL Helper
+  const getFullUrl = (path) => {
+    if (!path) return "https://placehold.co/200x200?text=No+Image";
+    if (path.startsWith('http')) return path;
+    const API_BASE = process.env.REACT_APP_API_URL?.replace('/api', '') || "http://localhost:5000";
+    return `${API_BASE}/${path.replace(/^\//, '')}`;
+  };
+
+  if (isLoading) return <div className="py-20 text-center text-gray-400 font-body">Loading Literary Legends...</div>;
+
+  // Agar data nahi hai toh section hide rahega
+  if (!authorsData || authorsData.length === 0) return null;
 
   return (
-    // 1. CHANGE: Default text ko 'font-body' (Roboto) set kiya
     <section className="bg-cream-50 py-16 px-4 sm:px-8 font-body">
       <div className="max-w-7xl mx-auto">
-        
-        {/* Section Heading */}
+
+        {/* Header Section */}
         <div className="text-center mb-12">
-          
-          {/* 2. CHANGE: Main Heading -> 'font-display' (Outfit) */}
-          <h2 className="text-3xl md:text-4xl font-display  text-text-main mb-3 tracking-tight">
+          <h2 className="text-3xl md:text-4xl font-display text-text-main mb-3 tracking-tight">
             Featured Awarded Authors
           </h2>
-          
-          {/* 3. CHANGE: Subheading -> 'font-montserrat' (Clean UI look) */}
           <p className="text-text-muted text-sm md:text-base tracking-wide uppercase font-montserrat">
             Curated selection of literary legends
           </p>
-          
           <div className="w-16 h-1 bg-secondary mx-auto mt-4 rounded-full"></div>
         </div>
 
-        {/* Grid Layout */}
+        {/* Grid Layout - authors.map ko badal kar authorsData.map kiya */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-          {authors.map((author) => (
-            <div 
-              key={author.id} 
-              className="group bg-cream-100 p-6 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border border-cream-200"
-            >
-              {/* Top Row: Image + Details */}
-              <div className="flex items-start gap-5 mb-5">
-                
-                {/* Author Image */}
-                <div className="relative shrink-0">
-                  <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-primary p-0.5">
-                     <img 
-                      src={author.image} 
-                      alt={author.name} 
-                      className="w-full h-full object-cover rounded-full group-hover:scale-110 transition-transform duration-500"
-                    />
-                  </div>
-                </div>
+          {authorsData.slice(0, 3).map((item) => {
+            // Backend data population references
+            const author = item.authorId;
+            const book = item.bookId;
+            const fullName = `${author?.first_name || ''} ${author?.last_name || ''}`;
 
-                {/* Right Side: Name & Role */}
-                <div className="flex flex-col gap-2">
-                  <div>
-                    {/* 4. CHANGE: Author Name -> 'font-display' (Bold Outfit) */}
-                    <h3 className="text-lg font-bold text-text-main font-display leading-tight">
-                      {author.name}
-                    </h3>
-                    
-                    {/* 5. CHANGE: Role/Label -> 'font-montserrat' */}
-                    <p className="text-xs text-primary font-medium mb-2 font-montserrat">
-                      {author.role}
-                    </p>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                      <img 
-                        src={author.books[0]} 
-                        alt="Featured Book" 
-                        className="w-10 h-14 object-cover rounded shadow-sm hover:-translate-y-1 transition-transform border border-cream-200"
+            return (
+              <div key={item._id} className="group bg-cream-100 p-6 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border border-cream-200 relative overflow-hidden">
+
+                {/* Top Content: Image + Basic Info */}
+                <div className="flex items-start gap-5 mb-5 relative z-10">
+                  {/* Author Profile Picture */}
+                  <div className="relative shrink-0">
+                    <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-primary p-0.5 bg-white">
+                      <img
+                        src={getFullUrl(author?.picture)}
+                        alt={fullName}
+                        className="w-full h-full object-cover rounded-full group-hover:scale-110 transition-transform duration-500"
+                        onError={(e) => { e.target.src = "https://placehold.co/200x200?text=Author"; }}
                       />
+                    </div>
+                  </div>
+
+                  {/* Author Details */}
+                  <div className="flex flex-col gap-2 min-w-0">
+                    <h3 className="text-lg font-bold text-text-main font-display leading-tight truncate uppercase" title={fullName}>
+                      {fullName || "Unknown Author"}
+                    </h3>
+                    <p className="text-[10px] sm:text-xs text-primary font-bold mb-1 font-montserrat uppercase tracking-wider">
+                      {item.role || "Featured Legend"}
+                    </p>
+
+                    {/* Featured Book Thumbnail */}
+                    <div className="flex items-center gap-2">
+                      <div className="w-10 h-14 bg-white rounded shadow-sm border border-cream-200 overflow-hidden shrink-0">
+                        <img
+                          src={getFullUrl(book?.default_image)}
+                          alt="Featured Book"
+                          className="w-full h-full object-cover hover:scale-105 transition-transform"
+                          onError={(e) => { e.target.src = "https://placehold.co/100x150?text=Book"; }}
+                        />
+                      </div>
                       <span className="text-[10px] text-text-muted italic font-body">
                         & more...
                       </span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Bottom: Quote */}
-              <div className="relative pt-4 border-t border-dashed border-cream-200">
-                <span className="absolute top-0 left-0 text-4xl text-cream-200 font-serif -translate-y-2">“</span>
-                
-                {/* 6. CHANGE: Quote -> 'font-body' (Roboto) italic for readability */}
-                <p className="text-text-main text-sm italic leading-relaxed pl-4 font-body line-clamp-3">
-                  {author.quote}
-                </p>
+                {/* Quote Section */}
+                <div className="relative pt-4 border-t border-dashed border-cream-300 flex flex-col flex-grow">
+                  <span className="absolute top-0 left-0 text-4xl text-cream-300 font-serif -translate-y-2 select-none">“</span>
+                  <p className="text-text-main text-sm italic leading-relaxed pl-5 font-body line-clamp-3">
+                    {item.quote}
+                  </p>
+                  {/* Read More / Less Toggle with Arrow */}
+                  {item.quote && item.quote.length > 120 && (
+                    <button
+                      onClick={() => setExpandedId(expandedId === item._id ? null : item._id)}
+                      className="mt-2 text-primary font-bold text-[10px] uppercase tracking-widest flex items-center gap-1 hover:underline transition-all"
+                    >
+                      {expandedId === item._id ? 'Read Less' : 'Read More'}
+                      <ChevronRight
+                        size={12}
+                        className={`transition-transform duration-300 ${expandedId === item._id ? '-rotate-90' : 'rotate-0'}`}
+                      />
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </section>

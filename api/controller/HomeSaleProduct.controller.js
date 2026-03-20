@@ -60,7 +60,7 @@ export const list = async (req, res) => {
         let sortObj = { order: 1, createdAt: -1 };
 
         const items = await HomeSaleProductModel.find()
-            .populate('product', 'title bagchee_id isbn13 default_image') 
+            .populate('product', 'title bagchee_id isbn13 default_image inr_price isbn10 price real_price') 
             .sort(sortObj)
             .skip(isExport ? 0 : skip)
             .limit(pageSize);
@@ -168,7 +168,7 @@ export const searchMainInventory = async (req, res) => {
                 { isbn10: { $regex: q, $options: 'i' } }
             ]
         })
-        .select('title price bagchee_id isbn13 default_image') // Sirf zaruri data bhejo
+        .select('title price bagchee_id isbn13 default_image inr_price real_price isbn10') // Sirf zaruri data bhejo
         .limit(10); // Sirf top 10 results taaki dropdown fast rahe
 
         res.status(200).json({ status: true, data: products });
@@ -200,7 +200,7 @@ export const fetchForHome = async (req, res) => {
             .limit(limit)
             .populate({
                 path: 'product',
-                select: 'title author price real_price producticonname default_image discount oldPrice isbn13 bagchee_id',
+                select: 'title author price inr_price real_price producticonname default_image discount oldPrice isbn13 bagchee_id',
                 populate: { path: 'author', select: 'name first_name last_name' } 
             });
 

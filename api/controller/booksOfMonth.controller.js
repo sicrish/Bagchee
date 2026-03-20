@@ -50,7 +50,7 @@ export const getActiveBooksOfMonth = async (req, res) => {
             path: 'products',
             // Sirf wahi products dikhao jo isActive: true hain
             match: { isActive: true },
-            populate: { path: 'author', select: 'first_name last_name' }
+            populate: { path: 'author', select: 'first_name last_name inr_price isbn13 isbn10' }
         });
 
         if (!data || data.products.length === 0) {

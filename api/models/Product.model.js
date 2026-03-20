@@ -60,15 +60,16 @@ const ProductSchema = mongoose.Schema({
     edition: { type: String, trim: true },
     
     // --- 5. Series ---
-    series: { 
-        type: mongoose.Schema.Types.ObjectId, 
-        ref: 'Series' 
-    },
+   // Product.model.js
+series: [{ 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Series' 
+}],
     series_number: { type: String },
     volume: { type: String },
 
     // --- 6. Physical Specs ---
-    pages: { type: Number },
+    pages: { type: String, default: "" },
     weight: { type: String },
     binding: { type: String, default: "Paperback" },
 
@@ -131,8 +132,8 @@ const ProductSchema = mongoose.Schema({
     rated_times: { type: Number, default: 0 },
 
     // --- 11. Shipping ---
-    ship_days: { type: Number, default: 3 },
-    deliver_days: { type: Number, default: 7 },
+    ship_days: { type: String, default: "" },
+    deliver_days: { type: String, default: "" },
     related_products: { type: String },
 
     soldCount: { 

@@ -46,6 +46,7 @@ const Bestsellers = () => {
   });
 
   const products = data?.data || [];
+  // console.log("products",products)
   const totalPages = Math.ceil((data?.total || 0) / itemsPerPage);
 
   // 🛠️ Image URL Logic
@@ -120,6 +121,7 @@ const Bestsellers = () => {
             ) : (
                 products.map((book) => {
                     if (!book?._id) return null;
+                    // console.log(`Product: ${book.title} | Price: ${book.price} | INR: ${book.inr_price} | Real: ${book.real_price} | Discount: ${book.discount}%`);
                     const imageUrl = getImageUrl(book.default_image || book.producticonname);
                     const authorName = typeof book.author === 'object' ? `${book.author.first_name || ''} ${book.author.last_name || ''}` : book.author;
 
@@ -164,13 +166,13 @@ const Bestsellers = () => {
                                 
                                 <div className="mt-auto pt-3 flex items-center justify-between gap-1">
                                     <div className="flex flex-col leading-none">
-                                        {book.real_price > book.price && (
+                                        {Number(book.price) > Number(book.real_price) && (
                                              <span className="text-[10px] md:text-xs text-text-muted line-through font-body opacity-60">
-                                                {formatPrice(book.real_price)}
+                                                {formatPrice(book.price, book.inr_price, book.price)}
                                              </span>
                                         )}
                                         <p className="text-primary font-bold text-sm md:text-base font-montserrat">
-                                            {formatPrice(book.price)}
+                                            {formatPrice(book.price, book.inr_price, book.real_price)}
                                         </p>
                                     </div>
                                     <div className="flex items-center gap-1">

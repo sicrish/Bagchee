@@ -1,100 +1,168 @@
-import React from "react";
-import { Link } from "react-router-dom";
-import { ChevronRight, BookOpen, ArrowRight } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import axios from "../../utils/axiosConfig";
+import toast from "react-hot-toast";
+import { ChevronRight, Sparkles, BookOpen, Globe, ArrowRight } from "lucide-react";
+import { useNavigate } from "react-router-dom"; // Import useNavigate
+import LibraryHeroImg from "../../assets/images/website/services/library-hero.png";
 
 const LibraryServices = () => {
-  const services = [
-    {
-      title: "Approval Plans",
-      description:
-        "Our flexible approval plan services are designed to enrich library collections, helping libraries provide an up-to-date and comprehensive range of books and music scores to their patrons, while saving our customers time and effort. Approval plans help you acquire books that match your library's profile, goals and preferences. Our industry-leading profiling process and rich metadata are the foundation of our approval plans and help you make more informed collection development decisions. Choose to receive books through a variety of print outputs.",
-    },
-    {
-      title: "Monographs",
-      description:
-        "Bagchee is a leading supplier of scholarly monographs, research materials and literary texts published throughout India and South Asia. Our innovative books services, including series and packages, are tailored to our customers' needs and can be acquired via standing or firm orders or approval plans.",
-    },
-    {
-      title: "Standing Orders",
-      description:
-        "We provide a fast, reliable standing order service for book series, sets in progress, proceedings, annuals, loose-leaf publications and yearbooks, in all media.We provide a fast, reliable standing order service for book series, sets in progress, proceedings, annuals, loose-leaf publications and yearbooks, in all media.",
-    },
-    {
-      title: "Subscriptions",
-      description:
-        "We deliver a full range of subscription-based information resources published worldwide, in all Indian and south Asian languages, in all media, including print journals, and back issues, and more.We deliver a full range of subscription-based information resources published worldwide, in all Indian and south Asian languages, in all media, including print journals, and back issues, and more.",
-    },
-  ];
+  const [services, setServices] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState(0);
+  const navigate = useNavigate(); // Hook for navigation
+
+  useEffect(() => {
+    const fetchServices = async () => {
+      try {
+        setLoading(true);
+        const res = await axios.get(`${process.env.REACT_APP_API_URL}/services/list`);
+        if (res.data.status) {
+          setServices(res.data.data);
+        }
+      } catch (error) {
+        toast.error("Failed to load services");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchServices();
+  }, []);
+
+  const getTabImage = (index) => `/service-${index + 1}.png`;
+  const activeService = services[activeTab] || null;
+
+  // Handle Explore Button Click
+  const handleExplore = () => {
+    if (activeService) {
+      // Yahan aap apne route ke hisaab se URL set karein
+      // Example: /service-details/12345
+      navigate(`/service-details/${activeService._id}`); 
+    }
+  };
+
+  if (loading) return (
+    <div className="min-h-screen bg-cream-50 flex items-center justify-center">
+      <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-cream">
-      {/* Breadcrumb */}
-      <div className="bg-cream-100 border-b border-gray-200">
-        <div className="container mx-auto px-4 py-2">
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <Link to="/" className="hover:text-primary transition-colors">
-              Home
-            </Link>
-            <ChevronRight className="w-4 h-4" />
-            <span className="text-gray-900 font-medium">Library Services</span>
-          </div>
-        </div>
-      </div>
+    <div className="min-h-screen bg-cream-50 font-body">
+      {/* ─── 🟢 TOP HERO BRANDING SECTION ─── */}
+      <section className="bg-[#F7EEDD] relative overflow-hidden border-b border-cream-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-20">
+          <div className="flex flex-col lg:flex-row items-center gap-12">
 
-      {/* Main Content */}
-      <div className="container mx-auto px-4 py-8 md:py-12 lg:py-16">
-        <div className="max-w-4xl mx-auto">
-          {/* Page Title */}
-          <div className="text-center mb-8 md:mb-12">
-            <h1 className="text-3xl md:text-4xl lg:text-5xl font-display font-bold text-text-main mb-4">
-              Bagchee Library Services
-            </h1>
-            <p className="text-gray-600 text-base md:text-lg font-body max-w-2xl mx-auto">
-              Established in 1990, Bagchee has been serving libraries around the
-              world for almost 30 years. Our customers value us for the quality
-              and accuracy of our services and for our industry-leading and
-              innovative solutions.
-            </p>
-            <p className="text-gray-600 text-base md:text-lg font-body max-w-2xl mx-auto mt-4">
-              We specialize in providing a comprehensive range of high-quality
-              acquisitions and collection development support services to
-              academic and research libraries for Indian and South Asian titles.
-            </p>
-            <Link
-              to="/services"
-              className="inline-flex items-center gap-2 bg-primary text-white px-8 py-3 rounded-lg hover:bg-primary-hover transition-colors font-semibold mt-6"
-            >
-              Learn more <ArrowRight className="w-4 h-4" />
-            </Link>
-            <div className="w-20 h-1 bg-primary mx-auto mt-6"></div>
-          </div>
-
-          {/* Services Section */}
-          <section className="mb-12 md:mb-16">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {services.map((service, index) => (
-                <div
-                  key={index}
-                  className="bg-cream-100 rounded-xl border border-gray-200 p-8 shadow-sm"
-                >
-                  <h3 className="text-xl font-display font-bold text-text-main mb-4 flex items-center gap-2">
-                    {service.title}
-                  </h3>
-                  <p className="text-gray-700 font-body leading-relaxed">
-                    {service.description}
-                  </p>
-                  <Link
-                    to="/services"
-                    className="inline-flex items-center gap-2 text-primary hover:text-primary-hover font-semibold mt-4 transition-colors"
-                  >
-                    Explore <ArrowRight className="w-4 h-4" />
-                  </Link>
-                </div>
-              ))}
+            {/* Left Side: Graphic Element */}
+            <div className="w-full lg:w-1/2 animate-fadeInLeft">
+              <div className="relative">
+                <img
+                  src={LibraryHeroImg} alt="Library Illustration"
+                  className="w-full max-w-md mx-auto h-auto drop-shadow-2xl"
+                  onError={(e) => e.target.src = "https://cdn-icons-png.flaticon.com/512/2232/2232688.png"}
+                />
+                <div className="absolute -top-6 -left-6 w-24 h-24 bg-primary/10 rounded-full blur-2xl" />
+              </div>
             </div>
-          </section>
+
+            {/* Right Side: Branding Text */}
+            <div className="w-full lg:w-1/2 text-center lg:text-left animate-fadeInRight">
+              <div className="inline-flex items-center gap-2 bg-white/50 px-4 py-1.5 rounded-full mb-6 border border-cream-200">
+                <Sparkles size={16} className="text-primary" />
+                <span className="text-[10px] font-bold uppercase tracking-widest text-primary-dark font-montserrat">Trusted since 1990</span>
+              </div>
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-display font-bold text-text-main mb-6 leading-tight uppercase tracking-tighter">
+                Bagchee Library <br /> <span className="text-primary">Services</span>
+              </h1>
+              <p className="text-gray-600 text-lg leading-relaxed mb-4 max-w-xl font-body">
+                Established in 1990, Bagchee has been serving libraries around the world for almost 30 years. Our customers value us for the quality and accuracy of our services and for our industry-leading and innovative solutions.
+              </p>
+              <p className="text-gray-600 text-lg leading-relaxed mb-8 max-w-xl font-body">
+                We specialize in providing a comprehensive range of high-quality acquisitions and collection development support services to academic and research libraries for Indian and South Asian titles.
+              </p>
+            </div>
+          </div>
         </div>
-      </div>
+        <div className="absolute right-0 top-0 opacity-10 pointer-events-none">
+          <svg width="400" height="400" viewBox="0 0 400 400" fill="none"><circle cx="200" cy="200" r="150" stroke="currentColor" strokeWidth="40" strokeDasharray="20 20" /></svg>
+        </div>
+      </section>
+
+      {/* ─── 🔵 STICKY TAB NAVIGATION ─── */}
+      <nav className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-gray-200 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex justify-center overflow-x-auto scrollbar-hide">
+            {services.map((service, index) => (
+              <button
+                key={service._id}
+                onClick={() => setActiveTab(index)}
+                className={`group relative px-8 py-6 text-xs font-bold uppercase tracking-[0.2em] transition-all whitespace-nowrap
+                  ${activeTab === index ? "text-primary" : "text-gray-400 hover:text-gray-700"}`}
+              >
+                {service.title}
+                <span className={`absolute bottom-0 left-0 right-0 h-1 transition-all duration-500 rounded-t-full 
+                  ${activeTab === index ? "bg-primary w-full" : "bg-transparent w-0 group-hover:w-1/2 group-hover:bg-gray-200"}`}
+                />
+              </button>
+            ))}
+          </div>
+        </div>
+      </nav>
+
+      {/* ─── 📑 CONTENT SECTION (Box Details Only) ─── */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        {activeService ? (
+          <div className="max-w-5xl mx-auto bg-white rounded-3xl shadow-xl border border-cream-200 overflow-hidden animate-fadeInUp">
+            <div className="grid grid-cols-1 md:grid-cols-2">
+              
+           
+              {/* Right: Box Description & Button */}
+              <div className="p-8 md:p-12 flex flex-col justify-center">
+                <div className="flex items-center gap-3 text-primary mb-6">
+                  <BookOpen size={24} />
+                  <div className="h-[2px] w-12 bg-primary" />
+                </div>
+                
+                <h2 className="text-3xl font-display font-bold text-text-main mb-4">
+                  {activeService.title}
+                </h2>
+
+                {/* Box Description */}
+                <div
+                  className="prose prose-lg max-w-none font-body text-gray-600 leading-relaxed mb-8 line-clamp-4"
+                  dangerouslySetInnerHTML={{ __html: activeService.box_description }}
+                />
+
+                {/* Explore Button */}
+                <div className="mt-auto">
+                  <button 
+                    onClick={handleExplore}
+                    className="group inline-flex items-center gap-2 bg-primary hover:bg-primary-dark text-white px-8 py-3.5 rounded-full font-montserrat font-bold uppercase text-xs tracking-widest transition-all hover:pr-6"
+                  >
+                    Explore 
+                    <ArrowRight size={16} className="transition-transform group-hover:translate-x-2" />
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-20">
+            <Globe className="mx-auto text-cream-200 mb-4" size={64} />
+            <p className="text-gray-400 font-montserrat tracking-widest uppercase text-sm">No Service Selected</p>
+          </div>
+        )}
+      </main>
+
+      <style>{`
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(30px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fadeInUp { animation: fadeInUp 0.6s ease-out forwards; }
+      `}</style>
     </div>
   );
 };

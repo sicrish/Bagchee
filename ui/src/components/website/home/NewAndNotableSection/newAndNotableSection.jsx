@@ -3,8 +3,8 @@ import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, ChevronLeft, ChevronRight, Heart, ShoppingCart } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query'; // 🟢 React Query
-import { CurrencyContext } from '../../../../context/CurrencyContext.jsx'; 
-import { useCart } from '../../../../context/CartContext.jsx'; 
+import { CurrencyContext } from '../../../../context/CurrencyContext.jsx';
+import { useCart } from '../../../../context/CartContext.jsx';
 import ProductModal from '../../ProductModal.jsx'; // 🟢 Modal Import
 import toast from 'react-hot-toast';
 
@@ -27,7 +27,7 @@ const NewAndNotable = () => {
 
     // Pagination State
     const [page, setPage] = useState(1);
-    const itemsPerPage = 6; 
+    const itemsPerPage = 6;
 
     // 🟢 Modal States
     const [selectedProduct, setSelectedProduct] = useState(null);
@@ -89,7 +89,7 @@ const NewAndNotable = () => {
     return (
         <section className="py-10 md:py-16 bg-cream-50 font-body">
             <div className="max-w-[1400px] mx-auto px-4 group/section">
-                
+
                 {/* --- HEADER --- */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 md:mb-10 gap-2 md:gap-4 border-b border-primary-200 pb-4">
                     <div>
@@ -109,10 +109,10 @@ const NewAndNotable = () => {
 
                 {/* --- SLIDER CONTAINER --- */}
                 <div className="relative">
-                    
+
                     {/* Left Arrow */}
-                    <button 
-                        onClick={handlePrev} 
+                    <button
+                        onClick={handlePrev}
                         disabled={page === 1}
                         className={`absolute top-1/2 -left-2 md:-left-5 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 bg-cream-100 border border-cream-200 rounded-full flex items-center justify-center text-text-muted shadow-lg z-20 transition-all duration-300 ${page === 1 ? 'opacity-30 cursor-not-allowed' : 'hover:text-primary hover:border-primary hover:scale-110'}`}
                     >
@@ -125,25 +125,30 @@ const NewAndNotable = () => {
                             Array(itemsPerPage).fill(0).map((_, i) => <ProductSkeleton key={i} />)
                         ) : (
                             products.map((item) => {
-                                const book = item.product; 
+                                const book = item.product;
                                 if (!book?._id) return null;
+
+                                // 2. Pricing Variables (Relative Discount Logic)
+                                const mPrice = Number(book.price || 0);       // USD MRP
+                                const rPrice = Number(book.real_price || 0);  // USD Final
+                                const iPrice = Number(book.inr_price || 0);   // Flat INR
 
                                 const imageUrl = getImageUrl(book);
                                 const authorName = typeof book.author === 'object' ? `${book.author.name || book.author.first_name || ''}` : book.author;
 
                                 return (
                                     <div key={item._id} className="bg-cream-100 hover:shadow-xl transition-all group cursor-pointer flex flex-col block rounded-lg overflow-hidden border border-transparent hover:border-primary-100 relative">
-                                        
+
                                         {/* Image Area (Click -> Details Page) */}
                                         <div className="relative aspect-[2/3] overflow-hidden bg-gray-200" onClick={() => navigate(`/product/${book._id}`)}>
-                                            <img 
-                                                src={imageUrl} 
-                                                alt={book.title} 
+                                            <img
+                                                src={imageUrl}
+                                                alt={book.title}
                                                 loading="lazy"
                                                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                                                 onError={(e) => { e.target.src = "https://placehold.co/300x450?text=Error"; }}
                                             />
-                                            
+
                                             {book.discount > 0 && (
                                                 <div className="absolute top-2 left-2 bg-secondary text-white w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center text-[9px] md:text-[10px] font-bold shadow-md z-10 font-montserrat">
                                                     {book.discount}%
@@ -151,11 +156,11 @@ const NewAndNotable = () => {
                                             )}
 
                                             {/* View Details Overlay (Click -> Modal) */}
-                                            <div 
+                                            <div
                                                 className="absolute bottom-0 left-0 w-full bg-primary/80 backdrop-blur-sm text-white text-center py-2 translate-y-full group-hover:translate-y-0 transition-transform duration-300 hidden md:block"
                                                 onClick={(e) => openModal(e, book)}
                                             >
-                                               <span className="text-sm font-semibold font-montserrat uppercase">Quick View</span>
+                                                <span className="text-sm font-semibold font-montserrat uppercase">Quick View</span>
                                             </div>
                                         </div>
 
@@ -169,28 +174,28 @@ const NewAndNotable = () => {
                                             <h3 className="text-text-muted text-[10px] md:text-xs truncate mt-0.5 font-body">
                                                 {authorName || "Unknown Author"}
                                             </h3>
-                                            
+
                                             <div className="mt-auto pt-3 flex items-center justify-between gap-1">
                                                 <div className="flex flex-col leading-none">
-                                                    {book.real_price > book.price && (
-                                                        <span className="text-[10px] md:text-xs text-text-muted line-through font-body opacity-60">
-                                                            {formatPrice(book.real_price)}
-                                                        </span>
-                                                    )}
+                                                {mPrice > rPrice && (
+                                <span className="text-[10px] md:text-xs text-text-muted line-through font-body opacity-60">
+                                    {formatPrice(mPrice, iPrice, mPrice)}
+                                </span>
+                            )}
                                                     <p className="text-primary font-bold text-sm md:text-base font-montserrat">
-                                                        {formatPrice(book.price)}
+                                                    {formatPrice(mPrice, iPrice, rPrice)}
                                                     </p>
                                                 </div>
-                                                
+
                                                 <div className="flex items-center gap-1">
-                                                    <button 
-                                                        className={`p-1 md:p-1.5 rounded-full transition-all ${isInWishlist(book._id) ? 'text-red-500 bg-red-50' : 'text-text-muted hover:text-red-500 hover:bg-red-50'}`} 
+                                                    <button
+                                                        className={`p-1 md:p-1.5 rounded-full transition-all ${isInWishlist(book._id) ? 'text-red-500 bg-red-50' : 'text-text-muted hover:text-red-500 hover:bg-red-50'}`}
                                                         onClick={(e) => handleWishlist(e, book)}
                                                     >
                                                         <Heart size={16} fill={isInWishlist(book._id) ? "currentColor" : "none"} className="md:w-[18px] md:h-[18px]" />
                                                     </button>
-                                                    <button 
-                                                        className="text-text-muted hover:text-primary hover:bg-primary/10 p-1 md:p-1.5 rounded-full transition-all" 
+                                                    <button
+                                                        className="text-text-muted hover:text-primary hover:bg-primary/10 p-1 md:p-1.5 rounded-full transition-all"
                                                         onClick={(e) => handleAddToCart(e, book)}
                                                     >
                                                         <ShoppingCart size={16} className="md:w-[18px] md:h-[18px]" />
@@ -205,8 +210,8 @@ const NewAndNotable = () => {
                     </div>
 
                     {/* Right Arrow */}
-                    <button 
-                        onClick={handleNext} 
+                    <button
+                        onClick={handleNext}
                         disabled={page >= totalPages}
                         className={`absolute top-1/2 -right-2 md:-right-5 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 bg-cream-100 border border-cream-200 rounded-full flex items-center justify-center text-text-muted shadow-lg z-20 transition-all duration-300 ${page >= totalPages ? 'opacity-30 cursor-not-allowed' : 'hover:text-primary hover:border-primary hover:scale-110'}`}
                     >
@@ -216,10 +221,10 @@ const NewAndNotable = () => {
             </div>
 
             {/* 🟢 Render Product Modal */}
-            <ProductModal 
-                product={selectedProduct} 
-                isOpen={isModalOpen} 
-                onClose={() => setIsModalOpen(false)} 
+            <ProductModal
+                product={selectedProduct}
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
             />
         </section>
     );

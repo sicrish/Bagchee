@@ -30,7 +30,7 @@ function Home() {
       {/* 🟢 Suspense handles lazy loading state */}
       <Suspense fallback={<PageLoader />}>
         
-        <PremiumOfferBar />
+        {/* <PremiumOfferBar /> */}
         
         <HeroSlider />
         

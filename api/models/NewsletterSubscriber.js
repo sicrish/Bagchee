@@ -4,7 +4,7 @@ const newsletterSubscriberSchema = new mongoose.Schema({
     email: {
         type: String,
         required: true,
-        unique: true, // Duplicate emails rokne ke liye
+        unique: false, // Duplicate emails rokne ke liye
         trim: true,
         lowercase: true
     },
@@ -16,6 +16,14 @@ const newsletterSubscriberSchema = new mongoose.Schema({
     lastname: {
         type: String,
         trim: true,
+        default: ''
+    },
+    interestedBookName: {
+        type: String,
+        default: ''
+    },
+    interestedBookId: {
+        type: String,
         default: ''
     },
     categories: [{

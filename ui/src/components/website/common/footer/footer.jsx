@@ -4,6 +4,11 @@ import { MapPin, Mail, Facebook, Twitter, Instagram, ArrowRight } from 'lucide-r
 import Logo from '../../../../components/common/Logo.jsx';
 
 const Footer = () => {
+  const authData = localStorage.getItem('auth');
+  const isLoggedIn = !!authData; // Agar data hai to true, warna false
+
+  // 🟢 Decide the link based on login status
+  const traceOrderLink = isLoggedIn ? "/account/orders" : "/trace-order";
   return (
     <footer className="bg-gradient-to-r from-primary to-primary-dark text-white pt-12 pb-6 font-body relative overflow-hidden">
       {/* Top Border Highlight */}
@@ -167,7 +172,7 @@ const Footer = () => {
               </li>
               <li>
                 <Link
-                  to="/gift-cards"
+                  to="/gift-card-detail"
                   className="hover:text-accent transition-colors duration-300 inline-block"
                 >
                   Gift Cards
@@ -224,7 +229,7 @@ const Footer = () => {
               </li>
               <li>
                 <Link
-                  to="/account/orders"
+                  to={traceOrderLink}
                   className="hover:text-accent transition-colors duration-300 inline-block"
                 >
                   Trace an Order

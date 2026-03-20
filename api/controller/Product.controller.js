@@ -14,25 +14,36 @@ import { saveFileLocal, deleteFileLocal } from '../utils/fileHandler.js';
 const cleanArray = (data) => {
     if (!data) return [];
 
-    // Agar pehle se array hai
-    if (Array.isArray(data)) {
-        // Kabhi kabhi FormData double stringify ho jata hai ['["id"]'], usko fix karne ke liye
-        if (data.length === 1 && typeof data[0] === 'string' && data[0].startsWith('[')) {
-            try { return JSON.parse(data[0]); } catch (e) { return data; }
-        }
-        return data;
-    }
+    let result = [];
 
-    // Agar string hai
-    if (typeof data === 'string') {
+    // 1. Agar pehle se array hai
+    if (Array.isArray(data)) {
+        // Double stringify check ['["id"]']
+        if (data.length === 1 && typeof data[0] === 'string' && data[0].startsWith('[')) {
+            try { 
+                result = JSON.parse(data[0]); 
+            } catch (e) { 
+                result = data; 
+            }
+        } else {
+            result = data;
+        }
+    } 
+    // 2. Agar string hai
+    else if (typeof data === 'string') {
         try {
-            return JSON.parse(data);
+            result = JSON.parse(data);
         } catch (e) {
             // Fallback: Comma separated
-            return data.split(',').map(s => s.trim()).filter(Boolean);
+            result = data.split(',').map(s => s.trim());
         }
     }
-    return [];
+
+    // 🔥 SABSE ZAROORI STEP: Khali values ko filter karna (Sabhi cases ke liye)
+    // Yeh ensure karega ki array mein sirf valid strings hon, "" ya null nahi.
+    return (Array.isArray(result) ? result : [result])
+        .map(item => String(item).trim())
+        .filter(item => item !== "" && item !== "undefined" && item !== "null");
 };
 
 // 2. Boolean Parser
@@ -205,7 +216,7 @@ export const save = async (req, res) => {
             categoryId: catId,
             author: authId,
             publisher: req.body.publisher || null,
-            series: req.body.series || null,
+            series: cleanArray(req.body.series),
 
             title: req.body.title,
             isbn10: req.body.isbn10 || "",
@@ -222,7 +233,7 @@ export const save = async (req, res) => {
             availability: Number(req.body.availability) || 0,            // Number Quantity
 
             // Physical
-            pages: Number(req.body.pages || req.body.total_pages || 0),
+            pages: req.body.pages || req.body.total_pages || "",
             weight: req.body.weight,
             edition: req.body.edition,
             volume: req.body.volume,
@@ -255,8 +266,8 @@ export const save = async (req, res) => {
             // Ratings & Shipping
             rating: Number(req.body.rating || 0),
             rated_times: Number(req.body.rated_times || 0),
-            ship_days: Number(req.body.ship_days || 3),
-            deliver_days: Number(req.body.deliver_days || 7),
+            ship_days: req.body.ship_days || "",
+            deliver_days: req.body.deliver_days || "",
             related_products: req.body.related_products || "",
 
             // Arrays
@@ -305,8 +316,8 @@ export const update = async (req, res) => {
         }
 
         // 4. SHIPPING LOGIC (Numbers)
-        if (req.body.ship_days) updateData.ship_days = Number(req.body.ship_days);
-        if (req.body.deliver_days) updateData.deliver_days = Number(req.body.deliver_days);
+        if (req.body.ship_days) updateData.ship_days = req.body.ship_days;
+        if (req.body.deliver_days) updateData.deliver_days = req.body.deliver_days;
 
         // 5. BOOLEAN FLAGS
         if (req.body.active !== undefined) updateData.isActive = parseBoolean(req.body.active);
@@ -326,13 +337,14 @@ export const update = async (req, res) => {
         if (req.body.product_languages) updateData.product_languages = cleanArray(req.body.product_languages);
         if (req.body.product_tags) updateData.product_tags = cleanArray(req.body.product_tags);
         if (req.body.product_formats) updateData.product_formats = cleanArray(req.body.product_formats);
+        if (req.body.series) updateData.series = cleanArray(req.body.series);
 
         // 7. NUMBERS
         if (req.body.price) updateData.price = Number(req.body.price);
         if (req.body.real_price) updateData.real_price = Number(req.body.real_price);
         if (req.body.inr_price) updateData.inr_price = Number(req.body.inr_price);
         if (req.body.discount) updateData.discount = Number(req.body.discount);
-        if (req.body.total_pages) updateData.pages = Number(req.body.total_pages);
+        if (req.body.total_pages !== undefined) updateData.pages = req.body.total_pages;
         if (req.body.rating) updateData.rating = Number(req.body.rating);
         if (req.body.rated_times) updateData.rated_times = Number(req.body.rated_times);
 

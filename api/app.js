@@ -68,9 +68,9 @@ const app = express();
 // 🟢 Global Limiter: Pure website ke liye
 // Ek IP se 15 minute mein maximum 200 requests
 const globalLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 200, 
-    message: { status: false, msg: "Too many requests, please try again later." },
+    windowMs: 1 * 60 * 1000, // 15 minutes
+    max: 1000, 
+    message: { status: false, msg: "Too many requests, please try again after 5 min." },
     standardHeaders: true, 
     legacyHeaders: false,
 });

@@ -1,6 +1,4 @@
-'use client';
-
-import React, { useEffect, useState, useContext, useMemo } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import { Link } from "react-router-dom";
 import {
   Package,
@@ -13,10 +11,18 @@ import {
 import AccountLayout from "../../layouts/AccountLayout";
 import axiosInstance from "../../utils/axiosConfig";
 import { CurrencyContext } from "../../context/CurrencyContext";
-import { useQuery } from "@tanstack/react-query"; // 🟢 Optimization
 
 const UserDashboard = () => {
   const { formatPrice } = useContext(CurrencyContext);
+  const [stats, setStats] = useState({
+    totalOrders: 0,
+    pendingOrders: 0,
+    wishlistItems: 0,
+    savedAddresses: 0,
+    lifetimeValue: 0,
+  });
+  const [recentOrders, setRecentOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
 
   useEffect(() => {
@@ -25,80 +31,83 @@ const UserDashboard = () => {
       const parsedData = JSON.parse(authData);
       setUser(parsedData.userDetails);
     }
+    fetchDashboardData();
   }, []);
 
-  // 🆔 Get User ID from LocalStorage
-  const getUserId = () => {
-    const authData = localStorage.getItem("auth");
-    const parsedData = authData ? JSON.parse(authData) : null;
-    return parsedData?.userDetails?.id || parsedData?.userDetails?._id;
-  };
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
 
-  const userId = getUserId();
+      const authData = localStorage.getItem("auth");
+      const parsedData = authData ? JSON.parse(authData) : null;
+      const userId =
+        parsedData?.userDetails?.id || parsedData?.userDetails?._id;
 
-  // 🟢 React Query: Parallel Data Fetching
-  const { data: dashboardData, isLoading } = useQuery({
-    queryKey: ["userDashboard", userId],
-    queryFn: async () => {
-      if (!userId) return null;
+      if (!userId) {
+        setLoading(false);
+        return;
+      }
 
-      // 🚀 Parallel execution for speed
-      const [ordersRes, wishlistRes, addressRes] = await Promise.all([
-        axiosInstance.get("/orders/my-orders", { params: { customer_id: userId } }),
-        axiosInstance.get("/user/get-wishlist", { params: { userId } }),
-        axiosInstance.get("/user/get-addresses", { params: { userId } }),
-      ]);
-
-      const orders = Array.isArray(ordersRes?.data?.data)
-        ? ordersRes.data.data
-        : Array.isArray(ordersRes?.data?.orders)
-          ? ordersRes.data.orders
+      // Fetch orders
+      const ordersResponse = await axiosInstance.get("/orders/my-orders", {
+        params: { customer_id: userId },
+      });
+      const orders = Array.isArray(ordersResponse?.data?.data)
+        ? ordersResponse.data.data
+        : Array.isArray(ordersResponse?.data?.orders)
+          ? ordersResponse.data.orders
           : [];
 
-      return {
-        orders,
-        wishlist: wishlistRes.data.wishlist || [],
-        addresses: addressRes.data.addresses || [],
-      };
-    },
-    enabled: !!userId,
-    staleTime: 1000 * 60 * 5, // 5 minute tak data fresh rahega
-  });
+      // Fetch wishlist
+      const wishlistResponse = await axiosInstance.get("/user/get-wishlist", {
+        params: { userId },
+      });
+      const wishlist = wishlistResponse.data.wishlist || [];
 
-  // 📊 Calculated Stats (Optimized with useMemo)
-  const stats = useMemo(() => {
-    if (!dashboardData) return { totalOrders: 0, pendingOrders: 0, wishlistItems: 0, savedAddresses: 0, lifetimeValue: 0, recentOrders: [] };
+      // Fetch addresses
+      const addressResponse = await axiosInstance.get("/user/get-addresses", {
+        params: { userId },
+      });
+      const addresses = addressResponse.data.addresses || [];
 
-    const normalizedOrders = [...dashboardData.orders].sort((a, b) => {
-      const firstDate = new Date(a.created_at || a.createdAt || 0).getTime();
-      const secondDate = new Date(b.created_at || b.createdAt || 0).getTime();
-      return secondDate - firstDate;
-    });
+      const normalizedOrders = [...orders].sort((a, b) => {
+        const firstDate = new Date(a.created_at || a.createdAt || 0).getTime();
+        const secondDate = new Date(b.created_at || b.createdAt || 0).getTime();
+        return secondDate - firstDate;
+      });
 
-    const pendingOrders = normalizedOrders.filter((order) => {
-      const normalizedStatus = (order.status || "").toLowerCase();
-      return (
-        normalizedStatus === "payment pending" ||
-        normalizedStatus === "processing" ||
-        normalizedStatus === "not yet ordered"
-      );
-    }).length;
+      // Calculate stats
+      const pendingOrders = normalizedOrders.filter((order) => {
+        const normalizedStatus = (order.status || "").toLowerCase();
+        return (
+          normalizedStatus === "payment pending" ||
+          normalizedStatus === "processing" ||
+          normalizedStatus === "not yet ordered"
+        );
+      }).length;
 
-    const lifetimeValue = normalizedOrders.reduce((sum, order) => {
-      const subtotal = Number(order.total || order.totalAmount || 0);
-      const shipping = Number(order.shipping_cost || 0);
-      return sum + subtotal + shipping;
-    }, 0);
+      const lifetimeValue = normalizedOrders.reduce((sum, order) => {
+        const subtotal = Number(order.total || order.totalAmount || 0);
+        const shipping = Number(order.shipping_cost || 0);
+        return sum + subtotal + shipping;
+      }, 0);
 
-    return {
-      totalOrders: normalizedOrders.length,
-      pendingOrders,
-      wishlistItems: dashboardData.wishlist.length,
-      savedAddresses: dashboardData.addresses.length,
-      lifetimeValue,
-      recentOrders: normalizedOrders.slice(0, 5)
-    };
-  }, [dashboardData]);
+      setStats({
+        totalOrders: normalizedOrders.length,
+        pendingOrders,
+        wishlistItems: wishlist.length,
+        savedAddresses: addresses.length,
+        lifetimeValue,
+      });
+
+      // Get recent 5 orders
+      setRecentOrders(normalizedOrders.slice(0, 5));
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getStatusColor = (status) => {
     const normalizedStatus = (status || "").toLowerCase();
@@ -186,7 +195,7 @@ const UserDashboard = () => {
         </div>
 
         {/* Stats Grid */}
-        {isLoading ? (
+        {loading ? (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[...Array(4)].map((_, i) => (
               <div
@@ -227,7 +236,7 @@ const UserDashboard = () => {
           </div>
         )}
 
-        {!isLoading && (
+        {!loading && (
           <div className="bg-cream-100 rounded-lg border border-gray-200 p-5">
             <div className="flex items-center gap-2 mb-1">
               <Wallet className="text-primary" size={18} />
@@ -264,7 +273,7 @@ const UserDashboard = () => {
             </div>
           </div>
 
-          {isLoading ? (
+          {loading ? (
             <div className="p-6 space-y-4">
               {[...Array(3)].map((_, i) => (
                 <div key={i} className="animate-pulse">
@@ -273,9 +282,9 @@ const UserDashboard = () => {
                 </div>
               ))}
             </div>
-          ) : stats.recentOrders.length > 0 ? (
+          ) : recentOrders.length > 0 ? (
             <div className="divide-y divide-gray-200">
-              {stats.recentOrders.map((order) => (
+              {recentOrders.map((order) => (
                 <div
                   key={order._id}
                   className="p-6 hover:bg-cream-200/30 transition-colors"

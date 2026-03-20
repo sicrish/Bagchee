@@ -8,7 +8,7 @@ const AboutUs = () => {
     <div className="min-h-screen bg-cream">
 
       {/* Breadcrumb */}
-      <div className="bg-cream-100 border-b border-gray-200">
+      {/* <div className="bg-cream-100 border-b border-gray-200">
         <div className="container mx-auto px-4 py-2">
           <div className="flex items-center gap-2 text-sm text-gray-600">
             <Link to="/" className="hover:text-primary transition-colors">
@@ -18,7 +18,7 @@ const AboutUs = () => {
             <span className="text-gray-900 font-medium">About Us</span>
           </div>
         </div>
-      </div>
+      </div> */}
 
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8 md:py-12 lg:py-16">
@@ -32,10 +32,10 @@ const AboutUs = () => {
           <div className="md:col-span-3">
           {/* Page Title */}
           <div className="text-center mb-8 md:mb-12">
-            <h1 className="text-3xl md:text-4xl lg:text-5xl font-display font-bold text-text-main mb-4">
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-display text-text-main mb-4">
               About Us
             </h1>
-            <div className="w-20 h-1 bg-primary mx-auto"></div>
+            {/* <div className="w-20 h-1 bg-primary mx-auto"></div> */}
           </div>
 
           {/* Who We Are Section */}

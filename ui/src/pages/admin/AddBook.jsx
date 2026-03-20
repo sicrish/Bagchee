@@ -28,36 +28,36 @@ const AddBook = () => {
     const [synopsis, setSynopsis] = useState('');
     const [criticsNote, setCriticsNote] = useState('');
     const [searchText, setSearchText] = useState('');
-    const [categorySearch, setCategorySearch] = useState(""); 
-    
+    const [categorySearch, setCategorySearch] = useState("");
+
     const [isLeadingOpen, setIsLeadingOpen] = useState(false);
     const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
-    
+
     const [languages, setLanguages] = useState([]);
     const [languageSearch, setLanguageSearch] = useState("");
     const [leadingSearch, setLeadingSearch] = useState("");
     const [isLanguageDropdownOpen, setIsLanguageDropdownOpen] = useState(false);
-    
+
     const [tags, setTags] = useState([]);
     const [tagSearch, setTagSearch] = useState("");
     const [isTagDropdownOpen, setIsTagDropdownOpen] = useState(false);
-    
+
     const [authors, setAuthors] = useState([]);
     const [authorSearch, setAuthorSearch] = useState("");
     const [isAuthorDropdownOpen, setIsAuthorDropdownOpen] = useState(false);
-    
+
     const [formats, setFormats] = useState([]);
     const [formatSearch, setFormatSearch] = useState("");
     const [isFormatDropdownOpen, setIsFormatDropdownOpen] = useState(false);
-    
+
     const [seriesList, setSeriesList] = useState([]);
     const [seriesSearch, setSeriesSearch] = useState("");
     const [isSeriesDropdownOpen, setIsSeriesDropdownOpen] = useState(false);
-    
+
     const [publishers, setPublishers] = useState([]);
     const [publisherSearch, setPublisherSearch] = useState("");
     const [isPublisherDropdownOpen, setIsPublisherDropdownOpen] = useState(false);
-    
+
     const [relatedSearchQuery, setRelatedSearchQuery] = useState("");
     const [relatedSearchResults, setRelatedSearchResults] = useState([]);
     const [isRelatedDropdownOpen, setIsRelatedDropdownOpen] = useState(false);
@@ -75,8 +75,8 @@ const AddBook = () => {
     const [newSeriesData, setNewSeriesData] = useState({ title: '' });
 
     // 🟢 User Input Date
-    const [userSelectedDate, setUserSelectedDate] = useState(''); 
-    const [arrivalDays, setArrivalDays] = useState(30); 
+    const [userSelectedDate, setUserSelectedDate] = useState('');
+    const [arrivalDays, setArrivalDays] = useState(30);
 
     // 🟢 Publisher Quick Add States
     const [isPubPanelOpen, setIsPubPanelOpen] = useState(false);
@@ -94,7 +94,7 @@ const AddBook = () => {
         product_categories: [],
         product_languages: [],
         product_tags: [],
-        product_formats: [], 
+        product_formats: [],
         related_products: '',
         authors_search: '',
         authors: [],
@@ -104,7 +104,7 @@ const AddBook = () => {
         isbn13: '',
         total_pages: '',
         weight: '',
-        price: '', 
+        price: '',
         real_price: '',
         inr_price: '',
         discount: '',
@@ -121,7 +121,7 @@ const AddBook = () => {
         upcoming_date: '',
         new_release: 'inactive',
         exclusive: 'inactive',
-        series: '',
+        series: [],
         series_number: '',
         publisher: '',
         ship_days: '',
@@ -274,8 +274,8 @@ const AddBook = () => {
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
-    }; 
-    
+    };
+
     const handleCheckboxChange = (field, value) => {
         setFormData((prev) => {
             const currentList = prev[field] || [];
@@ -355,7 +355,7 @@ const AddBook = () => {
         if (validateImageFiles(file)) {
             setter(prev => prev.map(item => item.id === id ? { ...item, file: file } : item));
         } else {
-            if(e) e.target.value = "";
+            if (e) e.target.value = "";
         }
     };
 
@@ -366,7 +366,7 @@ const AddBook = () => {
     // 🟢 Main Form Submit (React Query)
     const handleSubmit = (e, actionType) => {
         e.preventDefault();
-        
+
         if (!formData.title || !formData.price) return toast.error("Title and Price are required!");
         if (!formData.leading_category) return toast.error("Please select a Category!");
 
@@ -382,11 +382,11 @@ const AddBook = () => {
         data.append('isbn10', formData.isbn10 || '');
         data.append('leading_category', formData.leading_category);
         data.append('language', formData.language || 'English');
-        data.append('pages', formData.total_pages || ''); 
+        data.append('pages', formData.total_pages || '');
         data.append('weight', formData.weight || '');
         data.append('edition', formData.edition || '');
         data.append('volume', formData.volume || '');
-        
+
         data.append('active', formData.active);
         data.append('recommended', formData.recommended);
         data.append('upcoming', formData.upcoming);
@@ -394,7 +394,7 @@ const AddBook = () => {
         data.append('new_release', formData.new_release);
         data.append('new_release_until', formData.new_release_until || '');
         data.append('exclusive', formData.exclusive);
-        data.append('stock', formData.stock); 
+        data.append('stock', formData.stock);
         data.append('availability', formData.availability || '');
         data.append('notes', formData.notes || '');
         data.append('ship_days', formData.ship_days || '');
@@ -406,9 +406,9 @@ const AddBook = () => {
         data.append('related_products', formData.related_products || '');
 
         if (formData.authors && formData.authors.length > 0) {
-            const firstAuthorId = formData.authors[0]; 
-            data.append('author', firstAuthorId);     
-            data.append('author_id', firstAuthorId);  
+            const firstAuthorId = formData.authors[0];
+            data.append('author', firstAuthorId);
+            data.append('author_id', firstAuthorId);
             data.append('authors', JSON.stringify(formData.authors));
         }
 
@@ -461,7 +461,7 @@ const AddBook = () => {
                         navigate('/admin/books');
                     } else {
                         // Reset all fields manually to stay on page
-                        window.location.reload(); 
+                        window.location.reload();
                     }
                 } else {
                     toast.error(response.msg || "Error saving book", { id: toastId });
@@ -490,12 +490,28 @@ const AddBook = () => {
         height: 350,
     }), []);
 
-    const handleSeriesSelect = (series) => {
-        setFormData(prev => ({
-            ...prev,
-            series: series._id,
-            series_number: series.total_books ? (series.total_books + 1).toString() : "1"
-        }));
+    const handleSeriesSelect = (selectedSeries) => {
+        setFormData(prev => {
+            // 1. Pehle ensure karein ki series ek array hai
+            const currentSeries = Array.isArray(prev.series) ? prev.series : [];
+    
+            // 2. Check karein ki ye series pehle se list me toh nahi hai (Duplicate check)
+            if (currentSeries.includes(selectedSeries._id)) {
+                toast.error("This series is already added!");
+                return prev;
+            }
+    
+            // 3. Nayi series ko array me add karein
+            return {
+                ...prev,
+                series: [...currentSeries, selectedSeries._id],
+                // Note: Multiple series me 'series_number' ka logic tricky ho sakta hai
+                // Isliye hum pehli select ki gayi series ke basis pe default number set kar rahe hain
+                series_number: prev.series_number || (selectedSeries.total_books ? (selectedSeries.total_books + 1).toString() : "1")
+            };
+        });
+    
+        // Dropdown band karein aur search clear karein
         setIsSeriesDropdownOpen(false);
         setSeriesSearch("");
     };
@@ -503,7 +519,7 @@ const AddBook = () => {
     const handlePublisherSelect = (pub) => {
         setFormData(prev => ({ ...prev, publisher: pub._id }));
         setIsPublisherDropdownOpen(false);
-        setPublisherSearch(""); 
+        setPublisherSearch("");
     };
 
     // Related Search Effect
@@ -542,7 +558,7 @@ const AddBook = () => {
     };
 
     useEffect(() => {
-        const { title, isbn10, isbn13 } = formData; 
+        const { title, isbn10, isbn13 } = formData;
         const activeIsbn = isbn13 ? isbn13 : (isbn10 ? isbn10 : '');
         const autoMetaTitle = title ? `${title} ${activeIsbn ? `, ${activeIsbn}` : ''}` : '';
         const autoMetaDesc = title ? (activeIsbn ? `${activeIsbn}, ${title}` : title) : '';
@@ -580,6 +596,35 @@ const AddBook = () => {
 
     const selectedLeadingCategory = categories.find(c => c._id === formData.leading_category);
 
+
+
+
+    // 🟢 AUTO-CALCULATE REAL PRICE LOGIC
+    useEffect(() => {
+        // String ko number me convert karte hain, agar khali hai to 0 mante hain
+        const basePrice = Number(formData.price) || 0;
+        const discountPercent = Number(formData.discount) || 0;
+
+        if (basePrice > 0) {
+            if (discountPercent > 0) {
+                // Calculation: 1000 - (1000 * 10 / 100) = 900
+                const calculatedPrice = basePrice - (basePrice * discountPercent) / 100;
+
+                // Math.round() se value point me nahi aayegi (e.g. 900.5 -> 901)
+                setFormData(prev => ({
+                    ...prev,
+                    real_price: Math.round(calculatedPrice)
+                }));
+            } else {
+                // Agar discount 0 ya khali hai, toh real_price aur price barabar rahenge
+                setFormData(prev => ({
+                    ...prev,
+                    real_price: basePrice
+                }));
+            }
+        }
+    }, [formData.price, formData.discount]); // 👈 Ye array batata hai ki sirf price ya discount change hone par hi ye logic chale
+
     return (
         <div className="bg-gray-50 min-h-screen font-body text-text-main">
             {/* --- TOP HEADER BAR --- */}
@@ -590,7 +635,7 @@ const AddBook = () => {
             <div className="max-w-6xl mx-auto p-6">
                 <div className="bg-white rounded border border-gray-200 shadow-sm overflow-hidden">
                     <div className="p-8 space-y-6">
-                        
+
                         {/* Master Loader UI */}
                         {isMasterLoading && (
                             <div className="text-center text-primary font-bold text-sm py-4 animate-pulse">
@@ -607,7 +652,7 @@ const AddBook = () => {
 
                         <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4">
                             <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight">Leading category*</label>
-                            <div className="col-span-9 relative"> 
+                            <div className="col-span-9 relative">
                                 <div onClick={() => setIsLeadingOpen(!isLeadingOpen)} className="theme-input w-1/2 cursor-pointer flex justify-between items-center bg-white border border-gray-300 rounded p-2 text-sm">
                                     <span className={selectedLeadingCategory ? "text-gray-700" : "text-gray-400"}>
                                         {selectedLeadingCategory ? selectedLeadingCategory.categorytitle : "Select category"}
@@ -636,7 +681,7 @@ const AddBook = () => {
 
                         <div className="grid grid-cols-12 gap-4 items-start border-b border-gray-50 pb-4">
                             <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight pt-3">Product categories</label>
-                            <div className="col-span-9 relative"> 
+                            <div className="col-span-9 relative">
                                 <div className="border border-gray-300 rounded p-2 bg-white cursor-pointer min-h-[38px] flex flex-wrap gap-2 items-center hover:border-primary transition-colors" onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}>
                                     {formData.product_categories && formData.product_categories.length > 0 ? (
                                         formData.product_categories.map((catId) => {
@@ -855,8 +900,8 @@ const AddBook = () => {
                                                         <Upload size={14} className="inline mr-2" /> {newAuthorImage ? "Change file" : "Upload Picture"}
                                                         <input type="file" className="hidden" accept="image/*" onChange={(e) => {
                                                             const file = e.target.files[0];
-                                                            if(!file) return;
-                                                            if(validateImageFiles(file)) {
+                                                            if (!file) return;
+                                                            if (validateImageFiles(file)) {
                                                                 setNewAuthorImage(file);
                                                             } else {
                                                                 e.target.value = "";
@@ -953,7 +998,13 @@ const AddBook = () => {
                         </div>
                         <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4">
                             <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight">Total pages</label>
-                            <div className="col-span-9"><input name="total_pages" type="number" onChange={handleChange} className="theme-input w-32" /></div>
+                            <div className="col-span-9"><input
+                                name="total_pages"
+                                type="text"
+                                onChange={handleChange}
+                                className="theme-input w-full"
+                                placeholder="e.g. 171p., Plates; Notes; 23cm."
+                            /></div>
                         </div>
                         <div className="grid grid-cols-12 gap-4 items-center">
                             <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight">Weight</label>
@@ -968,8 +1019,8 @@ const AddBook = () => {
                                     type="file" id="default_image_input" className="hidden" accept="image/*"
                                     onChange={(e) => {
                                         const file = e.target.files[0];
-                                        if(!file) return;
-                                        if(validateImageFiles(file)) {
+                                        if (!file) return;
+                                        if (validateImageFiles(file)) {
                                             setImageFile(file);
                                         } else {
                                             e.target.value = "";
@@ -1015,8 +1066,8 @@ const AddBook = () => {
                                         type="file" id="toc_image_input" className="hidden" accept="image/*"
                                         onChange={(e) => {
                                             const file = e.target.files[0];
-                                            if(!file) return;
-                                            if(validateImageFiles(file)) {
+                                            if (!file) return;
+                                            if (validateImageFiles(file)) {
                                                 setTocImageFile(file);
                                             } else {
                                                 e.target.value = "";
@@ -1126,8 +1177,20 @@ const AddBook = () => {
                         <div className="grid grid-cols-12 gap-4 items-start border-b border-gray-50 pb-4">
                             <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight pt-2">Pub date</label>
                             <div className="col-span-9 space-y-1">
-                                <input name="pub_date" type="text" onChange={handleChange} className="theme-input w-full md:w-1/3" placeholder="yyyy-mm-dd" />
-                                <button type="button" className="block text-primary text-[10px] font-bold hover:underline">Clear (yyyy-mm-dd)</button>
+                                <input
+                                    name="pub_date"
+                                    type="date"
+                                    value={formData.pub_date || ''}
+                                    onChange={handleChange}
+                                    className="theme-input w-full md:w-1/3 cursor-pointer"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, pub_date: '' })}
+                                    className="block text-primary text-[10px] font-bold hover:underline mt-1"
+                                >
+                                    Clear Date
+                                </button>
                             </div>
                         </div>
 
@@ -1157,53 +1220,122 @@ const AddBook = () => {
                             <div className="col-span-9"><input name="rated_times" type="number" onChange={handleChange} className="theme-input w-32" /></div>
                         </div>
 
-                        <div className="grid grid-cols-12 gap-4 items-start border-b border-gray-50 pb-4">
-                            <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight pt-3">Series</label>
-                            <div className="col-span-9 space-y-3">
-                                <div className="relative">
-                                    <div className="border border-gray-300 rounded p-2 bg-white cursor-pointer min-h-[38px] flex justify-between items-center hover:border-primary transition-colors theme-input w-full md:w-1/2" onClick={() => setIsSeriesDropdownOpen(!isSeriesDropdownOpen)}>
-                                        <span className={formData.series ? "text-gray-700 font-medium" : "text-gray-400 text-sm"}>{formData.series ? (seriesList.find(s => s._id === formData.series)?.title || "Unknown Series") : "Select Series"}</span>
-                                        <span className="text-gray-400 text-[10px]">▼</span>
-                                    </div>
-                                    {isSeriesDropdownOpen && (
-                                        <div className="absolute z-20 top-full left-0 w-full md:w-1/2 bg-white border border-gray-300 rounded shadow-lg mt-1 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                                            <div className="p-2 border-b border-gray-100 bg-gray-50">
-                                                <input type="text" placeholder="Search series..." value={seriesSearch} onChange={(e) => setSeriesSearch(e.target.value)} onClick={(e) => e.stopPropagation()} className="w-full text-xs p-1.5 border border-gray-300 rounded focus:border-primary outline-none" autoFocus />
-                                            </div>
-                                            <div className="max-h-48 overflow-y-auto p-1 scrollbar-thin">
-                                                {seriesList.filter(s => s.title.toLowerCase().includes(seriesSearch.toLowerCase())).map(s => (
-                                                    <div key={s._id} onClick={() => handleSeriesSelect(s)} className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${formData.series === s._id ? "bg-blue-50 text-primary font-bold" : "text-gray-600"}`}>{s.title}</div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                    {isSeriesDropdownOpen && <div className="fixed inset-0 z-10" onClick={() => setIsSeriesDropdownOpen(false)}></div>}
+                        {/* --- 🟢 Updated Series Section (Multi-Select Support) --- */}
+<div className="grid grid-cols-12 gap-4 items-start border-b border-gray-50 pb-4">
+    <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight pt-3">Series</label>
+    <div className="col-span-9 space-y-3">
+        <div className="relative">
+            {/* 1. Selected Series Display (Click to open dropdown) */}
+            <div 
+                className="border border-gray-300 rounded p-2 bg-white cursor-pointer min-h-[38px] flex flex-wrap gap-2 items-center hover:border-primary transition-colors" 
+                onClick={() => setIsSeriesDropdownOpen(!isSeriesDropdownOpen)}
+            >
+                {formData.series && formData.series.length > 0 ? (
+                    formData.series.map((serId) => {
+                        const seriesObj = seriesList.find(s => s._id === serId);
+                        return seriesObj ? (
+                            <span key={serId} className="bg-purple-50 text-purple-700 text-[10px] font-bold px-2 py-0.5 rounded border border-purple-100 flex items-center gap-1">
+                                {seriesObj.title}
+                                <button 
+                                    type="button" 
+                                    onClick={(e) => { 
+                                        e.stopPropagation(); 
+                                        handleCheckboxChange('series', serId); 
+                                    }} 
+                                    className="hover:text-red-500 font-bold ml-1"
+                                >
+                                    ×
+                                </button>
+                            </span>
+                        ) : null;
+                    })
+                ) : (
+                    <span className="text-gray-400 text-xs">Select series...</span>
+                )}
+                <div className="ml-auto text-gray-400 text-[10px]">▼</div>
+            </div>
+
+            {/* 2. Dropdown List with Search */}
+            {isSeriesDropdownOpen && (
+                <div className="absolute z-50 top-full left-0 w-full md:w-1/2 bg-white border border-gray-300 rounded shadow-lg mt-1 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                    <div className="p-2 border-b border-gray-100 bg-gray-50">
+                        <input 
+                            type="text" 
+                            placeholder="Search series..." 
+                            value={seriesSearch} 
+                            onChange={(e) => setSeriesSearch(e.target.value)} 
+                            onClick={(e) => e.stopPropagation()} 
+                            className="w-full text-xs p-1.5 border border-gray-200 rounded focus:border-primary outline-none" 
+                            autoFocus 
+                        />
+                    </div>
+                    <div className="max-h-48 overflow-y-auto p-1 scrollbar-thin">
+                        {seriesList.filter(s => s.title.toLowerCase().includes(seriesSearch.toLowerCase())).map(s => {
+                            const isSelected = formData.series.includes(s._id);
+                            return (
+                                <div 
+                                    key={s._id} 
+                                    onClick={() => handleSeriesSelect(s)} 
+                                    className={`px-3 py-2 text-sm cursor-pointer rounded hover:bg-blue-50 flex justify-between items-center ${isSelected ? "bg-blue-50 text-primary font-bold" : "text-gray-600"}`}
+                                >
+                                    {s.title}
+                                    {isSelected && <Check size={14} />}
                                 </div>
-                                <div className="flex justify-start">
-                                    <button type="button" onClick={() => setIsSeriesPanelOpen(!isSeriesPanelOpen)} className="bg-gray-100 border border-gray-300 px-4 py-1.5 rounded text-[11px] font-bold uppercase text-gray-700 hover:bg-gray-200 shadow-sm flex items-center gap-2">
-                                        {isSeriesPanelOpen ? <X size={14} /> : <Plus size={14} />} Add new series
-                                    </button>
-                                </div>
-                                {isSeriesPanelOpen && (
-                                    <div className="p-5 bg-cream-50/50 border-2 border-primary/10 rounded-xl space-y-4 animate-in slide-in-from-top-2 duration-300 shadow-inner">
-                                        <div className="flex items-center gap-2 text-primary border-b border-primary/10 pb-2">
-                                            <Plus size={16} strokeWidth={3} />
-                                            <h3 className="text-xs font-bold uppercase font-montserrat tracking-wider">Quick Series Registration</h3>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Series Title*</label>
-                                            <input type="text" value={newSeriesData.title} onChange={(e) => setNewSeriesData({ title: e.target.value })} className="theme-input w-full bg-white" placeholder="e.g. Harry Potter" />
-                                        </div>
-                                        <div className="flex justify-end gap-3 pt-2">
-                                            <button type="button" onClick={() => setIsSeriesPanelOpen(false)} className="text-[10px] font-bold uppercase text-gray-400 hover:text-gray-600 px-4 transition-colors">Discard</button>
-                                            <button type="button" disabled={saveSeriesMutation.isPending} onClick={handleQuickSeriesSave} className="bg-primary text-white px-6 py-2 rounded font-bold text-[10px] uppercase shadow-md flex items-center gap-2 hover:brightness-110 disabled:opacity-50 transition-all">
-                                                {saveSeriesMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Save & Link Series
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
+                            );
+                        })}
+                        {seriesList.filter(s => s.title.toLowerCase().includes(seriesSearch.toLowerCase())).length === 0 && (
+                            <div className="p-3 text-xs text-gray-400 text-center">No series found</div>
+                        )}
+                    </div>
+                </div>
+            )}
+            {/* Background overlay to close dropdown */}
+            {isSeriesDropdownOpen && <div className="fixed inset-0 z-10" onClick={() => setIsSeriesDropdownOpen(false)}></div>}
+        </div>
+
+        {/* 3. Quick Add Button */}
+        <div className="flex justify-start">
+            <button 
+                type="button" 
+                onClick={() => setIsSeriesPanelOpen(!isSeriesPanelOpen)} 
+                className="bg-gray-100 border border-gray-300 px-4 py-1.5 rounded text-[11px] font-bold uppercase text-gray-700 hover:bg-gray-200 shadow-sm flex items-center gap-2 transition-all"
+            >
+                {isSeriesPanelOpen ? <X size={14} /> : <Plus size={14} />} Add new series
+            </button>
+        </div>
+
+        {/* 4. Quick Add Panel */}
+        {isSeriesPanelOpen && (
+            <div className="p-5 bg-cream-50/50 border-2 border-primary/10 rounded-xl space-y-4 animate-in slide-in-from-top-2 duration-300 shadow-inner">
+                <div className="flex items-center gap-2 text-primary border-b border-primary/10 pb-2">
+                    <Plus size={16} strokeWidth={3} />
+                    <h3 className="text-xs font-bold uppercase font-montserrat tracking-wider">Quick Series Registration</h3>
+                </div>
+                <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Series Title*</label>
+                    <input 
+                        type="text" 
+                        value={newSeriesData.title} 
+                        onChange={(e) => setNewSeriesData({ title: e.target.value })} 
+                        className="theme-input w-full bg-white text-xs" 
+                        placeholder="e.g. Harry Potter" 
+                    />
+                </div>
+                <div className="flex justify-end gap-3 pt-2">
+                    <button type="button" onClick={() => setIsSeriesPanelOpen(false)} className="text-[10px] font-bold uppercase text-gray-400 hover:text-gray-600 px-4">Discard</button>
+                    <button 
+                        type="button" 
+                        disabled={saveSeriesMutation.isPending} 
+                        onClick={handleQuickSeriesSave} 
+                        className="bg-primary text-white px-6 py-2 rounded font-bold text-[10px] uppercase shadow-md flex items-center gap-2 hover:brightness-110 disabled:opacity-50"
+                    >
+                        {saveSeriesMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Save & Link Series
+                    </button>
+                </div>
+            </div>
+        )}
+    </div>
+</div>
 
                         <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4">
                             <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight">Series number</label>
@@ -1215,19 +1347,31 @@ const AddBook = () => {
 
                         <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4">
                             <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight">Price*</label>
-                            <div className="col-span-9"><input name="price" type="number" onChange={handleChange} className="theme-input w-full md:w-1/3" /></div>
+                            <div className="col-span-9">
+                                <input name="price" type="number" value={formData.price || ""} onChange={handleChange} className="theme-input w-full md:w-1/3" />
+                            </div>
                         </div>
+
                         <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4">
                             <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight">Real price</label>
-                            <div className="col-span-9"><input name="real_price" type="number" onChange={handleChange} className="theme-input w-full md:w-1/3" /></div>
+                            <div className="col-span-9">
+                                {/* Yahan readOnly lagana option hai. Agar aap chahte hain ki automatic bhare aur koi manually change na kar sake, to readOnly laga sakte hain */}
+                                <input name="real_price" type="number" value={formData.real_price || ""} onChange={handleChange} className="theme-input w-full md:w-1/3 bg-gray-50" readOnly title="Auto-calculated based on discount" />
+                            </div>
                         </div>
+
                         <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4">
                             <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight">Inr price</label>
-                            <div className="col-span-9"><input name="inr_price" type="number" onChange={handleChange} className="theme-input w-full md:w-1/3" /></div>
+                            <div className="col-span-9">
+                                <input name="inr_price" type="number" value={formData.inr_price || ""} onChange={handleChange} className="theme-input w-full md:w-1/3" />
+                            </div>
                         </div>
+
                         <div className="grid grid-cols-12 gap-4 items-center">
                             <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight">Discount</label>
-                            <div className="col-span-9"><input name="discount" type="number" onChange={handleChange} className="theme-input w-32" placeholder="%" /></div>
+                            <div className="col-span-9">
+                                <input name="discount" type="number" value={formData.discount || ""} onChange={handleChange} className="theme-input w-32" placeholder="%" />
+                            </div>
                         </div>
 
                         <div className="grid grid-cols-12 gap-4 items-start border-b border-gray-50 pb-4">
@@ -1318,8 +1462,8 @@ const AddBook = () => {
                                                         <Upload size={12} /> {newPubImage ? "Changed" : "Upload"}
                                                         <input type="file" className="hidden" onChange={(e) => {
                                                             const file = e.target.files[0];
-                                                            if(!file) return;
-                                                            if(validateImageFiles(file)) {
+                                                            if (!file) return;
+                                                            if (validateImageFiles(file)) {
                                                                 setNewPubImage(file);
                                                                 setNewPubPreview(URL.createObjectURL(file));
                                                             } else {
@@ -1363,7 +1507,7 @@ const AddBook = () => {
                             <div className="col-span-9"><input name="meta_description" type="text" onChange={handleChange} value={formData.meta_description || ''} className="theme-input w-full " placeholder="Auto-generated description..." /></div>
                         </div>
 
-                        {[ { label: "Active", name: "active" }, { label: "Recommended", name: "recommended" } ].map((item) => (
+                        {[{ label: "Active", name: "active" }, { label: "Recommended", name: "recommended" }].map((item) => (
                             <div key={item.name} className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4">
                                 <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight">{item.label}</label>
                                 <div className="col-span-9 flex gap-6">
@@ -1425,7 +1569,7 @@ const AddBook = () => {
                             <div className="col-span-9">
                                 <select name="ship_days" onChange={handleChange} className="theme-input w-48">
                                     <option value="">Select Days</option>
-                                    {[1, 2, 3, 4, 5, 6, 7].map(d => <option key={d} value={d}>{d} Days</option>)}
+                                    {["24", "1-2", "2-4", "3-5", "1-7", "5-7", "7-10", "7-14", "10-15", "10-18", "14-21", "15-25", "28", "25-30", "28-45", "30-45"].map(d => <option key={d} value={d}>{d} Days</option>)}
                                 </select>
                             </div>
                         </div>
@@ -1435,7 +1579,7 @@ const AddBook = () => {
                             <div className="col-span-9">
                                 <select name="deliver_days" onChange={handleChange} className="theme-input w-48">
                                     <option value="">Select Days</option>
-                                    {[1, 2, 3, 4, 5, 7, 10, 15].map(d => <option key={d} value={d}>{d} Days</option>)}
+                                    {["1-2", "3-5", "5-7", "10-18"].map(d => <option key={d} value={d}>{d} Days</option>)}
                                 </select>
                             </div>
                         </div>
@@ -1443,7 +1587,7 @@ const AddBook = () => {
                         <div className="grid grid-cols-12 gap-4 items-start border-b border-gray-50 pb-12">
                             <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight pt-2">Search text</label>
                             <div className="col-span-9 border rounded-md overflow-hidden shadow-sm">
-                                <JoditEditor value={searchText} config={config} onBlur={newContent => setSearchText(newContent)} />
+                                <JoditEditor value={searchText} config={config} onChange={newContent => setSearchText(newContent)} />
                             </div>
                         </div>
 
@@ -1476,6 +1620,18 @@ const AddBook = () => {
             border-color: #008DDA; 
             box-shadow: 0 0 0 2px rgba(0, 141, 218, 0.1); 
             }
+
+            /* 🟢 NAYI CSS: Number input ke up-down arrows (spinners) hatane ke liye */
+                /* Chrome, Safari, Edge, Opera ke liye */
+                input[type="number"]::-webkit-outer-spin-button,
+                input[type="number"]::-webkit-inner-spin-button {
+                  -webkit-appearance: none;
+                  margin: 0;
+                }
+                /* Firefox ke liye */
+                input[type="number"] {
+                  -moz-appearance: textfield;
+                }
         `}</style>
         </div>
     );

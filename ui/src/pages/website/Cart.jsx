@@ -1,48 +1,216 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Trash2, Plus, Minus, ShoppingBag, ArrowLeft, ArrowRight, Tag, X, Globe } from 'lucide-react';
+import { ShoppingBag, ArrowLeft, Tag, X, Star, Truck, Crown, Award } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
 import { CurrencyContext } from '../../context/CurrencyContext';
+import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
-import LogoBlue from '../../components/common/LogoBlue';
 
 const Cart = () => {
   const navigate = useNavigate();
-  const { cart, removeFromCart, updateQuantity, cartTotal } = useCart();
-  const { currency, setCurrency, formatPrice } = useContext(CurrencyContext);
-  const [couponCode, setCouponCode] = useState('');
-  const [appliedCoupon, setAppliedCoupon] = useState(null);
-  const [currencies] = useState(['INR', 'EUR', 'GBP', 'USD']);
+  const {
+    cart,
+    removeFromCart,
+    updateQuantity,
+    cartTotal,
+    appliedCoupon,
+    setAppliedCoupon,
+    appliedShipping,
+    setAppliedShipping,
+    membershipAdded,
+    setMembershipAdded,
+  } = useCart();
+  const { currency, formatPrice } = useContext(CurrencyContext);
+
+  const [couponCode, setCouponCode] = useState(appliedCoupon ? appliedCoupon.code : '');
+
+  // 🟢 API Data States
+  const [shippingOptions, setShippingOptions] = useState([]);
+  const [settings, setSettings] = useState(null);
+  const [activeCoupons, setActiveCoupons] = useState([]);
+  const [loadingShipping, setLoadingShipping] = useState(true);
+  const [applyingCoupon, setApplyingCoupon] = useState(false);
+
+  // 🟢 Logged-in user
+  const [user, setUser] = useState(null);
 
   const API_BASE_URL = process.env.REACT_APP_API_URL || '';
 
-  // Shipping and tax calculations
-  const subtotal = cartTotal;
-  const discount = appliedCoupon ? (subtotal * appliedCoupon.discount) / 100 : 0;
-  const shippingCost = subtotal > 500 ? 0 : 50;
-  const tax = ((subtotal - discount) * 0.18);
-  const total = subtotal - discount + shippingCost + tax;
+  // --- Load user from localStorage ---
+  useEffect(() => {
+    const authData = localStorage.getItem('auth');
+    if (authData) {
+      try {
+        const parsed = JSON.parse(authData);
+        setUser(parsed.userDetails);
+      } catch (e) {
+        // ignore
+      }
+    }
+  }, []);
 
+  // --- Fetch shipping options, settings, active coupons on mount ---
+  useEffect(() => {
+    const fetchAll = async () => {
+      try {
+        setLoadingShipping(true);
+        const [shippingRes, settingsRes, couponsRes] = await Promise.all([
+          axios.get(`${API_BASE_URL}/shipping-options/list`),
+          axios.get(`${API_BASE_URL}/settings/list`),
+          axios.get(`${API_BASE_URL}/coupons/list`),
+        ]);
+
+        // Shipping options
+        if (shippingRes.data.status) {
+          const active = shippingRes.data.data.filter(o => o.isActive);
+          setShippingOptions(active);
+          // Auto-select first if none selected yet
+          if (!appliedShipping && active.length > 0) {
+            setAppliedShipping(active[0]);
+          }
+        }
+
+        // Settings (take latest record)
+        if (settingsRes.data.status && settingsRes.data.data.length > 0) {
+          setSettings(settingsRes.data.data[0]);
+        }
+
+        // Active coupons — filter client-side (active endpoint omits required fields)
+        if (couponsRes.data.status) {
+          setActiveCoupons(couponsRes.data.data.filter(c => c.active === 'active'));
+        }
+      } catch (error) {
+        console.error('Cart fetch error:', error);
+      } finally {
+        setLoadingShipping(false);
+      }
+    };
+    fetchAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [API_BASE_URL]);
+
+  // --- Helpers ---
+  const getShippingPrice = (option) => {
+    if (!option) return 0;
+    // 🟢 Threshold check: Agar subtotal limit se upar hai toh 0
+    if (settings?.free_shipping_over > 0 && Number(cartTotal) >= settings.free_shipping_over) {
+      return 0;
+    }
+    if (currency === 'INR') return option.priceInr || 0;
+    if (currency === 'EUR') return option.priceEur || 0;
+    return option.priceUsd || 0;
+  };
+
+  // 🟢 Updated: Ye function ab USD aur INR dono values return karega
+  // Taaki formatPrice context ise sahi ratio mein convert kar sake
+  const getMembershipData = () => {
+    if (!settings) return { usd: 0, inr: 0, eur: 0 };
+    return {
+      usd: settings.membership_cost || 0,
+      inr: settings.membership_cart_price || 0,
+      eur: settings.membership_cost_eur || 0
+    };
+  };
+
+  const freeShippingOver = settings ? (
+    currency === 'INR' ? settings.free_shipping_over : 0
+  ) : 0;
+
+// ─── 🟢 STEP 1: MNC DISCOUNT-SAFE CALCULATIONS (REPLACE LINE 114-124) ───
+  
+// 1. Original Base Totals (MNC logic ke liye zaroori hai)
+const originalBaseUSD = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+const originalBaseINR = cart.reduce((acc, item) => acc + ((item.inr_price || 0) * item.quantity), 0);
+
+// 2. Har item ka Discounted Price (Jo aapne pehle banaya tha)
+const subtotalAfterItemDiscount = cart.reduce((acc, item) => {
+  const priceToUse = (item.real_price && item.real_price > 0) ? item.real_price : (item.price || 0);
+  return acc + (Number(priceToUse) * item.quantity);
+}, 0);
+
+// 3. Display Variables
+// Yahan null ki jagah original totals bhejna zaroori hai
+const subtotalDisplayUI = formatPrice(originalBaseUSD, originalBaseINR, subtotalAfterItemDiscount);
+
+// Final Total (Abhi ke liye subtotal hi hai, jab tak tax/shipping adds na ho)
+const finalTotalUI = subtotalDisplayUI
+
+  // 3. Membership Data (Sirf display ke liye)
+  const mData = getMembershipData();
+  const membershipPriceUI = membershipAdded ? formatPrice(mData.usd, mData.inr, mData.usd) : null;
+  const couponDiscountUSD = 0;
+
+  // --- Handlers ---
   const handleRemoveItem = (productId) => {
     removeFromCart(productId);
     toast.success('Item removed from cart');
   };
 
-  const handleQuantityChange = (productId, type) => {
-    updateQuantity(productId, type);
+  const handleQuantityChange = (productId, newQty) => {
+    const item = cart.find(i => i._id === productId);
+    if (!item) return;
+    const diff = newQty - item.quantity;
+    if (diff > 0) {
+      for (let i = 0; i < diff; i++) updateQuantity(productId, 'inc');
+    } else if (diff < 0) {
+      for (let i = 0; i < Math.abs(diff); i++) updateQuantity(productId, 'dec');
+    }
   };
 
-  const handleApplyCoupon = () => {
+  const handleApplyCoupon = async () => {
     if (!couponCode.trim()) {
       toast.error('Please enter a coupon code');
       return;
     }
-    
-    if (couponCode.toUpperCase() === 'SAVE10') {
-      setAppliedCoupon({ code: couponCode, discount: 10 });
+    setApplyingCoupon(true);
+    try {
+      const code = couponCode.trim().toUpperCase();
+      const found = activeCoupons.find(
+        (c) => c.code.toUpperCase() === code
+      );
+
+      if (!found) {
+        toast.error('Invalid or inactive coupon code');
+        return;
+      }
+
+      // Validate: members_only
+      if (found.members_only === 'active') {
+        if (!user || user.membership !== 'active') {
+          toast.error('This coupon is for members only');
+          return;
+        }
+      }
+
+      // Validate: minimum_buy
+      if (found.minimum_buy && subtotal < found.minimum_buy) {
+        toast.error(`Minimum order of ${formatPrice(found.minimum_buy)} required for this coupon`);
+        return;
+      }
+
+      // Validate: date range
+      const now = new Date();
+      if (found.valid_from && new Date(found.valid_from) > now) {
+        toast.error('This coupon is not yet valid');
+        return;
+      }
+      if (found.valid_to && new Date(found.valid_to) < now) {
+        toast.error('This coupon has expired');
+        return;
+      }
+
+      const discountType = found.fix_amount === 'active' ? 'fixed' : 'pct';
+      setAppliedCoupon({
+        code: found.code,
+        discount: found.amount,
+        discountType,
+        couponId: found._id,
+      });
       toast.success('Coupon applied successfully!');
-    } else {
-      toast.error('Invalid coupon code');
+    } catch (error) {
+      toast.error('Failed to validate coupon');
+    } finally {
+      setApplyingCoupon(false);
     }
   };
 
@@ -52,44 +220,60 @@ const Cart = () => {
     toast.success('Coupon removed');
   };
 
+  const handleAddMembership = () => {
+    setMembershipAdded(true);
+    toast.success('Membership added to cart!');
+  };
+
+  const handleRemoveMembership = () => {
+    setMembershipAdded(false);
+    toast.success('Membership removed from cart');
+  };
+
   const handleCheckout = () => {
-    const authData = localStorage.getItem('auth');
-    if (!authData) {
-      toast.error('Please login to continue');
-      navigate('/login');
-      return;
-    }
     navigate('/checkout');
   };
 
   const getImageUrl = (image) => {
-    if (!image) return 'https://placehold.co/100x140?text=No+Image';
+    if (!image) return 'https://placehold.co/80x110?text=No+Image';
     return image.startsWith('http') ? image : `${API_BASE_URL}${image}`;
   };
 
+  // Render star rating
+  const renderStars = (rating = 0) => {
+    return (
+      <div className="flex items-center gap-0.5">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <Star
+            key={i}
+            size={13}
+            className={i <= rating ? 'text-accent fill-accent' : 'text-gray-300 fill-gray-200'}
+          />
+        ))}
+      </div>
+    );
+  };
+
+  // --- Empty cart ---
   if (cart.length === 0) {
     return (
-      <div className="min-h-screen bg-cream">
-        <header className="bg-cream-100 border-b border-gray-200 sticky top-0 z-20">
-          <div className="max-w-7xl mx-auto px-4 py-6">
-            <Link to="/" className="inline-block">
-              <LogoBlue className="h-10 w-auto" />
-            </Link>
-          </div>
-        </header>
-
-        <div className="max-w-2xl mx-auto px-4 py-16 text-center">
-          <div className="bg-cream-100 rounded-lg p-12 border border-gray-200">
-            <div className="w-24 h-24 bg-cream-100 rounded-full mx-auto mb-6 flex items-center justify-center">
-              <ShoppingBag className="text-text-muted" size={48} />
+      <div className="min-h-screen bg-cream-50 pt-10 md:pt-16 lg:pt-24">
+        <div className="max-w-full mx-auto px-4 pt-[90px] md:pt-[120px] lg:pt-[170px] text-center">
+          <div className="bg-white rounded-lg p-12 border border-gray-200">
+            <div className="w-24 h-24 bg-gray-100 rounded-full mx-auto mb-6 flex items-center justify-center">
+              <ShoppingBag className="text-gray-400" size={48} />
             </div>
-            <h2 className="text-2xl font-display font-bold text-text-main mb-2">Your cart is empty</h2>
-            <p className="text-text-muted mb-8">Looks like you haven't added any items to your cart yet</p>
+            <h2 className="text-2xl font-display font-bold text-text-main mb-2">
+              Your cart is empty
+            </h2>
+            <p className="text-gray-500 mb-8">
+              Looks like you haven't added any items to your cart yet
+            </p>
             <Link
               to="/"
-              className="inline-flex items-center gap-2 bg-primary text-white px-8 py-3 rounded-lg hover:bg-primary-dark transition-colors font-medium"
+              className="inline-flex items-center gap-2 bg-primary text-white px-8 py-3 rounded hover:bg-primary-dark transition-colors font-montserrat font-bold uppercase text-sm"
             >
-              <ArrowLeft size={20} />
+              <ArrowLeft size={18} />
               Continue Shopping
             </Link>
           </div>
@@ -97,125 +281,115 @@ const Cart = () => {
       </div>
     );
   }
-console.log(cart)
+
   return (
-    <div className="min-h-screen bg-cream">
-      {/* Header */}
-      <header className="bg-cream-100 border-b border-gray-200 sticky top-0 z-20 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <Link to="/" className="inline-block">
-              <LogoBlue className="h-10 w-auto" />
-            </Link>
-            
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <button 
-                  onClick={() => {
-                    const currentIndex = currencies.indexOf(currency);
-                    const nextIndex = (currentIndex + 1) % currencies.length;
-                    setCurrency(currencies[nextIndex]);
-                  }}
-                  className="flex items-center gap-2 text-sm font-bold text-text-main hover:text-primary transition-colors"
-                >
-                  <Globe size={18} />
-                  <span>{currency}</span>
-                </button>
-              </div>
-              <span className="text-sm text-text-muted">
-                {cart.length} {cart.length === 1 ? 'item' : 'items'}
-              </span>
-            </div>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-cream-50">
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="mb-6">
-          <Link
-            to="/"
-            className="inline-flex items-center gap-2 text-text-muted hover:text-text-main font-medium"
-          >
-            <ArrowLeft size={20} />
-            Continue Shopping
-          </Link>
-        </div>
+     
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Cart Items */}
-          <div className="lg:col-span-2 space-y-4">
-            <div className="bg-cream-100 rounded-lg border border-gray-200 shadow-sm">
-              <div className="p-6 border-b border-gray-200 bg-cream-100">
-                <h1 className="text-2xl font-display font-bold text-text-main">Shopping Cart</h1>
-              </div>
+      <div className="max-w-full mx-auto px-4 pb-6">
+        <div className="grid lg:grid-cols-3 gap-6 pt-5">
+          {/* ─────────────────────────────── LEFT: CART ITEMS ─────────────────────────────── */}
+          <div className="lg:col-span-2 space-y-5">
+            <h1 className="text-2xl font-display font-bold text-text-main uppercase tracking-wide text-left mb-4 ">
+              YOUR CART
+            </h1>
+            {/* Cart items card */}
+            <div className="bg-cream-100 border border-gray-200 shadow-sm">
+
 
               <div className="divide-y divide-gray-100">
                 {cart.map((item) => (
-                  <div key={item._id} className="p-6">
+                  <div key={item._id} className="p-5">
                     <div className="flex gap-4">
-                      {/* Product Image */}
-                      <Link to={`/books/${item.bagcheeId || item._id}/${item.slug || 'book'}`} className="flex-shrink-0">
+                      {/* Book cover */}
+                      <Link
+                        to={`/books/${item.bagcheeId || item._id}/${item.slug || "book"}`}
+                        className="shrink-0"
+                      >
                         <img
-                          src={getImageUrl(item.default_image || item.related_images?.[0])}
+                          src={getImageUrl(
+                            item.default_image || item.related_images?.[0],
+                          )}
                           alt={item.name || item.title}
-                          className="w-24 h-32 object-cover rounded-lg border border-gray-200"
+                          className="w-20 h-28 object-cover border border-gray-200"
+                          onError={(e) => {
+                            e.target.src =
+                              "https://placehold.co/80x110?text=No+Image";
+                          }}
                         />
                       </Link>
 
-                      {/* Product Details */}
+                      {/* Details */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex justify-between gap-4 mb-2">
+                        <div className="flex justify-between gap-2 mb-1">
                           <div className="flex-1">
-                            <Link to={`/books/${item.bagcheeId || item._id}/${item.slug || 'book'}`} className="font-semibold text-text-main mb-1 hover:text-primary transition-colors block">
+                            <Link
+                              to={`/books/${item.bagcheeId || item._id}/${item.slug || "book"}`}
+                              className="font-semibold text-text-main hover:text-primary transition-colors leading-snug block"
+                            >
                               {item.name || item.title}
                             </Link>
                             {item.author && (
-                              <p className="text-sm text-text-muted">by {typeof item.author === 'object' ? `${item.author.first_name || ''} ${item.author.last_name || ''}`.trim() : item.author}</p>
-                            )}
-                          </div>
-                          <button
-                            onClick={() => handleRemoveItem(item._id)}
-                            className="text-text-muted hover:text-red-600 transition-colors p-2 hover:bg-red-50 rounded-lg"
-                            title="Remove item"
-                          >
-                            <Trash2 size={20} />
-                          </button>
-                        </div>
-
-                        <div className="flex items-end justify-between mt-4">
-                          {/* Quantity Controls */}
-                          <div className="flex items-center gap-3">
-                            <button
-                              onClick={() => handleQuantityChange(item._id, 'dec')}
-                              disabled={item.quantity <= 1}
-                              className="w-8 h-8 flex items-center justify-center border border-gray-200 rounded-lg hover:bg-cream-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                            >
-                              <Minus size={16} />
-                            </button>
-                            <span className="w-12 text-center font-medium text-text-main">
-                              {item.quantity}
-                            </span>
-                            <button
-                              onClick={() => handleQuantityChange(item._id, 'inc')}
-                              disabled={item.quantity >= (item.stock || 10)}
-                              className="w-8 h-8 flex items-center justify-center border border-gray-200 rounded-lg hover:bg-cream-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                            >
-                              <Plus size={16} />
-                            </button>
-                          </div>
-
-                          {/* Price */}
-                          <div className="text-right">
-                            <p className="text-xl font-bold text-text-main">
-                              {formatPrice(item.price * item.quantity)}
-                            </p>
-                            {item.quantity > 1 && (
-                              <p className="text-sm text-text-muted">
-                                {formatPrice(item.price)} each
+                              <p className="text-sm text-gray-500 mt-0.5">
+                                by{" "}
+                                {typeof item.author === "object"
+                                  ? `${item.author.first_name || ""} ${item.author.last_name || ""}`.trim()
+                                  : item.author}
                               </p>
                             )}
                           </div>
+                          {/* Price top-right */}
+                          <div className="text-right shrink-0">
+                            <p className="text-xl font-bold text-text-main">
+                            {formatPrice(
+    (item.price || 0) * item.quantity, 
+    (item.inr_price || 0) * item.quantity, 
+    ((item.real_price && item.real_price > 0) ? item.real_price : (item.price || 0)) * item.quantity
+  )}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Stars */}
+                        <div className="mb-3">
+                          {renderStars(item.rating || 0)}
+                        </div>
+
+                        {/* Quantity dropdown + Actions */}
+                        <div className="flex items-center gap-3 flex-wrap">
+                          {/* Qty dropdown — matches reference image */}
+                          <select
+                            value={item.quantity}
+                            onChange={(e) =>
+                              handleQuantityChange(
+                                item._id,
+                                parseInt(e.target.value, 10),
+                              )
+                            }
+                            className="border border-gray-300 rounded px-2 py-1 text-sm text-text-main bg-white focus:outline-none focus:border-primary cursor-pointer"
+                          >
+                            {Array.from(
+                              { length: Math.min(item.stock || 10, 10) },
+                              (_, i) => i + 1,
+                            ).map((n) => (
+                              <option key={n} value={n}>
+                                {n}
+                              </option>
+                            ))}
+                          </select>
+
+                          {/* Action buttons */}
+                          <button
+                            onClick={() => handleRemoveItem(item._id)}
+                            className="flex items-center gap-1 border border-gray-400 text-gray-700 text-xs font-bold uppercase px-4 py-1.5 hover:bg-gray-100 transition-colors font-montserrat"
+                          >
+                            <X size={12} />
+                            REMOVE
+                          </button>
+                          <button className="border border-gray-400 text-gray-700 text-xs font-bold uppercase px-4 py-1.5 hover:bg-gray-100 transition-colors font-montserrat">
+                            SAVE FOR LATER
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -223,110 +397,246 @@ console.log(cart)
                 ))}
               </div>
             </div>
+
+            {/* ─── MEMBERSHIP ROW ─── */}
+            {/* Show only if logged in and membership is not active */}
+            {user?.membership !== "active" && settings && (
+              <div className="bg-cream-100 border border-gray-200 shadow-sm">
+                <div className="p-4 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
+                  {/* Membership badge */}
+                  <div className="bg-primary text-white text-xs font-bold uppercase px-4 py-2 font-montserrat tracking-wider shrink-0 self-start sm:self-auto">
+                    MEMBERSHIP
+                  </div>
+
+                  {/* Radio + description */}
+                  <label className="flex items-center gap-2 cursor-pointer sm:flex-1 min-w-0">
+                    <input
+                      type="radio"
+                      name="membership"
+                      checked={membershipAdded}
+                      onChange={() => !membershipAdded && handleAddMembership()}
+                      className="w-4 h-4 text-primary border-gray-300 focus:ring-primary shrink-0"
+                    />
+                    <span className="text-sm text-text-main">
+                      Become a member and save 10% now
+                    </span>
+                  </label>
+
+                  {/* Price + button row on mobile */}
+                  <div className="flex items-center justify-between sm:contents gap-3">
+                    {/* Price */}
+
+                    <span className="text-xl font-bold text-text-main">
+                      {formatPrice(mData.usd, mData.inr, mData.usd)}
+                    </span>
+
+                    {/* Add/Remove button */}
+                    {membershipAdded ? (
+                      <button
+                        onClick={handleRemoveMembership}
+                        className="bg-gray-200 text-gray-700 text-xs font-bold uppercase px-5 py-2 hover:bg-gray-300 transition-colors font-montserrat shrink-0"
+                      >
+                        REMOVE
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleAddMembership}
+                        className="bg-primary text-white text-xs font-bold uppercase px-5 py-2 hover:bg-primary-dark transition-colors font-montserrat shrink-0"
+                      >
+                        ADD TO CART
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Order Summary */}
+          {/* ─────────────────────────────── RIGHT: YOUR ORDER ─────────────────────────────── */}
           <div className="lg:col-span-1">
-            <div className="bg-cream-100 rounded-lg border border-gray-200 shadow-sm sticky top-24">
-              <div className="p-6 border-b border-gray-200 bg-cream-100">
-                <h2 className="text-lg font-display font-bold text-text-main">Order Summary</h2>
-              </div>
+            {/* YOUR ORDER heading — outside the card, matching reference */}
+            <div className="h-[32px] mb-4 invisible lg:block hidden"></div>
 
-              <div className="p-6 space-y-4">
-                {/* Coupon Section */}
-                <div>
-                  <label className="block text-sm font-medium text-text-main mb-2">
-                    Have a coupon?
-                  </label>
+            <div className="bg-cream-100 border border-gray-200 shadow-sm">
+              <div className="p-5 space-y-5">
+                {/* Cart total line */}
+                <div className="flex justify-between items-baseline">
+                  <span className="text-sm text-gray-600">
+                    Cart total {cart.length}
+                  </span>
+                  <span className="text-xl font-bold text-text-main">
+                {/* Aapka naya variable 'subtotalAfterItemDiscount' use kar rahe hain */}
+                {subtotalDisplayUI}
+                  </span>
+                </div>
+
+                {/* ─── PROMOTION CODE ─── */}
+                <div className="border-t border-gray-200 pt-4">
+                  <p className="text-sm font-bold text-primary text-center mb-3">
+                    Use a promotion Code
+                  </p>
                   {!appliedCoupon ? (
-                    <div className="flex gap-2">
+                    <div className="flex gap-0">
                       <input
                         type="text"
                         value={couponCode}
-                        onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                        placeholder="Enter code"
-                        className="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                        onChange={(e) =>
+                          setCouponCode(e.target.value.toUpperCase())
+                        }
+                        placeholder="Enter promo code"
+                        className="flex-1 px-3 py-2 border border-gray-300 text-sm focus:outline-none focus:border-primary"
                       />
                       <button
                         onClick={handleApplyCoupon}
-                        className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors font-medium"
+                        disabled={applyingCoupon}
+                        className="bg-primary text-white px-5 py-2 text-sm font-bold hover:bg-primary-dark transition-colors disabled:opacity-70 font-montserrat uppercase"
                       >
-                        Apply
+                        {applyingCoupon ? "..." : "Apply"}
                       </button>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="flex items-center justify-between p-2.5 bg-green-50 border border-green-200">
                       <div className="flex items-center gap-2">
-                        <Tag className="text-green-600" size={18} />
-                        <span className="text-sm font-medium text-green-800">
-                          {appliedCoupon.code} ({appliedCoupon.discount}% off)
+                        <Tag className="text-green-600 shrink-0" size={16} />
+                        <span className="text-sm font-bold text-green-800">
+                          {appliedCoupon.code} (
+                          {appliedCoupon.discountType === "fixed"
+                            ? formatPrice(appliedCoupon.discount)
+                            : `${appliedCoupon.discount}% off`}
+                          )
                         </span>
                       </div>
                       <button
                         onClick={handleRemoveCoupon}
-                        className="text-green-600 hover:text-green-800"
+                        className="text-green-600 hover:text-green-800 ml-2"
                       >
-                        <X size={18} />
+                        <X size={16} />
                       </button>
                     </div>
                   )}
                 </div>
 
-                <div className="border-t border-gray-200 pt-4 space-y-3">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-text-muted">Subtotal</span>
-                    <span className="font-medium text-text-main">{formatPrice(subtotal)}</span>
-                  </div>
+              {/* ─── SHIPPING OPTIONS SECTION (BUG-FREE & DYNAMIC) ─── */}
+              <div className="border-t border-gray-200 pt-4">
+  <p className="text-sm font-bold text-primary text-center mb-3 uppercase font-montserrat">
+    Shipping options
+  </p>
+  <div className="space-y-2">
+    {shippingOptions.map((option) => (
+      <label key={option._id} className={`flex items-center justify-between p-2 cursor-pointer rounded ${appliedShipping?._id === option._id ? 'bg-primary/5' : ''}`}>
+        <div className="flex items-center gap-2">
+          <input 
+            type="radio" 
+            name="shipping" 
+            checked={appliedShipping?._id === option._id} 
+            onChange={() => setAppliedShipping(option)} // 👈 Selection Checkout par automatic jayegi
+            className="w-4 h-4 text-primary" 
+          />
+          <span className="text-sm">{option.title}</span>
+        </div>
+        <span className="text-sm font-bold text-gray-600">
+        {(() => {
+    const sPrice = getShippingPrice(option); // Helper se price lo
+    if (sPrice === 0) return 'Free';
+    
+    // 🟢 Fixed Parameters: formatPrice(MainUSD, FixedINR, DisplayValue)
+    return formatPrice(option.priceUsd, option.priceInr, option.priceUsd);
+  })()}
+        </span>
+      </label>
+    ))}
+  </div>
+</div>
 
-                  {appliedCoupon && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-green-600">Discount</span>
-                      <span className="font-medium text-green-600">-{formatPrice(discount)}</span>
-                    </div>
-                  )}
+                  {/* ─── TOTALS ─── */}
+                  <div className="border-t border-gray-200 pt-4 space-y-2">
+                    {membershipAdded && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Membership</span>
+                        <span className="font-medium text-text-main">
+                          {membershipPriceUI}
+                        </span>
+                      </div>
+                    )}
 
-                  <div className="flex justify-between text-sm">
-                    <span className="text-text-muted">Shipping</span>
-                    <span className="font-medium text-text-main">
-                      {shippingCost === 0 ? 'FREE' : formatPrice(shippingCost)}
+                    {appliedCoupon && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-green-600">
+                          Discount ({appliedCoupon.code})
+                        </span>
+                        <span className="font-medium text-green-600">
+                          -{formatPrice(couponDiscountUSD, null, couponDiscountUSD)}
+                        </span>
+                      </div>
+                    )}
+
+                  <div className="flex justify-between items-baseline pt-1">
+                    <span className="text-sm text-gray-600">
+                      Total (tax incl.)
+                    </span>
+                    <span className="text-2xl font-bold text-text-main">
+                    {finalTotalUI}
                     </span>
                   </div>
-
-                  <div className="flex justify-between text-sm">
-                    <span className="text-text-muted">Tax (GST 18%)</span>
-                    <span className="font-medium text-text-main">{formatPrice(tax)}</span>
-                  </div>
-
-                  {shippingCost > 0 && (
-                    <p className="text-xs text-text-muted">
-                      Add {formatPrice(500 - subtotal)} more for FREE shipping
-                    </p>
-                  )}
                 </div>
 
-                <div className="border-t border-gray-200 pt-4">
-                  <div className="flex justify-between mb-6">
-                    <span className="text-lg font-bold text-text-main">Total</span>
-                    <span className="text-2xl font-bold text-primary">{formatPrice(total)}</span>
-                  </div>
+                {/* ─── PROCEED TO CHECKOUT ─── */}
+                <button
+                  onClick={handleCheckout}
+                  className="w-full bg-primary text-white py-3 font-bold text-sm uppercase tracking-wider hover:bg-primary-dark transition-colors font-montserrat"
+                >
+                  PROCEED TO CHECKOUT
+                </button>
+              </div>
+            </div>
 
-                  <button
-                    onClick={handleCheckout}
-                    className="w-full bg-primary text-white py-3 rounded-lg hover:bg-primary-dark transition-colors font-medium flex items-center justify-center gap-2"
-                  >
-                    Proceed to Checkout
-                    <ArrowRight size={20} />
-                  </button>
+            {/* 100% Secure Payment — outside/below the card, matching reference */}
+            <div className="mt-4 text-center">
+              <p className="text-sm text-gray-600 mb-2 flex items-center justify-center gap-1.5">
+                <span>🔒</span> 100% Secure Payment
+              </p>
+              <div className="flex items-center justify-center gap-2">
+                <div className="h-7 w-11 bg-white border border-gray-200 rounded flex items-center justify-center overflow-hidden shadow-sm">
+                  <img
+                    src="https://upload.wikimedia.org/wikipedia/commons/4/41/Visa_Logo.png"
+                    alt="Visa"
+                    className="h-3.5 object-contain"
+                  />
                 </div>
-
-                <p className="text-xs text-text-muted text-center">
-                  Secure checkout
-                </p>
+                <div className="h-7 w-11 bg-white border border-gray-200 rounded flex items-center justify-center overflow-hidden shadow-sm">
+                  <img
+                    src="https://upload.wikimedia.org/wikipedia/commons/b/b7/MasterCard_Logo.svg"
+                    alt="MC"
+                    className="h-3.5 object-contain"
+                  />
+                </div>
+                <div className="h-7 w-11 bg-white border border-gray-200 rounded flex items-center justify-center overflow-hidden shadow-sm">
+                  <img
+                    src="https://upload.wikimedia.org/wikipedia/commons/5/57/Discover_Card_logo.svg"
+                    alt="Discover"
+                    className="h-3.5 object-contain"
+                  />
+                </div>
+                <div className="h-7 w-11 bg-white border border-gray-200 rounded flex items-center justify-center overflow-hidden shadow-sm">
+                  <img
+                    src="https://upload.wikimedia.org/wikipedia/commons/f/fa/American_Express_logo_%282018%29.svg"
+                    alt="Amex"
+                    className="h-3.5 object-contain"
+                  />
+                </div>
+                <div className="h-7 w-11 bg-white border border-gray-200 rounded flex items-center justify-center overflow-hidden shadow-sm">
+                  <img
+                    src="https://upload.wikimedia.org/wikipedia/commons/b/b5/PayPal.svg"
+                    alt="PayPal"
+                    className="h-3.5 object-contain"
+                  />
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
+
     </div>
   );
 };

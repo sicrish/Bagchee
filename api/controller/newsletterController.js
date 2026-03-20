@@ -3,19 +3,17 @@ import NewsletterSubscriber from '../models/NewsletterSubscriber.js';
 // 🟢 1. Create (Save)
 export const saveSubscriber = async (req, res) => {
     try {
-        const { email, firstName, lastName, categories } = req.body;
+        const { email, firstName, lastName, categories, interestedBookName, interestedBookId } = req.body;
 
-        // Check duplicate email
-        const existingSub = await NewsletterSubscriber.findOne({ email });
-        if (existingSub) {
-            return res.status(400).json({ status: false, msg: "Email already subscribed!" });
-        }
+  
 
         const newSub = new NewsletterSubscriber({
             email,
             firstname: firstName, // Frontend 'firstName' -> Backend 'firstname'
             lastname: lastName,   // Frontend 'lastName' -> Backend 'lastname'
-            categories
+            categories: categories || [],
+            interestedBookName: interestedBookName || '', // 🟢 Naya Field
+            interestedBookId: interestedBookId || ''
         });
 
         await newSub.save();
@@ -87,13 +85,15 @@ export const getSubscriberById = async (req, res) => {
 export const updateSubscriber = async (req, res) => {
     try {
         const { id } = req.params;
-        const { email, firstName, lastName, categories } = req.body;
+        const { email, firstName, lastName, categories, interestedBookName, interestedBookId } = req.body;
 
         const updatedData = {
             email,
             firstname: firstName,
             lastname: lastName,
-            categories
+            categories,
+            interestedBookName, // 🟢 Add this
+            interestedBookId
         };
 
         const subscriber = await NewsletterSubscriber.findByIdAndUpdate(

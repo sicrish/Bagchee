@@ -16,6 +16,21 @@ export const CartProvider = ({ children }) => {
     return savedWishlist ? JSON.parse(savedWishlist) : [];
   });
 
+  // 🟢 Cart ke saath persist hone wale extras
+  const [appliedCoupon, setAppliedCoupon] = useState(() => {
+    const saved = localStorage.getItem('appliedCoupon');
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  const [appliedShipping, setAppliedShipping] = useState(() => {
+    const saved = localStorage.getItem('appliedShipping');
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  const [membershipAdded, setMembershipAdded] = useState(() => {
+    return localStorage.getItem('membershipAdded') === 'true';
+  });
+
   // --- PERSIST TO LOCAL STORAGE ---
   useEffect(() => {
     localStorage.setItem('cartItems', JSON.stringify(cart));
@@ -24,6 +39,26 @@ export const CartProvider = ({ children }) => {
   useEffect(() => {
     localStorage.setItem('wishlistItems', JSON.stringify(wishlist));
   }, [wishlist]);
+
+  useEffect(() => {
+    if (appliedCoupon) {
+      localStorage.setItem('appliedCoupon', JSON.stringify(appliedCoupon));
+    } else {
+      localStorage.removeItem('appliedCoupon');
+    }
+  }, [appliedCoupon]);
+
+  useEffect(() => {
+    if (appliedShipping) {
+      localStorage.setItem('appliedShipping', JSON.stringify(appliedShipping));
+    } else {
+      localStorage.removeItem('appliedShipping');
+    }
+  }, [appliedShipping]);
+
+  useEffect(() => {
+    localStorage.setItem('membershipAdded', membershipAdded ? 'true' : 'false');
+  }, [membershipAdded]);
 
   // --- CART FUNCTIONS ---
 
@@ -71,10 +106,16 @@ export const CartProvider = ({ children }) => {
     });
   };
 
-  // 4. Clear Cart (After successful order)
+  // 4. Clear Cart (After successful order) - sab extras bhi clear ho
   const clearCart = () => {
     setCart([]);
+    setAppliedCoupon(null);
+    setAppliedShipping(null);
+    setMembershipAdded(false);
     localStorage.removeItem('cartItems');
+    localStorage.removeItem('appliedCoupon');
+    localStorage.removeItem('appliedShipping');
+    localStorage.removeItem('membershipAdded');
   };
 
   // --- WISHLIST FUNCTIONS ---
@@ -121,7 +162,14 @@ export const CartProvider = ({ children }) => {
       isInWishlist,
       cartItemCount,
       cartTotal,
-      wishlistCount
+      wishlistCount,
+      // 🟢 New extras
+      appliedCoupon,
+      setAppliedCoupon,
+      appliedShipping,
+      setAppliedShipping,
+      membershipAdded,
+      setMembershipAdded,
     }}>
       {children}
     </CartContext.Provider>

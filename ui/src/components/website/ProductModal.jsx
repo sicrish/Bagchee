@@ -1,14 +1,16 @@
-import React, { memo, useMemo, useCallback } from 'react';
+import React, { memo, useMemo, useCallback,useContext } from 'react';
 import { X, ShoppingCart, Heart } from 'lucide-react';
 import { Dialog, Transition, TransitionChild, DialogPanel } from '@headlessui/react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../../context/CartContext.jsx';
+import { CurrencyContext } from '../../context/CurrencyContext.jsx';
 import toast from 'react-hot-toast';
 import { useMutation, useQueryClient } from '@tanstack/react-query'; // 🟢 Mutations use karenge
 import axios from '../../utils/axiosConfig.js';
 
 const ProductModal = ({ product, isOpen, onClose }) => {
     const { addToCart, toggleWishlist, isInWishlist } = useCart();
+    const { formatPrice } = useContext(CurrencyContext);
     const queryClient = useQueryClient();
 
     // 🟢 Wishlist Mutation (Syncing with backend in background)
@@ -107,10 +109,11 @@ const ProductModal = ({ product, isOpen, onClose }) => {
                                         </p>
 
                                         <div className="text-2xl sm:text-3xl font-bold text-text-main font-montserrat mb-6">
-                                            ₹{product.price}
-                                            {product.real_price > product.price && (
-                                                <span className="ml-3 text-base sm:text-lg font-normal text-gray-400 line-through opacity-70">
-                                                    ₹{product.real_price}
+                                        {formatPrice(product.price, product.inr_price, product.real_price)}
+                                        {Number(product.price) > Number(product.real_price) && (
+                                                <span className="text-base sm:text-lg font-normal text-gray-400 line-through opacity-70">
+                                                    {/* Original MRP */}
+                                                    {formatPrice(product.price, product.inr_price, product.price)}
                                                 </span>
                                             )}
                                         </div>

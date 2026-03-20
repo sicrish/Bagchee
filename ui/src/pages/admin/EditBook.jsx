@@ -5,18 +5,18 @@ import { useNavigate, useParams } from 'react-router-dom';
 import JoditEditor from 'jodit-react';
 import 'react-quill/dist/quill.snow.css';
 import axios from '../../utils/axiosConfig';
-import { useQuery, useMutation } from '@tanstack/react-query'; 
-import { validateImageFiles } from '../../utils/fileValidator'; 
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { validateImageFiles } from '../../utils/fileValidator';
 
 const EditBook = () => {
-    const { id } = useParams(); 
+    const { id } = useParams();
     const navigate = useNavigate();
     const editor = useRef(null);
 
     // Image States
     const [imageFile, setImageFile] = useState(null);
-    const [preview, setPreview] = useState(null); 
-    const [serverImage, setServerImage] = useState(null); 
+    const [preview, setPreview] = useState(null);
+    const [serverImage, setServerImage] = useState(null);
 
     const [tocImageFile, setTocImageFile] = useState(null);
     const [tocPreview, setTocPreview] = useState(null);
@@ -56,7 +56,7 @@ const EditBook = () => {
     const [isSeriesDropdownOpen, setIsSeriesDropdownOpen] = useState(false);
     const [publisherSearch, setPublisherSearch] = useState("");
     const [isPublisherDropdownOpen, setIsPublisherDropdownOpen] = useState(false);
-    
+
     // Related Products Search States
     const [relatedSearchQuery, setRelatedSearchQuery] = useState("");
     const [relatedSearchResults, setRelatedSearchResults] = useState([]);
@@ -117,7 +117,7 @@ const EditBook = () => {
         upcoming: 'inactive',
         upcoming_date: '',
         new_release: 'inactive',
-        series: '',
+        series: [],
         series_number: '',
         publisher: '',
         ship_days: '',
@@ -148,11 +148,11 @@ const EditBook = () => {
                 axios.get(`${API_URL}/series/list`),
                 axios.get(`${API_URL}/publishers/list`),
                 axios.get(`${API_URL}/settings/list`),
-                axios.get(`${API_URL}/product/get/${id}`) 
+                axios.get(`${API_URL}/product/get/${id}`)
             ]);
 
             const book = bookRes.data.data || bookRes.data.book;
-            if(!bookRes.data.status || !book) throw new Error("Failed to load book data");
+            if (!bookRes.data.status || !book) throw new Error("Failed to load book data");
 
             return {
                 categories: catRes.data.data || [],
@@ -166,8 +166,8 @@ const EditBook = () => {
                 bookData: book
             };
         },
-        enabled: !!id, 
-        staleTime: 1000 * 60 * 10 
+        enabled: !!id,
+        staleTime: 1000 * 60 * 10
     });
 
     // Populate all states from fetched cache
@@ -175,7 +175,7 @@ const EditBook = () => {
         if (pageData) {
             const { categories, languages, tags, authors, formats, series, publishers, arrivalDays, bookData: book } = pageData;
             const API_URL = process.env.REACT_APP_API_URL;
-            
+
             setCategories(categories);
             setLanguages(languages);
             setTags(tags);
@@ -187,7 +187,7 @@ const EditBook = () => {
 
             setFormData({
                 title: book.title || '',
-                product_type: book.product_type || 'book', 
+                product_type: book.product_type || 'book',
                 bagchee_id: book.bagchee_id || '',
                 leading_category: book.categoryId ? (typeof book.categoryId === 'object' ? book.categoryId._id : book.categoryId) : (book.product_categories?.[0] || ''),
                 product_categories: book.product_categories || [],
@@ -195,16 +195,19 @@ const EditBook = () => {
                 product_tags: book.product_tags || [],
                 product_formats: book.product_formats || (book.binding ? [book.binding] : []),
                 authors: book.authors ? book.authors : (book.author ? [book.author] : []),
-                series: book.series ? (typeof book.series === 'object' ? book.series._id : book.series) : '',
+                // Agar series array hai to wahi rakho, single hai to array bana do, warna khali array []
+series: Array.isArray(book.series) 
+? book.series.map(s => typeof s === 'object' ? s._id : s) 
+: (book.series ? [typeof book.series === 'object' ? book.series._id : book.series] : []),
                 publisher: book.publisher || '',
                 volume: book.volume || '',
                 edition: book.edition || '',
                 isbn10: book.isbn10 || '',
-                isbn13: book.isbn13 || book.isbn || '', 
-                total_pages: book.pages || '',
+                isbn13: book.isbn13 || book.isbn || '',
+                total_pages: (book.pages !== undefined && book.pages !== null) ? String(book.pages) : '',
                 weight: book.weight || '',
                 price: book.price || '',
-                real_price: book.real_price || book.priceForeign || '', 
+                real_price: book.real_price || book.priceForeign || '',
                 inr_price: book.price || '',
                 discount: book.discount || '',
                 stock: typeof book.stock === 'number' ? (book.stock > 0 ? 'active' : 'inactive') : (book.stock || 'active'),
@@ -221,8 +224,8 @@ const EditBook = () => {
                 new_release: book.isNewRelease ? 'active' : 'inactive',
                 new_release_until: book.new_release_until ? new Date(book.new_release_until).toISOString().split('T')[0] : '',
                 exclusive: book.isExclusive ? 'active' : 'inactive',
-                ship_days: book.ship_days || book.shipDays || "3",
-                deliver_days: book.deliver_days || book.deliverDays || "7",
+                ship_days: (book.ship_days !== undefined && book.ship_days !== null) ? String(book.ship_days) : (book.shipDays ? String(book.shipDays) : ""),
+                deliver_days: (book.deliver_days !== undefined && book.deliver_days !== null) ? String(book.deliver_days) : (book.deliverDays ? String(book.deliverDays) : ""),
                 pub_date: book.pub_date || '',
                 source: book.source || '',
                 rating: book.rating || '',
@@ -419,7 +422,25 @@ const EditBook = () => {
     };
 
     const handleChange = useCallback((e) => {
-        setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+        const { name, value } = e.target;
+
+        setFormData(prev => {
+            let updatedData = { ...prev, [name]: value }; // <-- YAHAN PURANA LOGIC HAI
+
+            if (name === 'price' || name === 'discount') { // <-- YAHAN NAYA LOGIC HAI
+                const priceVal = Number(updatedData.price) || 0;
+                const discountVal = Number(updatedData.discount) || 0;
+
+                if (priceVal > 0) {
+                    if (discountVal > 0) {
+                        updatedData.real_price = Math.round(priceVal - (priceVal * discountVal) / 100);
+                    } else {
+                        updatedData.real_price = priceVal;
+                    }
+                }
+            }
+            return updatedData; // <-- YAHAN DATA WAPAS BHEJ RAHE HAIN
+        });
     }, []);
 
     const handleCheckboxChange = (field, value) => {
@@ -476,8 +497,8 @@ const EditBook = () => {
     const removeImageRow = (setter, id) => setter(prev => prev.filter(item => item.id !== id));
     const handleDynamicImageChange = (setter, id, file, e) => {
         if (!file) return;
-        if(validateImageFiles(file)) setter(prev => prev.map(item => item.id === id ? { ...item, file: file } : item));
-        else if(e) e.target.value = "";
+        if (validateImageFiles(file)) setter(prev => prev.map(item => item.id === id ? { ...item, file: file } : item));
+        else if (e) e.target.value = "";
     };
     const handleDynamicOrderChange = (setter, id, order) => setter(prev => prev.map(item => item.id === id ? { ...item, order: order } : item));
 
@@ -488,7 +509,7 @@ const EditBook = () => {
 
         try {
             const data = new FormData();
-            
+
             data.append('product_type', formData.product_type || 'book');
             data.append('title', formData.title);
             data.append('price', formData.price);
@@ -507,15 +528,21 @@ const EditBook = () => {
             data.append('notes', formData.notes || '');
             data.append('bagchee_id', formData.bagchee_id || '');
             data.append('related_products', formData.related_products || '');
-            
+
             if (formData.leading_category) data.append('leading_category', formData.leading_category);
-            if (formData.series) data.append('series', formData.series);
+            if (formData.series && formData.series.length > 0) {
+                const validSeries = formData.series.filter(s => s && s.trim() !== "");
+                if (validSeries.length > 0) {
+                    // Agar aap JSON stringify karke bhej rahe hain
+                    data.append('series', JSON.stringify(validSeries));
+                }
+            }
             if (formData.series_number) data.append('series_number', formData.series_number);
             if (formData.publisher) data.append('publisher', formData.publisher);
 
             if (formData.authors && formData.authors.length > 0) {
                 const firstAuthor = formData.authors[0];
-                data.append('author', firstAuthor); 
+                data.append('author', firstAuthor);
                 data.append('author_id', firstAuthor);
                 data.append('authors', JSON.stringify(formData.authors));
             }
@@ -566,14 +593,31 @@ const EditBook = () => {
             });
         } catch (error) {
             toast.error("Failed to update", { id: toastId });
-        } 
+        }
     };
 
     const config = useMemo(() => ({ readonly: false, placeholder: 'Start typing...', toolbarSticky: false, height: 350 }), []);
 
-    const handleSeriesSelect = (series) => {
-        setFormData(prev => ({ ...prev, series: series._id, series_number: series.total_books ? (series.total_books + 1).toString() : "1" }));
-        setIsSeriesDropdownOpen(false); setSeriesSearch("");
+    const handleSeriesSelect = (selectedSeries) => {
+        setFormData(prev => {
+            // Ensure karein ki series hamesha array format mein ho
+            const currentSeries = Array.isArray(prev.series) ? prev.series : [];
+
+            // Duplicate check: Agar ID pehle se hai to error dikhao
+            if (currentSeries.includes(selectedSeries._id)) {
+                toast.error("This series is already added!");
+                return prev;
+            }
+
+            return {
+                ...prev,
+                series: [...currentSeries, selectedSeries._id],
+                // Pehli baar select hone par number suggest karega
+                series_number: prev.series_number || (selectedSeries.total_books ? (selectedSeries.total_books + 1).toString() : "1")
+            };
+        });
+        setIsSeriesDropdownOpen(false);
+        setSeriesSearch("");
     };
 
     const handlePublisherSelect = (pub) => {
@@ -589,7 +633,7 @@ const EditBook = () => {
         return () => URL.revokeObjectURL(objectUrl);
     }, [imageFile]);
 
-    const removeImage = () => { setImageFile(null); setServerImage(null); const input = document.getElementById('default_image_input'); if(input) input.value = ""; };
+    const removeImage = () => { setImageFile(null); setServerImage(null); const input = document.getElementById('default_image_input'); if (input) input.value = ""; };
 
     useEffect(() => {
         if (!tocImageFile) { setTocPreview(null); return; }
@@ -598,7 +642,7 @@ const EditBook = () => {
         return () => URL.revokeObjectURL(objectUrl);
     }, [tocImageFile]);
 
-    const removeTocImage = () => { setTocImageFile(null); const input = document.getElementById('toc_image_input'); if(input) input.value = ""; };
+    const removeTocImage = () => { setTocImageFile(null); const input = document.getElementById('toc_image_input'); if (input) input.value = ""; };
 
     const selectedLeadingCategory = categories.find(c => c._id === formData.leading_category);
 
@@ -617,6 +661,39 @@ const EditBook = () => {
                                 Loading book details & references...
                             </div>
                         )}
+
+                        {/* --- 🟢 Bagchee ID & Product Page Button --- */}
+                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4">
+                            <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight">Bagchee id</label>
+                            <div className="col-span-9 flex gap-2">
+                                <input
+                                    name="bagchee_id"
+                                    type="text"
+                                    value={formData.bagchee_id || "Loading..."}
+                                    readOnly
+                                    className="theme-input w-full bg-gray-100 text-gray-800 cursor-not-allowed font-bold"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (!formData.title) {
+                                            toast.error("Please wait for the book details to load.");
+                                            return;
+                                        }
+                                        // Title se URL ke liye slug banate hain (e.g. "My Book" -> "my-book")
+                                        const slug = formData.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+                                        const productId = formData.bagchee_id || id;
+
+                                        // Naye tab me book ka page open karega
+                                        window.open(`/books/${productId}/${slug}`, '_blank');
+                                    }}
+                                    className="bg-primary/10 border border-primary/30 text-primary px-4 py-2 rounded text-[11px] font-bold uppercase hover:bg-primary hover:text-white transition-all shadow-sm whitespace-nowrap"
+                                >
+                                    Product page
+                                </button>
+                            </div>
+                        </div>
+                        {/* ----------------------------------------- */}
 
                         {/* 1. Title */}
                         <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4">
@@ -863,8 +940,8 @@ const EditBook = () => {
                                                         <Upload size={14} className="inline mr-2" /> {newAuthorImage ? "Selected" : "Upload Picture"}
                                                         <input type="file" className="hidden" accept="image/*" onChange={(e) => {
                                                             const file = e.target.files[0];
-                                                            if(!file) return;
-                                                            if(validateImageFiles(file)) setNewAuthorImage(file);
+                                                            if (!file) return;
+                                                            if (validateImageFiles(file)) setNewAuthorImage(file);
                                                             else e.target.value = "";
                                                         }} />
                                                     </label>
@@ -942,7 +1019,7 @@ const EditBook = () => {
                         <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Edition</label><div className="col-span-9"><input name="edition" value={formData.edition} onChange={handleChange} className="theme-input w-full md:w-1/3" /></div></div>
                         <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">ISBN 10</label><div className="col-span-9"><input name="isbn10" value={formData.isbn10} onChange={handleChange} className="theme-input w-full md:w-1/2" /></div></div>
                         <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">ISBN 13</label><div className="col-span-9"><input name="isbn13" value={formData.isbn13} onChange={handleChange} className="theme-input w-full md:w-1/2" /></div></div>
-                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Total Pages</label><div className="col-span-9"><input name="total_pages" type="number" value={formData.total_pages} onChange={handleChange} className="theme-input w-32" /></div></div>
+                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Total Pages</label><div className="col-span-9"><input name="total_pages" type="text" value={formData.total_pages || ""} onChange={handleChange} className="theme-input w-full md:w-1/2" placeholder="e.g. 171p., Plates; Notes; 23cm." /></div></div>
                         <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Weight</label><div className="col-span-9"><input name="weight" value={formData.weight} onChange={handleChange} className="theme-input w-32" /></div></div>
 
                         {/* 11. IMAGES SECTIONS */}
@@ -951,8 +1028,8 @@ const EditBook = () => {
                             <div className="col-span-9">
                                 <input type="file" id="default_image_input" className="hidden" accept="image/*" onChange={(e) => {
                                     const file = e.target.files?.[0];
-                                    if(!file) return;
-                                    if(validateImageFiles(file)) { setImageFile(file); setServerImage(null); }
+                                    if (!file) return;
+                                    if (validateImageFiles(file)) { setImageFile(file); setServerImage(null); }
                                     else e.target.value = "";
                                 }} />
                                 <div className="flex items-start gap-4">
@@ -983,8 +1060,8 @@ const EditBook = () => {
                                     )}
                                     <input type="file" id="toc_image_input" className="hidden" accept="image/*" onChange={(e) => {
                                         const file = e.target.files?.[0];
-                                        if(!file) return;
-                                        if(validateImageFiles(file)) setTocImageFile(file);
+                                        if (!file) return;
+                                        if (validateImageFiles(file)) setTocImageFile(file);
                                         else e.target.value = "";
                                     }} />
                                     <label htmlFor="toc_image_input" className="cursor-pointer bg-white border border-dashed border-gray-300 px-4 py-2 rounded-lg text-[11px] font-bold uppercase hover:bg-gray-50 transition-all flex items-center gap-2">
@@ -1079,7 +1156,20 @@ const EditBook = () => {
                         <div className="grid grid-cols-12 gap-4 items-start border-b border-gray-50 pb-4">
                             <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase pt-2">Pub date</label>
                             <div className="col-span-9 space-y-1">
-                                <input name="pub_date" type="text" value={formData.pub_date} onChange={handleChange} className="theme-input w-full md:w-1/3" placeholder="yyyy-mm-dd" />
+                                <input
+                                    name="pub_date"
+                                    type="date"
+                                    value={formData.pub_date || ''}
+                                    onChange={handleChange}
+                                    className="theme-input w-full md:w-1/3 cursor-pointer"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, pub_date: '' })}
+                                    className="block text-primary text-[10px] font-bold hover:underline mt-1"
+                                >
+                                    Clear Date
+                                </button>
                             </div>
                         </div>
                         <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Source</label><div className="col-span-9"><input name="source" type="text" value={formData.source} onChange={handleChange} className="theme-input w-full" /></div></div>
@@ -1096,61 +1186,122 @@ const EditBook = () => {
 
                         {/* 13. Series Section */}
                         <div className="grid grid-cols-12 gap-4 items-start border-b border-gray-50 pb-4">
-                            <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight pt-3">Series</label>
-                            <div className="col-span-9 space-y-3">
-                                <div className="relative">
-                                    <div className="border border-gray-300 rounded p-2 bg-white cursor-pointer min-h-[38px] flex justify-between items-center hover:border-primary transition-colors theme-input w-full md:w-1/2" onClick={() => setIsSeriesDropdownOpen(!isSeriesDropdownOpen)}>
-                                        <span className={formData.series ? "text-gray-700 font-medium" : "text-gray-400 text-sm"}>{formData.series ? (seriesList.find(s => s._id === formData.series)?.title || "Unknown Series") : "Select Series"}</span>
-                                        <span className="text-gray-400 text-[10px]"><ChevronDown size={14} /></span>
-                                    </div>
-                                    {isSeriesDropdownOpen && (
-                                        <div className="absolute z-20 top-full left-0 w-full md:w-1/2 bg-white border border-gray-300 rounded shadow-lg mt-1 flex flex-col overflow-hidden animate-in fade-in zoom-in-95">
-                                            <div className="p-2 border-b bg-gray-50">
-                                                <input type="text" placeholder="Search series..." value={seriesSearch} onChange={(e) => setSeriesSearch(e.target.value)} onClick={(e) => e.stopPropagation()} className="w-full text-xs p-1.5 border rounded outline-none" autoFocus />
-                                            </div>
-                                            <div className="max-h-48 overflow-y-auto p-1 scrollbar-thin">
-                                                {seriesList.filter(s => s.title.toLowerCase().includes(seriesSearch.toLowerCase())).map(s => (
-                                                    <div key={s._id} onClick={() => handleSeriesSelect(s)} className={`px-3 py-2 text-sm hover:bg-primary/5 cursor-pointer ${formData.series === s._id ? "bg-blue-50 text-primary font-bold" : "text-gray-600"}`}>{s.title}</div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                    {isSeriesDropdownOpen && <div className="fixed inset-0 z-10" onClick={() => setIsSeriesDropdownOpen(false)}></div>}
+    <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight pt-3">Series</label>
+    <div className="col-span-9 space-y-3">
+        <div className="relative">
+            {/* Selected Series Display (Clickable to open dropdown) */}
+            <div 
+                className="border border-gray-300 rounded p-2 bg-white cursor-pointer min-h-[38px] flex flex-wrap gap-2 items-center hover:border-primary transition-colors theme-input w-full md:w-1/2" 
+                onClick={() => setIsSeriesDropdownOpen(!isSeriesDropdownOpen)}
+            >
+                {formData.series && formData.series.length > 0 ? (
+                    formData.series.map((serId) => {
+                        // list mein se series ka naam dhoondhna
+                        const seriesObj = seriesList.find(s => s._id === serId);
+                        return seriesObj ? (
+                            <span key={serId} className="bg-purple-50 text-purple-700 text-[10px] font-bold px-2 py-0.5 rounded border border-purple-100 flex items-center gap-1">
+                                {seriesObj.title}
+                                <button 
+                                    type="button" 
+                                    onClick={(e) => { 
+                                        e.stopPropagation(); 
+                                        handleCheckboxChange('series', serId); 
+                                    }} 
+                                    className="hover:text-red-500 font-bold ml-1"
+                                >
+                                    ×
+                                </button>
+                            </span>
+                        ) : null;
+                    })
+                ) : (
+                    <span className="text-gray-400 text-sm">Select one or more series...</span>
+                )}
+                <div className="ml-auto text-gray-400 text-[10px]">▼</div>
+            </div>
+
+            {/* Dropdown Menu */}
+            {isSeriesDropdownOpen && (
+                <div className="absolute z-50 top-full left-0 w-full md:w-1/2 bg-white border border-gray-300 rounded shadow-lg mt-1 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                    <div className="p-2 border-b border-gray-100 bg-gray-50">
+                        <input 
+                            type="text" 
+                            placeholder="Search series..." 
+                            value={seriesSearch} 
+                            onChange={(e) => setSeriesSearch(e.target.value)} 
+                            onClick={(e) => e.stopPropagation()} 
+                            className="w-full text-xs p-1.5 border border-gray-200 rounded focus:border-primary outline-none" 
+                            autoFocus 
+                        />
+                    </div>
+                    <div className="max-h-48 overflow-y-auto p-1 scrollbar-thin">
+                        {seriesList.filter(s => s.title.toLowerCase().includes(seriesSearch.toLowerCase())).map(s => {
+                            
+                            const isSelected = Array.isArray(formData.series) && formData.series.includes(s._id);
+                            return (
+                                <div 
+                                    key={s._id} 
+                                    onClick={() => handleSeriesSelect(s)} 
+                                    className={`px-3 py-2 text-sm cursor-pointer rounded hover:bg-blue-50 flex justify-between items-center ${isSelected ? "bg-blue-50 text-primary font-bold" : "text-gray-600"}`}
+                                >
+                                    {s.title}
+                                    {isSelected && <Check size={14} />}
                                 </div>
-                                <div className="flex justify-start">
-                                    <button type="button" onClick={() => setIsSeriesPanelOpen(!isSeriesPanelOpen)} className="bg-gray-100 border border-gray-300 px-4 py-1.5 rounded text-[11px] font-bold uppercase text-gray-700 hover:bg-gray-200 shadow-sm flex items-center gap-2">
-                                        {isSeriesPanelOpen ? <X size={14} /> : <Plus size={14} />} Add new series
-                                    </button>
-                                </div>
-                                {isSeriesPanelOpen && (
-                                    <div className="p-5 bg-cream-50/50 border-2 border-primary/10 rounded-xl space-y-4 animate-in slide-in-from-top-2 shadow-inner">
-                                        <div className="flex items-center gap-2 text-primary border-b border-primary/10 pb-2">
-                                            <Plus size={16} strokeWidth={3} />
-                                            <h3 className="text-xs font-bold uppercase font-montserrat tracking-wider">Quick Series Registration</h3>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Series Title*</label>
-                                            <input type="text" value={newSeriesData.title} onChange={(e) => setNewSeriesData({ title: e.target.value })} className="theme-input w-full bg-white text-xs" />
-                                        </div>
-                                        <div className="flex justify-end gap-3 pt-2">
-                                            <button type="button" onClick={() => setIsSeriesPanelOpen(false)} className="text-[10px] font-bold uppercase text-gray-400 hover:text-gray-600 px-4">Discard</button>
-                                            <button type="button" disabled={saveSeriesMutation.isPending} onClick={handleQuickSeriesSave} className="bg-primary text-white px-6 py-2 rounded font-bold text-[10px] uppercase shadow-md flex items-center gap-2 hover:brightness-110 disabled:opacity-50">
-                                                {saveSeriesMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Save & Link Series
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+            {/* Background click to close dropdown */}
+            {isSeriesDropdownOpen && <div className="fixed inset-0 z-10" onClick={() => setIsSeriesDropdownOpen(false)}></div>}
+        </div>
+
+        <div className="flex justify-start">
+            <button type="button" onClick={() => setIsSeriesPanelOpen(!isSeriesPanelOpen)} className="bg-gray-100 border border-gray-300 px-4 py-1.5 rounded text-[11px] font-bold uppercase text-gray-700 hover:bg-gray-200 shadow-sm flex items-center gap-2">
+                {isSeriesPanelOpen ? <X size={14} /> : <Plus size={14} />} Add new series
+            </button>
+        </div>
+    </div>
+</div>
+
+                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight">Series number</label><div className="col-span-9"><input name="series_number" type="number" value={formData.series_number || ""} onChange={handleChange} className="theme-input w-full md:w-1/3" /></div></div>
+                        {/* 14. Pricing, Stock & Rich Text */}
+                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4">
+                            <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Price*</label>
+                            <div className="col-span-9">
+                                <input name="price" type="number" value={formData.price || ""} onChange={handleChange} className="theme-input w-32" />
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight">Series number</label><div className="col-span-9"><input name="series_number" type="number" value={formData.series_number || ""} onChange={handleChange} className="theme-input w-full md:w-1/3" /></div></div>
+                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4">
+                            <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Real Price</label>
+                            <div className="col-span-9">
+                                <input
+                                    name="real_price"
+                                    type="number"
+                                    value={formData.real_price || ""}
+                                    onChange={handleChange}
+                                    className="theme-input w-32 bg-gray-50 cursor-not-allowed"
+                                    readOnly
+                                    title="Auto-calculated based on discount"
+                                />
+                            </div>
+                        </div>
 
-                        {/* 14. Pricing, Stock & Rich Text */}
-                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Price*</label><div className="col-span-9"><input name="price" type="number" value={formData.price} onChange={handleChange} className="theme-input w-32" /></div></div>
-                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Real Price</label><div className="col-span-9"><input name="real_price" type="number" value={formData.real_price} onChange={handleChange} className="theme-input w-32" /></div></div>
-                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">INR Price</label><div className="col-span-9"><input name="inr_price" type="number" value={formData.inr_price} onChange={handleChange} className="theme-input w-32" /></div></div>
-                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Discount (%)</label><div className="col-span-9"><input name="discount" type="number" value={formData.discount} onChange={handleChange} className="theme-input w-32" /></div></div>
-                        
+                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4">
+                            <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">INR Price</label>
+                            <div className="col-span-9">
+                                <input name="inr_price" type="number" value={formData.inr_price || ""} onChange={handleChange} className="theme-input w-32" />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4">
+                            <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Discount (%)</label>
+                            <div className="col-span-9">
+                                <input name="discount" type="number" value={formData.discount || ""} onChange={handleChange} className="theme-input w-32" placeholder="%" />
+                            </div>
+                        </div>
+
                         <div className="grid grid-cols-12 gap-4 items-start border-b border-gray-50 pb-4">
                             <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight pt-1">Stock status</label>
                             <div className="col-span-9 flex gap-6">
@@ -1158,7 +1309,7 @@ const EditBook = () => {
                                 <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="radio" name="stock" value="inactive" checked={formData.stock === 'inactive'} onChange={handleChange} className="accent-primary w-4 h-4" /> inactive</label>
                             </div>
                         </div>
-                        
+
                         <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4">
                             <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight">Availability (Quantity)</label>
                             <div className="col-span-9">
@@ -1170,12 +1321,12 @@ const EditBook = () => {
                             <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase pt-2">Synopsis</label>
                             <div className="col-span-9 border rounded overflow-hidden"><JoditEditor ref={editor} value={synopsis} config={config} onBlur={newContent => setSynopsis(newContent)} /></div>
                         </div>
-                        
+
                         <div className="grid grid-cols-12 gap-4 items-start border-b border-gray-50 pb-12">
                             <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase pt-2">Critics Note</label>
                             <div className="col-span-9 border rounded overflow-hidden"><JoditEditor value={criticsNote} config={config} onBlur={newContent => setCriticsNote(newContent)} /></div>
                         </div>
-                        
+
                         <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4 mt-6">
                             <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight">Notes</label>
                             <div className="col-span-9"><input name="notes" type="text" value={formData.notes || ""} onChange={handleChange} className="theme-input w-full" placeholder="Internal notes or extra info" /></div>
@@ -1237,8 +1388,8 @@ const EditBook = () => {
                                                         <Upload size={12} /> {newPubImage ? "Changed" : "Upload"}
                                                         <input type="file" className="hidden" onChange={(e) => {
                                                             const file = e.target.files[0];
-                                                            if(!file) return;
-                                                            if(validateImageFiles(file)) { setNewPubImage(file); setNewPubPreview(URL.createObjectURL(file)); }
+                                                            if (!file) return;
+                                                            if (validateImageFiles(file)) { setNewPubImage(file); setNewPubPreview(URL.createObjectURL(file)); }
                                                             else e.target.value = "";
                                                         }} />
                                                     </label>
@@ -1333,8 +1484,8 @@ const EditBook = () => {
                         </div>
 
                         {/* 18. Ship & Search */}
-                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Ship Days</label><div className="col-span-9"><select name="ship_days" value={formData.ship_days} onChange={handleChange} className="theme-input w-48"><option value="">Select</option>{[1, 2, 3, 4, 5, 7].map(d => <option key={d} value={d}>{d}</option>)}</select></div></div>
-                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Deliver Days</label><div className="col-span-9"><select name="deliver_days" value={formData.deliver_days} onChange={handleChange} className="theme-input w-48"><option value="">Select</option>{[1, 2, 3, 4, 5, 7].map(d => <option key={d} value={d}>{d}</option>)}</select></div></div>
+                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Ship Days</label><div className="col-span-9"><select name="ship_days" value={formData.ship_days} onChange={handleChange} className="theme-input w-48"><option value="">Select</option>{["24", "1-2", "2-4", "3-5", "1-7", "5-7", "7-10", "7-14", "10-15", "10-18", "14-21", "15-25", "28", "25-30", "28-45", "30-45"].map(d => <option key={d} value={d}>{d}</option>)}</select></div></div>
+                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Deliver Days</label><div className="col-span-9"><select name="deliver_days" value={formData.deliver_days} onChange={handleChange} className="theme-input w-48"><option value="">Select</option>{["1-2", "3-5", "5-7", "10-18"].map(d => <option key={d} value={d}>{d}</option>)}</select></div></div>
 
                         <div className="grid grid-cols-12 gap-4 items-start border-b border-gray-50 pb-12">
                             <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase pt-2">Search Text</label>
@@ -1361,6 +1512,18 @@ const EditBook = () => {
             <style>{`
                 .theme-input { border: 1px solid #d1d5db; border-radius: 4px; padding: 8px 12px; font-size: 13px; outline: none; transition: border-color 0.2s; }
                 .theme-input:focus { border-color: #008DDA; box-shadow: 0 0 0 2px rgba(0, 141, 218, 0.1); }
+
+                /* 🟢 NAYI CSS: Number input ke up-down arrows (spinners) hatane ke liye */
+                /* Chrome, Safari, Edge, Opera ke liye */
+                input[type="number"]::-webkit-outer-spin-button,
+                input[type="number"]::-webkit-inner-spin-button {
+                  -webkit-appearance: none;
+                  margin: 0;
+                }
+                /* Firefox ke liye */
+                input[type="number"] {
+                  -moz-appearance: textfield;
+                }
             `}</style>
         </div>
     );

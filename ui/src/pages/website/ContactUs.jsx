@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight, Mail, Phone, MapPin, Clock, Send, MessageCircle } from "lucide-react";
+import { FaWhatsapp } from "react-icons/fa";
 
 const ContactUs = () => {
   const [formData, setFormData] = useState({
@@ -66,160 +67,35 @@ const ContactUs = () => {
   };
 
 const contactInfo = [
-    {
-      icon: <MapPin className="w-6 h-6" />,
-      title: "Address",
-      details: ["4384/4A Ansari Road", "Daryaganj, New Delhi 110002"],
-      description: "Visit our headquarters in New Delhi, India",
-    },
-    {
-      icon: <MessageCircle className="w-6 h-6" />,
-      title: "WhatsApp",
-      details: ["+91-11-4104-8000"],
-      description: "Chat with us on WhatsApp for quick support",
-    },
-    {
-      icon: <Mail className="w-6 h-6" />,
-      title: "Email",
-      details: ["email@bagchee.com"],
-      description: "Send us an email and we'll respond within 24 hours",
-    },
-  ];
-
-  const faqCategories = [
-    {
-      category: "Orders & Shipping",
-      questions: [
-        {
-          q: "How long does shipping take?",
-          a: "Standard Airmail delivery typically takes 4-6 weeks. Express courier takes 2-3 weeks. Delivery times vary by destination country.",
-        },
-        {
-          q: "Can I track my order?",
-          a: "Yes! You'll receive a tracking number via email once your order ships. You can track it on our website or the courier's website.",
-        },
-        {
-          q: "Do you ship internationally?",
-          a: "Yes, we ship to over 100 countries worldwide. Shipping costs vary based on destination and weight.",
-        },
-      ],
-    },
-    {
-      category: "Returns & Refunds",
-      questions: [
-        {
-          q: "What is your return policy?",
-          a: "We accept returns within 30 days of delivery for unopened, undamaged books in original condition. Return shipping costs are covered by the customer.",
-        },
-        {
-          q: "How long do refunds take?",
-          a: "Refunds are processed within 5-10 business days after we receive your returned item.",
-        },
-        {
-          q: "Can I return a damaged book?",
-          a: "Absolutely! If your book arrives damaged, contact us immediately with photos. We'll arrange a replacement or refund at no cost to you.",
-        },
-      ],
-    },
-    {
-      category: "Payment",
-      questions: [
-        {
-          q: "What payment methods do you accept?",
-          a: "We accept all major credit cards (Visa, Mastercard, American Express), PayPal, and various local payment methods depending on your country.",
-        },
-        {
-          q: "Is it safe to pay online?",
-          a: "Yes! We use 256-bit SSL encryption and PCI-DSS compliant payment processors to ensure your payment information is completely secure.",
-        },
-        {
-          q: "Do you offer installment payments?",
-          a: "For orders over ₹10,000, we partner with select financial institutions to offer installment options. Check at checkout for availability.",
-        },
-      ],
-    },
-    {
-      category: "Account & Membership",
-      questions: [
-        {
-          q: "How do I reset my password?",
-          a: "Click 'Forgot Password' on the login page, enter your email, and you'll receive a password reset link within minutes.",
-        },
-        {
-          q: "What's included in Bagchee Membership?",
-          a: "Members get 10% off all purchases, free worldwide delivery, exclusive offers, early access to new releases, and priority customer support.",
-        },
-        {
-          q: "Can I cancel my membership anytime?",
-          a: "Yes, you can cancel anytime with no penalties. Your benefits remain active until your membership expires.",
-        },
-      ],
-    },
-  ];
+  {
+    icon: <MapPin className="w-6 h-6" />,
+    title: "Address",
+    details: ["4384/4A Ansari Road", "Daryaganj, New Delhi 110002"],
+  },
+  {
+    icon: <FaWhatsapp className="w-6 h-6" />,
+    title: "WhatsApp",
+    details: ["+91-11-4104-8000"],
+  },
+  {
+    icon: <Mail className="w-6 h-6" />,
+    title: "Email",
+    details: ["email@bagchee.com"],
+  },
+];
 
   return (
     <div className="min-h-screen bg-cream">
-      {/* Feature Banner */}
-
-      {/* Breadcrumb */}
-      {/* <div className="bg-cream-100 border-b border-gray-200">
-        <div className="container mx-auto px-4 py-2">
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <Link to="/" className="hover:text-primary transition-colors">
-              Home
-            </Link>
-            <ChevronRight className="w-4 h-4" />
-            <span className="text-gray-900 font-medium">Contact Us</span>
-          </div>
-        </div>
-      </div> */}
 
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8 md:py-12 lg:py-16">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-7xl mx-auto">
           {/* Page Title */}
           <div className="text-center mb-12 md:mb-16">
-            <h1 className="text-3xl md:text-4xl lg:text-5xl font-display font-bold text-text-main mb-4">
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-display text-text-main mb-4">
               Get in Touch
             </h1>
-            <p className="text-gray-600 text-base md:text-lg font-body max-w-2xl mx-auto">
-              Have a question? We're here to help! Contact us through any of
-              these channels or fill out the form below.
-            </p>
-            <div className="w-20 h-1 bg-primary mx-auto mt-4"></div>
           </div>
-
-          {/* Contact Info Cards */}
-          {/* <section className="mb-12 md:mb-16">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {contactInfo.map((info, index) => (
-                <div
-                  key={index}
-                  className="bg-cream-100 rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-all duration-300"
-                >
-                  <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center mb-4 text-primary">
-                    {info.icon}
-                  </div>
-                  <h3 className="text-lg font-display font-bold text-text-main mb-2">
-                    {info.title}
-                  </h3>
-                  <div className="space-y-1 mb-3">
-                    {info.details.map((detail, idx) => (
-                      <p
-                        key={idx}
-                        className="font-semibold text-primary text-sm"
-                      >
-                        {detail}
-                      </p>
-                    ))}
-                  </div>
-                  <p className="text-gray-600 text-sm font-body">
-                    {info.description}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </section> */}
 
           {/* Contact Form Section */}
           <section className="mb-12 md:mb-16">
@@ -249,9 +125,9 @@ const contactInfo = [
                             </p>
                           ))}
                         </div>
-                        <p className="text-gray-600 text-sm font-body">
+                        {/* <p className="text-gray-600 text-sm font-body">
                           {info.description}
-                        </p>
+                        </p> */}
                       </div>
                     </div>
                   ))}
@@ -260,7 +136,7 @@ const contactInfo = [
 
               {/* Contact Form Card */}
               <div className="md:col-span-2 bg-cream-100 rounded-xl border border-gray-200 p-8 md:p-10 shadow-sm">
-                <h2 className="text-2xl md:text-3xl font-display font-bold text-text-main mb-6">
+                <h2 className="text-2xl md:text-3xl font-display font-semibold text-text-main mb-6">
                   Send us a Message
                 </h2>
 
@@ -442,7 +318,7 @@ const contactInfo = [
           </section> */}
 
           {/* Map/Location Section */}
-          <section className="">
+          {/* <section className="">
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
               <div className="p-8 md:p-10 bg-gradient-to-r from-primary/5 to-secondary/5 text-center">
                 <h2 className="text-2xl md:text-3xl font-display font-bold text-text-main mb-4">
@@ -460,7 +336,7 @@ const contactInfo = [
                 </div>
               </div>
             </div>
-          </section>
+          </section> */}
 
           {/* Response Time Section */}
           {/* <section>

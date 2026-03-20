@@ -35,6 +35,18 @@ const ProductCardList = ({ data }) => {
 
     const displaySynopsis = isExpanded ? synopsisData.rawSynopsis : synopsisData.truncated;
 
+    // 🟢 Optimization: MNC Standard Pricing Logic
+    const priceData = useMemo(() => {
+        const mPrice = Number(data.price || 0);       // USD MRP (Base)
+        const rPrice = Number(data.real_price || 0);  // USD Discounted (Final)
+        const iPrice = Number(data.inr_price || 0);   // Flat INR price
+
+        // Logic: Discount tabhi hai jab MRP (mPrice) Selling Price (rPrice) se badi ho
+        const hasDiscount = mPrice > rPrice && rPrice > 0;
+
+        return { mPrice, rPrice, iPrice, hasDiscount };
+    }, [data.price, data.real_price, data.inr_price]);
+
     // 🟢 React Query Mutation for Wishlist
     const wishlistMutation = useMutation({
         mutationFn: async (product) => {
@@ -129,9 +141,16 @@ const ProductCardList = ({ data }) => {
 
                 <div>
                     <div className="flex items-baseline gap-2 mb-1">
-                        <span className="text-xl md:text-2xl font-bold text-primary font-display">{formatPrice(data.price)}</span>
-                        {data.real_price > data.price && (
-                            <span className="text-xs md:text-sm text-text-muted/60 line-through font-body">{formatPrice(data.real_price)}</span>
+                        {/* 🟢 Final Selling Price (Jo user pay karega) */}
+                        <span className="text-xl md:text-2xl font-bold text-primary font-display">
+                            {formatPrice(priceData.mPrice, priceData.iPrice, priceData.rPrice)}
+                        </span>
+
+                        {/* 🟢 MRP (Strikethrough) - Sirf tab jab discount ho */}
+                        {priceData.hasDiscount && (
+                            <span className="text-xs md:text-sm text-text-muted/60 line-through font-body">
+                                {formatPrice(priceData.mPrice, priceData.iPrice, priceData.mPrice)}
+                            </span>
                         )}
                     </div>
 
@@ -154,7 +173,7 @@ const ProductCardList = ({ data }) => {
                         Add to Cart
                     </button>
 
-                    <Link 
+                    <Link
                         to={productUrl}
                         className="w-full bg-red-600 hover:bg-red-500 text-white py-2 rounded font-bold text-xs md:text-sm transition-all uppercase tracking-slick font-montserrat shadow-sm hover:shadow-md active:scale-95 text-center"
                     >
@@ -165,8 +184,8 @@ const ProductCardList = ({ data }) => {
                         onClick={handleWishlist}
                         disabled={wishlistMutation.isPending}
                         className={`w-full border-2 py-2 md:py-2.5 rounded-xl font-bold text-xs md:text-sm transition-all uppercase font-montserrat flex items-center justify-center gap-2 active:scale-95 group/wish ${isInWishlist(data._id)
-                                ? 'border-red-500 bg-red-50 text-red-600'
-                                : 'border-secondary text-text-main hover:bg-secondary hover:text-white'
+                            ? 'border-red-500 bg-red-50 text-red-600'
+                            : 'border-secondary text-text-main hover:bg-secondary hover:text-white'
                             } ${wishlistMutation.isPending ? 'opacity-70' : ''}`}
                     >
                         <Heart

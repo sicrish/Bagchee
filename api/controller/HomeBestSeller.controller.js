@@ -181,7 +181,7 @@ export const fetchForHome = async (req, res) => {
             .sort({ order: 1 })
             .populate({
                 path: 'product',
-                select: 'title author price real_price producticonname default_image discount oldPrice isbn13 bagchee_id soldCount',
+                select: 'title author price real_price producticonname default_image discount oldPrice isbn13 bagchee_id soldCount inr_price isbn10',
                 populate: { path: 'author', select: 'name first_name last_name' }
             });
 

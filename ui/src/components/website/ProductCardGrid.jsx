@@ -26,14 +26,19 @@ const ProductCardGrid = ({ data }) => {
 
     // 🟢 Optimization 2: Memoize Pricing Logic
     const priceData = useMemo(() => {
-        const price = Number(data.price || 0);
-        const realPrice = Number(data.real_price || 0);
-        const showDiscount = realPrice > price;
-        const discountPercentage = showDiscount
-            ? Math.round(((realPrice - price) / realPrice) * 100)
+        const mPrice = Number(data.price || 0);       // USD Original (MRP)
+        const rPrice = Number(data.real_price || 0);  // USD Final (Discounted)
+        const iPrice = Number(data.inr_price || 0);   // Backend Fixed INR Price
+
+        // Logic: Discount tabhi hai jab MRP Final price se bada ho
+        const showDiscount = mPrice > rPrice && rPrice > 0;
+        
+        const discountPercentage = showDiscount 
+            ? Math.round(((mPrice - rPrice) / mPrice) * 100) 
             : 0;
-        return { price, realPrice, showDiscount, discountPercentage };
-    }, [data.price, data.real_price]);
+
+        return { mPrice, rPrice, iPrice, showDiscount, discountPercentage };
+    }, [data.price, data.real_price, data.inr_price]);
 
     // 🟢 React Query Mutation for Cart (Background Sync)
     const cartMutation = useMutation({
@@ -128,12 +133,10 @@ const ProductCardGrid = ({ data }) => {
                     <div className="flex flex-col">
                         {priceData.showDiscount && (
                             <span className="text-[10px] md:text-xs text-text-muted/70 line-through font-body">
-                                {formatPrice(priceData.realPrice)}
-                            </span>
+{formatPrice(priceData.mPrice, priceData.iPrice, priceData.mPrice)}                            </span>
                         )}
                         <span className="text-sm md:text-base font-bold text-primary font-display">
-                            {formatPrice(priceData.price)}
-                        </span>
+                        {formatPrice(priceData.mPrice, priceData.iPrice, priceData.rPrice)}                        </span>
                     </div>
 
                     {/* Action Buttons */}

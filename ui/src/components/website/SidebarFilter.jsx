@@ -217,7 +217,7 @@ const SidebarFilter = ({
                       <div
                         key={subcat._id}
                         onClick={() => {
-                          navigate(`/books/${subcat.slug}`);
+                          navigate(`/books/${subcat.slug.split('/').pop()}`);
                           if (onClose) onClose();
                         }}
                         className="flex items-center justify-between py-3 border-b border-cream-50 cursor-pointer hover:bg-gray-50"
@@ -454,7 +454,7 @@ const SidebarFilter = ({
                       <div
                         key={subcat._id}
                         onClick={() => {
-                          navigate(`/books/${subcat.slug}`);
+                          navigate(`/books/${subcat.slug.split('/').pop()}`);
                           if (onClose) onClose();
                         }}
                         className="flex items-center space-x-3 cursor-pointer group py-1.5 hover:text-primary transition-colors select-none"

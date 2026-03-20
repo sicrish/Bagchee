@@ -124,15 +124,23 @@ const SaleToday = () => {
                     const book = item.product;
                     if (!book || !book._id) return null;
 
+                    // 🟢 MNC Level Pricing Mapping
+    const mPrice = Number(book.price || 0);       // USD MRP (Base)
+    const rPrice = Number(book.real_price || 0);  // USD Selling (Discounted)
+    const iPrice = Number(book.inr_price || 0);   // Backend Fixed INR price
+
+    // Discount Calculation logic
+    const hasDiscount = mPrice > rPrice && rPrice > 0;
+    const discountPercentage = hasDiscount 
+        ? Math.round(((mPrice - rPrice) / mPrice) * 100) 
+        : 0;
+
                     const imageUrl = getImageUrl(book);
                     const displayAuthor = typeof book.author === 'object' 
                         ? (book.author.name || `${book.author.first_name || ''} ${book.author.last_name || ''}`)
                         : String(book.author || "Unknown Author");
 
-                    const currentPrice = book.price;
-                    const originalPrice = book.oldPrice || book.real_price;
-                    const hasDiscount = originalPrice && Number(originalPrice) > Number(currentPrice);
-
+                        
                     return (
                         <div key={item._id} className="bg-cream-100 hover:shadow-xl transition-all group cursor-pointer flex flex-col block rounded-lg overflow-hidden border border-transparent hover:border-primary-100 relative">
                         
@@ -148,7 +156,7 @@ const SaleToday = () => {
                                 
                                 {book.discount && Number(book.discount) > 0 && (
                                     <div className="absolute top-2 left-2 bg-secondary text-white w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center text-[9px] md:text-[10px] font-bold shadow-md z-10 font-montserrat animate-in fade-in zoom-in">
-                                        {String(book.discount)}%
+                                       {discountPercentage}%
                                     </div>
                                 )}
 
@@ -174,13 +182,13 @@ const SaleToday = () => {
                                 
                                 <div className="mt-auto pt-3 flex items-center justify-between gap-1">
                                     <div className="flex flex-col leading-none">
-                                        {hasDiscount && (
-                                             <span className="text-[10px] md:text-xs text-text-muted line-through font-body opacity-60">
-                                                {formatPrice(originalPrice)}
-                                             </span>
-                                        )}
+                                    {hasDiscount && (
+        <span className="text-[10px] md:text-xs text-text-muted line-through font-body opacity-60">
+            {formatPrice(mPrice, iPrice, mPrice)}
+        </span>
+    )}
                                         <p className="text-primary font-bold text-sm md:text-base font-montserrat">
-                                            {formatPrice(currentPrice)}
+                                        {formatPrice(mPrice, iPrice, rPrice)}
                                         </p>
                                     </div>
                                     <div className="flex items-center gap-1">

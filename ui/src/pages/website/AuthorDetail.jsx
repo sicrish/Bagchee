@@ -1,17 +1,17 @@
-'use client';
-
-import React, { useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import { ChevronRight, MapPin, BookOpen, Star, Award } from 'lucide-react';
 import ProductCardGrid from '../../components/website/ProductCardGrid';
-import { useQuery } from '@tanstack/react-query'; // 🟢 React Query Import
 
 const AuthorDetail = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
+  const [author, setAuthor] = useState(null);
+  const [books, setBooks] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Helper function to create slug (Keeping your original logic)
+  // Helper function to create slug from name
   const createSlug = (name) => {
     if (!name) return '';
     return name
@@ -22,60 +22,68 @@ const AuthorDetail = () => {
       .replace(/-+/g, '-');
   };
 
-  // 🟢 1. FETCH AUTHOR & BOOKS DATA (Combined logic in useQuery)
-  const { data, isLoading: loading } = useQuery({
-    queryKey: ['author-detail', slug],
-    queryFn: async () => {
-      // Fetch Authors List
-      const authorsRes = await axios.get(`${process.env.REACT_APP_API_URL}/authors/list`);
-      
-      if (!authorsRes.data?.data) {
-        throw new Error('Authors not found');
-      }
-
-      // Find specific author by slug
-      const foundAuthor = authorsRes.data.data.find(a => {
-        const authorSlug = createSlug(`${a.first_name} ${a.last_name}`);
-        return authorSlug === slug;
-      });
-
-      if (!foundAuthor) {
-        throw new Error('Author not found');
-      }
-
-      // Fetch all books and filter by this author
-      const booksRes = await axios.get(`${process.env.REACT_APP_API_URL}/product/fetch`);
-      const allBooks = booksRes.data.data || [];
-      
-      const authorBooks = allBooks.filter(book => {
-        if (typeof book.author === 'object' && book.author !== null) {
-          return book.author._id === foundAuthor._id;
+  useEffect(() => {
+    const fetchAuthorData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch all authors and find by slug
+        const authorsRes = await axios.get(`${process.env.REACT_APP_API_URL}/authors/list`);
+        
+        if (!authorsRes.data || !authorsRes.data.data) {
+          navigate('/');
+          return;
         }
-        return book.author === foundAuthor._id;
-      });
 
-      return {
-        author: foundAuthor,
-        books: authorBooks
-      };
-    },
-    retry: false,
-    staleTime: 1000 * 60 * 5, // 5 minutes cache
-  });
+        const foundAuthor = authorsRes.data.data.find(a => {
+          const authorSlug = createSlug(`${a.first_name} ${a.last_name}`);
+          return authorSlug === slug;
+        });
 
-  // Extract data from query result
-  const author = data?.author;
-  const books = data?.books || [];
+        if (!foundAuthor) {
+          navigate('/');
+          return;
+        }
 
-  // 🟢 Redirect if error or author not found
-  React.useEffect(() => {
-    if (!loading && !author) {
-      navigate('/');
-    }
-  }, [author, loading, navigate]);
+        setAuthor(foundAuthor);
 
-  // Calculate statistics (Keeping your original logic)
-  const stats = useMemo(() => {
+        // Fetch all books and filter by this author on client side
+        // Since API doesn't support author parameter, we fetch all and filter
+        try {
+          const booksRes = await axios.get(
+            `${process.env.REACT_APP_API_URL}/product/fetch`
+          );
+          
+          // Filter books by author ID
+          const allBooks = booksRes.data.data || [];
+          const authorBooks = allBooks.filter(book => {
+            // Check if book.author matches (could be ObjectId or populated object)
+            if (typeof book.author === 'object' && book.author !== null) {
+              return book.author._id === foundAuthor._id;
+            }
+            return book.author === foundAuthor._id;
+          });
+          
+          setBooks(authorBooks);
+        } catch (bookError) {
+          console.error('Error fetching books:', bookError);
+          // Still show author page even if books fetch fails
+          setBooks([]);
+        }
+        
+      } catch (error) {
+        console.error('Error fetching author data:', error);
+        navigate('/');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAuthorData();
+  }, [slug, navigate]);
+
+  // Calculate statistics
+  const calculateStats = () => {
     if (books.length === 0) return { avgRating: 0, totalReviews: 0 };
     
     const totalRating = books.reduce((sum, book) => sum + (Number(book.rating) || 0), 0);
@@ -83,7 +91,7 @@ const AuthorDetail = () => {
     const avgRating = books.length > 0 ? (totalRating / books.length).toFixed(1) : 0;
     
     return { avgRating, totalReviews };
-  }, [books]);
+  };
 
   if (loading) {
     return (
@@ -95,6 +103,7 @@ const AuthorDetail = () => {
 
   if (!author) return null;
 
+  const stats = calculateStats();
   const authorImageUrl = author.picture 
     ? `${author.picture}`
     : 'https://via.placeholder.com/400x400?text=Author';
@@ -150,6 +159,7 @@ const AuthorDetail = () => {
 
               {/* Statistics Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                {/* Total Books */}
                 <div className="bg-white rounded-lg border border-cream-200 p-4 text-center shadow-sm">
                   <div className="flex items-center justify-center gap-2 mb-2">
                     <BookOpen className="w-5 h-5 text-primary" />
@@ -158,6 +168,7 @@ const AuthorDetail = () => {
                   <p className="text-sm text-gray-600 font-medium">Books Available</p>
                 </div>
 
+                {/* Average Rating */}
                 <div className="bg-white rounded-lg border border-cream-200 p-4 text-center shadow-sm">
                   <div className="flex items-center justify-center gap-2 mb-2">
                     <Star className="w-5 h-5 text-yellow-500 fill-yellow-500" />
@@ -166,6 +177,7 @@ const AuthorDetail = () => {
                   <p className="text-sm text-gray-600 font-medium">Average Rating</p>
                 </div>
 
+                {/* Total Reviews */}
                 <div className="bg-white rounded-lg border border-cream-200 p-4 text-center shadow-sm">
                   <div className="flex items-center justify-center gap-2 mb-2">
                     <Award className="w-5 h-5 text-primary" />

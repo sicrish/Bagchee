@@ -16,6 +16,7 @@ import { CartProvider } from './context/CartContext.jsx';
 // 1. Layouts
 import WebsiteLayout from './layouts/WebsiteLayout.jsx';
 import AdminLayout from './layouts/AdminLayout.jsx';
+import HelpDetail from './pages/website/HelpDetail';
 
 // Isse poori app mein data caching enable ho jayegi
 const queryClient = new QueryClient({
@@ -82,8 +83,9 @@ const UsefulLinksPage = lazy(() => import('./pages/website/UsefulLinksPage.jsx')
 // import LibraryServices from './pages/website/LibraryServices.jsx';
 const LibraryServices = lazy(() => import('./pages/website/LibraryServices.jsx'));
 
-// import GiftCards from './pages/website/GiftCards.jsx';
-const GiftCards = lazy(() => import('./pages/website/GiftCards.jsx'));
+// import ServiceDetails from './pages/ServiceDetails';
+const ServiceDetails = lazy(() => import('./pages/website/ServiceDetails.jsx'));
+
 
 // import SecureShopping from './pages/website/SecureShopping.jsx';
 const SecureShopping = lazy(() => import('./pages/website/SecureShopping.jsx'));
@@ -130,6 +132,10 @@ const HelpSecureShopping = lazy(() => import('./pages/website/Help/HelpSecureSho
 const ContactUs = lazy(() => import('./pages/website/ContactUs.jsx'));
 
 
+const TraceOrder = lazy(() => import('./pages/website/TraceOrder.jsx'));
+
+
+
 // import Profile from './pages/website/Account/Profile.jsx';
 const Profile = lazy(() => import('./pages/website/Account/Profile.jsx'));
 
@@ -141,6 +147,8 @@ const Wishlist = lazy(() => import('./pages/website/Account/Wishlist.jsx'));
 
 // import Orders from './pages/website/Account/Orders.jsx';
 const Orders = lazy(() => import('./pages/website/Account/Orders.jsx'));
+
+const GiftCardDetail = lazy(() => import('./pages/website/GiftCardDetail.jsx'));
 
 
 // 3. Auth Pages
@@ -621,10 +629,13 @@ function App() {
               <Route path="career-opportunities" element={<CareerOpportunities />} />
               <Route path="privacy-policy" element={<PrivacyPolicy />} />
               <Route path="terms-conditions" element={<TermsConditions />} />
+              <Route path="gift-card-detail" element={<GiftCardDetail />} /> {/* 🟢 Ye naya premium page */}
 
               {/* Services Pages */}
               <Route path="services" element={<LibraryServices />} />
-              <Route path="gift-cards" element={<GiftCards />} />
+              {/* 🟢 Naya Details page (Id ke sath) */}
+  <Route path="/service-details/:id" element={<ServiceDetails />} />
+              
               <Route path="wishlist" element={<Wishlist />} />
               <Route path="browse-categories" element={<AllCategories />} />
               <Route path="secure-shopping" element={<SecureShopping />} />
@@ -632,7 +643,8 @@ function App() {
 
               {/* Help Pages */}
               <Route path="help" element={<HelpDesk />} />
-              <Route path="help/1" element={<HelpCommonQuestions />} />
+              <Route path="/help/:id" element={<HelpDetail />} />
+              {/* <Route path="help/1" element={<HelpCommonQuestions />} />
               <Route path="help/2" element={<HelpShippingDelivery />} />
               <Route path="help/3" element={<HelpPaymentPricing />} />
               <Route path="help/4" element={<HelpReturnsRefunds />} />
@@ -640,14 +652,15 @@ function App() {
               <Route path="help/6" element={<HelpMembership />} />
               <Route path="help/7" element={<HelpYourAccount />} />
               <Route path="help/8" element={<HelpLibraryServices />} />
-              <Route path="help/9" element={<HelpSecureShopping />} />
+              <Route path="help/9" element={<HelpSecureShopping />} /> */}
               {/* <Route path="help/10" element={<HelpPrivacySecurity />} /> */}
-              <Route path="trace-order" element={<Orders />} />
+              <Route path="trace-order" element={<TraceOrder />} />
               <Route path="manage-account" element={<Profile />} />
               {/* <Route path="payment-options" element={<PaymentOptions />} /> */}
               {/* <Route path="shipping-info" element={<ShippingInfo />} />
               <Route path="returns-refunds" element={<ReturnsRefunds />} /> */}
               <Route path="contact-us" element={<ContactUs />} />
+              
             </Route>
 
             {/* --- SECTION 2: AUTH --- */}
