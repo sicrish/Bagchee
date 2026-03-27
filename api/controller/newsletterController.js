@@ -1,137 +1,71 @@
-import NewsletterSubscriber from '../models/NewsletterSubscriber.js';
+import prisma from '../lib/prisma.js';
 
-// 🟢 1. Create (Save)
+// Note: Mongoose model had `categories` field — not in Prisma schema, dropped.
+// Mongoose used `firstname`/`lastname` — Prisma uses `firstName`/`lastName`.
+
 export const saveSubscriber = async (req, res) => {
     try {
-        const { email, firstName, lastName, categories, interestedBookName, interestedBookId } = req.body;
+        const { email, firstName, lastName } = req.body;
+        if (!email) return res.status(400).json({ status: false, msg: 'Email is required.' });
 
-  
+        const existing = await prisma.newsletterSubscriber.findUnique({ where: { email } });
+        if (existing) return res.status(400).json({ status: false, msg: 'Email already subscribed!' });
 
-        const newSub = new NewsletterSubscriber({
-            email,
-            firstname: firstName, // Frontend 'firstName' -> Backend 'firstname'
-            lastname: lastName,   // Frontend 'lastName' -> Backend 'lastname'
-            categories: categories || [],
-            interestedBookName: interestedBookName || '', // 🟢 Naya Field
-            interestedBookId: interestedBookId || ''
+        const sub = await prisma.newsletterSubscriber.create({
+            data: { email, firstName: firstName || '', lastName: lastName || '' }
         });
-
-        await newSub.save();
-
-        res.status(201).json({
-            status: true,
-            msg: "Subscriber added successfully!",
-            data: newSub
-        });
-
+        res.status(201).json({ status: true, msg: 'Subscriber added successfully!', data: sub });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ status: false, msg: "Server Error", error: error.message });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// 🟢 2. Read All (List WITH PAGINATION)
 export const getAllSubscribers = async (req, res) => {
     try {
-        const { page, limit } = req.query;
-
-        // 1. Pagination Settings
-        const pageNum = parseInt(page) || 1;
-        const pageSize = parseInt(limit) || 25;
+        const pageNum = parseInt(req.query.page) || 1;
+        const pageSize = parseInt(req.query.limit) || 25;
         const skip = (pageNum - 1) * pageSize;
 
-        // 2. Fetch Data
-        const subscribers = await NewsletterSubscriber.find()
-            .sort({ createdAt: -1 })
-            .skip(skip)
-            .limit(pageSize);
-
-        // 3. Total Count for Pagination calculation
-        const total = await NewsletterSubscriber.countDocuments();
-
-        res.status(200).json({
-            status: true,
-            data: subscribers,
-            total,
-            totalPages: Math.ceil(total / pageSize),
-            page: pageNum
-        });
-
+        const [subscribers, total] = await Promise.all([
+            prisma.newsletterSubscriber.findMany({ orderBy: { id: 'desc' }, skip, take: pageSize }),
+            prisma.newsletterSubscriber.count()
+        ]);
+        res.status(200).json({ status: true, data: subscribers, total, totalPages: Math.ceil(total / pageSize), page: pageNum });
     } catch (error) {
-        res.status(500).json({ status: false, msg: "Server Error", error: error.message });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// 🟢 3. Read One (Get by ID for Edit)
 export const getSubscriberById = async (req, res) => {
     try {
-        const subscriber = await NewsletterSubscriber.findById(req.params.id);
-
-        if (!subscriber) {
-            return res.status(404).json({ status: false, msg: "Subscriber not found" });
-        }
-
-        res.status(200).json({
-            status: true,
-            data: subscriber
-        });
-
+        const sub = await prisma.newsletterSubscriber.findUnique({ where: { id: parseInt(req.params.id) } });
+        if (!sub) return res.status(404).json({ status: false, msg: 'Subscriber not found' });
+        res.status(200).json({ status: true, data: sub });
     } catch (error) {
-        res.status(500).json({ status: false, msg: "Server Error", error: error.message });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// 🟢 4. Update
 export const updateSubscriber = async (req, res) => {
     try {
-        const { id } = req.params;
-        const { email, firstName, lastName, categories, interestedBookName, interestedBookId } = req.body;
-
-        const updatedData = {
-            email,
-            firstname: firstName,
-            lastname: lastName,
-            categories,
-            interestedBookName, // 🟢 Add this
-            interestedBookId
-        };
-
-        const subscriber = await NewsletterSubscriber.findByIdAndUpdate(
-            id,
-            updatedData,
-            { new: true } // Updated document return karega
-        );
-
-        if (!subscriber) {
-            return res.status(404).json({ status: false, msg: "Subscriber not found" });
-        }
-
-        res.status(200).json({
-            status: true,
-            msg: "Subscriber updated successfully!",
-            data: subscriber
+        const { email, firstName, lastName } = req.body;
+        const updated = await prisma.newsletterSubscriber.update({
+            where: { id: parseInt(req.params.id) },
+            data: { email, firstName: firstName || '', lastName: lastName || '' }
         });
-
+        res.status(200).json({ status: true, msg: 'Subscriber updated successfully!', data: updated });
     } catch (error) {
-        res.status(500).json({ status: false, msg: "Server Error", error: error.message });
+        if (error.code === 'P2025') return res.status(404).json({ status: false, msg: 'Subscriber not found' });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// 🟢 5. Delete
 export const deleteSubscriber = async (req, res) => {
     try {
-        const subscriber = await NewsletterSubscriber.findByIdAndDelete(req.params.id);
-
-        if (!subscriber) {
-            return res.status(404).json({ status: false, msg: "Subscriber not found" });
-        }
-
-        res.status(200).json({
-            status: true,
-            msg: "Subscriber deleted successfully!"
-        });
-
+        await prisma.newsletterSubscriber.delete({ where: { id: parseInt(req.params.id) } });
+        res.status(200).json({ status: true, msg: 'Subscriber deleted successfully!' });
     } catch (error) {
-        res.status(500).json({ status: false, msg: "Server Error", error: error.message });
+        if (error.code === 'P2025') return res.status(404).json({ status: false, msg: 'Subscriber not found' });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };

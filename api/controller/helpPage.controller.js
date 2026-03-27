@@ -1,160 +1,77 @@
-import HelpPage from "../models/HelpPage.js";
+import prisma from '../lib/prisma.js';
 
-// ==========================================
-// 🟢 1. CREATE (SAVE HELP PAGE)
-// ==========================================
+// Field mapping: content→pageContent, meta_title→metaTitle,
+// meta_description→metaDesc, meta_keywords→metaKeywords.
+// Dropped: slug, status (not in Prisma HelpPage schema).
+
 export const saveHelpPage = async (req, res) => {
-  try {
-    const { title, content, meta_title, meta_description, meta_keywords, status } = req.body;
-
-    if (!title || !content) {
-      return res.status(400).json({ status: false, msg: "Title and Content are required." });
+    try {
+        const { title, content, meta_title, meta_description, meta_keywords } = req.body;
+        if (!title || !content) return res.status(400).json({ status: false, msg: 'Title and Content are required.' });
+        const newPage = await prisma.helpPage.create({
+            data: {
+                title: title.trim(),
+                pageContent: content,
+                metaTitle: meta_title || title.trim(),
+                metaDesc: meta_description || '',
+                metaKeywords: meta_keywords || ''
+            }
+        });
+        res.status(201).json({ status: true, msg: 'Help page added successfully!', data: newPage });
+    } catch (error) {
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
-
-    // 🟢 Generate Clean Slug
-    const cleanTitle = title.trim();
-    const slug = cleanTitle.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '');
-    
-    // Check for duplicate slug
-    const existingPage = await HelpPage.findOne({ slug });
-    if (existingPage) {
-      return res.status(400).json({ status: false, msg: "A page with this title already exists." });
-    }
-
-    const newPage = new HelpPage({
-      title: cleanTitle,
-      content,
-      meta_title: meta_title || cleanTitle,
-      meta_description,
-      meta_keywords,
-      slug,
-      status: status || 'active'
-    });
-
-    await newPage.save();
-
-    res.status(201).json({ 
-      status: true, 
-      msg: "Help page added successfully!", 
-      data: newPage 
-    });
-
-  } catch (error) {
-    res.status(500).json({ status: false, msg: "Server Error", error: error.message });
-  }
 };
 
-// ==========================================
-// 🔵 2. READ ALL HELP PAGES (WITH PAGINATION)
-// ==========================================
 export const getAllHelpPages = async (req, res) => {
-  try {
-    const { page, limit } = req.query;
-
-    // 1. Pagination Settings
-    const pageNum = parseInt(page) || 1;
-    const pageSize = parseInt(limit) || 10;
-    const skip = (pageNum - 1) * pageSize;
-
-    // 2. Fetch Data
-    const pages = await HelpPage.find()
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(pageSize);
-
-    // 3. Total Count for Frontend
-    const total = await HelpPage.countDocuments();
-
-    res.status(200).json({ 
-      status: true, 
-      data: pages,
-      total,
-      totalPages: Math.ceil(total / pageSize),
-      page: pageNum
-    });
-  } catch (error) {
-    res.status(500).json({ status: false, msg: "Server Error", error: error.message });
-  }
+    try {
+        const pageNum = parseInt(req.query.page) || 1;
+        const pageSize = parseInt(req.query.limit) || 10;
+        const skip = (pageNum - 1) * pageSize;
+        const [pages, total] = await Promise.all([
+            prisma.helpPage.findMany({ orderBy: { id: 'desc' }, skip, take: pageSize }),
+            prisma.helpPage.count()
+        ]);
+        res.status(200).json({ status: true, data: pages, total, totalPages: Math.ceil(total / pageSize), page: pageNum });
+    } catch (error) {
+        res.status(500).json({ status: false, msg: 'Server Error' });
+    }
 };
 
-// ==========================================
-// 🟡 3. READ ONE HELP PAGE
-// ==========================================
 export const getHelpPageById = async (req, res) => {
-  try {
-    const page = await HelpPage.findById(req.params.id);
-    if (!page) {
-      return res.status(404).json({ status: false, msg: "Page not found" });
+    try {
+        const page = await prisma.helpPage.findUnique({ where: { id: parseInt(req.params.id) } });
+        if (!page) return res.status(404).json({ status: false, msg: 'Page not found' });
+        res.status(200).json({ status: true, data: page });
+    } catch (error) {
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
-    res.status(200).json({ status: true, data: page });
-  } catch (error) {
-    res.status(500).json({ status: false, msg: "Server Error", error: error.message });
-  }
 };
 
-// ==========================================
-// 🟠 4. UPDATE HELP PAGE (Safe Logic)
-// ==========================================
 export const updateHelpPage = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { title, content, meta_title, meta_description, meta_keywords, status } = req.body;
-
-    const existingPage = await HelpPage.findById(id);
-    if (!existingPage) {
-      return res.status(404).json({ status: false, msg: "Page not found" });
+    try {
+        const id = parseInt(req.params.id);
+        const { title, content, meta_title, meta_description, meta_keywords } = req.body;
+        const updateData = {};
+        if (title) updateData.title = title.trim();
+        if (content !== undefined) updateData.pageContent = content;
+        if (meta_title !== undefined) updateData.metaTitle = meta_title;
+        if (meta_description !== undefined) updateData.metaDesc = meta_description;
+        if (meta_keywords !== undefined) updateData.metaKeywords = meta_keywords;
+        const updated = await prisma.helpPage.update({ where: { id }, data: updateData });
+        res.status(200).json({ status: true, msg: 'Help page updated successfully!', data: updated });
+    } catch (error) {
+        if (error.code === 'P2025') return res.status(404).json({ status: false, msg: 'Page not found' });
+        res.status(500).json({ status: false, msg: 'Update failed' });
     }
-
-    let updateData = { 
-      content, meta_title, meta_description, meta_keywords, status 
-    };
-
-    // 🟢 SEO Friendly Title/Slug Update
-    if (title && title.trim() !== existingPage.title) {
-        const cleanTitle = title.trim();
-        const newSlug = cleanTitle.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '');
-
-        // Check if new slug is taken by ANOTHER page
-        const duplicate = await HelpPage.findOne({ slug: newSlug, _id: { $ne: id } });
-        if (duplicate) {
-            return res.status(400).json({ status: false, msg: "Another page already has this title." });
-        }
-
-        updateData.title = cleanTitle;
-        updateData.slug = newSlug;
-    }
-
-    const updatedPage = await HelpPage.findByIdAndUpdate(
-      id,
-      { $set: updateData },
-      { new: true, runValidators: true }
-    );
-
-    res.status(200).json({ 
-      status: true, 
-      msg: "Help page updated successfully!", 
-      data: updatedPage 
-    });
-
-  } catch (error) {
-    res.status(500).json({ status: false, msg: "Update failed", error: error.message });
-  }
 };
 
-// ==========================================
-// 🔴 5. DELETE HELP PAGE
-// ==========================================
 export const deleteHelpPage = async (req, res) => {
-  try {
-    const deletedPage = await HelpPage.findByIdAndDelete(req.params.id);
-
-    if (!deletedPage) {
-      return res.status(404).json({ status: false, msg: "Page not found" });
+    try {
+        await prisma.helpPage.delete({ where: { id: parseInt(req.params.id) } });
+        res.status(200).json({ status: true, msg: 'Help page deleted successfully!' });
+    } catch (error) {
+        if (error.code === 'P2025') return res.status(404).json({ status: false, msg: 'Page not found' });
+        res.status(500).json({ status: false, msg: 'Delete failed' });
     }
-
-    res.status(200).json({ status: true, msg: "Help page deleted successfully!" });
-
-  } catch (error) {
-    res.status(500).json({ status: false, msg: "Delete failed", error: error.message });
-  }
 };

@@ -50,15 +50,15 @@ const AddEditTopAuthor = () => {
     if (isEdit && topAuthorData && !isDataInitialized) {
       const d = topAuthorData;
       setFormData({
-        authorId: d.authorId?._id || '',
-        bookId: d.bookId?._id || '',
+        authorId: d.authorId || '',
+        bookId: d.bookId || '',
         role: d.role || '',
         quote: d.quote || '',
         active: d.active ? 'yes' : 'no',
         order: d.order || ''
       });
-      setAuthorSearch(`${d.authorId?.first_name || ''} ${d.authorId?.last_name || ''}`.trim());
-      setBookSearch(d.bookId?.title || "");
+      setAuthorSearch(`${d.authorData?.firstName || ''} ${d.authorData?.lastName || ''}`.trim());
+      setBookSearch(d.bookData?.title || "");
       
       setIsDataInitialized(true);
     }
@@ -90,13 +90,13 @@ const AddEditTopAuthor = () => {
 
   // 🟢 3. SELECTION HANDLERS
   const handleSelectAuthor = (author) => {
-    setFormData({ ...formData, authorId: author._id });
-    setAuthorSearch(`${author.first_name} ${author.last_name}`);
+    setFormData({ ...formData, authorId: author.id });
+    setAuthorSearch(`${author.firstName} ${author.lastName}`);
     setActiveDropdown(null);
   };
 
   const handleSelectBook = (book) => {
-    setFormData({ ...formData, bookId: book._id });
+    setFormData({ ...formData, bookId: book.id });
     setBookSearch(book.title);
     setActiveDropdown(null);
   };
@@ -187,8 +187,8 @@ const AddEditTopAuthor = () => {
                 {activeDropdown === 'author' && authorResults.length > 0 && (
                   <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded shadow-lg mt-1 max-h-40 overflow-y-auto z-50">
                     {authorResults.map(a => (
-                      <div key={a._id} onClick={() => handleSelectAuthor(a)} className="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b text-xs font-bold flex items-center gap-3 text-gray-700">
-                        {a.first_name} {a.last_name}
+                      <div key={a.id} onClick={() => handleSelectAuthor(a)} className="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b text-xs font-bold flex items-center gap-3 text-gray-700">
+                        {a.firstName} {a.lastName}
                       </div>
                     ))}
                   </div>
@@ -216,8 +216,8 @@ const AddEditTopAuthor = () => {
                 {activeDropdown === 'book' && bookResults.length > 0 && (
                   <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded shadow-lg mt-1 max-h-40 overflow-y-auto z-50">
                     {bookResults.map(b => (
-                      <div key={b._id} onClick={() => handleSelectBook(b)} className="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b text-xs font-bold text-gray-700">
-                        {b.title} <span className="text-primary ml-2">({b.bagchee_id})</span>
+                      <div key={b.id} onClick={() => handleSelectBook(b)} className="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b text-xs font-bold text-gray-700">
+                        {b.title} <span className="text-primary ml-2">({b.bagcheeId})</span>
                       </div>
                     ))}
                   </div>

@@ -105,7 +105,7 @@ const HomeNewNoteworthy = () => {
 
       if (res.data.status && res.data.data.length > 0) {
         const exportData = res.data.data.map(item => ({
-          "Product ID": item.productId || item.bagchee_id || 'N/A',
+          "Product ID": item.productId || item.productId || 'N/A',
           "Title": item.title,
           "Active": item.isActive ? "Yes" : "No",
           "Order": item.order || 0,
@@ -252,7 +252,7 @@ const HomeNewNoteworthy = () => {
                 </tr>
               ) : products.length > 0 ? (
                 products.map((item, index) => (
-                  <tr key={item._id} className="hover:bg-primary-50 transition-colors">
+                  <tr key={item.id} className="hover:bg-primary-50 transition-colors">
                     
                     {/* Checkbox */}
                     <td className="p-3 border-r border-cream-50 text-center hide-on-print">
@@ -261,7 +261,7 @@ const HomeNewNoteworthy = () => {
 
                     {/* Product ID */}
                     <td className="p-3 border-r border-cream-50 text-text-main font-medium">
-                        {item.productId || item.bagchee_id || 'N/A'}
+                        {item.productId || item.productId || 'N/A'}
                     </td>
 
                     {/* Title */}
@@ -285,13 +285,13 @@ const HomeNewNoteworthy = () => {
                     <td className="p-3 text-center hide-on-print">
                       <div className="flex justify-center gap-2">
                         <button 
-                          onClick={() => navigate(`/admin/edit-new-noteworthy/${item._id}`)} 
+                          onClick={() => navigate(`/admin/edit-new-noteworthy/${item.id}`)} 
                           className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm"
                         >
                           <Edit size={14} />
                         </button>
                         <button 
-                          onClick={() => handleDelete(item._id)}
+                          onClick={() => handleDelete(item.id)}
                           className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 hover:border-red-600 transition-all shadow-sm"
                         >
                           <Trash2 size={14} />

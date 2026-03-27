@@ -14,7 +14,7 @@ const LogoBlue = ({ className = '' }) => {
           alt="Bagchee Icon"
           className="relative h-10 md:h-12 w-auto object-contain p-1"
           // 🚀 OPTIMIZATION 2: Image Loading Speed Boosters
-          fetchPriority="high" // Browser ko batata hai ki ye image top priority par load karni hai
+          fetchpriority="high" // Browser ko batata hai ki ye image top priority par load karni hai
           decoding="async"     // Website ka baaki text aur layout load hone se nahi rukega
         />
       </div>

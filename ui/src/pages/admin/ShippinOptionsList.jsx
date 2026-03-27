@@ -73,8 +73,8 @@ const ShippingOptionsList = () => {
         "USD": item.priceUsd,
         "EUR": item.priceEur,
         "INR": item.priceInr,
-        "Active": item.isActive ? "Yes" : "No",
-        "Order": item.order || 0
+        "Active": item.active ? "Yes" : "No",
+        "Order": item.ord || 0
       }));
 
       const worksheet = XLSX.utils.json_to_sheet(dataToExport);
@@ -91,7 +91,7 @@ const ShippingOptionsList = () => {
   const filteredOptions = useMemo(() => {
     return shippingOptions.filter((item, index) => {
       const displayId = (index + 1).toString();
-      const statusText = item.isActive ? "yes" : "no";
+      const statusText = item.active ? "yes" : "no";
 
       return (
         displayId.includes(filters.id) &&
@@ -100,7 +100,7 @@ const ShippingOptionsList = () => {
         (item.priceEur || "0").toString().includes(filters.eur) &&
         (item.priceInr || "0").toString().includes(filters.inr) &&
         statusText.includes(filters.status.toLowerCase()) &&
-        (item.order !== undefined ? item.order : "0").toString().includes(filters.order)
+        (item.ord !== undefined ? item.ord : "0").toString().includes(filters.order)
       );
     });
   }, [shippingOptions, filters]);
@@ -225,7 +225,7 @@ const ShippingOptionsList = () => {
                 </tr>
               ) : filteredOptions.length > 0 ? (
                 filteredOptions.map((item, index) => (
-                  <tr key={item._id} className="hover:bg-primary-50 transition-colors text-[13px]">
+                  <tr key={item.id} className="hover:bg-primary-50 transition-colors text-[13px]">
                     <td className="p-3 border-r border-cream-50">
                         <div className="flex items-center gap-5 px-1">
                           <input type="checkbox" className="h-4 w-4 rounded accent-primary cursor-pointer shrink-0" />
@@ -237,17 +237,17 @@ const ShippingOptionsList = () => {
                     <td className="p-3 border-r border-cream-50 text-text-main">{item.priceEur || '0'}</td>
                     <td className="p-3 border-r border-cream-50 text-text-main">{item.priceInr || '0'}</td>
                     <td className="p-3 border-r border-cream-50 text-text-main">
-                        <span className={item.isActive ? 'text-green-600 font-bold' : 'text-text-muted'}>
-                            {item.isActive ? 'Yes' : 'No'}
+                        <span className={item.active ? 'text-green-600 font-bold' : 'text-text-muted'}>
+                            {item.active ? 'Yes' : 'No'}
                         </span>
                     </td>
-                    <td className="p-3 border-r border-cream-50 text-text-main">{item.order !== undefined ? item.order : '0'}</td>
+                    <td className="p-3 border-r border-cream-50 text-text-main">{item.ord !== undefined ? item.ord : '0'}</td>
                     <td className="p-3">
                       <div className="flex justify-center gap-2">
-                        <button onClick={() => navigate(`/admin/edit-shipping-options/${item._id}`)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm active:scale-95">
+                        <button onClick={() => navigate(`/admin/edit-shipping-options/${item.id}`)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm active:scale-95">
                           <Edit size={14} />
                         </button>
-                        <button onClick={() => handleDelete(item._id)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 hover:border-red-600 transition-all shadow-sm active:scale-95">
+                        <button onClick={() => handleDelete(item.id)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 hover:border-red-600 transition-all shadow-sm active:scale-95">
                           <Trash2 size={14} />
                         </button>
                       </div>

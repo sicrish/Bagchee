@@ -1,19 +1,15 @@
 import express from 'express';
-import { 
-    saveBooksOfMonth, 
-    getActiveBooksOfMonth, 
-    getAllBooksOfMonthHistory, 
-    deleteBooksOfMonth 
-} from '../controller/booksOfMonth.controller.js';
+import { saveBooksOfMonth, getActiveBooksOfMonth, getAllBooksOfMonthHistory, deleteBooksOfMonth } from '../controller/booksOfMonth.controller.js';
+import adminAuth from '../middleware/adminAuth.middleware.js';
 
 const router = express.Router();
 
-// Public Route (Website ke liye)
+// PUBLIC — active books of the month displayed on website
 router.get('/active', getActiveBooksOfMonth);
 
-// Admin Routes (Add ProtectedRoute middleware if needed)
-router.post('/save', saveBooksOfMonth);
-router.get('/history', getAllBooksOfMonthHistory);
-router.delete('/delete/:id', deleteBooksOfMonth);
+// ADMIN — management
+router.post('/save',         adminAuth, saveBooksOfMonth);
+router.get('/history',       adminAuth, getAllBooksOfMonthHistory);
+router.delete('/delete/:id', adminAuth, deleteBooksOfMonth);
 
 export default router;

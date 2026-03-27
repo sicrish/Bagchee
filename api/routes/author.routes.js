@@ -1,13 +1,16 @@
 import express from "express";
 import * as AuthorController from "../controller/author.controller.js";
+import adminAuth from '../middleware/adminAuth.middleware.js';
 
 const router = express.Router();
 
-// Define Routes
-router.post("/save", AuthorController.saveAuthor);          // Create
-router.get("/list", AuthorController.getAllAuthors);        // Read All
-router.get("/get/:id", AuthorController.getAuthorById);     // Read One
-router.patch("/update/:id", AuthorController.updateAuthor);   // Update
-router.delete("/delete/:id", AuthorController.deleteAuthor);// Delete
+// PUBLIC — author data used in website dropdowns and detail pages
+router.get("/list",    AuthorController.getAllAuthors);
+router.get("/get/:id", AuthorController.getAuthorById);
+
+// ADMIN — mutations
+router.post("/save",         adminAuth, AuthorController.saveAuthor);
+router.patch("/update/:id",  adminAuth, AuthorController.updateAuthor);
+router.delete("/delete/:id", adminAuth, AuthorController.deleteAuthor);
 
 export default router;

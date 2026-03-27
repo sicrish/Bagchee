@@ -33,12 +33,12 @@ const EditHelpPages = () => {
           const data = res.data.data;
           setFormData({
             title: data.title || '',
-            meta_title: data.meta_title || '',
-            meta_description: data.meta_description || '',
-            meta_keywords: data.meta_keywords || '',
+            meta_title: data.metaTitle || '',
+            meta_description: data.metaDesc || '',
+            meta_keywords: data.metaKeywords || '',
           });
           // Content ko alag state mein set karein Jodit ke liye
-          setPageContent(data.content || '');
+          setPageContent(data.pageContent || '');
         }
       } catch (error) {
         console.error("Fetch error:", error);

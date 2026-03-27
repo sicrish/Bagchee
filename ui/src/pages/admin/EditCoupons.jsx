@@ -78,13 +78,23 @@ const EditCoupons = () => {
       }
 
       setFormData({
-        ...data,
-        valid_from: formatDate(data.valid_from),
-        valid_to: formatDate(data.valid_to),
+        code: data.code || '',
+        title: data.title || '',
+        valid_from: formatDate(data.validFrom || data.valid_from),
+        valid_to: formatDate(data.validTo || data.valid_to),
+        active: data.active ? 'active' : 'inactive',
+        fix_amount: (data.fixAmount || data.fix_amount) ? 'active' : 'inactive',
         amount: data.amount || '',
-        minimum_buy: data.minimum_buy || '',
-        price_over_only: data.price_over_only || '',
-        categories: savedCategory 
+        minimum_buy: data.minimumBuy || data.minimum_buy || '',
+        price_over_only: data.priceOverOnly || data.price_over_only || '',
+        new_customer_only: (data.newCustomerOnly || data.new_customer_only) ? 'active' : 'inactive',
+        members_only: (data.membersOnly || data.members_only) ? 'active' : 'inactive',
+        next_order_only: (data.nextOrderOnly || data.next_order_only) ? 'active' : 'inactive',
+        bestseller_only: (data.bestsellerOnly || data.bestseller_only) ? 'active' : 'inactive',
+        recommended_only: (data.recommendedOnly || data.recommended_only) ? 'active' : 'inactive',
+        new_arrivals_only: (data.newArrivalsOnly || data.new_arrivals_only) ? 'active' : 'inactive',
+        get_third_free: (data.getThirdFree || data.get_third_free) ? 'active' : 'inactive',
+        categories: savedCategory
       });
 
       setIsDataInitialized(true); 
@@ -112,7 +122,28 @@ const EditCoupons = () => {
 
     const toastId = toast.loading("Updating coupon...");
 
-    updateCouponMutation.mutate(formData, {
+    const parseBoolStr = (val) => val === 'active';
+    const payload = {
+      code: formData.code,
+      title: formData.title,
+      validFrom: formData.valid_from,
+      validTo: formData.valid_to,
+      active: parseBoolStr(formData.active),
+      fixAmount: parseBoolStr(formData.fix_amount),
+      amount: formData.amount,
+      minimumBuy: formData.minimum_buy,
+      priceOverOnly: formData.price_over_only,
+      newCustomerOnly: parseBoolStr(formData.new_customer_only),
+      membersOnly: parseBoolStr(formData.members_only),
+      nextOrderOnly: parseBoolStr(formData.next_order_only),
+      bestsellerOnly: parseBoolStr(formData.bestseller_only),
+      recommendedOnly: parseBoolStr(formData.recommended_only),
+      newArrivalsOnly: parseBoolStr(formData.new_arrivals_only),
+      getThirdFree: parseBoolStr(formData.get_third_free),
+      categories: formData.categories
+    };
+
+    updateCouponMutation.mutate(payload, {
       onSuccess: (resData) => {
         if (resData.status) {
           toast.success("Coupon updated successfully! 🎫", { id: toastId });
@@ -270,8 +301,8 @@ const EditCoupons = () => {
                 <select name="categories" value={formData.categories} onChange={handleChange} className="theme-input w-full">
                   <option value="">Select Category</option>
                   {pageData?.categories && pageData.categories.map((cat) => (
-                    <option key={cat._id} value={cat._id}>
-                      {cat.categorytitle}
+                    <option key={cat.id} value={cat.id}>
+                      {cat.title || cat.categorytitle}
                     </option>
                   ))}
                 </select>

@@ -34,12 +34,12 @@ const EditNavigation = () => {
           const nav = res.data.data;
           setFormData({
             item: nav.item || '',
-            link: nav.link || '',
-            dropdown: nav.dropdown || 'inactive',
-            active: nav.active || 'active',
-            order: nav.order || ''
+            link: nav.itemLink || '',
+            dropdown: nav.hasDropdown ? 'active' : 'inactive',
+            active: nav.active ? 'active' : 'inactive',
+            order: nav.ord || ''
           });
-          setDropdownContent(nav.dropdown_content || '');
+          setDropdownContent(nav.dropdownContent || '');
         }
       } catch (error) {
         console.error(error);

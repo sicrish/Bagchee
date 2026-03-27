@@ -1,157 +1,91 @@
-import Social from '../models/Social.js';
-import { saveFileLocal, deleteFileLocal } from '../utils/fileHandler.js'; 
+import prisma from '../lib/prisma.js';
+import { saveFileLocal, deleteFileLocal } from '../utils/fileHandler.js';
 
-// ==========================================
-// 🟢 1. SAVE SOCIAL (Create)
-// ==========================================
+// Field mapping: icon_image→image, isActive→active, isShareActive→share
+// Note: Mongoose model had `order` field — Social table in Prisma has no order/ord column.
+// Dropped: order field (not in Prisma schema).
+
 export const saveSocial = async (req, res) => {
     try {
-        const { 
-            title, link, order, 
-            isActive, isShareActive, showInFooter, showInProduct, showInCategory 
-        } = req.body;
-
-        // 1. Image Check
-        if (!req.files || !req.files.icon_image) {
-            return res.status(400).json({ status: false, msg: "Icon image is required!" });
-        }
-
-        // 2. Save Image
+        const { title, link, isActive, isShareActive, showInFooter, showInProduct, showInCategory } = req.body;
+        if (!req.files || !req.files.icon_image) return res.status(400).json({ status: false, msg: 'Icon image is required!' });
         const iconPath = await saveFileLocal(req.files.icon_image, 'socials');
-
-        // 3. Save Data
-        const newSocial = new Social({
-            title,
-            link,
-            icon_image: iconPath,
-            order: Number(order) || 0,
-            // Boolean Conversion (FormData sends strings)
-            isActive: isActive === 'true',
-            isShareActive: isShareActive === 'true',
-            showInFooter: showInFooter === 'true',
-            showInProduct: showInProduct === 'true',
-            showInCategory: showInCategory === 'true'
+        await prisma.social.create({
+            data: {
+                title,
+                link,
+                image: iconPath,
+                active: isActive === 'true',
+                share: isShareActive === 'true',
+                showInFooter: showInFooter === 'true',
+                showInProduct: showInProduct === 'true',
+                showInCategory: showInCategory === 'true'
+            }
         });
-
-        await newSocial.save();
-        res.status(201).json({ status: true, msg: "Social media added successfully! 🚀" });
-
+        res.status(201).json({ status: true, msg: 'Social media added successfully!' });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ status: false, msg: error.message || "Server Error" });
+        res.status(500).json({ status: false, msg: 'Server Error' || 'Server Error' });
     }
 };
 
-// ==========================================
-// 🔵 2. LIST ALL SOCIALS (WITH PAGINATION)
-// ==========================================
 export const listSocials = async (req, res) => {
     try {
-        const { page, limit } = req.query;
-
-        // 1. Pagination Settings
-        const pageNum = parseInt(page) || 1;
-        const pageSize = parseInt(limit) || 10;
+        const pageNum = parseInt(req.query.page) || 1;
+        const pageSize = parseInt(req.query.limit) || 10;
         const skip = (pageNum - 1) * pageSize;
-
-        // 2. Fetch Data with Pagination
-        const data = await Social.find()
-            .sort({ order: 1, createdAt: -1 })
-            .skip(skip)
-            .limit(pageSize);
-
-        // 3. Total Count for Pagination Logic
-        const total = await Social.countDocuments();
-
-        res.status(200).json({ 
-            status: true, 
-            data,
-            total,
-            totalPages: Math.ceil(total / pageSize),
-            page: pageNum
-        });
+        const [data, total] = await Promise.all([
+            prisma.social.findMany({ orderBy: { id: 'desc' }, skip, take: pageSize }),
+            prisma.social.count()
+        ]);
+        res.status(200).json({ status: true, data, total, totalPages: Math.ceil(total / pageSize), page: pageNum });
     } catch (error) {
-        res.status(500).json({ status: false, msg: error.message });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// ==========================================
-// 🟡 3. GET SINGLE SOCIAL (Read One - For Edit)
-// ==========================================
 export const getSocialById = async (req, res) => {
     try {
-        const { id } = req.params;
-        const data = await Social.findById(id);
-        
-        if (!data) {
-            return res.status(404).json({ status: false, msg: "Social media not found" });
-        }
-        
+        const data = await prisma.social.findUnique({ where: { id: parseInt(req.params.id) } });
+        if (!data) return res.status(404).json({ status: false, msg: 'Social media not found' });
         res.status(200).json({ status: true, data });
     } catch (error) {
-        res.status(500).json({ status: false, msg: error.message });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// ==========================================
-// 🟠 4. UPDATE SOCIAL (Update)
-// ==========================================
 export const updateSocial = async (req, res) => {
     try {
-        const { id } = req.params;
-        const social = await Social.findById(id);
-        if (!social) return res.status(404).json({ msg: "Not found" });
-
-        let updateData = { ...req.body };
-
-        // Boolean Conversions
-        if (req.body.isActive) updateData.isActive = req.body.isActive === 'true';
-        if (req.body.isShareActive) updateData.isShareActive = req.body.isShareActive === 'true';
-        if (req.body.showInFooter) updateData.showInFooter = req.body.showInFooter === 'true';
-        if (req.body.showInProduct) updateData.showInProduct = req.body.showInProduct === 'true';
-        if (req.body.showInCategory) updateData.showInCategory = req.body.showInCategory === 'true';
-
-        // Image Update Logic
+        const id = parseInt(req.params.id);
+        const social = await prisma.social.findUnique({ where: { id } });
+        if (!social) return res.status(404).json({ status: false, msg: 'Not found' });
+        const updateData = {};
+        if (req.body.title !== undefined) updateData.title = req.body.title;
+        if (req.body.link !== undefined) updateData.link = req.body.link;
+        if (req.body.isActive !== undefined) updateData.active = req.body.isActive === 'true';
+        if (req.body.isShareActive !== undefined) updateData.share = req.body.isShareActive === 'true';
+        if (req.body.showInFooter !== undefined) updateData.showInFooter = req.body.showInFooter === 'true';
+        if (req.body.showInProduct !== undefined) updateData.showInProduct = req.body.showInProduct === 'true';
+        if (req.body.showInCategory !== undefined) updateData.showInCategory = req.body.showInCategory === 'true';
         if (req.files && req.files.icon_image) {
-            // Purani image delete karo (Clean server)
-            if (social.icon_image) {
-                await deleteFileLocal(social.icon_image);
-            }
-            // Nayi image save karo
-            updateData.icon_image = await saveFileLocal(req.files.icon_image, 'socials');
+            if (social.image) await deleteFileLocal(social.image);
+            updateData.image = await saveFileLocal(req.files.icon_image, 'socials');
         }
-
-        await Social.findByIdAndUpdate(id, updateData, { new: true });
-        res.status(200).json({ status: true, msg: "Social updated successfully!" });
-
+        await prisma.social.update({ where: { id }, data: updateData });
+        res.status(200).json({ status: true, msg: 'Social updated successfully!' });
     } catch (error) {
-        res.status(500).json({ status: false, msg: error.message });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// ==========================================
-// 🔴 5. DELETE SOCIAL (Delete)
-// ==========================================
 export const deleteSocial = async (req, res) => {
     try {
-        const { id } = req.params;
-        const social = await Social.findById(id);
-        
-        if (!social) {
-            return res.status(404).json({ status: false, msg: "Social media not found" });
-        }
-
-        // 1. Delete Image from Server
-        if (social.icon_image) {
-            await deleteFileLocal(social.icon_image);
-        }
-
-        // 2. Delete Record from DB
-        await Social.findByIdAndDelete(id);
-
-        res.status(200).json({ status: true, msg: "Social deleted successfully!" });
-
+        const id = parseInt(req.params.id);
+        const social = await prisma.social.findUnique({ where: { id } });
+        if (!social) return res.status(404).json({ status: false, msg: 'Social media not found' });
+        if (social.image) await deleteFileLocal(social.image);
+        await prisma.social.delete({ where: { id } });
+        res.status(200).json({ status: true, msg: 'Social deleted successfully!' });
     } catch (error) {
-        res.status(500).json({ status: false, msg: error.message });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };

@@ -1,28 +1,39 @@
-import Terms from '../models/Terms.js';
+import prisma from '../lib/prisma.js';
 
-// 🟢 GET logic
+// Field mapping: content→pageContent, meta_title→metaTitle,
+// meta_description→metaDesc, meta_keywords→metaKeywords.
+
 export const getTerms = async (req, res) => {
     try {
-        let data = await Terms.findOne();
+        let data = await prisma.terms.findFirst();
         if (!data) {
-            data = await Terms.create({ title: 'Terms of Use' });
+            data = await prisma.terms.create({ data: { title: 'Terms of Use' } });
         }
         res.status(200).json({ status: true, data });
     } catch (error) {
-        res.status(500).json({ status: false, msg: error.message });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// 🟢 UPDATE logic (Upsert)
 export const updateTerms = async (req, res) => {
     try {
-        const updated = await Terms.findOneAndUpdate(
-            {}, 
-            req.body,
-            { upsert: true, new: true, setDefaultsOnInsert: true }
-        );
-        res.status(200).json({ status: true, msg: "Terms of Use updated! 📝", data: updated });
+        const { title, content, pageContent, meta_title, metaTitle, meta_description, metaDesc, meta_keywords, metaKeywords } = req.body;
+        const payload = {
+            title: title || 'Terms of Use',
+            pageContent: pageContent || content || '',
+            metaTitle: metaTitle || meta_title || '',
+            metaDesc: metaDesc || meta_description || '',
+            metaKeywords: metaKeywords || meta_keywords || ''
+        };
+        const first = await prisma.terms.findFirst();
+        let updated;
+        if (first) {
+            updated = await prisma.terms.update({ where: { id: first.id }, data: payload });
+        } else {
+            updated = await prisma.terms.create({ data: payload });
+        }
+        res.status(200).json({ status: true, msg: 'Terms of Use updated!', data: updated });
     } catch (error) {
-        res.status(500).json({ status: false, msg: error.message });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };

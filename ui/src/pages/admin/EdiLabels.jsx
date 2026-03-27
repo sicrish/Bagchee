@@ -27,8 +27,8 @@ const EditLabels = () => {
           const data = res.data.data;
           setFormData({
             title: data.title || '',
-            status: data.status || 'active',
-            order: data.order || ''
+            status: data.active ? 'active' : 'inactive',
+            order: data.ord || ''
           });
         } else {
           toast.error("Label not found");

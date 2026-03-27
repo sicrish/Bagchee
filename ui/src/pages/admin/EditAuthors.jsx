@@ -37,8 +37,8 @@ const EditAuthors = () => {
         if (res.data.status) {
           const author = res.data.data;
           setFormData({
-            first_name: author.first_name || '',
-            last_name: author.last_name || '',
+            first_name: author.firstName || '',
+            last_name: author.lastName || '',
             origin: author.origin || '',
           });
           setProfile(author.profile || '');

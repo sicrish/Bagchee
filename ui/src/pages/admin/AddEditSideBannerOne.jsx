@@ -36,7 +36,7 @@ const AddEditSideBannerOne = () => {
   const getFullImageUrl = (path) => {
       if (!path) return null;
       if (path.startsWith('http')) return path;
-      const API_BASE = process.env.REACT_APP_API_URL?.replace('/api', '') || "http://localhost:5000";
+      const API_BASE = process.env.REACT_APP_API_URL?.replace('/api', '') || "http://localhost:3001";
       return `${API_BASE}/${path.replace(/^\//, '')}`;
   };
 
@@ -44,7 +44,6 @@ const AddEditSideBannerOne = () => {
   const { data: bannerData, isLoading: fetching } = useQuery({
     queryKey: ['sideBannerOneData', id],
     queryFn: async () => {
-      // console.log("🔍 Fetching Side Banner 1 data for ID:", id);
       const response = await axios.get(`${process.env.REACT_APP_API_URL}/side-banner-one/get/${id}`);
       if (!response.data.status) throw new Error("Failed to fetch banner");
       return response.data.data;

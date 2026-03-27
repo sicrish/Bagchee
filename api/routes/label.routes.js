@@ -1,12 +1,16 @@
 import express from "express";
 import * as LabelController from "../controller/label.controller.js";
+import adminAuth from '../middleware/adminAuth.middleware.js';
 
 const router = express.Router();
 
-router.post("/save", LabelController.saveLabel);
-router.get("/list", LabelController.getAllLabels);
+// PUBLIC — labels used in website
+router.get("/list",    LabelController.getAllLabels);
 router.get("/get/:id", LabelController.getLabelById);
-router.patch("/update/:id", LabelController.updateLabel);
-router.delete("/delete/:id", LabelController.deleteLabel);
+
+// ADMIN — mutations
+router.post("/save",         adminAuth, LabelController.saveLabel);
+router.patch("/update/:id",  adminAuth, LabelController.updateLabel);
+router.delete("/delete/:id", adminAuth, LabelController.deleteLabel);
 
 export default router;

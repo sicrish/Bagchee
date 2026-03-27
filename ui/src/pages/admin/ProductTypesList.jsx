@@ -161,7 +161,7 @@ const ProductTypesList = () => {
                 </tr>
               ) : filteredTypes.length > 0 ? (
                 filteredTypes.map((item, index) => (
-                  <tr key={item._id} className="hover:bg-blue-50/30 transition-colors">
+                  <tr key={item.id} className="hover:bg-blue-50/30 transition-colors">
                     <td className="p-3 border-r text-center">
                         <span className="text-gray-400 font-bold text-xs">{index + 1}</span>
                     </td>
@@ -169,8 +169,8 @@ const ProductTypesList = () => {
                     <td className="p-3 border-r text-gray-600 font-mono text-xs">{item.image_folder}</td>
                     <td className="p-3">
                       <div className="flex justify-center gap-2">
-                        <button onClick={() => navigate(`/admin/edit-product-type/${item._id}`)} className="p-1.5 border border-gray-200 rounded text-gray-500 hover:text-primary hover:border-primary transition-all"><Edit size={14} /></button>
-                        <button onClick={() => handleDelete(item._id)} className="p-1.5 border border-gray-200 rounded text-gray-500 hover:text-red-500 hover:border-red-500 transition-all"><Trash2 size={14} /></button>
+                        <button onClick={() => navigate(`/admin/edit-product-type/${item.id}`)} className="p-1.5 border border-gray-200 rounded text-gray-500 hover:text-primary hover:border-primary transition-all"><Edit size={14} /></button>
+                        <button onClick={() => handleDelete(item.id)} className="p-1.5 border border-gray-200 rounded text-gray-500 hover:text-red-500 hover:border-red-500 transition-all"><Trash2 size={14} /></button>
                       </div>
                     </td>
                   </tr>

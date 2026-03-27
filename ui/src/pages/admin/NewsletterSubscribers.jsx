@@ -84,7 +84,7 @@ const NewsletterSubscribers = () => {
   // 🟢 3. Filter Logic (Array Fix Included)
   const filteredSubscribers = useMemo(() => {
     return subscribers.filter((item) => {
-      const displayId = (item.id || item._id || "").toString();
+      const displayId = (item.id || item.id || "").toString();
       const email = (item.email || "").toLowerCase();
 
       // Fix for Categories Array
@@ -218,12 +218,12 @@ const NewsletterSubscribers = () => {
                 </tr>
               ) : filteredSubscribers.length > 0 ? (
                 filteredSubscribers.map((item, index) => (
-                  <tr key={item._id} className="hover:bg-blue-50/30 transition-colors text-[13px] group">
+                  <tr key={item.id} className="hover:bg-blue-50/30 transition-colors text-[13px] group">
 
                     <td className="p-3 border-r border-gray-100">
                       <div className="flex items-center gap-4">
                         <input type="checkbox" className="h-4 w-4 rounded accent-primary cursor-pointer shrink-0 border-gray-300" />
-                        {/* Display simple Index + 1 for clean look, or item._id */}
+                        {/* Display simple Index + 1 for clean look, or item.id */}
                         <span className="text-gray-500 text-xs font-mono">{index + 1}</span>
                       </div>
                     </td>
@@ -239,14 +239,14 @@ const NewsletterSubscribers = () => {
                     <td className="p-3 text-center">
                       <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
-                          onClick={() => navigate(`/admin/edit-newsletter-subscriber/${item._id}`)}
+                          onClick={() => navigate(`/admin/edit-newsletter-subscriber/${item.id}`)}
                           className="p-1.5 bg-gray-50 border border-gray-200 rounded text-gray-500 hover:bg-white hover:text-primary hover:border-primary transition-all shadow-sm"
                           title="Edit"
                         >
                           <Edit size={14} />
                         </button>
                         <button
-                          onClick={() => handleDelete(item._id)}
+                          onClick={() => handleDelete(item.id)}
                           className="p-1.5 bg-gray-50 border border-gray-200 rounded text-gray-500 hover:bg-white hover:text-red-600 hover:border-red-600 transition-all shadow-sm"
                           title="Delete"
                         >

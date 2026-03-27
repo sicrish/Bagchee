@@ -6,7 +6,6 @@ import axios from '../../utils/axiosConfig.js';
 import toast from 'react-hot-toast';
 import Logo from '../../components/common/Logo.jsx';
 import { useMutation } from '@tanstack/react-query'; // 🟢 React Query Mutation
-import { encryptData } from '../../utils/encryption.js'; // 🔒 Encryption Utility
 
 const Register = () => {
     const navigate = useNavigate();
@@ -29,12 +28,9 @@ const Register = () => {
     const registerMutation = useMutation({
         mutationFn: async (registerData) => {
             const url = `${process.env.REACT_APP_API_URL}/user/register`;
-            
-            // 🔒 Step: Data ko encrypt karke bhej rahe hain (MNC Standard)
-            const encryptedPayload = encryptData(registerData);
-            
-            // Backend middleware 'payload' key dhundega
-            const response = await axios.post(url, { payload: encryptedPayload });
+
+            // axiosConfig handles encryption globally — just send plain data
+            const response = await axios.post(url, registerData);
             return response.data;
         },
         onSuccess: (data) => {

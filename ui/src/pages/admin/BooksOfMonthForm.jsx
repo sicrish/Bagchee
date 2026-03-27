@@ -39,16 +39,18 @@ const BooksOfMonthForm = () => {
           // Controller Endpoint: getAllBooksOfMonthHistory se data aayega par hum specific fetch karenge
           const res = await axios.get(`${API_URL}/books-of-the-month/history`); 
           if (res.data.status) {
-            const current = res.data.data.find(item => item._id === id);
+            const current = res.data.data.find(item => item.id === parseInt(id));
             if(current) {
+              // products is array of junction rows: { id, booksOfMonthId, productId, product: {...} }
+              const productObjects = current.products.map(p => p.product).filter(Boolean);
               setFormData({
                 monthName: current.monthName || '',
                 headline: current.headline || '',
-                products: current.products.map(p => p._id),
+                products: productObjects.map(p => p.id),
                 expiryDate: current.expiryDate ? new Date(current.expiryDate).toISOString().split('T')[0] : '',
                 isActive: current.isActive ? 'yes' : 'no'
               });
-              setSelectedProductsData(current.products); // populated products
+              setSelectedProductsData(productObjects);
             }
           }
         } catch (error) {
@@ -88,10 +90,10 @@ const BooksOfMonthForm = () => {
 
   // --- 3. MULTI-SELECT HANDLERS ---
   const handleAddProduct = (product) => {
-    if (formData.products.includes(product._id)) {
+    if (formData.products.includes(product.id)) {
       return toast.error("Product already added!");
     }
-    setFormData(prev => ({ ...prev, products: [...prev.products, product._id] }));
+    setFormData(prev => ({ ...prev, products: [...prev.products, product.id] }));
     setSelectedProductsData(prev => [...prev, product]);
     setSearchQuery("");
     setIsDropdownOpen(false);
@@ -99,7 +101,7 @@ const BooksOfMonthForm = () => {
 
   const handleRemoveProduct = (productId) => {
     setFormData(prev => ({ ...prev, products: prev.products.filter(id => id !== productId) }));
-    setSelectedProductsData(prev => prev.filter(p => p._id !== productId));
+    setSelectedProductsData(prev => prev.filter(p => p.id !== productId));
   };
 
   // --- 4. SUBMIT HANDLER ---
@@ -193,10 +195,10 @@ const BooksOfMonthForm = () => {
                 {isDropdownOpen && searchResults.length > 0 && (
                     <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded shadow-lg mt-1 max-h-60 overflow-y-auto z-50">
                         {searchResults.map((prod) => (
-                            <div key={prod._id} onClick={() => handleAddProduct(prod)} className="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 flex justify-between items-center">
+                            <div key={prod.id} onClick={() => handleAddProduct(prod)} className="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 flex justify-between items-center">
                                 <div>
                                     <p className="text-xs font-bold text-gray-800">{prod.title}</p>
-                                    <p className="text-[10px] text-primary">ID: {prod.bagchee_id}</p>
+                                    <p className="text-[10px] text-primary">ID: {prod.bagcheeId}</p>
                                 </div>
                                 <span className="text-[9px] bg-green-100 text-green-700 px-2 py-0.5 rounded font-bold">ADD</span>
                             </div>
@@ -213,14 +215,14 @@ const BooksOfMonthForm = () => {
                 {selectedProductsData.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {selectedProductsData.map((book) => (
-                            <div key={book._id} className="flex items-center justify-between p-2 bg-cream-50 border border-cream-200 rounded">
+                            <div key={book.id} className="flex items-center justify-between p-2 bg-cream-50 border border-cream-200 rounded">
                                 <div className="flex items-center gap-3">
                                     <div className="w-8 h-10 bg-gray-200 rounded overflow-hidden">
-                                        <img src={`${process.env.REACT_APP_API_URL}${book.default_image}`} alt="" className="w-full h-full object-cover" />
+                                        <img src={`${process.env.REACT_APP_API_URL}${book.defaultImage}`} alt="" className="w-full h-full object-cover" />
                                     </div>
                                     <p className="text-xs font-bold text-text-main line-clamp-1 truncate w-40">{book.title}</p>
                                 </div>
-                                <button type="button" onClick={() => handleRemoveProduct(book._id)} className="text-red-500 hover:bg-red-50 p-1 rounded transition-colors">
+                                <button type="button" onClick={() => handleRemoveProduct(book.id)} className="text-red-500 hover:bg-red-50 p-1 rounded transition-colors">
                                     <Trash2 size={14} />
                                 </button>
                             </div>

@@ -95,7 +95,7 @@ const TopAuthors = () => {
   const handleExport = () => {
     const exportData = authors.map((item) => ({
       "Order": item.order,
-      "Author": `${item.authorId?.first_name} ${item.authorId?.last_name}`,
+      "Author": `${item.authorData?.firstName || ''} ${item.authorData?.lastName || ''}`.trim(),
       "Book": item.bookId?.title || "N/A",
       "Award/Role": item.role || "N/A",
       "Quote": item.quote || "N/A", // 🟢 Backend sync
@@ -173,20 +173,20 @@ const TopAuthors = () => {
                 <tr><td colSpan="6" className="p-16 text-center"><Loader2 className="animate-spin inline text-primary mr-2" /> Syncing with backend...</td></tr>
               ) : authors.length > 0 ? (
                 authors.map((item) => (
-                  <tr key={item._id} className="hover:bg-blue-50/40 transition-colors group">
+                  <tr key={item.id} className="hover:bg-blue-50/40 transition-colors group">
                     <td className="p-4 text-center border-r border-gray-50 font-black text-primary text-base">
                        {item.order}
                     </td>
                     
                     <td className="p-4 border-r border-gray-50">
                       <div className="flex items-center gap-3">
-                        <img 
-                          src={`${process.env.REACT_APP_API_URL}${item.authorId?.picture}`} 
-                          className="w-12 h-12 rounded-full object-cover border-2 border-cream-200 p-0.5" 
-                          alt="" 
+                        <img
+                          src={`${process.env.REACT_APP_API_URL}${item.authorData?.picture}`}
+                          className="w-12 h-12 rounded-full object-cover border-2 border-cream-200 p-0.5"
+                          alt=""
                         />
                         <div>
-                          <p className="font-bold text-text-main text-sm">{item.authorId?.first_name} {item.authorId?.last_name}</p>
+                          <p className="font-bold text-text-main text-sm">{item.authorData?.firstName} {item.authorData?.lastName}</p>
                           <div className="flex items-center gap-1 text-[10px] text-primary font-bold uppercase tracking-tight">
                             <Award size={10} /> {item.role || 'No Award Linked'}
                           </div>
@@ -196,8 +196,8 @@ const TopAuthors = () => {
 
                     <td className="p-4 border-r border-gray-50">
                        <div className="flex items-center gap-2">
-                          <img src={`${process.env.REACT_APP_API_URL}${item.bookId?.default_image}`} className="w-8 h-12 object-cover rounded shadow-sm border border-cream-200" alt="" />
-                          <span className="text-xs font-medium text-gray-600 line-clamp-2">{item.bookId?.title || "No Book Linked"}</span>
+                          <img src={`${process.env.REACT_APP_API_URL}${item.bookData?.defaultImage}`} className="w-8 h-12 object-cover rounded shadow-sm border border-cream-200" alt="" />
+                          <span className="text-xs font-medium text-gray-600 line-clamp-2">{item.bookData?.title || "No Book Linked"}</span>
                        </div>
                     </td>
 
@@ -217,8 +217,8 @@ const TopAuthors = () => {
 
                     <td className="p-4 text-center">
                       <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                        <button onClick={() => navigate(`/admin/edit-top-author/${item._id}`)} className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm"><Edit size={14} /></button>
-                        <button onClick={() => handleDelete(item._id)} className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all shadow-sm"><Trash2 size={14} /></button>
+                        <button onClick={() => navigate(`/admin/edit-top-author/${item.id}`)} className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm"><Edit size={14} /></button>
+                        <button onClick={() => handleDelete(item.id)} className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all shadow-sm"><Trash2 size={14} /></button>
                       </div>
                     </td>
                   </tr>

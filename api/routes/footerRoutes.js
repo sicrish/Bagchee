@@ -1,12 +1,16 @@
 import express from 'express';
 import * as FooterController from '../controller/footerController.js';
+import adminAuth from '../middleware/adminAuth.middleware.js';
 
 const router = express.Router();
 
-router.post('/save', FooterController.saveFooter);
-router.get('/list', FooterController.listFooter);
+// PUBLIC — footer content displayed on every page
+router.get('/list',    FooterController.listFooter);
 router.get('/get/:id', FooterController.getFooterById);
-router.patch('/update/:id', FooterController.updateFooter);
-router.delete('/delete/:id', FooterController.deleteFooter)
+
+// ADMIN — mutations
+router.post('/save',         adminAuth, FooterController.saveFooter);
+router.patch('/update/:id',  adminAuth, FooterController.updateFooter);
+router.delete('/delete/:id', adminAuth, FooterController.deleteFooter);
 
 export default router;

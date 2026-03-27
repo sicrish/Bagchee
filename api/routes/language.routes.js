@@ -1,13 +1,16 @@
 import express from "express";
 import * as LanguageController from "../controller/language.controller.js";
+import adminAuth from '../middleware/adminAuth.middleware.js';
 
 const router = express.Router();
 
-// Define Routes
-router.post("/save", LanguageController.saveLanguage);          // Create
-router.get("/list", LanguageController.getAllLanguages);        // Read All
-router.get("/get/:id", LanguageController.getLanguageById);     // Read One
-router.patch("/update/:id", LanguageController.updateLanguage);   // Update
-router.delete("/delete/:id", LanguageController.deleteLanguage);// Delete
+// PUBLIC — languages used in website filters/dropdowns
+router.get("/list",    LanguageController.getAllLanguages);
+router.get("/get/:id", LanguageController.getLanguageById);
+
+// ADMIN — mutations
+router.post("/save",         adminAuth, LanguageController.saveLanguage);
+router.patch("/update/:id",  adminAuth, LanguageController.updateLanguage);
+router.delete("/delete/:id", adminAuth, LanguageController.deleteLanguage);
 
 export default router;

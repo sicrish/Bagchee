@@ -7,6 +7,7 @@ import { CurrencyContext } from '../../../../context/CurrencyContext.jsx';
 import { useCart } from '../../../../context/CartContext.jsx'; // 🟢 Cart Context
 import ProductModal from '../../ProductModal.jsx'; // 🟢 Modal Import
 import toast from 'react-hot-toast';
+import { getProductImageUrl } from '../../../../utils/imageUrl.js';
 
 // 🟢 Skeleton Loader for Fast UX Feel
 const ProductSkeleton = () => (
@@ -19,6 +20,15 @@ const ProductSkeleton = () => (
     </div>
   </div>
 );
+
+const makeBookUrl = (book) => {
+  const slug = (book.title || 'product')
+    .toLowerCase().trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+  return `/books/${book.bagcheeId || book.id}/${slug}`;
+};
 
 const Bestsellers = () => {
   const navigate = useNavigate();
@@ -46,16 +56,7 @@ const Bestsellers = () => {
   });
 
   const products = data?.data || [];
-  // console.log("products",products)
   const totalPages = Math.ceil((data?.total || 0) / itemsPerPage);
-
-  // 🛠️ Image URL Logic
-  const getImageUrl = useCallback((imgRaw) => {
-    if (!imgRaw) return "https://placehold.co/300x450?text=No+Image";
-    if (imgRaw.startsWith('http')) return imgRaw;
-    const API_BASE = process.env.REACT_APP_API_URL?.replace('/api', '') || "http://localhost:5000";
-    return `${API_BASE}${imgRaw.startsWith('/') ? '' : '/'}${imgRaw}`;
-  }, []);
 
   // 🟢 Modal Handler (Quick View)
   const openModal = useCallback((e, product) => {
@@ -99,8 +100,8 @@ const Bestsellers = () => {
                   "Browse our bestselling titles and hidden gems"
                 </p>
             </div>
-            <Link to="/book?sort=bestseller" className="flex items-center gap-2 text-xs md:text-sm uppercase tracking-wider text-text-main hover:text-primary transition-colors self-end md:self-auto font-montserrat">
-                See All Offers <ArrowRight size={16} />
+            <Link to="/bestsellers" className="flex items-center gap-2 text-xs md:text-sm uppercase tracking-wider text-text-main hover:text-primary transition-colors self-end md:self-auto font-montserrat">
+                See All <ArrowRight size={16} />
             </Link>
         </div>
 
@@ -120,22 +121,23 @@ const Bestsellers = () => {
                 Array(itemsPerPage).fill(0).map((_, i) => <ProductSkeleton key={i} />)
             ) : (
                 products.map((book) => {
-                    if (!book?._id) return null;
-                    // console.log(`Product: ${book.title} | Price: ${book.price} | INR: ${book.inr_price} | Real: ${book.real_price} | Discount: ${book.discount}%`);
-                    const imageUrl = getImageUrl(book.default_image || book.producticonname);
-                    const authorName = typeof book.author === 'object' ? `${book.author.first_name || ''} ${book.author.last_name || ''}` : book.author;
+                    if (!book?.id) return null;
+                    const imageUrl = getProductImageUrl(book);
+                    const authorName = book.authors?.[0]?.author?.fullName
+                        || `${book.authors?.[0]?.author?.firstName || ''} ${book.authors?.[0]?.author?.lastName || ''}`.trim()
+                        || (typeof book.author === 'object' ? (book.author?.name || book.author?.firstName || '') : (book.author || ''));
 
                     return (
-                        <div key={book._id} className="bg-cream-100 hover:shadow-xl transition-all group cursor-pointer flex flex-col block rounded-lg overflow-hidden border border-transparent hover:border-primary-100 relative">
+                        <div key={book.id} className="bg-cream-100 hover:shadow-xl transition-all group cursor-pointer flex flex-col block rounded-lg overflow-hidden border border-transparent hover:border-primary-100 relative">
                         
                             {/* 🟢 Image Click -> Detail Page */}
-                            <div className="relative aspect-[2/3] overflow-hidden" onClick={() => navigate(`/product/${book._id}`)}>
+                            <div className="relative aspect-[2/3] overflow-hidden" onClick={() => navigate(makeBookUrl(book))}>
                                 <img 
                                     src={imageUrl} 
                                     alt={book.title} 
                                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                                     loading="lazy"
-                                    onError={(e) => { e.target.src = "https://placehold.co/300x450?text=Error"; }}
+                                    onError={(e) => { e.target.src = "https://placehold.co/300x450/f9f5ef/1a3c5e?text=No+Cover"; }}
                                 />
                                 
                                 {book.discount > 0 && (
@@ -155,7 +157,7 @@ const Bestsellers = () => {
 
                             {/* Content Area */}
                             <div className="text-left px-3 pt-3 flex flex-col flex-1 pb-3">
-                                <Link to={`/product/${book._id}`}>
+                                <Link to={makeBookUrl(book)}>
                                     <h3 className="font-display font-bold text-text-main text-xs md:text-sm truncate" title={book.title}>
                                         {book.title}
                                     </h3>
@@ -166,21 +168,21 @@ const Bestsellers = () => {
                                 
                                 <div className="mt-auto pt-3 flex items-center justify-between gap-1">
                                     <div className="flex flex-col leading-none">
-                                        {Number(book.price) > Number(book.real_price) && (
+                                        {Number(book.price) > Number(book.realPrice || book.real_price) && (
                                              <span className="text-[10px] md:text-xs text-text-muted line-through font-body opacity-60">
-                                                {formatPrice(book.price, book.inr_price, book.price)}
+                                                {formatPrice(book.price, book.inrPrice || book.inr_price, book.price)}
                                              </span>
                                         )}
                                         <p className="text-primary font-bold text-sm md:text-base font-montserrat">
-                                            {formatPrice(book.price, book.inr_price, book.real_price)}
+                                            {formatPrice(book.price, book.inrPrice || book.inr_price, book.realPrice || book.real_price)}
                                         </p>
                                     </div>
                                     <div className="flex items-center gap-1">
                                         <button 
-                                            className={`p-1 md:p-1.5 rounded-full transition-all ${isInWishlist(book._id) ? 'text-red-500 bg-red-50' : 'text-text-muted hover:text-red-500 hover:bg-red-50'}`} 
+                                            className={`p-1 md:p-1.5 rounded-full transition-all ${isInWishlist(book.id) ? 'text-red-500 bg-red-50' : 'text-text-muted hover:text-red-500 hover:bg-red-50'}`} 
                                             onClick={(e) => handleWishlist(e, book)}
                                         >
-                                            <Heart size={16} fill={isInWishlist(book._id) ? "currentColor" : "none"} className="md:w-[18px] md:h-[18px]" />
+                                            <Heart size={16} fill={isInWishlist(book.id) ? "currentColor" : "none"} className="md:w-[18px] md:h-[18px]" />
                                         </button>
                                         <button 
                                             className="text-text-muted hover:text-primary hover:bg-primary/10 p-1 md:p-1.5 rounded-full transition-all" 

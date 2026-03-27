@@ -1,483 +1,390 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import sendMail from './email.controller.js';
-import UserSchemaModel from '../models/user.model.js';
+import prisma from '../lib/prisma.js';
 import dotenv from 'dotenv';
-
-// 🟢 1. Local File Utilities Import (Cloudinary Removed)
 import { saveFileLocal, deleteFileLocal } from '../utils/fileHandler.js';
 
 dotenv.config();
 
-// ==========================================
-// 🔐 VERIFY USER (Token Check)
-// ==========================================
+// Field mapping: firstname→firstName, lastname→lastName, isGuest(string)→isGuest(Boolean).
+// Wishlist: Wishlist junction table (@@unique([userId,productId])) — upsert or P2002 catch.
+// Address: separate Address table with userId FK (not embedded array).
+// phone: nullable (no unique constraint — use null not undefined).
+
 export const verifyUser = async (req, res) => {
     try {
-        if (!req.user || !req.user.userId) {
-            return res.status(400).json({ success: false, msg: "Invalid Token Data" });
-        }
-        const user = await UserSchemaModel.findById(req.user.userId).select("-password");
-        if (!user) {
-            return res.status(404).json({ success: false, msg: "User not found" });
-        }
-        res.status(200).json({ 
-            success: true, 
-            user: {
-                id: user._id,
-                name: user.name,
-                email: user.email,
-                role: user.role, 
-                profileImage: user.profileImage
-            } 
+        if (!req.user?.userId) return res.status(400).json({ success: false, msg: 'Invalid Token Data' });
+        const user = await prisma.user.findUnique({
+            where: { id: parseInt(req.user.userId) },
+            select: { id: true, name: true, email: true, role: true, profileImage: true }
         });
+        if (!user) return res.status(404).json({ success: false, msg: 'User not found' });
+        res.status(200).json({ success: true, user });
     } catch (error) {
-        console.error("Verify Error:", error);
-        res.status(500).json({ success: false, msg: "Server Error during verification" });
+        res.status(500).json({ success: false, msg: 'Server Error during verification' });
     }
 };
 
-// ==========================================
-// 📝 REGISTER USER (Local Storage & Safe)
-// ==========================================
 export const register = async (req, res) => {
     try {
-        // console.log("🔹 Register Request Body:", req.body);
+        let { firstName, lastName, firstname, lastname, username, email, password,
+            status, company, phone, membership, membershipStart, membershipEnd, isGuest } = req.body;
 
-        // 1. Data Extraction (Frontend aur Backend dono styles handle karein)
-        let { 
-            // React se ye aayenge:
-            firstName, lastName, 
-            // Admin panel se ye aa sakte hain:
-            firstname, lastname, 
-            // Common fields:
-            username, email, password, status, company, phone, membership, membershipStart, membershipEnd, isGuest
-        } = req.body;
+        const finalFirstName = firstname || firstName || '';
+        const finalLastName = lastname || lastName || '';
+        const fullName = `${finalFirstName} ${finalLastName}`.trim() || username || 'Unknown User';
 
-        // 🟢 FIX 1: Name Normalization (Sabko ek variable me lo)
-        // Agar 'firstname' hai to wo lo, nahi to 'firstName', nahi to empty string
-        const finalFirstName = firstname || firstName || "";
-        const finalLastName = lastname || lastName || "";
-
-        // 🟢 FIX 2: Generate Full Name (Model me 'name' required hai isliye ye zaruri hai)
-        const fullName = `${finalFirstName} ${finalLastName}`.trim() || username || "Unknown User";
-
-        // 🟢 FIX 3: Auto-Generate Username (Agar missing hai)
-        if (!username && email) {
-            username = email.split('@')[0]; 
-        }
-        if (!finalFirstName) {
-            return res.status(400).json({ status: false, msg: "First Name is required." });
-        }
-       // 2. Strict Validation (Specific Messages)
-       if (!email) {
-        return res.status(400).json({ status: false, msg: "Email is required." });
-    }
-
-    if (!password) {
-        return res.status(400).json({ status: false, msg: "Password is required." });
-    }
-
-        // 3. Duplicate Check
-        const existingUser = await UserSchemaModel.findOne({ 
-            $or: [{ email: email }, { username: username }] 
-        }).lean();;
-        
-        if (existingUser) {
-            return res.status(400).json({ status: false, msg: "User already exists with this email or username." });
+        if (!username && email) username = email.split('@')[0];
+        if (!finalFirstName) return res.status(400).json({ status: false, msg: 'First Name is required.' });
+        if (!email) return res.status(400).json({ status: false, msg: 'Email is required.' });
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ status: false, msg: 'Invalid email format.' });
+        if (!password) return res.status(400).json({ status: false, msg: 'Password is required.' });
+        if (password.length < 8) return res.status(400).json({ status: false, msg: 'Password must be at least 8 characters.' });
+        if (!/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
+            return res.status(400).json({ status: false, msg: 'Password must contain at least one uppercase letter and one number.' });
         }
 
-        // 4. Image Upload Logic (Same as before)
-        let profileImageUrl = "";
-        if (req.files && req.files.profileImage) {
+        const existing = await prisma.user.findFirst({
+            where: { OR: [{ email }, { username: username || '' }] }
+        });
+        if (existing) return res.status(400).json({ status: false, msg: 'User already exists with this email or username.' });
+
+        let profileImageUrl = '';
+        if (req.files?.profileImage) {
             try {
-                profileImageUrl = await saveFileLocal(req.files.profileImage, "users");
+                profileImageUrl = await saveFileLocal(req.files.profileImage, 'users');
             } catch (uploadError) {
                 return res.status(400).json({ status: false, msg: uploadError.message });
             }
         }
 
-        // 5. Password Hashing
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
+        const hashedPassword = await bcrypt.hash(password, 10);
 
-        // 6. Create User Object
-        // Yahan hum model ko 'firstname', 'lastname' aur 'name' teeno de rahe hain
-        const newUser = new UserSchemaModel({
-            name: fullName,           // ✅ Required field satisfied
-            firstname: finalFirstName, // ✅ Data consistency
-            lastname: finalLastName,   // ✅ Data consistency
-            username: username,
-            email: email,
-            password: hashedPassword,
-            role: "user",
-            status: status || 1,
-            company: company || "",
-            // Phone check (Empty string mat bhejo, undefined bhejo taaki unique error na aaye)
-            phone: (phone && phone.trim() !== "") ? phone : undefined,
-            profileImage: profileImageUrl,
-            membership: membership || "inactive",
-            membershipStart: membershipStart || null,
-            membershipEnd: membershipEnd || null,
-            isGuest: isGuest || "inactive"
+        const user = await prisma.user.create({
+            data: {
+                name: fullName,
+                firstName: finalFirstName,
+                lastName: finalLastName,
+                username: username || '',
+                email,
+                password: hashedPassword,
+                role: 'user',
+                status: Number(status) || 1,
+                company: company || '',
+                phone: phone?.trim() || null,
+                profileImage: profileImageUrl,
+                membership: membership || 'inactive',
+                membershipStart: membershipStart ? new Date(membershipStart) : null,
+                membershipEnd: membershipEnd ? new Date(membershipEnd) : null,
+                isGuest: isGuest === true || isGuest === 'active'
+            }
         });
 
-        // 7. Save to DB
-        // Tumhara pre('save') hook chalega, par kyunki humne data pehle hi sahi de diya hai, wo confuse nahi hoga.
-        const user = await newUser.save();
+        try { await sendMail(user.email, user.name); } catch (e) { /* email non-critical */ }
 
-        // Optional: Send Email
-        if(user){
-            try { await sendMail(user.email, user.name); } catch(e) { console.error("Email failed", e); }
-        }
-
-        res.status(201).json({ status: true, msg: "User registered successfully", userId: user._id });
-
+        res.status(201).json({ status: true, msg: 'User registered successfully', userId: user.id });
     } catch (error) {
-        console.error("🔥 Register Controller Crash:", error);
-        
-        if (error.code === 11000) {
-            // Duplicate key error handle karne ke liye
-            const field = Object.keys(error.keyValue)[0];
-            return res.status(400).json({ status: false, msg: `Duplicate value entered for ${field}` });
+        if (error.code === 'P2002') {
+            const field = error.meta?.target?.[0] || 'field';
+            return res.status(400).json({ status: false, msg: `Duplicate value for ${field}` });
         }
-        res.status(500).json({ status: false, msg: "Registration failed due to server error.", error: error.message });
+        res.status(500).json({ status: false, msg: 'Registration failed.' });
     }
 };
 
-// ==========================================
-// 🔑 LOGIN USER
-// ==========================================
 export const login = async (req, res) => {
     try {
-        const { email, password, rememberMe } = req.body; 
+        const { email, password, rememberMe } = req.body;
+        if (!email || !password) return res.status(400).json({ status: false, msg: 'Email and Password required' });
 
-        if (!email || !password) {
-            return res.status(400).json({ status: false, msg: "Email and Password required" });
-        }
-
-        const user = await UserSchemaModel.findOne({ email: email });
-        if (!user) return res.status(404).json({ status: false, msg: "User not found" });
+        const user = await prisma.user.findUnique({ where: { email } });
+        if (!user) return res.status(404).json({ status: false, msg: 'User not found' });
 
         const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) return res.status(401).json({ status: false, msg: "Invalid Credentials" });
+        if (!isMatch) return res.status(401).json({ status: false, msg: 'Invalid Credentials' });
 
-        const secretKey = process.env.JWT_SECRET_KEY; 
-        const payload = { subject: user.email, userId: user._id, role: user.role };
-        const expireTime = rememberMe ? '7d' : '1h';
-        const token = jwt.sign(payload, secretKey, { expiresIn: expireTime });
+        const payload = { subject: user.email, userId: user.id, role: user.role };
+        const token = jwt.sign(payload, process.env.JWT_SECRET_KEY, { expiresIn: rememberMe ? '7d' : '1h' });
 
-        res.status(200).json({ 
-            status: true,
-            msg: "Login Success",
-            token: token, 
+        res.status(200).json({
+            status: true, msg: 'Login Success', token,
             userDetails: {
-                id: user._id,
-                name: user.name,
-                email: user.email,
-                phone: user.phone,          
-                profileImage: user.profileImage, 
-                role: user.role,
-                membership: user.membership
+                id: user.id, name: user.name, email: user.email,
+                phone: user.phone, profileImage: user.profileImage,
+                role: user.role, membership: user.membership
             }
         });
     } catch (error) {
-        console.error("Login Error:", error);
-        res.status(500).json({ status: false, msg: "Login Error", error: error.message });
+        res.status(500).json({ status: false, msg: 'Login Error' });
     }
 };
 
-// ==========================================
-// 📋 FETCH USERS (WITH PAGINATION & FILTERS)
-// ==========================================
 export const fetch = async (req, res) => {
     try {
-        // 1. Params Extraction
-        const { page, limit, ...filters } = req.query;
-
-        // 2. Pagination Logic
+        const { page, limit, role, status: statusFilter, email } = req.query;
         const pageNum = Math.max(1, parseInt(page) || 1);
-        const pageSize = Math.max(1, parseInt(limit) || 10);
+        const pageSize = Math.min(100, Math.max(1, parseInt(limit) || 10));
         const skip = (pageNum - 1) * pageSize;
 
-        // 3. Database Queries (Parallel execution for speed)
-        // .lean() use karne se query fast ho jaati hai
+        const where = {};
+        if (role) where.role = role;
+        if (statusFilter !== undefined && statusFilter !== '') where.status = parseInt(statusFilter);
+        if (email) where.email = { contains: email, mode: 'insensitive' };
+
         const [userList, total] = await Promise.all([
-            UserSchemaModel.find(filters)
-                .sort({ createdAt: -1 })
-                .skip(skip)
-                .limit(pageSize)
-                .lean(),
-            UserSchemaModel.countDocuments(filters)
+            prisma.user.findMany({
+                where, orderBy: { createdAt: 'desc' }, skip, take: pageSize,
+                select: { id: true, name: true, firstName: true, lastName: true, email: true,
+                    username: true, phone: true, role: true, status: true, profileImage: true,
+                    membership: true, createdAt: true }
+            }),
+            prisma.user.count({ where })
         ]);
 
-        // 🟢 FIX: Agar list khali hai toh 404 nahi, balki status true aur empty array bhejein
-        // Isse frontend ka Loader band ho jayega aur table "No users" dikha payega.
-        res.status(200).json({ 
-            status: true, 
-            data: userList, // [] if no users
-            total,
-            totalPages: Math.ceil(total / pageSize),
-            currentPage: pageNum,
-            msg: userList.length > 0 ? "Users fetched" : "No users found"
+        res.status(200).json({
+            status: true, data: userList, total,
+            totalPages: Math.ceil(total / pageSize), currentPage: pageNum,
+            msg: userList.length > 0 ? 'Users fetched' : 'No users found'
         });
-
     } catch (error) {
-        console.error("🔥 Fetch Users Error:", error);
-        res.status(500).json({ 
-            status: false, 
-            msg: "Server Error", 
-            error: error.message 
-        });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// ==========================================
-// 👤 FETCH SINGLE USER
-// ==========================================
 export const fetchUserById = async (req, res) => {
     try {
-        const { id } = req.params;
-        if(!id) return res.status(400).json({ status: false, msg: "ID missing" });
-
-        const user = await UserSchemaModel.findById(id);
-        
-        if (user) {
-            res.status(200).json({ status: true, data: user });
-        } else {
-            res.status(404).json({ status: false, msg: "User not found" });
-        }
+        const id = parseInt(req.params.id);
+        if (!id) return res.status(400).json({ status: false, msg: 'ID missing' });
+        const user = await prisma.user.findUnique({
+            where: { id },
+            select: { id: true, name: true, firstName: true, lastName: true, email: true,
+                username: true, phone: true, role: true, status: true, profileImage: true,
+                membership: true, membershipStart: true, membershipEnd: true, company: true,
+                gender: true, city: true, state: true, pincode: true, country: true, createdAt: true }
+        });
+        if (!user) return res.status(404).json({ status: false, msg: 'User not found' });
+        res.status(200).json({ status: true, data: user });
     } catch (error) {
-        res.status(500).json({ status: false, msg: "Server Error", error: error.message });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// ==========================================
-// ✏️ UPDATE USER (Safe Local Image Swap)
-// ==========================================
 export const update = async (req, res) => {
     try {
-        const userId = req.body.userId || req.params.id;
-        const { ...updateFields } = req.body;
+        // If no :id param, user is updating their own profile; admins can update any user by id
+        const userId = req.params.id ? parseInt(req.params.id) : parseInt(req.user.userId);
+        if (!userId || isNaN(userId)) return res.status(400).json({ status: false, msg: 'User ID is required' });
 
-        if (!userId) {
-            return res.status(400).json({ status: false, msg: "User ID is required" });
+        // SECURITY: Non-admin users can only update their own profile
+        if (req.user.role !== 'admin' && userId !== parseInt(req.user.userId)) {
+            return res.status(403).json({ status: false, msg: 'You can only update your own profile' });
         }
 
-        // Clean Phone Number
-        if (updateFields.phone === "") {
-            updateFields.phone = undefined;
-        }
+        const existing = await prisma.user.findUnique({ where: { id: userId } });
+        if (!existing) return res.status(404).json({ status: false, msg: 'User not found' });
 
-        // 🟢 IMAGE UPDATE LOGIC
-        if (req.files && req.files.profileImage) {
+        const updateData = {};
+
+        // SECURITY: Only admins can change role, status, or membership fields
+        const isAdmin = req.user.role === 'admin';
+
+        // Image update
+        if (req.files?.profileImage) {
             try {
-                // 1. Pehle user dhundo
-                const currentUser = await UserSchemaModel.findById(userId);
-
-                // 2. Nayi image save karne ki koshish karo
-                const newImagePath = await saveFileLocal(req.files.profileImage);
-                
-                // Agar save success ho gaya, tabhi purani delete karo (Safety)
-                if (newImagePath) {
-                    if (currentUser && currentUser.profileImage) {
-                        await deleteFileLocal(currentUser.profileImage);
-                    }
-                    // Fields update karo
-                    updateFields.profileImage = newImagePath;
-                }
-
-            } catch (uploadError) {
-                console.error("Image Update Failed:", uploadError.message);
-                return res.status(400).json({ status: false, msg: `Image Error: ${uploadError.message}` });
+                const newPath = await saveFileLocal(req.files.profileImage, 'users');
+                if (existing.profileImage) await deleteFileLocal(existing.profileImage);
+                updateData.profileImage = newPath;
+            } catch (err) {
+                return res.status(400).json({ status: false, msg: `Image Error: ${err.message}` });
             }
         }
 
-        // Manual Name Sync Logic
-        if (updateFields.firstname || updateFields.lastname) {
-            const currentUser = await UserSchemaModel.findById(userId);
-            const fName = updateFields.firstname || (currentUser ? currentUser.firstname : "");
-            const lName = updateFields.lastname || (currentUser ? currentUser.lastname : "");
-            updateFields.name = `${fName} ${lName}`.trim();
+        // Scalar fields
+        const { firstname, lastname, firstName, lastName, username, email, phone,
+            company, role, status, membership, membershipStart, membershipEnd, gender,
+            city, state, pincode, country } = req.body;
+
+        const fName = firstname || firstName;
+        const lName = lastname || lastName;
+
+        if (fName !== undefined) updateData.firstName = fName;
+        if (lName !== undefined) updateData.lastName = lName;
+        if (fName !== undefined || lName !== undefined) {
+            updateData.name = `${fName ?? existing.firstName} ${lName ?? existing.lastName}`.trim();
         }
+        if (username !== undefined) updateData.username = username;
+        if (email !== undefined) updateData.email = email;
+        if (phone !== undefined) updateData.phone = phone?.trim() || null;
+        if (company !== undefined) updateData.company = company;
+        // SECURITY: Only admins can escalate roles or change account status/membership
+        if (role !== undefined && isAdmin) updateData.role = role;
+        if (status !== undefined && isAdmin) updateData.status = parseInt(status);
+        if (membership !== undefined && isAdmin) updateData.membership = membership;
+        if (membershipStart !== undefined && isAdmin) updateData.membershipStart = membershipStart ? new Date(membershipStart) : null;
+        if (membershipEnd !== undefined && isAdmin) updateData.membershipEnd = membershipEnd ? new Date(membershipEnd) : null;
+        if (gender !== undefined) updateData.gender = gender;
+        if (city !== undefined) updateData.city = city;
+        if (state !== undefined) updateData.state = state;
+        if (pincode !== undefined) updateData.pincode = pincode;
+        if (country !== undefined) updateData.country = country;
 
-        // Database Update
-        const user = await UserSchemaModel.findByIdAndUpdate(
-            userId,
-            { $set: updateFields },
-            { new: true, runValidators: true } 
-        );
-
-        if (user) {
-            res.status(200).json({ status: true, msg: "Profile Updated Successfully", data: user });
-        } else {
-            res.status(404).json({ status: false, msg: "User not found" });
-        }
-
+        const user = await prisma.user.update({ where: { id: userId }, data: updateData });
+        res.status(200).json({ status: true, msg: 'Profile Updated Successfully', data: user });
     } catch (error) {
-        console.error("🔥 Update Controller Crash:", error);
-        if (error.code === 11000) {
-            return res.status(400).json({ status: false, msg: "Duplicate data (Email/Phone/Username) exists." });
-        }
-        res.status(500).json({ status: false, msg: "Update Failed", error: error.message });
+        if (error.code === 'P2002') return res.status(400).json({ status: false, msg: 'Duplicate data (Email/Username) exists.' });
+        res.status(500).json({ status: false, msg: 'Update Failed' });
     }
 };
 
-// ==========================================
-// 🗑️ DELETE USER (Local File Cleanup)
-// ==========================================
 export const deleteuser = async (req, res) => {
     try {
-        const userId = req.params.id || req.body._id;
-        if(!userId) return res.status(400).json({status: false, msg: "User ID Required"});
+        const userId = req.params.id ? parseInt(req.params.id) : parseInt(req.user.userId);
+        if (!userId || isNaN(userId)) return res.status(400).json({ status: false, msg: 'User ID Required' });
 
-        const userToDelete = await UserSchemaModel.findById(userId);
-        if (!userToDelete) return res.status(404).json({ status: false, msg: "User not found" });
-
-        // 🟢 Delete Local Image
-        if (userToDelete.profileImage) {
-            try {
-                await deleteFileLocal(userToDelete.profileImage);
-            } catch (e) { 
-                console.error("Image delete failed (ignoring to continue user delete):", e); 
-            }
+        // SECURITY: Non-admin users can only delete their own account
+        if (req.user.role !== 'admin' && userId !== parseInt(req.user.userId)) {
+            return res.status(403).json({ status: false, msg: 'Access denied' });
         }
 
-        await UserSchemaModel.deleteOne({ _id: userId });
-        res.status(200).json({ status: true, msg: "User deleted successfully" });
-        
-    } catch (error) {
-        console.error("Delete Error:", error);
-        res.status(500).json({ status: false, msg: "Deletion Failed", error: error.message });
-    }
-};  
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user) return res.status(404).json({ status: false, msg: 'User not found' });
 
-// 7. WISHLIST LOGIC (Unchanged)
+        if (user.profileImage) {
+            try { await deleteFileLocal(user.profileImage); } catch (e) { /* non-critical */ }
+        }
+
+        // Cascade: addresses, wishlist, orders deleted automatically via onDelete: Cascade
+        await prisma.user.delete({ where: { id: userId } });
+        res.status(200).json({ status: true, msg: 'User deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ status: false, msg: 'Deletion Failed' });
+    }
+};
+
+export const changePassword = async (req, res) => {
+    try {
+        const { oldPassword, currentPassword, newPassword } = req.body;
+        const prevPassword = oldPassword || currentPassword;
+        const user = await prisma.user.findUnique({ where: { id: parseInt(req.user.userId) } });
+        if (!user) return res.status(404).json({ status: false, msg: 'User not found' });
+
+        const isMatch = await bcrypt.compare(prevPassword, user.password);
+        if (!isMatch) return res.status(400).json({ status: false, msg: 'Incorrect old password' });
+        if (!newPassword || newPassword.length < 8) return res.status(400).json({ status: false, msg: 'New password must be at least 8 characters.' });
+        if (!/[A-Z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+            return res.status(400).json({ status: false, msg: 'New password must contain at least one uppercase letter and one number.' });
+        }
+
+        const hashed = await bcrypt.hash(newPassword, 10);
+        await prisma.user.update({ where: { id: user.id }, data: { password: hashed } });
+        res.status(200).json({ status: true, msg: 'Password changed successfully' });
+    } catch (error) {
+        res.status(500).json({ status: false, msg: 'Server Error' });
+    }
+};
+
+// Wishlist — Wishlist junction table with @@unique([userId, productId])
 export const addToWishlist = async (req, res) => {
     try {
-        const { userId, productId } = req.body;
-        const user = await UserSchemaModel.findByIdAndUpdate(
-            userId,
-            { $addToSet: { wishlist: productId } }, 
-            { new: true }
-        );
-        res.status(200).json({ status: true, msg: "Added to wishlist", wishlist: user.wishlist });
+        const userId = parseInt(req.user.userId);
+        const productId = parseInt(req.body.productId);
+        // upsert: create if not exists, no-op if already exists
+        await prisma.wishlist.upsert({
+            where: { userId_productId: { userId, productId } },
+            update: {},
+            create: { userId, productId }
+        });
+        const wishlist = await prisma.wishlist.findMany({ where: { userId }, select: { productId: true } });
+        res.status(200).json({ status: true, msg: 'Added to wishlist', wishlist: wishlist.map(w => w.productId) });
     } catch (error) {
-        res.status(500).json({ status: false, msg: "Server Error", error: error.message });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
 export const removeFromWishlist = async (req, res) => {
     try {
-        const { userId, productId } = req.body;
-        const user = await UserSchemaModel.findByIdAndUpdate(
-            userId,
-            { $pull: { wishlist: productId } },
-            { new: true }
-        );
-        res.status(200).json({ status: true, msg: "Removed from wishlist", wishlist: user.wishlist });
+        const userId = parseInt(req.user.userId);
+        const productId = parseInt(req.body.productId);
+        await prisma.wishlist.deleteMany({ where: { userId, productId } });
+        const wishlist = await prisma.wishlist.findMany({ where: { userId }, select: { productId: true } });
+        res.status(200).json({ status: true, msg: 'Removed from wishlist', wishlist: wishlist.map(w => w.productId) });
     } catch (error) {
-        res.status(500).json({ status: false, msg: "Server Error", error: error.message });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
 export const getWishlist = async (req, res) => {
     try {
-        const userId = req.query.userId;
-        const user = await UserSchemaModel.findById(userId).populate("wishlist");
-
-        if (!user) {
-            return res.status(404).json({ status: false, msg: "User not found" });
-        }
-        res.status(200).json({ status: true, wishlist: user.wishlist });
+        const userId = parseInt(req.user.userId);
+        const entries = await prisma.wishlist.findMany({
+            where: { userId },
+            include: {
+                product: {
+                    select: { id: true, title: true, price: true, inrPrice: true, realPrice: true,
+                        discount: true, defaultImage: true, bagcheeId: true, isbn13: true, isActive: true }
+                }
+            }
+        });
+        const wishlist = entries.filter(e => e.product).map(e => e.product);
+        res.status(200).json({ status: true, wishlist });
     } catch (error) {
-        res.status(500).json({ status: false, msg: "Server Error", error: error.message });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// 8. CHANGE PASSWORD (Unchanged)
-export const changePassword = async (req, res) => {
-    try {
-        const { userId, oldPassword, newPassword } = req.body;
-
-        const user = await UserSchemaModel.findById(userId);
-        if (!user) {
-            return res.status(404).json({ status: false, msg: "User not found" });
-        }
-
-        const isMatch = await bcrypt.compare(oldPassword, user.password);
-        if (!isMatch) {
-            return res.status(400).json({ status: false, msg: "Incorrect old password" });
-        }
-
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(newPassword, salt);
-
-        user.password = hashedPassword;
-        await user.save();
-
-        res.status(200).json({ status: true, msg: "Password changed successfully" });
-
-    } catch (error) {
-        res.status(500).json({ status: false, msg: "Server Error", error: error.message });
-    }
-};
-
-// 9. ADDRESS MANAGEMENT (Unchanged)
+// Address — separate Address table, not embedded array
 export const addAddress = async (req, res) => {
     try {
-        const { userId, ...addressData } = req.body;
-        if (!userId) return res.status(400).json({ status: false, msg: "User ID required" });
+        const userId = parseInt(req.user.userId);
+        const { type, firstName, lastname, lastName, houseNo, street,
+            address2, landmark, city, state, pincode, country, phone, company, isDefault } = req.body;
 
-        const user = await UserSchemaModel.findByIdAndUpdate(
-            userId,
-            { $push: { address: addressData } }, 
-            { new: true }
-        );
-
-        if (user) {
-            res.status(200).json({ status: true, msg: "Address added", addresses: user.address });
-        } else {
-            res.status(404).json({ status: false, msg: "User not found" });
-        }
+        const address = await prisma.address.create({
+            data: {
+                userId,
+                type: type || 'Home',
+                firstName: firstName || '',
+                lastName: lastname || lastName || '',
+                houseNo: houseNo || '',
+                street: street || '',
+                address2: address2 || '',
+                landmark: landmark || '',
+                city: city || '',
+                state: state || '',
+                pincode: pincode || '',
+                country: country || 'India',
+                phone: phone || '',
+                company: company || '',
+                isDefault: isDefault === true || isDefault === 'true'
+            }
+        });
+        const addresses = await prisma.address.findMany({ where: { userId } });
+        res.status(200).json({ status: true, msg: 'Address added', addresses });
     } catch (error) {
-        res.status(500).json({ status: false, msg: "Server Error", error: error.message });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
 export const deleteAddress = async (req, res) => {
     try {
-        const { userId, addressId } = req.body;
-        if (!userId || !addressId) return res.status(400).json({ status: false, msg: "Ids required" });
-
-        const user = await UserSchemaModel.findByIdAndUpdate(
-            userId,
-            { $pull: { address: { _id: addressId } } }, 
-            { new: true }
-        );
-
-        if (user) {
-            res.status(200).json({ status: true, msg: "Address deleted", addresses: user.address });
-        } else {
-            res.status(404).json({ status: false, msg: "User not found" });
-        }
+        const userId = parseInt(req.user.userId);
+        const { addressId } = req.body;
+        if (!addressId) return res.status(400).json({ status: false, msg: 'Address ID required' });
+        await prisma.address.deleteMany({ where: { id: parseInt(addressId), userId } });
+        const addresses = await prisma.address.findMany({ where: { userId } });
+        res.status(200).json({ status: true, msg: 'Address deleted', addresses });
     } catch (error) {
-        res.status(500).json({ status: false, msg: "Server Error", error: error.message });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
 export const getAddresses = async (req, res) => {
     try {
-        const userId = req.query.userId;
-        if(!userId) return res.status(400).json({ status: false, msg: "User ID required" });
-
-        const user = await UserSchemaModel.findById(userId);
-        if (user) {
-            res.status(200).json({ status: true, addresses: user.address });
-        } else {
-            res.status(404).json({ status: false, msg: "User not found" });
-        }
+        const userId = parseInt(req.user.userId);
+        const addresses = await prisma.address.findMany({ where: { userId }, orderBy: { id: 'asc' } });
+        res.status(200).json({ status: true, addresses });
     } catch (error) {
-        res.status(500).json({ status: false, msg: "Server Error", error: error.message });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };

@@ -24,11 +24,8 @@ const Categories = () => {
         id: "",
         title: "",
         slug: "",
-        parentSlug: "",
         metaTitle: "",
         productType: "",
-        newsletter: "",
-        order: ""
     });
 
     const API_BASE_URL = process.env.REACT_APP_API_URL;
@@ -46,7 +43,7 @@ const Categories = () => {
 
             const response = await axios.get(url);
             if (response.data.status) {
-                if (isExport) return response.data.data; // Export ke liye data return karo
+                if (isExport) return response.data.data;
                 setCategories(response.data.data);
                 setTotalPages(response.data.totalPages || 1);
                 setTotalItems(response.data.total || response.data.data.length);
@@ -73,14 +70,12 @@ const Categories = () => {
 
             const dataToExport = allData.map((cat, index) => ({
                 "Sr No": index + 1,
-                "Category ID": cat.oldid || cat._id,
-                "Title": cat.categorytitle,
-                "Slug": cat.slug,
-                "Parent Slug": cat.parentslug || "Root",
-                "Meta Title": cat.metatitle || "-",
-                "Product Type": cat.producttype || "Book",
-                "Newsletter": cat.newslettercategory || "No",
-                "Order": cat.newsletterorder || 0
+                "Category ID": cat.id,
+                "Title": cat.title,
+                "Slug": cat.slug || "-",
+                "Parent ID": cat.parentId || "Root",
+                "Meta Title": cat.metaTitle || "-",
+                "Product Type": cat.productType || 0,
             }));
 
             const worksheet = XLSX.utils.json_to_sheet(dataToExport);
@@ -124,25 +119,18 @@ const Categories = () => {
     // 🔍 4. Filter Logic
     const filteredCategories = useMemo(() => {
         return categories.filter(item => {
-            // Safe check for null values before lowercase
-            const id = (item.id || item.categoryId || item._id || "").toString().toLowerCase();
-            const title = (item.categorytitle || item.title || "").toLowerCase();
+            const id = (item.id || "").toString();
+            const title = (item.title || "").toLowerCase();
             const slug = (item.slug || "").toLowerCase();
-            const parent = (item.parentslug || "").toLowerCase();
-            const meta = (item.metatitle || "").toLowerCase();
-            const type = (item.producttype || "").toLowerCase();
-            const newsletter = (item.newslettercategory || "").toLowerCase();
-            const order = (item.newslettercategoryorder || item.order || "0").toString();
+            const meta = (item.metaTitle || "").toLowerCase();
+            const type = (item.productType || "").toString();
 
             return (
-                id.includes(filters.id.toLowerCase()) &&
+                id.includes(filters.id) &&
                 title.includes(filters.title.toLowerCase()) &&
                 slug.includes(filters.slug.toLowerCase()) &&
-                parent.includes(filters.parentSlug.toLowerCase()) &&
                 meta.includes(filters.metaTitle.toLowerCase()) &&
-                type.includes(filters.productType.toLowerCase()) &&
-                newsletter.includes(filters.newsletter.toLowerCase()) &&
-                order.includes(filters.order)
+                type.includes(filters.productType)
             );
         });
     }, [categories, filters]);
@@ -173,9 +161,7 @@ const Categories = () => {
                         <Printer size={14} className="text-green-600" /> Print
                     </button>
                     <button
-                        onClick={() => setFilters({
-                            id: "", title: "", slug: "", parentSlug: "", metaTitle: "", productType: "", newsletter: "", order: ""
-                        })}
+                        onClick={() => setFilters({ id: "", title: "", slug: "", metaTitle: "", productType: "" })}
                         className="bg-[#f8f9fa] border border-gray-300 text-gray-700 px-4 py-1.5 rounded shadow-sm hover:bg-white text-xs font-bold"
                     >
                         Clear filters
@@ -197,7 +183,7 @@ const Categories = () => {
 
             {/* --- DATA TABLE --- */}
             <div className="bg-white rounded border border-gray-200 shadow-sm overflow-x-auto">
-                <table className="w-full min-w-[1200px] border-collapse">
+                <table className="w-full min-w-[900px] border-collapse">
 
                     {/* 1. Header Row (Blue) */}
                     <thead>
@@ -205,14 +191,12 @@ const Categories = () => {
                             <th className="p-3 text-center border-r border-white/20 w-10">
                                 <input type="checkbox" className="accent-white" />
                             </th>
-                            <th className="p-3 text-left border-r border-white/20">Category id</th>
+                            <th className="p-3 text-left border-r border-white/20">ID</th>
                             <th className="p-3 text-left border-r border-white/20">Category title</th>
                             <th className="p-3 text-left border-r border-white/20">Slug</th>
-                            <th className="p-3 text-left border-r border-white/20">Parents slug</th>
                             <th className="p-3 text-left border-r border-white/20">Meta title</th>
                             <th className="p-3 text-left border-r border-white/20">Product type</th>
-                            <th className="p-3 text-left border-r border-white/20">Newsletter category</th>
-                            <th className="p-3 text-left border-r border-white/20">Newsletter category order</th>
+                            <th className="p-3 text-left border-r border-white/20">Active</th>
                             <th className="p-3 text-center">Actions</th>
                         </tr>
 
@@ -231,20 +215,12 @@ const Categories = () => {
                                 <input name="slug" value={filters.slug} onChange={handleFilterChange} className={filterInputClass} />
                             </td>
                             <td className="p-2 border-r border-gray-200">
-                                <input name="parentSlug" value={filters.parentSlug} onChange={handleFilterChange} className={filterInputClass} />
-                            </td>
-                            <td className="p-2 border-r border-gray-200">
                                 <input name="metaTitle" value={filters.metaTitle} onChange={handleFilterChange} className={filterInputClass} />
                             </td>
                             <td className="p-2 border-r border-gray-200">
                                 <input name="productType" value={filters.productType} onChange={handleFilterChange} className={filterInputClass} />
                             </td>
-                            <td className="p-2 border-r border-gray-200">
-                                <input name="newsletter" value={filters.newsletter} onChange={handleFilterChange} className={filterInputClass} />
-                            </td>
-                            <td className="p-2 border-r border-gray-200">
-                                <input name="order" value={filters.order} onChange={handleFilterChange} className={filterInputClass} />
-                            </td>
+                            <td className="p-2 border-r border-gray-200"></td>
                             <td className="p-2 text-center bg-gray-50">
                                 <button onClick={fetchCategories} className="text-[#0096cc] hover:rotate-180 transition-transform duration-300">
                                     <RotateCcw size={16} />
@@ -257,7 +233,7 @@ const Categories = () => {
                     <tbody className="divide-y divide-gray-200 text-[#333] text-[12px]">
                         {loading ? (
                             <tr>
-                                <td colSpan="10" className="p-10 text-center">
+                                <td colSpan="8" className="p-10 text-center">
                                     <div className="flex justify-center items-center gap-2 text-gray-500">
                                         <Loader2 className="animate-spin text-[#0096cc]" size={24} /> Loading...
                                     </div>
@@ -265,51 +241,44 @@ const Categories = () => {
                             </tr>
                         ) : filteredCategories.length > 0 ? (
                             filteredCategories.map((item, index) => (
-                                <tr key={item._id} className="hover:bg-blue-50/30 transition-colors">
+                                <tr key={item.id} className="hover:bg-blue-50/30 transition-colors">
                                     <td className="p-3 border-r border-gray-200 text-center">
                                         <input type="checkbox" className="accent-[#0096cc]" />
                                     </td>
 
-                                    {/* ID (Using Index + 1 or actual ID if short) */}
-                                    <td className="p-3 border-r border-gray-200">{index + 1}</td>
+                                    <td className="p-3 border-r border-gray-200">{item.id}</td>
 
                                     <td className="p-3 border-r border-gray-200 font-medium">
-                                        {item.categorytitle || item.title}
+                                        {item.title}
                                     </td>
 
-                                    <td className="p-3 border-r border-gray-200">{item.slug}</td>
+                                    <td className="p-3 border-r border-gray-200">{item.slug || "-"}</td>
 
                                     <td className="p-3 border-r border-gray-200 text-gray-500">
-                                        {item.parentslug || "root-category"}
-                                    </td>
-
-                                    <td className="p-3 border-r border-gray-200 text-gray-500">
-                                        {item.metatitle || item.categorytitle}
+                                        {item.metaTitle || "-"}
                                     </td>
 
                                     <td className="p-3 border-r border-gray-200">
-                                        {item.producttype || "Books"}
+                                        {item.productType || 0}
                                     </td>
 
                                     <td className="p-3 border-r border-gray-200">
-                                        {item.newslettercategory || "No"}
-                                    </td>
-
-                                    <td className="p-3 border-r border-gray-200">
-                                        {item.newslettercategoryorder || "0"}
+                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${item.active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-500'}`}>
+                                            {item.active ? 'Active' : 'Inactive'}
+                                        </span>
                                     </td>
 
                                     <td className="p-3 text-center">
                                         <div className="flex justify-center gap-2">
                                             <button
-                                                onClick={() => navigate(`/admin/edit-category/${item._id}`)}
+                                                onClick={() => navigate(`/admin/edit-category/${item.id}`)}
                                                 className="p-1.5 bg-gray-100 border border-gray-300 rounded text-gray-600 hover:bg-white hover:text-[#0096cc] transition-all shadow-sm"
                                                 title="Edit"
                                             >
                                                 <Edit size={14} />
                                             </button>
                                             <button
-                                                onClick={() => handleDelete(item._id)}
+                                                onClick={() => handleDelete(item.id)}
                                                 className="p-1.5 bg-gray-100 border border-gray-300 rounded text-red-500 hover:bg-white hover:border-red-200 transition-all shadow-sm"
                                                 title="Delete"
                                             >
@@ -321,7 +290,7 @@ const Categories = () => {
                             ))
                         ) : (
                             <tr>
-                                <td colSpan="10" className="p-8 text-center text-gray-400 italic">
+                                <td colSpan="8" className="p-8 text-center text-gray-400 italic">
                                     No categories found.
                                 </td>
                             </tr>

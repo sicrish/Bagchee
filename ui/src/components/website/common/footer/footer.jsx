@@ -139,7 +139,7 @@ const Footer = () => {
               </li>
               <li>
                 <Link
-                  to="/disclaimer"
+                  to="/terms-conditions"
                   className="hover:text-accent transition-colors duration-300 inline-block"
                 >
                   Disclaimer

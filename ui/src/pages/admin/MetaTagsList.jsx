@@ -268,7 +268,7 @@ const MetaTagsList = () => {
                 </tr>
               ) : data.length > 0 ? (
                 data.map((item, index) => (
-                  <tr key={item._id} className="hover:bg-blue-50/30 transition-colors text-[13px] group">
+                  <tr key={item.id} className="hover:bg-blue-50/30 transition-colors text-[13px] group">
                     
                     <td className="p-3 border-r border-gray-100">
                         <div className="flex items-center gap-4 justify-center">
@@ -295,14 +295,14 @@ const MetaTagsList = () => {
                     <td className="p-3 text-center">
                       <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button 
-                            onClick={() => navigate(`/admin/edit-meta-tag/${item._id}`)} 
+                            onClick={() => navigate(`/admin/edit-meta-tag/${item.id}`)} 
                             className="p-1.5 bg-gray-50 border border-gray-200 rounded text-gray-500 hover:bg-white hover:text-primary hover:border-primary transition-all shadow-sm"
                             title="Edit"
                         >
                             <Edit size={14} />
                         </button>
                         <button 
-                            onClick={() => handleDelete(item._id)} 
+                            onClick={() => handleDelete(item.id)} 
                             className="p-1.5 bg-gray-50 border border-gray-200 rounded text-gray-500 hover:bg-white hover:text-red-600 hover:border-red-600 transition-all shadow-sm"
                             title="Delete"
                         >

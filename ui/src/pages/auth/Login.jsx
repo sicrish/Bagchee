@@ -1,16 +1,17 @@
   'use client';
 
   import React, { useState } from 'react';
-  import { useNavigate, Link } from 'react-router-dom';
-  import axios from '../../utils/axiosConfig.js'; 
-  import toast from 'react-hot-toast'; 
+  import { useNavigate, useLocation, Link } from 'react-router-dom';
+  import axios from '../../utils/axiosConfig.js';
+  import toast from 'react-hot-toast';
   import { Check } from 'lucide-react';
-  import Logo from '../../components/common/Logo.jsx'; 
+  import Logo from '../../components/common/Logo.jsx';
   import { useMutation } from '@tanstack/react-query'; // 🟢 React Query Mutation
-  import { encryptData } from '../../utils/encryption.js'; // 🔒 Encryption Utility Import
 
   const Login = () => {
     const navigate = useNavigate();
+    const location = useLocation();
+    const returnTo = location.state?.returnTo;
 
     // 1. States
     const [email, setEmail] = useState("");
@@ -22,13 +23,8 @@
       mutationFn: async (loginData) => {
         const url = `${process.env.REACT_APP_API_URL}/user/login`;
         
-        // 🔒 Yahan humne data ko encrypt karke 'payload' key mein daal diya
-        const encryptedPayload = encryptData(loginData);
-        // console.log("🔒 FRONTEND ENCRYPTED PAYLOAD:", encryptedPayload);
-        
-        // Ab hum backend ko readable JSON ki jagah encrypted payload bhej rahe hain
-        const res = await axios.post(url, { data: encryptedPayload });
-        // console.log("url",url)
+        // axiosConfig handles encryption globally — just send plain data
+        const res = await axios.post(url, loginData);
         return res.data;
       },
       onSuccess: (data) => {
@@ -44,14 +40,13 @@
           if (userRole === 'admin') {
               navigate('/admin');
           } else {
-              navigate('/account');
+              navigate(returnTo || '/account');
           }
         } else {
           toast.error(data.msg);
         }
       },
       onError: (error) => {
-        console.log(error);
         const errorMsg = error.response?.data?.msg || "Login failed. Please try again.";
         toast.error(errorMsg);
       }

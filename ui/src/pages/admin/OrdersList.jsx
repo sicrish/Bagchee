@@ -71,10 +71,10 @@ const OrdersList = () => {
   const filteredOrders = useMemo(() => {
     return orders.filter((order, index) => {
       // Data preparation
-      const orderNum = (order.order_number || "").toString().toLowerCase();
-      const displayId = (order.order_id || index + 1).toString().toLowerCase();
-      const custName = (order.customer_id?.name || "").toLowerCase();
-      const custEmail = (order.shipping_details?.email || "").toLowerCase();
+      const orderNum = (order.orderNumber || order.order_number || "").toString().toLowerCase();
+      const displayId = (order.id || index + 1).toString().toLowerCase();
+      const custName = (order.customer?.name || "").toLowerCase();
+      const custEmail = (order.shippingEmail || "").toLowerCase();
       const searchLower = globalSearch.toLowerCase();
 
       // 1. Top Main Search Logic (Customer Name, Order#, or Email)
@@ -87,11 +87,11 @@ const OrdersList = () => {
       const matchesFilters =
         displayId.includes(filters.id.toLowerCase()) &&
         (order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-GB').includes(filters.date) : true) &&
-        (order.payment_type || "").toLowerCase().includes(filters.type.toLowerCase()) &&
+        (order.paymentType || order.payment_type || "").toLowerCase().includes(filters.type.toLowerCase()) &&
         custName.includes(filters.customer.toLowerCase()) &&
         (order.total || 0).toString().includes(filters.total) &&
         (order.status || "").toLowerCase().includes(filters.status.toLowerCase()) &&
-        (order.payment_status || "").toLowerCase().includes(filters.payment_status.toLowerCase());
+        (order.paymentStatus || order.payment_status || "").toLowerCase().includes(filters.payment_status.toLowerCase());
 
       return matchesGlobal && matchesFilters;
     });
@@ -143,60 +143,58 @@ const handleExport = async () => {
       // 2. Mapping logic strictly matched with your Order Schema
       const dataToExport = allOrders.map((order, index) => {
         // Products array ko map karke ek lambi string banao
-        const productDetails = order.products?.map(p => 
+        const productDetails = order.items?.map(p =>
           `${p.name} (Price: ${p.price}, Qty: ${p.quantity}, Status: ${p.status || 'N/A'})`
         ).join(" | ") || "-";
 
         return {
           "Sr No": index + 1,
-          "Order Number": order.order_number || "-",
+          "Order Number": order.orderNumber || order.order_number || "-",
           "Order Date": formatDate(order.createdAt),
           "Order Status": order.status || "pending",
 
           // --- Financials ---
           "Currency": order.currency || "USD",
           "Total Amount": Number(order.total || 0).toFixed(2),
-          "Shipping Cost": Number(order.shipping_cost || 0).toFixed(2),
-          "Membership": order.membership || "No",
-          "Membership Discount": Number(order.membership_discount || 0).toFixed(2),
+          "Shipping Cost": Number(order.shippingCost || order.shipping_cost || 0).toFixed(2),
 
           // --- Payment Info ---
-          "Payment Type": order.payment_type || "-",
-          "Payment Status": order.payment_status || "pending",
-          "Transaction ID": order.transaction_id || "-",
+          "Payment Type": order.paymentType || order.payment_type || "-",
+          "Payment Status": order.paymentStatus || order.payment_status || "pending",
+          "Transaction ID": order.transactionId || order.transaction_id || "-",
 
           // --- Customer Info ---
-          "Customer Name": order.customer_id?.name || "Unknown",
-          "Customer Email": order.customer_id?.email || "-",
+          "Customer Name": order.customer?.name || "Unknown",
+          "Customer Email": order.customer?.email || "-",
 
-          // --- Shipping Details (Matches Schema shipping_details object) ---
-          "Ship Email": order.shipping_details?.email || "-",
-          "Ship First Name": order.shipping_details?.first_name || "-",
-          "Ship Last Name": order.shipping_details?.last_name || "-",
-          "Ship Address 1": order.shipping_details?.address_1 || "-",
-          "Ship Address 2": order.shipping_details?.address_2 || "-",
-          "Ship Company": order.shipping_details?.company || "-",
-          "Ship Country": order.shipping_details?.country || "-",
-          "Ship State/Region": order.shipping_details?.state_region || "-",
-          "Ship City": order.shipping_details?.city || "-",
-          "Ship Postcode": order.shipping_details?.postcode || "-",
-          "Ship Phone": order.shipping_details?.phone || "-",
+          // --- Shipping Details ---
+          "Ship Email": order.shippingEmail || "-",
+          "Ship First Name": order.shippingFirstName || "-",
+          "Ship Last Name": order.shippingLastName || "-",
+          "Ship Address 1": order.shippingAddress1 || "-",
+          "Ship Address 2": order.shippingAddress2 || "-",
+          "Ship Company": order.shippingCompany || "-",
+          "Ship Country": order.shippingCountry || "-",
+          "Ship State/Region": order.shippingState || "-",
+          "Ship City": order.shippingCity || "-",
+          "Ship Postcode": order.shippingPostcode || "-",
+          "Ship Phone": order.shippingPhone || "-",
 
-          // --- Billing Details (Matches Schema billing_details object) ---
-          "Bill First Name": order.billing_details?.first_name || "-",
-          "Bill Last Name": order.billing_details?.last_name || "-",
-          "Bill Address 1": order.billing_details?.address_1 || "-",
-          "Bill Address 2": order.billing_details?.address_2 || "-",
-          "Bill Company": order.billing_details?.company || "-",
-          "Bill Country": order.billing_details?.country || "-",
-          "Bill State/Region": order.billing_details?.state_region || "-",
-          "Bill City": order.billing_details?.city || "-",
-          "Bill Postcode": order.billing_details?.postcode || "-",
-          "Bill Phone": order.billing_details?.phone || "-",
+          // --- Billing Details ---
+          "Bill First Name": order.billingFirstName || "-",
+          "Bill Last Name": order.billingLastName || "-",
+          "Bill Address 1": order.billingAddress1 || "-",
+          "Bill Address 2": order.billingAddress2 || "-",
+          "Bill Company": order.billingCompany || "-",
+          "Bill Country": order.billingCountry || "-",
+          "Bill State/Region": order.billingState || "-",
+          "Bill City": order.billingCity || "-",
+          "Bill Postcode": order.billingPostcode || "-",
+          "Bill Phone": order.billingPhone || "-",
 
           // --- Products & Comments ---
           "Products Detail (Name, Price, Qty)": productDetails,
-          "Admin Comment": order.comment?.replace(/<[^>]*>?/gm, '') || "-" // HTML tags hatane ke liye
+          "Admin Comment": order.comment?.replace(/<[^>]*>?/gm, '') || "-"
         };
       });
 
@@ -339,27 +337,27 @@ const handleExport = async () => {
                 </tr>
               ) : filteredOrders.length > 0 ? (
                 filteredOrders.map((order, index) => (
-                  <tr key={order._id} className="hover:bg-primary-50 transition-colors text-[13px]">
+                  <tr key={order.id} className="hover:bg-primary-50 transition-colors text-[13px]">
                     <td className="p-3 border-r border-cream-50">
                       <div className="flex items-center gap-5 px-1">
                         <input type="checkbox" className="h-4 w-4 rounded accent-primary cursor-pointer shrink-0" />
-                        <span className="text-text-muted text-[10px] font-bold w-full text-center">{order.order_id || index + 1}</span>
+                        <span className="text-text-muted text-[10px] font-bold w-full text-center">{order.id || index + 1}</span>
                       </div>
                     </td>
                     <td className="p-3 border-r border-cream-50 text-text-main font-medium">{formatDate(order.createdAt)}</td>
-                    <td className="p-3 border-r border-cream-50 text-text-main uppercase text-[11px]">{order.payment_type || 'Paypal'}</td>
-                    <td className="p-3 border-r border-cream-50 text-text-main font-bold">{order.customer_id?.name || "Unknown Customer"}</td>
+                    <td className="p-3 border-r border-cream-50 text-text-main uppercase text-[11px]">{order.paymentType || order.payment_type || 'Paypal'}</td>
+                    <td className="p-3 border-r border-cream-50 text-text-main font-bold">{order.customer?.name || "Unknown Customer"}</td>
                     <td className="p-3 border-r border-cream-50 text-text-main font-bold">{Number(order.total || 0).toFixed(2)}</td>
                     <td className="p-3 border-r border-cream-50 text-text-main">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${order.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
                         {order.status || 'Pending'}
                       </span>
                     </td>
-                    <td className="p-3 border-r border-cream-50 text-text-main font-medium">{order.payment_status || "Pending"}</td>
+                    <td className="p-3 border-r border-cream-50 text-text-main font-medium">{order.paymentStatus || order.payment_status || "Pending"}</td>
                     <td className="p-3 text-center">
                       <div className="flex justify-center gap-2">
-                        <button onClick={() => navigate(`/admin/edit-orders/${order._id}`)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm active:scale-95"><Edit size={14} /></button>
-                        <button onClick={() => handleDelete(order._id)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 hover:border-red-600 transition-all shadow-sm active:scale-95"><Trash2 size={14} /></button>
+                        <button onClick={() => navigate(`/admin/edit-orders/${order.id}`)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm active:scale-95"><Edit size={14} /></button>
+                        <button onClick={() => handleDelete(order.id)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 hover:border-red-600 transition-all shadow-sm active:scale-95"><Trash2 size={14} /></button>
                       </div>
                     </td>
                   </tr>

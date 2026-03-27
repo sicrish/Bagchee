@@ -1,11 +1,15 @@
 import express from 'express';
+import * as categorycontroller from '../controller/category.controller.js';
+import adminAuth from '../middleware/adminAuth.middleware.js';
+
 const category = express.Router();
-import * as categorycontroller from '../controller/category.controller.js'
-category.post("/save", categorycontroller.save);
+
+// PUBLIC — website needs category listing
 category.get("/fetch", categorycontroller.fetchCategory);
-category.post("/update", categorycontroller.updateCategory);
-category.delete("/delete/:id", categorycontroller.deletecategory);
 
-
+// ADMIN — mutations
+category.post("/save",          adminAuth, categorycontroller.save);
+category.post("/update",        adminAuth, categorycontroller.updateCategory);
+category.delete("/delete/:id",  adminAuth, categorycontroller.deletecategory);
 
 export default category;

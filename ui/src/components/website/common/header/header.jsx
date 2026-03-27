@@ -4,15 +4,16 @@ import React, { useState, useEffect, Fragment, useContext, useMemo, useRef, useC
 import { Link, useNavigate } from 'react-router-dom';
 import { Search, ShoppingCart, User, Heart, Menu as MenuIcon, X, ChevronDown, Globe, LogIn, UserPlus, LogOut, List, MapPin, ChevronRight } from 'lucide-react';
 import { Transition, Dialog, TransitionChild, DialogPanel } from '@headlessui/react';
-import { useQuery } from '@tanstack/react-query'; // 🟢 React Query added for super-fast caching
+import { useQuery } from '@tanstack/react-query';
 import Logo from '../../../common/Logo.jsx';
 import logoImg from '../../../../assets/images/common/logo.png';
 import { CurrencyContext } from '../../../../context/CurrencyContext';
+import { createSafeHtml } from '../../../../utils/sanitize';
 import { useCart } from '../../../../context/CartContext.jsx';
 import axios from '../../../../utils/axiosConfig.js';
 
 /* ---------------------------------------------------------
-  🟢 HELPER COMPONENT: Dropdown Content Renderer (Memoized)
+  HELPER COMPONENT: Dropdown Content Renderer (Memoized)
   --------------------------------------------------------- */
 const DropdownContent = memo(({ htmlContent, onLinkClick }) => {
   const contentRef = useRef(null);
@@ -48,7 +49,7 @@ const DropdownContent = memo(({ htmlContent, onLinkClick }) => {
   return (
     <div
       ref={contentRef}
-      dangerouslySetInnerHTML={{ __html: htmlContent }}
+      dangerouslySetInnerHTML={createSafeHtml(htmlContent)}
       style={{
         width: '100%',
         maxHeight: '80vh',
@@ -62,7 +63,7 @@ const DropdownContent = memo(({ htmlContent, onLinkClick }) => {
 DropdownContent.displayName = 'DropdownContent';
 
 /* ---------------------------------------------------------
-  🟢 HELPER COMPONENT: Mobile HTML Parser & Accordion (Memoized)
+  HELPER COMPONENT: Mobile HTML Parser & Accordion (Memoized)
   --------------------------------------------------------- */
 const MobileHtmlAccordion = memo(({ htmlContent, onLinkClick }) => {
   const sections = useMemo(() => {
@@ -108,7 +109,7 @@ const MobileHtmlAccordion = memo(({ htmlContent, onLinkClick }) => {
       <div
         className="p-4 text-sm font-body text-text-muted"
         onClick={onLinkClick}
-        dangerouslySetInnerHTML={{ __html: htmlContent }}
+        dangerouslySetInnerHTML={createSafeHtml(htmlContent)}
       />
     );
   }
@@ -119,11 +120,10 @@ const MobileHtmlAccordion = memo(({ htmlContent, onLinkClick }) => {
         <div key={idx} className="border-b border-cream-100 last:border-0">
           <button
             onClick={() => toggleSection(section.title)}
-            className={`w-full flex items-center justify-between py-3 px-4 text-xs font-bold normal-case tracking-slick transition-colors font-montserrat ${
-              openSection === section.title
-                ? "bg-cream-50 text-primary"
-                : "text-text-main hover:bg-cream-50"
-            }`}
+            className={`w-full flex items-center justify-between py-3 px-4 text-xs font-bold normal-case tracking-slick transition-colors font-montserrat ${openSection === section.title
+              ? "bg-cream-50 text-primary"
+              : "text-text-main hover:bg-cream-50"
+              }`}
           >
             <span className="flex items-center gap-2.5">
               <span
@@ -142,11 +142,10 @@ const MobileHtmlAccordion = memo(({ htmlContent, onLinkClick }) => {
           </button>
 
           <div
-            className={`overflow-hidden transition-all duration-300 ease-in-out ${
-              openSection === section.title
-                ? "max-h-[1000px] opacity-100"
-                : "max-h-0 opacity-0"
-            }`}
+            className={`overflow-hidden transition-all duration-300 ease-in-out ${openSection === section.title
+              ? "max-h-[1000px] opacity-100"
+              : "max-h-0 opacity-0"
+              }`}
           >
             <div className="flex flex-col bg-white pl-4 py-2 space-y-1">
               {section.links.map((link, lIdx) => (
@@ -219,8 +218,9 @@ const PremiumHeader = () => {
   const dropdownTimerRef = useRef(null);
   const searchInputRef = useRef(null);
 
-  // 🟢 OPTIMIZATION 1: React Query implementation for Navigation Links
-  // Yeh navigation links ko 10 minute tak browser me cache kar lega.
+  const [suggestions, setSuggestions] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+
   const { data: navItems = [] } = useQuery({
     queryKey: ['navigationList'],
     queryFn: async () => {
@@ -228,13 +228,13 @@ const PremiumHeader = () => {
       const res = await axios.get(`${API_URL}/navigation/list`);
       if (res.data.status) {
         return res.data.data
-          .filter(item => (item.status === 'active' || item.active === 'active'))
-          .sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
+          .filter(item => (item.status === 'active' || item.active === 'active' || item.active === true))
+          .sort((a, b) => (Number(a.order || a.ord) || 0) - (Number(b.order || b.ord) || 0));
       }
       return [];
     },
-    staleTime: 1000 * 60 * 10, // 10 minutes cache
-    refetchOnWindowFocus: false, // Window par focus aane par faltu fetch nahi karega
+    staleTime: 1000 * 60 * 10,
+    refetchOnWindowFocus: false,
   });
 
   useEffect(() => {
@@ -270,7 +270,6 @@ const PremiumHeader = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // 🚀 OPTIMIZATION 2: Memory bachaane ke liye useCallback ka istemal
   const handleNavigation = useCallback(() => {
     setForceHideDropdown(true);
     setTimeout(() => {
@@ -313,17 +312,42 @@ const PremiumHeader = () => {
     }, 150);
   }, []);
 
-  const handleSearchSubmit = (e) => {
-    e.preventDefault();
-    if (searchTerm.trim()) {
-      navigate(`/books?search=${encodeURIComponent(searchTerm)}`);
-      setSearchDialogOpen(false);
-    }
-  };
-
   const openSearchDialog = () => {
     setSearchDialogOpen(true);
     setTimeout(() => searchInputRef.current?.focus(), 100);
+  };
+
+  useEffect(() => {
+    const fetchSuggestions = async () => {
+      if (searchTerm.trim().length < 3) {
+        setSuggestions([]);
+        return;
+      }
+
+      setIsSearching(true);
+      try {
+        const res = await axios.get(`${process.env.REACT_APP_API_URL}/product/search-suggestions?keyword=${searchTerm.trim()}&limit=8`);
+        if (res.data.status) {
+          setSuggestions(res.data.data);
+        }
+      } catch (err) {
+        console.error("Suggestion API Error:", err);
+      } finally {
+        setIsSearching(false);
+      }
+    };
+
+    const timer = setTimeout(fetchSuggestions, 400);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  const handleSearchSubmit = (e) => {
+    if (e) e.preventDefault();
+    if (searchTerm.trim()) {
+      navigate(`/books?keyword=${encodeURIComponent(searchTerm.trim())}`);
+      setSuggestions([]);
+      setSearchDialogOpen(false);
+    }
   };
 
   return (
@@ -333,7 +357,7 @@ const PremiumHeader = () => {
       <div className={`border-b border-white/10 transition-all duration-300 ease-in-out relative z-20 bg-inherit ${isScrolled ? 'md:max-h-0 md:opacity-0 md:pointer-events-none py-2 md:py-0' : 'md:max-h-24 md:opacity-100 py-2 md:py-3'}`}>
         <div className="container mx-auto px-4 md:px-8 flex items-center justify-between gap-2 md:gap-8">
 
-          {/* Desktop Logo - Premium Brand */}
+          {/* Desktop Logo */}
           <Link to="/" className="hidden lg:flex items-center shrink-0 group">
             <div className="flex items-center gap-3 px-4 py-2 bg-primary hover:bg-primary/90 rounded-xl border-2 border-white/20 hover:border-white/40 backdrop-blur-sm transition-all duration-300">
               <div className="w-12 h-12 rounded-lg bg-white flex items-center justify-center shadow-xl">
@@ -341,8 +365,7 @@ const PremiumHeader = () => {
                   src={logoImg}
                   alt="Bagchee"
                   className="w-10 h-10 object-contain"
-                  // 🚀 OPTIMIZATION 3: High priority image loading for LCP (Speed boost)
-                  fetchPriority="high"
+                  fetchpriority="high"
                   decoding="async"
                   style={{
                     filter: 'brightness(0) saturate(100%) invert(45%) sepia(89%) saturate(2448%) hue-rotate(165deg) brightness(95%) contrast(101%)',
@@ -360,7 +383,7 @@ const PremiumHeader = () => {
             </div>
           </Link>
 
-          {/* Mobile/Tablet Logo - Matching Desktop Style */}
+          {/* Mobile/Tablet Logo */}
           <Link to="/" className="lg:hidden shrink-0 group">
             <div className="flex items-center gap-2 px-2.5 py-1.5 sm:px-3 sm:py-2 bg-primary hover:bg-primary/90 rounded-lg sm:rounded-xl border border-white/20 hover:border-white/40 backdrop-blur-sm transition-all duration-300">
               <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-md sm:rounded-lg bg-white flex items-center justify-center shadow-lg">
@@ -368,7 +391,7 @@ const PremiumHeader = () => {
                   src={logoImg}
                   alt="Bagchee"
                   className="w-5 h-5 sm:w-7 sm:h-7 object-contain"
-                  fetchPriority="high"
+                  fetchpriority="high"
                   decoding="async"
                   style={{
                     filter: 'brightness(0) saturate(100%) invert(45%) sepia(89%) saturate(2448%) hue-rotate(165deg) brightness(95%) contrast(101%)',
@@ -389,12 +412,16 @@ const PremiumHeader = () => {
           {/* Desktop Search Bar */}
           <div className="hidden lg:flex flex-1 items-center max-w-2xl mx-auto">
             <form
-              onSubmit={handleSearchSubmit}
+              onSubmit={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleSearchSubmit(e);
+              }}
               className="flex-1 relative group"
             >
               <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/30 via-accent/30 to-secondary/30 rounded-full blur opacity-0 group-hover:opacity-100 transition duration-500"></div>
 
-              <div className="relative flex items-center bg-white rounded-full shadow-xl border-2 border-gray-100 group-hover:border-primary/50 group-focus-within:border-primary/70 transition-all duration-300 overflow-hidden">
+              <div className="relative flex items-center bg-white rounded-full shadow-xl border-2 border-gray-100 group-hover:border-primary/50 group-focus-within:border-primary/70 transition-all duration-300 overflow-visible">
                 <input
                   type="text"
                   value={searchTerm}
@@ -422,6 +449,12 @@ const PremiumHeader = () => {
                   <Search size={16} strokeWidth={2.5} />
                   Search
                 </button>
+                <SearchSuggestions
+                  suggestions={suggestions}
+                  isSearching={isSearching}
+                  searchTerm={searchTerm}
+                  onSelect={() => { setSuggestions([]); setSearchTerm(""); }}
+                />
               </div>
             </form>
           </div>
@@ -518,9 +551,9 @@ const PremiumHeader = () => {
                           <Link to="/account/address" onClick={() => setMobileAccountOpen(false)} className="flex items-center gap-3 px-5 py-2.5 text-sm text-gray-700 hover:bg-primary/5 hover:text-primary transition-colors font-bold normal-case font-montserrat">
                             <MapPin size={16} /> Address
                           </Link>
-                          <Link 
-                            to="/account/wishlist" 
-                            onClick={() => setMobileAccountOpen(false)} 
+                          <Link
+                            to="/account/wishlist"
+                            onClick={() => setMobileAccountOpen(false)}
                             className="flex items-center justify-between px-5 py-2.5 text-sm text-gray-700 hover:bg-primary/5 hover:text-primary transition-colors font-bold normal-case font-montserrat"
                           >
                             <div className="flex items-center gap-3">
@@ -574,58 +607,72 @@ const PremiumHeader = () => {
       {/* --- BOTTOM ROW (DESKTOP) --- */}
       <div className="hidden lg:block bg-white border-b-2 border-gray-100 relative" style={{ overflow: 'visible' }}>
         <div className="container mx-auto px-4 lg:px-8">
-          <nav className="flex items-center justify-center gap-1 relative z-10">
+          <nav className="flex items-center justify-center gap-2 py-2 relative z-10">
             {navItems.map((nav, idx) => {
               const navName = nav.item || nav.name || "Link";
-              const hasDropdown = nav.dropdown === 'active' && nav.dropdown_content;
-              const dropdownId = `nav-${nav._id || idx}`;
+              const hasDropdown = (nav.dropdown === 'active' || nav.hasDropdown === true) && (nav.dropdown_content || nav.dropdownContent);
+              const dropdownId = `nav-${nav.id || nav._id || idx}`;
+
+              const isSale = navName.toLowerCase().includes('sale');
+              const isGift = navName.toLowerCase().includes('gift');
 
               return (
                 <div
-                  key={nav._id || idx}
-                  className="relative group/navitem"
+                  key={nav.id || nav._id || idx}
+                  className="relative group/navitem flex items-center h-full px-0.5"
                   onMouseEnter={() => hasDropdown && handleDropdownEnter(dropdownId)}
                   onMouseLeave={handleDropdownLeave}
                 >
                   <Link
-                    to={nav.link || "#"}
+                    to={nav.link || nav.itemLink || "#"}
                     onClick={handleNavigation}
-                    className={`relative flex items-center gap-2 px-5 py-4 text-sm tracking-wide transition-all duration-200 font-body group text-gray-800 hover:text-primary hover:bg-primary/5 ${activeDropdown === dropdownId ? 'bg-primary/10 text-primary' : ''}`}
+                    className={`
+                relative flex items-center px-5 py-2 text-sm tracking-wide transition-all duration-300 font-bold font-montserrat rounded-full
+
+                ${!isSale && !isGift ? `
+                  ${activeDropdown === dropdownId
+                          ? 'bg-primary text-white shadow-md'
+                          : 'bg-primary-50 text-primary-dark hover:bg-primary hover:text-white hover:shadow-md'}
+                ` : ''}
+
+                ${isGift ? 'bg-accent/10 border border-accent/20 text-gray-800 hover:bg-accent hover:text-text-main' : ''}
+
+                ${isSale ? 'bg-red-600 !text-white rounded-full hover:bg-text-main shadow-sm' : ''}
+              `}
                   >
-                    <span className="relative">
-                      {navName}
-                      <span
-                        className={`absolute left-0 right-0 bottom-0 h-0.5 bg-primary transform origin-center transition-transform duration-300 ${
-                          activeDropdown === dropdownId
-                            ? 'scale-x-100'
-                            : 'scale-x-0 group-hover:scale-x-100'
-                        }`}
-                      ></span>
+                    <span className="relative flex items-center">
+                      {isSale && (
+                        <span className="flex h-2 w-2 mr-2 relative">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                        </span>
+                      )}
+                      <span className="z-10">{navName}</span>
                     </span>
+
                     {hasDropdown && (
                       <ChevronDown
-                        size={16}
-                        strokeWidth={2.5}
-                        className={`transition-transform duration-300 ${activeDropdown === dropdownId ? 'rotate-180' : 'group-hover:rotate-180'}`}
+                        size={14}
+                        strokeWidth={3}
+                        className={`ml-1 transition-transform duration-300 ${activeDropdown === dropdownId ? 'rotate-180' : 'group-hover/navitem:rotate-180'}`}
                       />
                     )}
                   </Link>
 
+                  {/* Dropdown Container */}
                   {hasDropdown && !forceHideDropdown && (
                     <div
-                      className={`fixed left-1/2 -translate-x-1/2 bg-white rounded-lg shadow-2xl border-2 border-gray-200 overflow-hidden transition-all duration-200 ease-out origin-top z-50 ${
-                        activeDropdown === dropdownId
-                          ? 'opacity-100 visible scale-100 translate-y-0'
-                          : 'opacity-0 invisible scale-95 -translate-y-2 pointer-events-none'
-                      }`}
-                      style={{ 
+                      className={`fixed left-1/2 -translate-x-1/2 bg-white rounded-b-xl shadow-2xl border-x border-b border-gray-200 overflow-hidden transition-all duration-200 ease-out origin-top z-50 ${activeDropdown === dropdownId ? 'opacity-100 visible scale-100 translate-y-0' : 'opacity-0 invisible scale-95'
+                        }`}
+                      style={{
                         width: "70vw",
-                        maxWidth: "70vw",
-                        top: isScrolled ? "48px" : "140px",
+                        maxWidth: "1200px",
+                        top: isScrolled ? "54px" : "146px",
                       }}
                     >
+                      <div className={`h-1 w-full ${isSale ? 'bg-red-600' : 'bg-primary'}`}></div>
                       <DropdownContent
-                        htmlContent={nav.dropdown_content}
+                        htmlContent={nav.dropdown_content || nav.dropdownContent}
                         onLinkClick={(href) => {
                           handleInternalLink(href);
                           setActiveDropdown(null);
@@ -652,18 +699,18 @@ const PremiumHeader = () => {
               <DialogPanel className="relative flex w-[85%] max-w-xs flex-col overflow-y-auto bg-white pb-12 shadow-2xl h-full border-r border-cream-200 text-text-main">
 
                 <div className="flex px-5 pt-6 pb-4 justify-between items-center border-b border-primary-dark bg-primary">
-                  <Logo className="h-10 w-auto text-white" /> 
+                  <Logo className="h-10 w-auto text-white" />
                   <button onClick={() => setMobileMenuOpen(false)} className="p-2 text-white hover:text-accent hover:bg-primary-dark rounded-full transition-colors"><X size={24} /></button>
                 </div>
 
                 <div className="flex-1 px-4 py-4 space-y-2 font-montserrat">
                   {navItems.map((nav) => {
                     const navName = nav.item || nav.name || "Link";
-                    const hasDropdown = nav.dropdown === 'active' && nav.dropdown_content;
+                    const hasDropdown = (nav.dropdown === 'active' || nav.hasDropdown === true) && (nav.dropdown_content || nav.dropdownContent);
                     const isOpen = openCategory === navName;
 
                     return (
-                      <div key={nav._id} className="border-b border-cream-100 last:border-0 pb-1">
+                      <div key={nav.id || nav._id} className="border-b border-cream-100 last:border-0 pb-1">
                         {hasDropdown ? (
                           <>
                             <button
@@ -676,14 +723,14 @@ const PremiumHeader = () => {
 
                             <div className={`pl-1 overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[3000px] opacity-100 mb-4' : 'max-h-0 opacity-0'}`}>
                               <MobileHtmlAccordion
-                                htmlContent={nav.dropdown_content}
+                                htmlContent={nav.dropdown_content || nav.dropdownContent}
                                 onLinkClick={handleInternalLink}
                               />
                             </div>
                           </>
                         ) : (
                           <Link
-                            to={nav.link}
+                            to={nav.link || nav.itemLink}
                             onClick={() => setMobileMenuOpen(false)}
                             className={`block py-3 text-base font-bold tracking-wide text-text-main hover:text-primary `}
                           >
@@ -782,7 +829,6 @@ const PremiumHeader = () => {
   );
 };
 
-// 🟢 ActionIcon wrapped in memo to prevent re-renders when parent states change
 const ActionIcon = memo(({ icon, label }) => (
   <div className="flex flex-col items-center cursor-pointer group text-text-light hover:text-accent transition-colors">
     {icon}
@@ -790,5 +836,67 @@ const ActionIcon = memo(({ icon, label }) => (
   </div>
 ));
 ActionIcon.displayName = 'ActionIcon';
+
+
+/* ---------------------------------------------------------
+   REUSABLE SEARCH SUGGESTIONS (Desktop & Mobile)
+   --------------------------------------------------------- */
+const SearchSuggestions = memo(({ suggestions, isSearching, searchTerm, onSelect }) => {
+  if (searchTerm.length < 3) return null;
+
+  return (
+    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 shadow-2xl z-[9999] overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200 rounded-b-xl">
+      {isSearching ? (
+        <div className="p-4 text-xs text-gray-500 italic flex items-center gap-2">
+          <div className="animate-spin h-3 w-3 border-2 border-primary border-t-transparent rounded-full"></div>
+          Searching matching items...
+        </div>
+      ) : suggestions.length > 0 ? (
+        <div className="max-h-[380px] overflow-y-auto custom-scrollbar">
+          {suggestions.map((item) => {
+            let typeLabel = "Item";
+            let displayTitle = item.title || item.categorytitle || "Unnamed";
+            let subText = "";
+
+            if (item.isbn13) {
+              typeLabel = "Book";
+              subText = item.author ? `by ${item.author.firstName || item.author.first_name} ${item.author.lastName || item.author.last_name}` : "";
+            } else if (item.categorytitle || item.title) {
+              typeLabel = "Category";
+            } else if (item.firstName || item.first_name) {
+              typeLabel = "Author";
+              displayTitle = `${item.firstName || item.first_name} ${item.lastName || item.last_name}`;
+            }
+
+            return (
+              <Link
+                key={item.id || item._id}
+                to={`/books?keyword=${encodeURIComponent(displayTitle)}`}
+                onClick={() => onSelect()}
+                className="flex items-center justify-between px-4 py-3 hover:bg-cream-50 transition-colors border-b border-gray-50 last:border-0 group"
+              >
+                <div className="flex flex-col truncate pr-4">
+                  <span className="text-sm font-semibold text-gray-700 group-hover:text-primary truncate">
+                    {displayTitle}
+                  </span>
+                  {subText && <span className="text-[10px] text-gray-400 italic">{subText}</span>}
+                </div>
+
+                <span className="text-[9px] font-black text-white uppercase tracking-tighter shrink-0 bg-primary/40 px-1.5 py-0.5 rounded shadow-sm group-hover:bg-primary transition-colors">
+                  {typeLabel}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="p-4 text-xs text-gray-500 text-center">
+          No matches found for "<span className="font-bold">{searchTerm}</span>"
+        </div>
+      )}
+    </div>
+  );
+});
+SearchSuggestions.displayName = 'SearchSuggestions';
 
 export default PremiumHeader;

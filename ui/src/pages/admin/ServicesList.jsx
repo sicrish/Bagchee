@@ -49,8 +49,8 @@ const ServicesList = () => {
             return (
                 displayId.includes(filters.id) &&
                 (item.title || "").toLowerCase().includes(filters.title.toLowerCase()) &&
-                (item.meta_title || "").toLowerCase().includes(filters.metaTitle.toLowerCase()) &&
-                (item.meta_description || "").toLowerCase().includes(filters.metaDesc.toLowerCase())
+                (item.metaTitle || "").toLowerCase().includes(filters.metaTitle.toLowerCase()) &&
+                (item.metaDesc || "").toLowerCase().includes(filters.metaDesc.toLowerCase())
             );
         });
     }, [services, filters]);
@@ -164,7 +164,7 @@ const ServicesList = () => {
                                 </tr>
                             ) : filteredServices.length > 0 ? (
                                 filteredServices.map((item, index) => (
-                                    <tr key={item._id} className="hover:bg-primary-50 transition-colors text-[13px] group">
+                                    <tr key={item.id} className="hover:bg-primary-50 transition-colors text-[13px] group">
                                         <td className="p-3 border-r border-cream-50">
                                             <div className="flex items-center gap-5 px-1">
                                                 <input type="checkbox" className="h-4 w-4 rounded accent-primary cursor-pointer shrink-0" />
@@ -173,21 +173,21 @@ const ServicesList = () => {
                                         </td>
                                         {/* 🟢 Fields based on image_150c3a.png */}
                                         <td className="p-3 border-r border-cream-50 text-text-main font-medium">{item.title}</td>
-                                        <td className="p-3 border-r border-cream-50 text-text-main text-xs italic">{item.meta_title || '-'}</td>
+                                        <td className="p-3 border-r border-cream-50 text-text-main text-xs italic">{item.metaTitle || '-'}</td>
                                         <td className="p-3 border-r border-cream-50 text-text-main text-[11px] leading-relaxed max-w-xs truncate">
-                                            {item.meta_description || '-'}
+                                            {item.metaDesc || '-'}
                                         </td>
                                         <td className="p-3">
                                             <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300">
                                                 <button
-                                                    onClick={() => navigate(`/admin/services/edit/${item._id}`)}
+                                                    onClick={() => navigate(`/admin/services/edit/${item.id}`)}
                                                     className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm active:scale-95"
                                                     title="Edit Service"
                                                 >
                                                     <Edit size={14} />
                                                 </button>
                                                 <button
-                                                    onClick={() => handleDelete(item._id)}
+                                                    onClick={() => handleDelete(item.id)}
                                                     className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 hover:border-red-600 transition-all shadow-sm active:scale-95"
                                                     title="Delete Service"
                                                 >

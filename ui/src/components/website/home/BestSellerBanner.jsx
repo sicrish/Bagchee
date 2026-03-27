@@ -9,7 +9,7 @@ const BestSellerBanner = () => {
   return (
     <div className="w-full bg-gray-50 my-8">
       
-      <Link to="/best-sellers" className="block w-full cursor-pointer group overflow-hidden">
+      <Link to="/bestsellers" className="block w-full cursor-pointer group overflow-hidden">
         
         <picture>
           {/* 1. Desktop (> 1024px) - Ye tab chalega jab screen badi hogi */}

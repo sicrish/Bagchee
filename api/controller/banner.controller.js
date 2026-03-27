@@ -1,96 +1,106 @@
-import BannerSchemaModel from '../models/banner.model.js';
-
+import prisma from '../lib/prisma.js';
 import { saveFileLocal, deleteFileLocal } from '../utils/fileHandler.js';
 
-// ==========================================
-// 🟢 1. SAVE BANNER (Handling 2 Images)
-// ==========================================
+// Banner fields: title, description, buttonText, accentColor, bgImageName, overlayImageName, status.
+// SCHEMA-CHECK: Completely redesigned schema — no generic image/link/active/order.
+// status: String ('active'/'inactive'), not Boolean.
+
 export const save = async (req, res) => {
     try {
-        // Step A: Check images
-        if (!req.files || !req.files.bgImage || !req.files.overlayImage) {
-            return res.status(400).json({ status: false, msg: "Both Background and Overlay images are required" });
+        if (!req.files?.bgImage || !req.files?.overlayImage) {
+            return res.status(400).json({ status: false, msg: 'Both Background and Overlay images are required' });
         }
-
-        let bgPath = "";
-        let overlayPath = "";
-
+        let bgPath = '';
+        let overlayPath = '';
         try {
-            // Step B: Use Utility for saving (Saving to 'banners' sub-folder)
             bgPath = await saveFileLocal(req.files.bgImage, 'banners');
             overlayPath = await saveFileLocal(req.files.overlayImage, 'banners');
         } catch (uploadError) {
-            // Cleanup: Agar koi ek bhi fail hui to uploadError handle hoga
             if (bgPath) await deleteFileLocal(bgPath);
             return res.status(400).json({ status: false, msg: uploadError.message });
         }
-
-        // Step C: Database Object Prepare
-        const bannerDetails = { 
-            title: req.body.title,
-            description: req.body.description,
-            buttonText: req.body.buttonText,
-            accentColor: req.body.accentColor, 
-            bgImageName: bgPath,      // Full path save hoga: /uploads/banners/bg-...
-            overlayImageName: overlayPath,
-            status: req.body.status || 'active'
-        };
-
-        const banner = await BannerSchemaModel.create(bannerDetails);
-
-        res.status(201).json({ 
-            status: true, 
-            msg: "Banner added successfully", 
-            data: banner 
+        const banner = await prisma.banner.create({
+            data: {
+                title: req.body.title || '',
+                description: req.body.description || '',
+                buttonText: req.body.buttonText || 'Explore Now',
+                accentColor: req.body.accentColor || 'bg-hero-primary',
+                bgImageName: bgPath,
+                overlayImageName: overlayPath,
+                status: req.body.status || 'active'
+            }
         });
-
+        res.status(201).json({ status: true, msg: 'Banner added successfully', data: banner });
     } catch (error) {
-        console.error("Banner Save Error:", error);
-        res.status(500).json({ status: false, msg: "Server Error" });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// ==========================================
-// 🔵 2. FETCH BANNERS
-// ==========================================
 export const fetch = async (req, res) => {
     try {
-        // Sort by latest banner first
-        const banners = await BannerSchemaModel.find({ status: "active" }).sort({ createdAt: -1 });
-        
-        if (banners.length > 0) {
-            res.status(200).json({ status: true, data: banners });
-        } else {
-            res.status(404).json({ status: false, msg: "No active banners found" });
-        }
+        const banners = await prisma.banner.findMany({ where: { status: 'active' }, orderBy: { createdAt: 'desc' } });
+        if (banners.length === 0) return res.status(404).json({ status: false, msg: 'No active banners found' });
+        res.status(200).json({ status: true, data: banners });
     } catch (error) {
-        res.status(500).json({ status: false, msg: "Server Error" });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// ==========================================
-// 🔴 3. DELETE BANNER
-// ==========================================
+export const list = async (req, res) => {
+    try {
+        const banners = await prisma.banner.findMany({ orderBy: { createdAt: 'desc' } });
+        res.status(200).json({ status: true, data: banners });
+    } catch (error) {
+        res.status(500).json({ status: false, msg: 'Server Error' });
+    }
+};
+
+export const getOne = async (req, res) => {
+    try {
+        const banner = await prisma.banner.findUnique({ where: { id: parseInt(req.params.id) } });
+        if (!banner) return res.status(404).json({ status: false, msg: 'Banner not found' });
+        res.status(200).json({ status: true, data: banner });
+    } catch (error) {
+        res.status(500).json({ status: false, msg: 'Server Error' });
+    }
+};
+
+export const updateBanner = async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        const banner = await prisma.banner.findUnique({ where: { id } });
+        if (!banner) return res.status(404).json({ status: false, msg: 'Banner not found' });
+        const updateData = {};
+        if (req.body.title !== undefined) updateData.title = req.body.title;
+        if (req.body.description !== undefined) updateData.description = req.body.description;
+        if (req.body.buttonText !== undefined) updateData.buttonText = req.body.buttonText;
+        if (req.body.accentColor !== undefined) updateData.accentColor = req.body.accentColor;
+        if (req.body.status !== undefined) updateData.status = req.body.status;
+        if (req.files?.bgImage) {
+            updateData.bgImageName = await saveFileLocal(req.files.bgImage, 'banners');
+            if (banner.bgImageName) await deleteFileLocal(banner.bgImageName);
+        }
+        if (req.files?.overlayImage) {
+            updateData.overlayImageName = await saveFileLocal(req.files.overlayImage, 'banners');
+            if (banner.overlayImageName) await deleteFileLocal(banner.overlayImageName);
+        }
+        await prisma.banner.update({ where: { id }, data: updateData });
+        res.status(200).json({ status: true, msg: 'Banner updated successfully' });
+    } catch (error) {
+        res.status(500).json({ status: false, msg: 'Server Error' });
+    }
+};
+
 export const deleteBanner = async (req, res) => {
     try {
-        const { id } = req.params; // ID use karna hamesha safe rehta hai
-        const banner = await BannerSchemaModel.findById(id);
-
-        if (!banner) {
-            return res.status(404).json({ status: false, msg: "Banner not found" });
-        }
-
-        // 🟢 Step A: Local Files Cleanup
+        const id = parseInt(req.params.id);
+        const banner = await prisma.banner.findUnique({ where: { id } });
+        if (!banner) return res.status(404).json({ status: false, msg: 'Banner not found' });
         if (banner.bgImageName) await deleteFileLocal(banner.bgImageName);
         if (banner.overlayImageName) await deleteFileLocal(banner.overlayImageName);
-
-        // Step B: DB record delete
-        await BannerSchemaModel.findByIdAndDelete(id);
-
-        res.status(200).json({ status: true, msg: "Banner and associated files deleted successfully" });
-
+        await prisma.banner.delete({ where: { id } });
+        res.status(200).json({ status: true, msg: 'Banner and associated files deleted successfully' });
     } catch (error) {
-        console.error("Banner Delete Error:", error);
-        res.status(500).json({ status: false, msg: "Server Error" });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };

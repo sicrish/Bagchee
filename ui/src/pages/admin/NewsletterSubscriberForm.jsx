@@ -242,7 +242,7 @@ const NewsletterSubscriberForm = () => {
                                     const isSelected = selectedCategories.includes(catName);
                                     return (
                                        <div 
-                                          key={cat._id} 
+                                          key={cat.id} 
                                           onClick={() => toggleCategory(catName)}
                                           className={`flex items-center gap-2 p-2 cursor-pointer text-sm rounded hover:bg-blue-50 ${isSelected ? 'bg-blue-50 font-bold text-primary' : 'text-gray-700'}`}
                                        >

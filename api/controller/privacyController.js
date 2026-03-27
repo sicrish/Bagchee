@@ -1,28 +1,39 @@
-import Privacy from '../models/Privacy.js';
+import prisma from '../lib/prisma.js';
 
-// 🟢 GET: Humesha ek hi privacy document fetch karega
+// Field mapping: content→pageContent, meta_title→metaTitle,
+// meta_description→metaDesc, meta_keywords→metaKeywords.
+
 export const getPrivacy = async (req, res) => {
     try {
-        let data = await Privacy.findOne();
+        let data = await prisma.privacy.findFirst();
         if (!data) {
-            data = await Privacy.create({ title: 'Privacy Policy' });
+            data = await prisma.privacy.create({ data: { title: 'Privacy Policy' } });
         }
         res.status(200).json({ status: true, data });
     } catch (error) {
-        res.status(500).json({ status: false, msg: error.message });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// 🟢 UPDATE: Upsert logic (hai toh update, nahi toh create)
 export const updatePrivacy = async (req, res) => {
     try {
-        const updated = await Privacy.findOneAndUpdate(
-            {}, 
-            req.body,
-            { upsert: true, new: true, setDefaultsOnInsert: true }
-        );
-        res.status(200).json({ status: true, msg: "Privacy Policy updated! 🔒", data: updated });
+        const { title, content, pageContent, meta_title, metaTitle, meta_description, metaDesc, meta_keywords, metaKeywords } = req.body;
+        const payload = {
+            title: title || 'Privacy Policy',
+            pageContent: pageContent || content || '',
+            metaTitle: metaTitle || meta_title || '',
+            metaDesc: metaDesc || meta_description || '',
+            metaKeywords: metaKeywords || meta_keywords || ''
+        };
+        const first = await prisma.privacy.findFirst();
+        let updated;
+        if (first) {
+            updated = await prisma.privacy.update({ where: { id: first.id }, data: payload });
+        } else {
+            updated = await prisma.privacy.create({ data: payload });
+        }
+        res.status(200).json({ status: true, msg: 'Privacy Policy updated!', data: updated });
     } catch (error) {
-        res.status(500).json({ status: false, msg: error.message });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };

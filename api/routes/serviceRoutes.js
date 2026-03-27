@@ -1,12 +1,16 @@
 import express from 'express';
 import * as ServiceController from '../controller/serviceController.js';
+import adminAuth from '../middleware/adminAuth.middleware.js';
 
 const router = express.Router();
 
-router.post('/save', ServiceController.saveService);
-router.get('/list', ServiceController.listServices);
+// PUBLIC — services displayed on website
+router.get('/list',    ServiceController.listServices);
 router.get('/get/:id', ServiceController.getService);
-router.patch('/update/:id', ServiceController.updateService);
-router.delete('/delete/:id', ServiceController.deleteService);
+
+// ADMIN — mutations
+router.post('/save',         adminAuth, ServiceController.saveService);
+router.put('/update/:id',    adminAuth, ServiceController.updateService);
+router.delete('/delete/:id', adminAuth, ServiceController.deleteService);
 
 export default router;

@@ -3,7 +3,7 @@ import toast from 'react-hot-toast'; // 🟢 Toast Import karein
 import { encryptData } from './encryption.js';
 
 const axiosInstance = axios.create({
-    baseURL: process.env.REACT_APP_API_URL
+    baseURL: process.env.REACT_APP_API_URL || 'http://localhost:3001'
 });
 
 // Flag to prevent multiple redirects
@@ -34,8 +34,6 @@ axiosInstance.interceptors.request.use(
 
             // FormData (Images/Files) ko encrypt nahi karna hai
             if (!(config.data instanceof FormData)) {
-                console.log(`🔐 Encrypting ${config.method.toUpperCase()} request...`);
-
                 config.data = {
                     payload: encryptData(config.data)
                 };
@@ -60,7 +58,7 @@ axiosInstance.interceptors.response.use(
             if (!isRedirecting) {
                 isRedirecting = true; // Flag set karein
 
-                console.warn("Session Expired! Redirecting...");
+                // Session expired — redirect to login
 
                 // 1. Storage Clear
                 localStorage.removeItem('token');

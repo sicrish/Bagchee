@@ -52,11 +52,11 @@ const handleExport = () => {
   // Excel ke liye data prepare karein
   const dataToExport = navigationItems.map((nav, index) => ({
     "Sr No": index + 1,
-    "Item Name": nav.item || nav.name,
-    "Link URL": nav.link,
-    "Dropdown Status": nav.dropdown,
-    "Status (Active)": nav.active || nav.status,
-    "Display Order": nav.order
+    "Item Name": nav.item,
+    "Link URL": nav.itemLink,
+    "Dropdown Status": nav.hasDropdown ? 'active' : 'inactive',
+    "Status (Active)": nav.active ? 'active' : 'inactive',
+    "Display Order": nav.ord
   }));
 
   const worksheet = XLSX.utils.json_to_sheet(dataToExport);
@@ -80,15 +80,14 @@ const handlePrint = () => {
   const filteredNavs = useMemo(() => {
     return navigationItems.filter((nav, index) => {
       const displayId = (index + 1).toString();
-      const itemName = nav.name || nav.item || "";
-      const statusValue = nav.status || nav.active || "";
+      const statusValue = nav.active ? "active" : "inactive";
       return (
         displayId.includes(filters.id) &&
-        itemName.toLowerCase().includes(filters.item.toLowerCase()) &&
-        (nav.link || "").toLowerCase().includes(filters.link.toLowerCase()) &&
-        (nav.dropdown || "").toLowerCase().includes(filters.dropdown.toLowerCase()) &&
+        (nav.item || "").toLowerCase().includes(filters.item.toLowerCase()) &&
+        (nav.itemLink || "").toLowerCase().includes(filters.link.toLowerCase()) &&
+        (nav.hasDropdown ? "active" : "inactive").includes(filters.dropdown.toLowerCase()) &&
         statusValue.toLowerCase().includes(filters.active.toLowerCase()) &&
-        (nav.order || "0").toString().includes(filters.order)
+        (nav.ord || "0").toString().includes(filters.order)
       );
     });
   }, [navigationItems, filters]);
@@ -208,7 +207,7 @@ const handlePrint = () => {
               ) : filteredNavs.length > 0 ? (
                 filteredNavs.map((nav, index) => (
                   
-                  <tr key={nav._id} className="hover:bg-blue-50/30 transition-colors text-[13px]">
+                  <tr key={nav.id} className="hover:bg-blue-50/30 transition-colors text-[13px]">
                     <td className="p-3 border-r text-center">
                         <div className="flex items-center gap-5 px-1">
                           <input type="checkbox" className="h-4 w-4 rounded accent-[#0096cc] cursor-pointer shrink-0" />
@@ -216,20 +215,20 @@ const handlePrint = () => {
                         </div>
                     </td>
                     <td className="p-3 border-r text-gray-700 font-medium">
-                        {nav.name || nav.item}
+                        {nav.item}
                     </td>
-                    <td className="p-3 border-r text-gray-500 italic text-xs">{nav.link}</td>
-                    <td className={`p-3 border-r font-bold ${nav.dropdown === 'active' ? 'text-primary' : 'text-gray-400'}`}>
-                        {nav.dropdown}
+                    <td className="p-3 border-r text-gray-500 italic text-xs">{nav.itemLink}</td>
+                    <td className={`p-3 border-r font-bold ${nav.hasDropdown ? 'text-primary' : 'text-gray-400'}`}>
+                        {nav.hasDropdown ? 'active' : 'inactive'}
                     </td>
-                    <td className={`p-3 border-r font-bold ${(nav.status || nav.active) === 'active' ? 'text-primary' : 'text-red-400'}`}>
-    {nav.status || nav.active}
-</td>
-                    <td className="p-3 border-r text-gray-600 text-center font-bold">{nav.order}</td>
+                    <td className={`p-3 border-r font-bold ${nav.active ? 'text-primary' : 'text-red-400'}`}>
+                      {nav.active ? 'active' : 'inactive'}
+                    </td>
+                    <td className="p-3 border-r text-gray-600 text-center font-bold">{nav.ord}</td>
                     <td className="p-3">
                       <div className="flex justify-center gap-2">
-                        <button onClick={() => navigate(`/admin/edit-navigation/${nav._id}`)} className="p-1.5 bg-gray-100 border border-gray-200 rounded text-gray-600 hover:text-[#0096cc] transition-all"><Edit size={14} /></button>
-                        <button onClick={() => handleDelete(nav._id)} className="p-1.5 bg-gray-100 border border-gray-200 rounded text-gray-600 hover:text-red-500 transition-all"><Trash2 size={14} /></button>
+                        <button onClick={() => navigate(`/admin/edit-navigation/${nav.id}`)} className="p-1.5 bg-gray-100 border border-gray-200 rounded text-gray-600 hover:text-[#0096cc] transition-all"><Edit size={14} /></button>
+                        <button onClick={() => handleDelete(nav.id)} className="p-1.5 bg-gray-100 border border-gray-200 rounded text-gray-600 hover:text-red-500 transition-all"><Trash2 size={14} /></button>
                       </div>
                     </td>
                   </tr>

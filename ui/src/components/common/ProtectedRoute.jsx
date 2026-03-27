@@ -4,7 +4,7 @@ import axios from 'axios';
 import { Loader2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 
-const ProtectedRoute = ({ allowedRole }) => {
+const ProtectedRoute = ({ allowedRole, requireAuth }) => {
   const token = localStorage.getItem('token');
 
   // 🚀 MNC OPTIMIZATION: Logic to handle Guest vs User
@@ -50,9 +50,13 @@ const ProtectedRoute = ({ allowedRole }) => {
     );
   }
 
-  // 2. 🟢 Guest Access Logic:
-  // Agar 'allowedRole' pass nahi kiya gaya (jaise Checkout route par), 
-  // toh guest user ko bina roke aage jaane do.
+  // 2. Auth-only (no specific role): requireAuth=true means must be logged in
+  if (requireAuth && !allowedRole) {
+    if (!user || isError) return <Navigate to="/login" replace />;
+    return <Outlet />;
+  }
+
+  // 3. 🟢 Guest Access Logic: no allowedRole and no requireAuth — let everyone through
   if (!allowedRole) {
     return <Outlet />;
   }
@@ -66,7 +70,6 @@ const ProtectedRoute = ({ allowedRole }) => {
   // 4. Role Authorization:
   // Agar user hai par uska role match nahi karta.
   if (allowedRole && user.role !== allowedRole) {
-    console.error(`Access Denied: Required ${allowedRole}, but user is ${user.role}`);
     return <Navigate to="/" replace />;
   }
 

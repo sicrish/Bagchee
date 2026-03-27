@@ -16,8 +16,12 @@ export const CurrencyProvider = ({ children }) => {
             if (!localStorage.getItem('bagchee_currency')) {
                 try {
                     const res = await axios.get('https://ipapi.co/json/');
-                    if (res.data && res.data.currency) {
-                        setCurrency(res.data.currency);
+                    const detected = res.data?.currency;
+                    // Only accept currencies we support; default to INR for Indian IPs
+                    if (detected && ['INR', 'USD'].includes(detected)) {
+                        setCurrency(detected);
+                    } else {
+                        setCurrency('INR');
                     }
                 } catch (err) {
                     console.error("IP Detection Failed:", err);

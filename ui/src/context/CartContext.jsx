@@ -66,12 +66,12 @@ export const CartProvider = ({ children }) => {
   const addToCart = (product, quantity = 1, selectedSize = null, selectedColor = null) => {
     setCart((prevCart) => {
       // Check karo agar item pehle se cart me hai
-      const existingItem = prevCart.find((item) => item._id === product._id);
+      const existingItem = prevCart.find((item) => item.id === product.id);
 
       if (existingItem) {
         // Agar hai, to quantity badha do
         return prevCart.map((item) =>
-          item._id === product._id
+          item.id === product.id
             ? { ...item, quantity: item.quantity + quantity }
             : item
         );
@@ -80,20 +80,18 @@ export const CartProvider = ({ children }) => {
         return [...prevCart, { ...product, quantity, selectedSize, selectedColor }];
       }
     });
-    // Yahan aap Toast Notification laga sakte ho (e.g. "Added to Cart!")
-    console.log("Added to Cart:", product.name);
   };
 
   // 2. Remove from Cart
   const removeFromCart = (productId) => {
-    setCart((prevCart) => prevCart.filter((item) => item._id !== productId));
+    setCart((prevCart) => prevCart.filter((item) => item.id !== productId));
   };
 
   // 3. Update Quantity (+ / -)
   const updateQuantity = (productId, type) => {
     setCart((prevCart) => {
       return prevCart.map((item) => {
-        if (item._id === productId) {
+        if (item.id === productId) {
           const newQty = type === 'inc' ? item.quantity + 1 : item.quantity - 1;
           if (newQty < 1) {
             // If quantity would be less than 1, remove the item instead
@@ -123,10 +121,10 @@ export const CartProvider = ({ children }) => {
   // 1. Toggle Wishlist (Add/Remove)
   const toggleWishlist = (product) => {
     setWishlist((prevWishlist) => {
-      const exists = prevWishlist.find((item) => item._id === product._id);
+      const exists = prevWishlist.find((item) => item.id === product.id);
       if (exists) {
         // Agar already hai, to hata do
-        return prevWishlist.filter((item) => item._id !== product._id);
+        return prevWishlist.filter((item) => item.id !== product.id);
       } else {
         // Nahi hai, to add karo
         return [...prevWishlist, product];
@@ -136,7 +134,7 @@ export const CartProvider = ({ children }) => {
 
   // 2. Check if in Wishlist (UI ke liye - Heart icon red karne ke liye)
   const isInWishlist = (productId) => {
-    return wishlist.some((item) => item._id === productId);
+    return wishlist.some((item) => item.id === productId);
   };
 
   // --- CALCULATIONS (Subtotal, Item Count) ---

@@ -1,117 +1,101 @@
-import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
-import sharp from 'sharp'; // 🟢 Fast loading ke liye essential
+import sharp from 'sharp';
+import { v2 as cloudinary } from 'cloudinary';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const BASE_UPLOAD_DIR = path.join(__dirname, '../uploads');
+// Configure Cloudinary
+cloudinary.config({
+    cloud_name: process.env.CLOUD_NAME,
+    api_key: process.env.CLOUD_API_KEY,
+    api_secret: process.env.CLOUD_API_SECRET,
+});
 
-// 🟢 SAVE FUNCTION (Optimized for MNC Standards)
+/**
+ * Upload a file to Cloudinary (replaces local disk storage).
+ * Keeps the same function signature so all controllers work without changes.
+ *
+ * @param {object} file - express-fileupload file object
+ * @param {string} folderName - subfolder in Cloudinary (e.g. 'categories', 'products')
+ * @returns {string} Full Cloudinary URL
+ */
 export const saveFileLocal = async (file, folderName = '') => {
-    try {   
+    try {
         if (!file) return null;
 
-        // ==========================================
-        // 🛡️ SECURITY 1: SIZE CHECK (10MB for processing)
-        // ==========================================
-        const MAX_SIZE = 10 * 1024 * 1024; 
+        // Size check (10MB)
+        const MAX_SIZE = 10 * 1024 * 1024;
         if (file.size > MAX_SIZE) {
-            throw new Error(`File too large! Max 10MB allowed for optimization.`);
+            throw new Error('File too large! Max 10MB allowed.');
         }
 
-        // ==========================================
-        // 🛡️ SECURITY 2: EXTENSION CHECK
-        // ==========================================
-        const allowedTypes = {
-            '.png': 'image/png',
-            '.jpg': 'image/jpeg',
-            '.jpeg': 'image/jpeg',
-            '.webp': 'image/webp',
-            '.pdf': 'application/pdf',
-            '.doc': 'application/msword',
-            '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-        };
-
+        // Extension check
+        const allowedExts = ['.png', '.jpg', '.jpeg', '.webp', '.pdf', '.doc', '.docx'];
         const fileExt = path.extname(file.name).toLowerCase();
-        if (!Object.keys(allowedTypes).includes(fileExt)) {
-            throw new Error("Invalid file type! Only Images and Docs allowed.");
+        if (!allowedExts.includes(fileExt)) {
+            throw new Error('Invalid file type! Only Images and Docs allowed.');
         }
 
-        // ==========================================
-        // 📂 ORGANIZATION: DYNAMIC FOLDER
-        // ==========================================
-        const targetDir = folderName ? path.join(BASE_UPLOAD_DIR, folderName) : BASE_UPLOAD_DIR;
-        if (!fs.existsSync(targetDir)) {
-            fs.mkdirSync(targetDir, { recursive: true });
-        }
-
-        // ==========================================
-        // 🛡️ SECURITY 3: SAFE FILENAME & WEBP CONVERSION
-        // ==========================================
-        const originalName = path.parse(file.name).name;
-        const safeName = originalName.replace(/[^a-zA-Z0-9-_]/g, '').substring(0, 50); 
-        
-        // 🟢 Check if it's an image for Sharp processing
         const isImage = ['.jpg', '.jpeg', '.png', '.webp'].includes(fileExt);
-        
-        // Agar image hai toh extension humesha .webp rakhenge fast loading ke liye
-        const finalExt = isImage ? '.webp' : fileExt;
-        const fileName = `${safeName}-${Date.now()}${finalExt}`;
-        const uploadPath = path.join(targetDir, fileName);
+        const folder = folderName ? `bagchee/${folderName}` : 'bagchee';
 
-        // ==========================================
-        // 🚀 CORE CHANGE: SHARP VS MV LOGIC
-        // ==========================================
         if (isImage) {
-            // 🟢 MNC STANDARD: Image ko resize aur compress karke save karein
-            await sharp(file.data)
-                .resize(800, null, { // Max 800px width, height auto maintain hogi
-                    withoutEnlargement: true, 
-                    fit: 'inside' 
-                })
-                .webp({ quality: 80 }) // 80% quality par WebP (Best balance)
-                .toFile(uploadPath);
+            // Optimize with Sharp: resize to 800px max width, convert to WebP @ 80%
+            const optimized = await sharp(file.data)
+                .resize(800, null, { withoutEnlargement: true, fit: 'inside' })
+                .webp({ quality: 80 })
+                .toBuffer();
+
+            // Upload buffer to Cloudinary
+            const result = await new Promise((resolve, reject) => {
+                const stream = cloudinary.uploader.upload_stream(
+                    { folder, format: 'webp', resource_type: 'image' },
+                    (err, res) => (err ? reject(err) : resolve(res))
+                );
+                stream.end(optimized);
+            });
+
+            return result.secure_url;
         } else {
-            // ⚪ NORMAL: PDF/Docs ke liye purana mv logic
-            await file.mv(uploadPath);
+            // PDFs/Docs — upload as raw file
+            const result = await new Promise((resolve, reject) => {
+                const stream = cloudinary.uploader.upload_stream(
+                    { folder, resource_type: 'raw' },
+                    (err, res) => (err ? reject(err) : resolve(res))
+                );
+                stream.end(file.data);
+            });
+
+            return result.secure_url;
         }
-
-        // Return DB Path
-        const dbPath = folderName ? `/uploads/${folderName}/${fileName}` : `/uploads/${fileName}`;
-        return dbPath; 
-
     } catch (error) {
-        console.error("Save File Error:", error.message);
-        throw new Error(error.message); 
+        console.error('Upload Error:', error.message);
+        throw new Error(error.message);
     }
 };
 
-// ==========================================
-// 🗑️ DELETE FUNCTION (Security Fixed)
-// ==========================================
-export const deleteFileLocal = async (relativeFilePath) => {
+/**
+ * Delete a file from Cloudinary (replaces local file deletion).
+ * Handles both Cloudinary URLs and legacy local paths gracefully.
+ *
+ * @param {string} fileUrl - Cloudinary URL or legacy local path
+ */
+export const deleteFileLocal = async (fileUrl) => {
     try {
-        if (!relativeFilePath || relativeFilePath.startsWith('http')) return; 
+        if (!fileUrl) return;
 
-        // Correct path normalization
-        const cleanPath = relativeFilePath.startsWith('/') ? relativeFilePath.slice(1) : relativeFilePath;
-        const fullPath = path.join(__dirname, '..', cleanPath);
+        // Only delete Cloudinary-hosted files
+        if (!fileUrl.includes('cloudinary.com')) return;
 
-        // Security: Check if path is actually inside uploads
-        const relativeTarget = path.relative(BASE_UPLOAD_DIR, fullPath);
-        const isSafe = relativeTarget && !relativeTarget.startsWith('..') && !path.isAbsolute(relativeTarget);
+        // Extract public_id from Cloudinary URL
+        // URL format: https://res.cloudinary.com/{cloud}/image/upload/v123/bagchee/categories/filename.webp
+        const parts = fileUrl.split('/upload/');
+        if (parts.length < 2) return;
 
-        if (!isSafe) {
-             console.warn("⚠️ Security Warning: Attempt to delete outside uploads dir");
-             return;
-        }
+        // Remove version prefix (v123456/) and file extension
+        const afterUpload = parts[1].replace(/^v\d+\//, '');
+        const publicId = afterUpload.replace(/\.[^/.]+$/, '');
 
-        if (fs.existsSync(fullPath)) {
-            fs.unlinkSync(fullPath);
-            console.log("🗑️ Local file deleted:", relativeFilePath);
-        }
-    } catch (error) {
-        console.error("Delete Error:", error.message);
+        await cloudinary.uploader.destroy(publicId);
+    } catch (_) {
+        // Non-critical — file may already be gone
     }
 };

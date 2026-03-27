@@ -160,8 +160,8 @@ const AddPublishers = () => {
                   <option value="">Select Category</option>
                   {categories.map(cat => (
                     // 🟢 Value = ID (ObjectId) for backend relation
-                    <option key={cat._id} value={cat._id}>
-                      {cat.categorytitle}
+                    <option key={cat.id} value={cat.id}>
+                      {cat.title}
                     </option>
                   ))}
                 </select>

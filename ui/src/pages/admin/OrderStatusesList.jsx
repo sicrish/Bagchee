@@ -207,7 +207,7 @@ const [totalItems, setTotalItems] = useState(0);
                 </tr>
               ) : filteredStatuses.length > 0 ? (
                 filteredStatuses.map((status, index) => (
-                  <tr key={status._id} className="hover:bg-primary-50 transition-colors text-[13px]">
+                  <tr key={status.id} className="hover:bg-primary-50 transition-colors text-[13px]">
                     <td className="p-3 border-r border-cream-50">
                         <div className="flex items-center gap-5 px-1">
                           <input type="checkbox" className="h-4 w-4 rounded accent-primary cursor-pointer shrink-0" />
@@ -220,13 +220,13 @@ const [totalItems, setTotalItems] = useState(0);
                     <td className="p-3">
                       <div className="flex justify-center gap-2">
                         <button 
-                          onClick={() => navigate(`/admin/edit-order-status/${status._id}`)} 
+                          onClick={() => navigate(`/admin/edit-order-status/${status.id}`)} 
                           className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm active:scale-95"
                         >
                           <Edit size={14} />
                         </button>
                         <button 
-                          onClick={() => handleDelete(status._id)}
+                          onClick={() => handleDelete(status.id)}
                           className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 hover:border-red-600 transition-all shadow-sm active:scale-95"
                         >
                           <Trash2 size={14} />

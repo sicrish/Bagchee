@@ -25,7 +25,7 @@ const Orders = () => {
     const authData = localStorage.getItem('auth');
     if (!authData) return null;
     const parsedData = JSON.parse(authData);
-    return parsedData.userDetails?.id || parsedData.userDetails?._id;
+    return parsedData.userDetails?.id;
   }, []);
 
   // 🟢 2. REACT QUERY: Ye akela hook loading aur data dono handle kar lega
@@ -36,7 +36,21 @@ const Orders = () => {
       const res = await axios.get('/orders/my-orders', {
         params: { customer_id: userId }
       });
-      return res.data.status ? (res.data.data || []) : [];
+      const rawOrders = res.data.status ? (res.data.data || []) : [];
+      // Map Prisma `items` → legacy `products` shape the UI expects
+      return rawOrders.map(order => ({
+        ...order,
+        products: (order.items || order.products || []).map(item => ({
+          product_id: item.productId || item.product_id,
+          name: item.product?.title || item.name,
+          price: item.price,
+          quantity: item.quantity,
+          status: item.status,
+          default_image: item.product?.defaultImage || null,
+          bagchee_id: item.product?.bagcheeId || null,
+        })),
+      }));
+
     },
     enabled: !!userId, // Sirf tabhi chalega jab userId milegi
   });
@@ -66,27 +80,35 @@ const Orders = () => {
   }, [orders]);
 
   const getProductInfo = (product) => {
+    // First check if we already have inline data from the API mapping
+    let imageUrl = product.default_image;
+    let bagcheeId = product.bagchee_id;
+    let title = product.title || product.name;
+
+    // Override with fetched details if available
     const details = productDetails[product.product_id];
     if (details) {
-      // Ensure default_image has full URL
-      let imageUrl = details.default_image;
-      if (imageUrl && !imageUrl.startsWith('http')) {
-        imageUrl = `${process.env.REACT_APP_API_URL}${imageUrl}`;
-      }
-      
-      return {
-        ...product,
-        title: details.title || product.name,
-        default_image: imageUrl,
-        bagchee_id: details.bagchee_id
-      };
+      imageUrl = details.defaultImage || details.default_image || imageUrl;
+      bagcheeId = details.bagcheeId || details.bagchee_id || bagcheeId;
+      title = details.title || title;
     }
-    return product;
+
+    // Ensure full URL
+    if (imageUrl && !imageUrl.startsWith('http')) {
+      imageUrl = `${process.env.REACT_APP_API_URL}${imageUrl}`;
+    }
+
+    return {
+      ...product,
+      title,
+      default_image: imageUrl,
+      bagchee_id: bagcheeId
+    };
   };
 
   // Generate book detail link in correct format: /books/:bagcheeId/:slug
   const getBookDetailLink = (productInfo) => {
-    const bagcheeId = productInfo.bagchee_id;
+    const bagcheeId = productInfo.bagcheeId || productInfo.bagchee_id;
     if (!bagcheeId) return null;
     const title = productInfo.title || productInfo.name || 'book';
     const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -240,7 +262,7 @@ const Orders = () => {
           {orders.length > 0 ? (
             orders.map((order) => (
               <div
-                key={order._id}
+                key={order.id}
                 className="bg-cream-100 border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden"
               >
                 {/* Order Header */}
@@ -251,7 +273,8 @@ const Orders = () => {
                         <h2 className="text-lg font-display font-bold text-text-main">
                           Order #
                           {order.order_number ||
-                            order._id.slice(-8).toUpperCase()}
+                            order.orderNumber ||
+                            String(order.id)}
                         </h2>
                         <div
                           className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(order.status)}`}
@@ -457,7 +480,8 @@ const Orders = () => {
                             <h2 className="text-2xl font-display font-bold text-text-main">
                               Order #
                               {selectedOrder.order_number ||
-                                selectedOrder._id.slice(-8).toUpperCase()}
+                                selectedOrder.orderNumber ||
+                                String(selectedOrder.id)}
                             </h2>
                             <p className="text-sm text-text-muted mt-1">
                               Placed on{" "}
@@ -723,37 +747,34 @@ const Orders = () => {
                             </div>
 
                             {/* Shipping Address */}
-                            {selectedOrder.shipping_details && (
+                            {(selectedOrder.shippingFirstName || selectedOrder.shipping_details) && (
                               <div className="bg-gray-50 rounded-lg p-4">
                                 <h4 className="font-semibold text-text-main mb-3">
                                   Shipping Address
                                 </h4>
                                 <div className="text-sm text-text-muted space-y-1">
                                   <p className="font-medium text-text-main">
-                                    {selectedOrder.shipping_details.first_name}{" "}
-                                    {selectedOrder.shipping_details.last_name}
+                                    {selectedOrder.shippingFirstName || selectedOrder.shipping_details?.first_name}{" "}
+                                    {selectedOrder.shippingLastName || selectedOrder.shipping_details?.last_name}
                                   </p>
                                   <p>
-                                    {selectedOrder.shipping_details.address_1}
+                                    {selectedOrder.shippingAddress1 || selectedOrder.shipping_details?.address_1}
                                   </p>
-                                  {selectedOrder.shipping_details.address_2 && (
+                                  {(selectedOrder.shippingAddress2 || selectedOrder.shipping_details?.address_2) && (
                                     <p>
-                                      {selectedOrder.shipping_details.address_2}
+                                      {selectedOrder.shippingAddress2 || selectedOrder.shipping_details?.address_2}
                                     </p>
                                   )}
                                   <p>
-                                    {selectedOrder.shipping_details.city},{" "}
-                                    {
-                                      selectedOrder.shipping_details
-                                        .state_region
-                                    }{" "}
-                                    {selectedOrder.shipping_details.postcode}
+                                    {selectedOrder.shippingCity || selectedOrder.shipping_details?.city},{" "}
+                                    {selectedOrder.shippingState || selectedOrder.shipping_details?.state_region}{" "}
+                                    {selectedOrder.shippingPostcode || selectedOrder.shipping_details?.postcode}
                                   </p>
                                   <p>
-                                    {selectedOrder.shipping_details.country}
+                                    {selectedOrder.shippingCountry || selectedOrder.shipping_details?.country}
                                   </p>
                                   <p className="text-primary">
-                                    📞 {selectedOrder.shipping_details.phone}
+                                    📞 {selectedOrder.shippingPhone || selectedOrder.shipping_details?.phone}
                                   </p>
                                 </div>
                               </div>

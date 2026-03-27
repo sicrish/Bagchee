@@ -1,29 +1,40 @@
-import About from '../models/About.js';
+import prisma from '../lib/prisma.js';
 
-// 🟢 GET: Humesha pehla document fetch karega
+// Field mapping: content→pageContent, meta_title→metaTitle,
+// meta_description→metaDesc, meta_keywords→metaKeywords.
+// Pattern: single-record upsert (find first, update or create).
+
 export const getAboutUs = async (req, res) => {
     try {
-        let data = await About.findOne();
+        let data = await prisma.about.findFirst();
         if (!data) {
-            // Agar pehli baar hai toh empty data bhejega
-            data = await About.create({ title: 'About Us' });
+            data = await prisma.about.create({ data: { title: 'About Us' } });
         }
         res.status(200).json({ status: true, data });
     } catch (error) {
-        res.status(500).json({ status: false, msg: error.message });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// 🟢 UPDATE: Agar record nahi hai toh banayega, hai toh update karega
 export const updateAboutUs = async (req, res) => {
     try {
-        const updated = await About.findOneAndUpdate(
-            {}, // Empty filter means target first document
-            req.body,
-            { upsert: true, new: true, setDefaultsOnInsert: true }
-        );
-        res.status(200).json({ status: true, msg: "About Us updated! ✨", data: updated });
+        const { title, content, pageContent, meta_title, metaTitle, meta_description, metaDesc, meta_keywords, metaKeywords } = req.body;
+        const payload = {
+            title: title || 'About Us',
+            pageContent: pageContent || content || '',
+            metaTitle: metaTitle || meta_title || '',
+            metaDesc: metaDesc || meta_description || '',
+            metaKeywords: metaKeywords || meta_keywords || ''
+        };
+        const first = await prisma.about.findFirst();
+        let updated;
+        if (first) {
+            updated = await prisma.about.update({ where: { id: first.id }, data: payload });
+        } else {
+            updated = await prisma.about.create({ data: payload });
+        }
+        res.status(200).json({ status: true, msg: 'About Us updated!', data: updated });
     } catch (error) {
-        res.status(500).json({ status: false, msg: error.message });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };

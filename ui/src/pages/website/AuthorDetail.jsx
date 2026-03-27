@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import { ChevronRight, MapPin, BookOpen, Star, Award } from 'lucide-react';
+import { createSafeHtml } from '../../utils/sanitize';
 import ProductCardGrid from '../../components/website/ProductCardGrid';
 
 const AuthorDetail = () => {
@@ -36,7 +37,7 @@ const AuthorDetail = () => {
         }
 
         const foundAuthor = authorsRes.data.data.find(a => {
-          const authorSlug = createSlug(`${a.first_name} ${a.last_name}`);
+          const authorSlug = createSlug(`${a.firstName || a.first_name} ${a.lastName || a.last_name}`);
           return authorSlug === slug;
         });
 
@@ -59,9 +60,9 @@ const AuthorDetail = () => {
           const authorBooks = allBooks.filter(book => {
             // Check if book.author matches (could be ObjectId or populated object)
             if (typeof book.author === 'object' && book.author !== null) {
-              return book.author._id === foundAuthor._id;
+              return book.author.id === foundAuthor.id;
             }
-            return book.author === foundAuthor._id;
+            return book.author === foundAuthor.id;
           });
           
           setBooks(authorBooks);
@@ -119,7 +120,7 @@ const AuthorDetail = () => {
             <Link to="/publishers-authors" className="hover:text-primary transition-colors">Authors</Link>
             <ChevronRight className="w-4 h-4" />
             <span className="text-gray-900 font-medium">
-              {author.first_name} {author.last_name}
+              {author.firstName || author.first_name} {author.lastName || author.last_name}
             </span>
           </div>
         </div>
@@ -134,7 +135,7 @@ const AuthorDetail = () => {
               <div className="aspect-square rounded-xl overflow-hidden shadow-md">
                 <img
                   src={authorImageUrl}
-                  alt={`${author.first_name} ${author.last_name}`}
+                  alt={`${author.firstName || author.first_name} ${author.lastName || author.last_name}`}
                   className="w-full h-full object-cover"
                   onError={(e) => { 
                     e.target.src = 'https://via.placeholder.com/400x400?text=Author' 
@@ -146,7 +147,7 @@ const AuthorDetail = () => {
             {/* Author Info */}
             <div className="flex-1">
               <h1 className="text-3xl md:text-4xl font-display font-bold text-gray-900 mb-4">
-                {author.first_name} {author.last_name}
+                {author.firstName || author.first_name} {author.lastName || author.last_name}
               </h1>
               
               {/* Origin */}
@@ -195,7 +196,7 @@ const AuthorDetail = () => {
                   </h2>
                   <div 
                     className="text-gray-700 leading-relaxed prose prose-sm max-w-none"
-                    dangerouslySetInnerHTML={{ __html: author.profile }}
+                    dangerouslySetInnerHTML={createSafeHtml(author.profile)}
                   />
                 </div>
               )}
@@ -207,7 +208,7 @@ const AuthorDetail = () => {
         <div>
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl md:text-3xl font-display font-bold text-gray-900">
-              Books by {author.first_name} {author.last_name}
+              Books by {author.firstName || author.first_name} {author.lastName || author.last_name}
             </h2>
             <div className="text-sm text-gray-600">
               {books.length} {books.length === 1 ? 'Book' : 'Books'} Found
@@ -217,7 +218,7 @@ const AuthorDetail = () => {
           {books.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
               {books.map(book => (
-                <ProductCardGrid key={book._id} data={book} />
+                <ProductCardGrid key={book.id} data={book} />
               ))}
             </div>
           ) : (
@@ -227,7 +228,7 @@ const AuthorDetail = () => {
                 No Books Available
               </h3>
               <p className="text-gray-600">
-                Books by {author.first_name} {author.last_name} are currently not available.
+                Books by {author.firstName || author.first_name} {author.lastName || author.last_name} are currently not available.
               </p>
               <Link 
                 to="/books" 

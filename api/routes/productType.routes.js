@@ -1,21 +1,16 @@
 import express from "express";
 import * as ProductTypeController from "../controller/productType.controller.js";
+import adminAuth from '../middleware/adminAuth.middleware.js';
 
 const router = express.Router();
 
-// 🟢 Save (Create)
-router.post("/save", ProductTypeController.saveProductType);
-
-// 🔵 Fetch All (Read List)
-router.get("/list", ProductTypeController.getAllProductTypes);
-
-// 🟡 Fetch Single (Read One - Edit karte waqt data bharne ke liye)
+// PUBLIC — product types used in website filters/dropdowns
+router.get("/list",    ProductTypeController.getAllProductTypes);
 router.get("/get/:id", ProductTypeController.getProductTypeById);
 
-// 🟠 Update
-router.patch("/update/:id", ProductTypeController.updateProductType);
-
-// 🔴 Delete
-router.delete("/delete/:id", ProductTypeController.deleteProductType);
+// ADMIN — mutations
+router.post("/save",         adminAuth, ProductTypeController.saveProductType);
+router.patch("/update/:id",  adminAuth, ProductTypeController.updateProductType);
+router.delete("/delete/:id", adminAuth, ProductTypeController.deleteProductType);
 
 export default router;

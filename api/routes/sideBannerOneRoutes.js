@@ -1,15 +1,16 @@
 import express from 'express';
 import * as SideBannerOneController from '../controller/sideBannerOneController.js';
-
+import adminAuth from '../middleware/adminAuth.middleware.js';
 
 const router = express.Router();
 
-
-
-router.post('/save', SideBannerOneController.saveBanner);
-router.get('/list', SideBannerOneController.listBanners);
+// PUBLIC — side banners displayed on website
+router.get('/list',    SideBannerOneController.listBanners);
 router.get('/get/:id', SideBannerOneController.getBanner);
-router.patch('/update/:id', SideBannerOneController.updateBanner);
-router.delete('/delete/:id', SideBannerOneController.deleteBanner);
+
+// ADMIN — mutations
+router.post('/save',         adminAuth, SideBannerOneController.saveBanner);
+router.patch('/update/:id',  adminAuth, SideBannerOneController.updateBanner);
+router.delete('/delete/:id', adminAuth, SideBannerOneController.deleteBanner);
 
 export default router;

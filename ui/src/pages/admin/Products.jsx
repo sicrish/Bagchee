@@ -62,9 +62,9 @@ const Products = () => {
       {categories.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl">
           {categories.map((item) => (
-            <div 
-              key={item._id} 
-              onClick={() => navigate(`/admin/${item.image_folder}`)} 
+            <div
+              key={item.id}
+              onClick={() => navigate(`/admin/books?typeName=${encodeURIComponent(item.name.toLowerCase())}`)}
               className="bg-white rounded-2xl p-6 flex items-center gap-6 shadow-[0_10px_30px_rgba(0,0,0,0.04)] border border-gray-100 hover:shadow-xl transition-all cursor-pointer group"
             >
               {/* 🔴 FIXED ICON BOX: Only Book icon remains */}

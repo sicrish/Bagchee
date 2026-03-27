@@ -1,13 +1,16 @@
 import express from 'express';
 import * as NewsletterSubscriberController from '../controller/newsletterController.js';
+import adminAuth from '../middleware/adminAuth.middleware.js';
 
 const router = express.Router();
 
-// Define Routes
-router.post('/save', NewsletterSubscriberController.saveSubscriber);          // Create
-router.get('/list', NewsletterSubscriberController.getAllSubscribers);        // Read All
-router.get('/get/:id', NewsletterSubscriberController.getSubscriberById);     // Read One
-router.patch('/update/:id', NewsletterSubscriberController.updateSubscriber); // Update
-router.delete('/delete/:id', NewsletterSubscriberController.deleteSubscriber);// Delete
+// PUBLIC — anyone can subscribe to the newsletter
+router.post('/save', NewsletterSubscriberController.saveSubscriber);
+
+// ADMIN — subscriber management
+router.get('/list',           adminAuth, NewsletterSubscriberController.getAllSubscribers);
+router.get('/get/:id',        adminAuth, NewsletterSubscriberController.getSubscriberById);
+router.patch('/update/:id',   adminAuth, NewsletterSubscriberController.updateSubscriber);
+router.delete('/delete/:id',  adminAuth, NewsletterSubscriberController.deleteSubscriber);
 
 export default router;

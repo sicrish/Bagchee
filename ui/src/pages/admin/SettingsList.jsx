@@ -200,7 +200,7 @@ const SettingsList = () => {
                 </tr>
               ) : filteredSettings.length > 0 ? (
                 filteredSettings.map((item) => (
-                  <tr key={item._id} className="hover:bg-primary/5 transition-colors text-[13px] group">
+                  <tr key={item.id} className="hover:bg-primary/5 transition-colors text-[13px] group">
                     <td className="p-4 border-r border-cream-50 font-bold text-primary">{item.sale_threshold}%</td>
                     <td className="p-4 border-r border-cream-50">{item.bestseller_threshold} Orders</td>
                     <td className="p-4 border-r border-cream-50 font-medium">${item.membership_cost}</td>
@@ -214,13 +214,13 @@ const SettingsList = () => {
                     <td className="p-4">
                       <div className="flex justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
-                          onClick={() => navigate(`/admin/edit-setting/${item._id}`)}
+                          onClick={() => navigate(`/admin/edit-setting/${item.id}`)}
                           className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm"
                         >
                           <Edit size={14} />
                         </button>
                         <button
-                          onClick={() => handleDelete(item._id)}
+                          onClick={() => handleDelete(item.id)}
                           className="p-2 bg-red-50 text-red-500 rounded-lg hover:bg-red-600 hover:text-white transition-all shadow-sm"
                           title="Delete"
                         >

@@ -74,8 +74,8 @@ const AuthorsList = () => {
 
       const dataToExport = allData.map((a, i) => ({
         "Sr No": i + 1,
-        "First Name": a.first_name,
-        "Last Name": a.last_name,
+        "First Name": a.firstName,
+        "Last Name": a.lastName,
         "Origin": a.origin || "-",
         "Profile Bio": a.profile?.replace(/<[^>]*>?/gm, '') || "-" // HTML tags remove
       }));
@@ -112,8 +112,8 @@ const AuthorsList = () => {
   // 🔍 3. Live Filtering Logic (MNC Level Optimization)
   const filteredAuthors = useMemo(() => {
     return authors.filter(author =>
-      author.first_name?.toLowerCase().includes(searchFirstName.toLowerCase()) &&
-      author.last_name?.toLowerCase().includes(searchLastName.toLowerCase())
+      author.firstName?.toLowerCase().includes(searchFirstName.toLowerCase()) &&
+      author.lastName?.toLowerCase().includes(searchLastName.toLowerCase())
     );
   }, [authors, searchFirstName, searchLastName]);
 
@@ -206,27 +206,27 @@ const AuthorsList = () => {
                 </tr>
               ) : filteredAuthors.length > 0 ? (
                 filteredAuthors.map((author, index) => (
-                  <tr key={author._id} className="hover:bg-primary/5 transition-colors group">
+                  <tr key={author.id} className="hover:bg-primary/5 transition-colors group">
                     <td className="p-4 border-r border-gray-50 text-center font-mono text-xs text-gray-400">
                       {index + 1}
                     </td>
                     <td className="p-4 border-r border-gray-50 text-text-main font-bold tracking-tight uppercase">
-                      {author.first_name}
+                      {author.firstName}
                     </td>
                     <td className="p-4 border-r border-gray-50 text-text-main font-bold tracking-tight uppercase">
-                      {author.last_name}
+                      {author.lastName}
                     </td>
                     <td className="p-4">
                       <div className="flex justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
-                          onClick={() => navigate(`/admin/edit-author/${author._id}`)}
+                          onClick={() => navigate(`/admin/edit-author/${author.id}`)}
                           className="p-2 bg-white border border-gray-200 rounded-lg text-primary hover:bg-primary hover:text-white transition-all shadow-sm"
                           title="Edit Author"
                         >
                           <Edit size={14} />
                         </button>
                         <button
-                          onClick={() => handleDelete(author._id)}
+                          onClick={() => handleDelete(author.id)}
                           className="p-2 bg-white border border-gray-200 rounded-lg text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-sm"
                           title="Delete Author"
                         >

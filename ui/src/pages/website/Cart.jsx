@@ -5,6 +5,7 @@ import { useCart } from '../../context/CartContext';
 import { CurrencyContext } from '../../context/CurrencyContext';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
+import { getProductImageUrl } from '../../utils/imageUrl.js';
 
 const Cart = () => {
   const navigate = useNavigate();
@@ -20,7 +21,7 @@ const Cart = () => {
     membershipAdded,
     setMembershipAdded,
   } = useCart();
-  const { currency, formatPrice } = useContext(CurrencyContext);
+  const { currency, formatPrice, symbols, exchangeRates } = useContext(CurrencyContext);
 
   const [couponCode, setCouponCode] = useState(appliedCoupon ? appliedCoupon.code : '');
 
@@ -116,29 +117,63 @@ const Cart = () => {
     currency === 'INR' ? settings.free_shipping_over : 0
   ) : 0;
 
-// ─── 🟢 STEP 1: MNC DISCOUNT-SAFE CALCULATIONS (REPLACE LINE 114-124) ───
-  
-// 1. Original Base Totals (MNC logic ke liye zaroori hai)
-const originalBaseUSD = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-const originalBaseINR = cart.reduce((acc, item) => acc + ((item.inr_price || 0) * item.quantity), 0);
+  // ─── 🟢 STEP 1: MNC DISCOUNT-SAFE CALCULATIONS (REPLACE LINE 114-124) ───
 
-// 2. Har item ka Discounted Price (Jo aapne pehle banaya tha)
-const subtotalAfterItemDiscount = cart.reduce((acc, item) => {
-  const priceToUse = (item.real_price && item.real_price > 0) ? item.real_price : (item.price || 0);
-  return acc + (Number(priceToUse) * item.quantity);
-}, 0);
+  // 1. Original Base Totals (MNC logic ke liye zaroori hai)
+  const originalBaseUSD = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+  const originalBaseINR = cart.reduce((acc, item) => acc + ((item.inrPrice || item.inr_price || 0) * item.quantity), 0);
 
-// 3. Display Variables
-// Yahan null ki jagah original totals bhejna zaroori hai
-const subtotalDisplayUI = formatPrice(originalBaseUSD, originalBaseINR, subtotalAfterItemDiscount);
+  // 2. Har item ka Discounted Price (Jo aapne pehle banaya tha)
+  const subtotalAfterItemDiscount = cart.reduce((acc, item) => {
+    const realPrice = item.realPrice || item.real_price;
+    const priceToUse = (realPrice && realPrice > 0) ? realPrice : (item.price || 0);
+    return acc + (Number(priceToUse) * item.quantity);
+  }, 0);
 
-// Final Total (Abhi ke liye subtotal hi hai, jab tak tax/shipping adds na ho)
-const finalTotalUI = subtotalDisplayUI
+
+  const subtotal = subtotalAfterItemDiscount; // Ye line add karein taaki coupon logic chale
+
+  const getSelectedShippingRawPrice = () => {
+    if (!appliedShipping) return 0;
+    if (currency === 'INR') return appliedShipping.priceInr || 0;
+    if (currency === 'EUR') return appliedShipping.priceEur || 0;
+    if (currency === 'GBP') {
+        // Agar GBP hai toh USD Price ko Exchange Rate se convert karo
+        const rate = exchangeRates?.GBP || 0.78;
+        return (appliedShipping.priceUsd || 0) * rate;
+    }
+    return appliedShipping.priceUsd || 0; // Default USD
+  };
+
+
+  // 3. Display Variables
+  // Yahan null ki jagah original totals bhejna zaroori hai
+  const subtotalDisplayUI = formatPrice(originalBaseUSD, originalBaseINR, subtotalAfterItemDiscount);
+
+  // Coupon discount calculation
+  const couponDiscountUSD = appliedCoupon
+    ? appliedCoupon.discountType === 'fixed'
+      ? Number(appliedCoupon.discount)
+      : (subtotalAfterItemDiscount * Number(appliedCoupon.discount)) / 100
+    : 0;
+  const couponDiscountINR = appliedCoupon
+    ? appliedCoupon.discountType === 'fixed'
+      ? Number(appliedCoupon.discount)
+      : (originalBaseINR * Number(appliedCoupon.discount)) / 100
+    : 0;
+
+  const shippingRaw = getSelectedShippingRawPrice();
+  const membershipRaw = membershipAdded ? getMembershipData().usd : 0;
+
+  const finalUSD = Math.max(0, subtotalAfterItemDiscount - couponDiscountUSD + shippingRaw + membershipRaw);
+  const finalINR = Math.max(0, originalBaseINR - couponDiscountINR + (appliedShipping?.priceInr || 0) + (membershipAdded ? getMembershipData().inr : 0));
+
+  // Final Total
+  const finalTotalUI = formatPrice(finalUSD, finalINR, finalUSD);
 
   // 3. Membership Data (Sirf display ke liye)
   const mData = getMembershipData();
   const membershipPriceUI = membershipAdded ? formatPrice(mData.usd, mData.inr, mData.usd) : null;
-  const couponDiscountUSD = 0;
 
   // --- Handlers ---
   const handleRemoveItem = (productId) => {
@@ -147,7 +182,7 @@ const finalTotalUI = subtotalDisplayUI
   };
 
   const handleQuantityChange = (productId, newQty) => {
-    const item = cart.find(i => i._id === productId);
+    const item = cart.find(i => i.id === productId);
     if (!item) return;
     const diff = newQty - item.quantity;
     if (diff > 0) {
@@ -204,7 +239,7 @@ const finalTotalUI = subtotalDisplayUI
         code: found.code,
         discount: found.amount,
         discountType,
-        couponId: found._id,
+        couponId: found.id,
       });
       toast.success('Coupon applied successfully!');
     } catch (error) {
@@ -232,11 +267,6 @@ const finalTotalUI = subtotalDisplayUI
 
   const handleCheckout = () => {
     navigate('/checkout');
-  };
-
-  const getImageUrl = (image) => {
-    if (!image) return 'https://placehold.co/80x110?text=No+Image';
-    return image.startsWith('http') ? image : `${API_BASE_URL}${image}`;
   };
 
   // Render star rating
@@ -285,7 +315,18 @@ const finalTotalUI = subtotalDisplayUI
   return (
     <div className="min-h-screen bg-cream-50">
 
-     
+{/* ─── FREE SHIPPING PROGRESS BAR ─── */}
+{freeShippingOver > 0 && subtotal < freeShippingOver && (
+        <div className="bg-[#b94040] text-white py-2 px-4 mb-4">
+          <div className="max-w-7xl mx-auto flex items-center gap-2 text-sm font-medium">
+            <Truck size={18} className="shrink-0" />
+            <span>
+              ADD {formatPrice(freeShippingOver - subtotal)} OF ELIGIBLE ITEMS
+              TO QUALIFY FOR FREE SHIPPING
+            </span>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-full mx-auto px-4 pb-6">
         <div className="grid lg:grid-cols-3 gap-6 pt-5">
@@ -300,17 +341,15 @@ const finalTotalUI = subtotalDisplayUI
 
               <div className="divide-y divide-gray-100">
                 {cart.map((item) => (
-                  <div key={item._id} className="p-5">
+                  <div key={item.id} className="p-5">
                     <div className="flex gap-4">
                       {/* Book cover */}
                       <Link
-                        to={`/books/${item.bagcheeId || item._id}/${item.slug || "book"}`}
+                        to={`/books/${item.bagcheeId || item.id}/${item.slug || "book"}`}
                         className="shrink-0"
                       >
                         <img
-                          src={getImageUrl(
-                            item.default_image || item.related_images?.[0],
-                          )}
+                          src={getProductImageUrl(item)}
                           alt={item.name || item.title}
                           className="w-20 h-28 object-cover border border-gray-200"
                           onError={(e) => {
@@ -325,7 +364,7 @@ const finalTotalUI = subtotalDisplayUI
                         <div className="flex justify-between gap-2 mb-1">
                           <div className="flex-1">
                             <Link
-                              to={`/books/${item.bagcheeId || item._id}/${item.slug || "book"}`}
+                              to={`/books/${item.bagcheeId || item.id}/${item.slug || "book"}`}
                               className="font-semibold text-text-main hover:text-primary transition-colors leading-snug block"
                             >
                               {item.name || item.title}
@@ -334,7 +373,7 @@ const finalTotalUI = subtotalDisplayUI
                               <p className="text-sm text-gray-500 mt-0.5">
                                 by{" "}
                                 {typeof item.author === "object"
-                                  ? `${item.author.first_name || ""} ${item.author.last_name || ""}`.trim()
+                                  ? `${item.author.firstName || item.author.first_name || ""} ${item.author.lastName || item.author.last_name || ""}`.trim()
                                   : item.author}
                               </p>
                             )}
@@ -342,11 +381,11 @@ const finalTotalUI = subtotalDisplayUI
                           {/* Price top-right */}
                           <div className="text-right shrink-0">
                             <p className="text-xl font-bold text-text-main">
-                            {formatPrice(
-    (item.price || 0) * item.quantity, 
-    (item.inr_price || 0) * item.quantity, 
-    ((item.real_price && item.real_price > 0) ? item.real_price : (item.price || 0)) * item.quantity
-  )}
+                              {formatPrice(
+                                (item.price || 0) * item.quantity,
+                                ((item.inrPrice || item.inr_price || 0)) * item.quantity,
+                                (((item.realPrice || item.real_price) && (item.realPrice || item.real_price) > 0) ? (item.realPrice || item.real_price) : (item.price || 0)) * item.quantity
+                              )}
                             </p>
                           </div>
                         </div>
@@ -363,7 +402,7 @@ const finalTotalUI = subtotalDisplayUI
                             value={item.quantity}
                             onChange={(e) =>
                               handleQuantityChange(
-                                item._id,
+                                item.id,
                                 parseInt(e.target.value, 10),
                               )
                             }
@@ -381,7 +420,7 @@ const finalTotalUI = subtotalDisplayUI
 
                           {/* Action buttons */}
                           <button
-                            onClick={() => handleRemoveItem(item._id)}
+                            onClick={() => handleRemoveItem(item.id)}
                             className="flex items-center gap-1 border border-gray-400 text-gray-700 text-xs font-bold uppercase px-4 py-1.5 hover:bg-gray-100 transition-colors font-montserrat"
                           >
                             <X size={12} />
@@ -465,9 +504,47 @@ const finalTotalUI = subtotalDisplayUI
                     Cart total {cart.length}
                   </span>
                   <span className="text-xl font-bold text-text-main">
-                {/* Aapka naya variable 'subtotalAfterItemDiscount' use kar rahe hain */}
-                {subtotalDisplayUI}
+                    {subtotalDisplayUI}
                   </span>
+                </div>
+
+                {/* ─── BOOK THUMBNAILS ─── */}
+                <div className="border-t border-gray-200 pt-3 space-y-3">
+                  {cart.map((item) => (
+                    <div key={item.id} className="flex items-center gap-3">
+                      <Link
+                        to={`/books/${item.bagcheeId || item.id}/${item.slug || "book"}`}
+                        className="shrink-0"
+                      >
+                        <img
+                          src={getProductImageUrl(item)}
+                          alt={item.name || item.title}
+                          className="w-12 h-16 object-cover border border-gray-200 rounded-sm"
+                          onError={(e) => {
+                            e.target.src = "https://placehold.co/48x64?text=No+Image";
+                          }}
+                        />
+                      </Link>
+                      <div className="flex-1 min-w-0">
+                        <Link
+                          to={`/books/${item.bagcheeId || item.id}/${item.slug || "book"}`}
+                          className="text-xs font-semibold text-text-main hover:text-primary transition-colors line-clamp-2 leading-tight"
+                        >
+                          {item.name || item.title}
+                        </Link>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Qty: {item.quantity}
+                        </p>
+                      </div>
+                      <span className="text-sm font-bold text-text-main shrink-0">
+                        {formatPrice(
+                          (item.price || 0) * item.quantity,
+                          ((item.inrPrice || item.inr_price || 0)) * item.quantity,
+                          (((item.realPrice || item.real_price) && (item.realPrice || item.real_price) > 0) ? (item.realPrice || item.real_price) : (item.price || 0)) * item.quantity
+                        )}
+                      </span>
+                    </div>
+                  ))}
                 </div>
 
                 {/* ─── PROMOTION CODE ─── */}
@@ -516,66 +593,65 @@ const finalTotalUI = subtotalDisplayUI
                   )}
                 </div>
 
-              {/* ─── SHIPPING OPTIONS SECTION (BUG-FREE & DYNAMIC) ─── */}
-              <div className="border-t border-gray-200 pt-4">
-  <p className="text-sm font-bold text-primary text-center mb-3 uppercase font-montserrat">
-    Shipping options
-  </p>
-  <div className="space-y-2">
-    {shippingOptions.map((option) => (
-      <label key={option._id} className={`flex items-center justify-between p-2 cursor-pointer rounded ${appliedShipping?._id === option._id ? 'bg-primary/5' : ''}`}>
-        <div className="flex items-center gap-2">
-          <input 
-            type="radio" 
-            name="shipping" 
-            checked={appliedShipping?._id === option._id} 
-            onChange={() => setAppliedShipping(option)} // 👈 Selection Checkout par automatic jayegi
-            className="w-4 h-4 text-primary" 
-          />
-          <span className="text-sm">{option.title}</span>
-        </div>
-        <span className="text-sm font-bold text-gray-600">
-        {(() => {
-    const sPrice = getShippingPrice(option); // Helper se price lo
-    if (sPrice === 0) return 'Free';
-    
-    // 🟢 Fixed Parameters: formatPrice(MainUSD, FixedINR, DisplayValue)
-    return formatPrice(option.priceUsd, option.priceInr, option.priceUsd);
-  })()}
-        </span>
-      </label>
-    ))}
-  </div>
+{/* ─── SHIPPING OPTIONS SECTION ─── */}
+<div className="space-y-2">
+  {shippingOptions.map((option) => (
+    <label key={option.id} className={`flex items-center justify-between p-2 cursor-pointer rounded ${appliedShipping?.id === option.id ? 'bg-primary/5' : ''}`}>
+      <div className="flex items-center gap-2">
+        <input 
+          type="radio" 
+          name="shipping"
+          checked={appliedShipping?.id === option.id} 
+          onChange={() => setAppliedShipping(option)} 
+          className="w-4 h-4 text-primary"
+        />
+        <span className="text-sm">{option.title}</span>
+      </div>
+      
+      <span className="text-sm font-bold text-gray-600">
+        {currency === 'INR' 
+          ? `₹${(option.priceInr || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` 
+          : currency === 'USD' 
+            ? `$${(option.priceUsd || 0).toFixed(2)}`
+            : currency === 'EUR'
+              ? `€${(option.priceEur || 0).toFixed(2)}`
+              : currency === 'GBP'
+                ? `£${((option.priceUsd || 0) * (exchangeRates?.GBP || 0.78)).toFixed(2)}`
+                : `${symbols?.[currency] || ''}${(option.priceUsd * (exchangeRates?.[currency] || 1)).toFixed(2)}`
+        }
+      </span>
+    </label>
+  ))}
 </div>
 
-                  {/* ─── TOTALS ─── */}
-                  <div className="border-t border-gray-200 pt-4 space-y-2">
-                    {membershipAdded && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Membership</span>
-                        <span className="font-medium text-text-main">
-                          {membershipPriceUI}
-                        </span>
-                      </div>
-                    )}
+                {/* ─── TOTALS ─── */}
+                <div className="border-t border-gray-200 pt-4 space-y-2">
+                  {membershipAdded && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Membership</span>
+                      <span className="font-medium text-text-main">
+                        {membershipPriceUI}
+                      </span>
+                    </div>
+                  )}
 
-                    {appliedCoupon && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-green-600">
-                          Discount ({appliedCoupon.code})
-                        </span>
-                        <span className="font-medium text-green-600">
-                          -{formatPrice(couponDiscountUSD, null, couponDiscountUSD)}
-                        </span>
-                      </div>
-                    )}
+                  {appliedCoupon && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-green-600">
+                        Discount ({appliedCoupon.code})
+                      </span>
+                      <span className="font-medium text-green-600">
+                        -{formatPrice(couponDiscountUSD, couponDiscountINR, couponDiscountUSD)}
+                      </span>
+                    </div>
+                  )}
 
                   <div className="flex justify-between items-baseline pt-1">
                     <span className="text-sm text-gray-600">
                       Total (tax incl.)
                     </span>
                     <span className="text-2xl font-bold text-text-main">
-                    {finalTotalUI}
+                      {finalTotalUI}
                     </span>
                   </div>
                 </div>

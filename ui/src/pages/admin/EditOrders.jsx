@@ -115,55 +115,55 @@ const EditOrders = () => {
           const data = orderRes.data.data;
 
           // Date Format Fix for datetime-local
-          const formattedDate = data.created_at ? new Date(data.created_at).toISOString().slice(0, 16) : '';
+          const formattedDate = data.createdAt ? new Date(data.createdAt).toISOString().slice(0, 16) : '';
 
           setFormData({
-            order_number: data.order_number || '',
+            order_number: data.orderNumber || data.order_number || '',
             created_at: formattedDate,
-            customer_id: data.customer_id?._id || data.customer_id || '',
-            payment_type: data.payment_type || '',
-            shipping_type: data.shipping_type || '',
+            customer_id: data.customerId || '',
+            payment_type: data.paymentType || data.payment_type || '',
+            shipping_type: data.shippingType || data.shipping_type || '',
 
             total: data.total || '',
-            shipping_cost: data.shipping_cost || '',
+            shipping_cost: data.shippingCost || data.shipping_cost || '',
             currency: data.currency || '',
 
             status: data.status || 'Not yet ordered',
             membership: data.membership || 'No',
-            membership_discount: data.membership_discount || '',
-            coupon_id: data.coupon_id?._id || data.coupon_id || '',
+            membership_discount: data.membershipDiscount || data.membership_discount || '',
+            coupon_id: data.couponId || data.coupon_id || '',
 
             //shipping
-            shipping_email: data.shipping_details?.email || '',
-            shipping_first_name: data.shipping_details?.first_name || '',
-            shipping_last_name: data.shipping_details?.last_name || '',
-            shipping_address_1: data.shipping_details?.address_1 || '',
-            shipping_address_2: data.shipping_details?.address_2 || '',
-            shipping_company: data.shipping_details?.company || '',
-            shipping_country: data.shipping_details?.country || 'India',
-            shipping_state_region: data.shipping_details?.state_region || '',
-            shipping_city: data.shipping_details?.city || '',
-            shipping_postcode: data.shipping_details?.postcode || '',
-            shipping_phone: data.shipping_details?.phone || '',
+            shipping_email: data.shippingEmail || '',
+            shipping_first_name: data.shippingFirstName || '',
+            shipping_last_name: data.shippingLastName || '',
+            shipping_address_1: data.shippingAddress1 || '',
+            shipping_address_2: data.shippingAddress2 || '',
+            shipping_company: data.shippingCompany || '',
+            shipping_country: data.shippingCountry || 'India',
+            shipping_state_region: data.shippingState || '',
+            shipping_city: data.shippingCity || '',
+            shipping_postcode: data.shippingPostcode || '',
+            shipping_phone: data.shippingPhone || '',
 
             //billing
-            billing_first_name: data.billing_details?.first_name || '',
-            billing_last_name: data.billing_details?.last_name || '',
-            billing_address_1: data.billing_details?.address_1 || '',
-            billing_address_2: data.billing_details?.address_2 || '',
-            billing_company: data.billing_details?.company || '',
-            billing_country: data.billing_details?.country || 'India',
-            billing_state_region: data.billing_details?.state_region || '',
-            billing_city: data.billing_city || '',
-            billing_postcode: data.billing_details?.postcode || '',
-            billing_phone: data.billing_details?.phone || '',
+            billing_first_name: data.billingFirstName || '',
+            billing_last_name: data.billingLastName || '',
+            billing_address_1: data.billingAddress1 || '',
+            billing_address_2: data.billingAddress2 || '',
+            billing_company: data.billingCompany || '',
+            billing_country: data.billingCountry || 'India',
+            billing_state_region: data.billingState || '',
+            billing_city: data.billingCity || '',
+            billing_postcode: data.billingPostcode || '',
+            billing_phone: data.billingPhone || '',
 
             // Bottom
-            payment_status: data.payment_status || '',
-            transaction_id: data.transaction_id || ''
+            payment_status: data.paymentStatus || data.payment_status || '',
+            transaction_id: data.transactionId || data.transaction_id || ''
           });
 
-          setOrderProducts(data.products || []);
+          setOrderProducts(data.items || data.products || []);
           setCommentContent(data.comment || '');
         }
 
@@ -233,7 +233,7 @@ const EditOrders = () => {
 
   // --- Product Table Logic ---
   const addProductRow = () => {
-    const foundProd = productsList.find(p => p._id === addProductIdInput || p.sku === addProductIdInput);
+    const foundProd = productsList.find(p => p.id === addProductIdInput || p.bagcheeId === addProductIdInput || p.sku === addProductIdInput);
 
     const newRow = {
       name: foundProd ? foundProd.title : '',
@@ -270,8 +270,6 @@ const EditOrders = () => {
     e.preventDefault();
     if (!formData.customer_id) return toast.error("Customer is required!");
 
-    console.log("Sending Order Products:", orderProducts);
-    console.log("Full Form Data:", formData);
 
     setLoading(true);
     const toastId = toast.loading("Updating order...");
@@ -280,7 +278,7 @@ const EditOrders = () => {
       const payload = {
         ...formData,
         coupon_id: formData.coupon_id === "" ? null : formData.coupon_id,
-        customer_id: formData.customer_id?._id || formData.customer_id,
+        customer_id: formData.customer_id,
         shipping_details: {
           email: formData.shipping_email,
           first_name: formData.shipping_first_name,
@@ -388,7 +386,7 @@ const EditOrders = () => {
               <div className="col-span-9">
                 <select name="customer_id" value={formData.customer_id} onChange={handleChange} className={dropdownClass}>
                   <option value="">Select Customer</option>
-                  {customers.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                  {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
             </div>
@@ -408,7 +406,7 @@ const EditOrders = () => {
                   {/* 🟢 DYNAMIC OPTIONS FROM BACKEND */}
                   {paymentMethods.length > 0 ? (
                     paymentMethods.map((pm) => (
-                      <option key={pm._id} value={pm.title}>
+                      <option key={pm.id} value={pm.title}>
                         {pm.title}
                       </option>
                     ))
@@ -434,7 +432,7 @@ const EditOrders = () => {
                   {/* 🟢 DYNAMIC SHIPPING OPTIONS FROM BACKEND */}
                   {shippingOptions.length > 0 ? (
                     shippingOptions.map((opt) => (
-                      <option key={opt._id} value={opt.title}>
+                      <option key={opt.id} value={opt.title}>
                         {opt.title}
                       </option>
                     ))
@@ -475,13 +473,13 @@ const EditOrders = () => {
               <td className="border-b p-1">
                 <select value={row.status} onChange={(e) => handleProductChange(index, 'status', e.target.value)} className="w-full outline-none bg-transparent text-[10px]">
                   <option value="">Status</option>
-                  {orderStatuses.map((st) => <option key={st._id} value={st.name}>{st.name}</option>)}
+                  {orderStatuses.map((st) => <option key={st.id} value={st.name}>{st.name}</option>)}
                 </select>
               </td>
               <td className="border-b p-1">
                 <select value={row.courier} onChange={(e) => handleProductChange(index, 'courier', e.target.value)} className="w-full outline-none bg-transparent text-[10px]">
                   <option value="">Select Courier</option>
-                  {courierList.map((c) => <option key={c._id} value={c.title}>{c.title}</option>)}
+                  {courierList.map((c) => <option key={c.id} value={c.title}>{c.title}</option>)}
                 </select>
               </td>
               <td className="border p-1"><input type="text" value={row.tracking_id} onChange={(e) => handleProductChange(index, 'tracking_id', e.target.value)} className="w-full outline-none bg-transparent" /></td>
@@ -515,7 +513,7 @@ const EditOrders = () => {
         {isDropdownOpen && searchResults.length > 0 && (
           <div className="absolute left-0 top-full w-full bg-white border border-gray-300 rounded shadow-2xl z-[9999] max-h-60 overflow-y-auto mt-1">
             {searchResults.map((prod) => (
-              <div key={prod._id} onClick={() => handleSelectProduct(prod)} className="px-4 py-2 hover:bg-primary/10 cursor-pointer border-b border-gray-100 flex flex-col">
+              <div key={prod.id} onClick={() => handleSelectProduct(prod)} className="px-4 py-2 hover:bg-primary/10 cursor-pointer border-b border-gray-100 flex flex-col">
                 <p className="text-[11px] font-bold text-gray-800 uppercase">{prod.title}</p>
                 <span className="text-[9px] text-primary">Price: ₹{prod.price}</span>
               </div>
@@ -546,7 +544,7 @@ const EditOrders = () => {
                 <select name="status" value={formData.status} onChange={handleChange} className={dropdownClass}>
                   <option value="">Select Status</option>
                   {orderStatuses.map((st) => (
-                    <option key={st._id} value={st.name}>{st.name}</option>
+                    <option key={st.id} value={st.name}>{st.name}</option>
                   ))}
                 </select>
               </div>
@@ -569,7 +567,7 @@ const EditOrders = () => {
               <div className="col-span-9">
                 <select name="coupon_id" value={formData.coupon_id} onChange={handleChange} className={dropdownClass}>
                   <option value="">Select Coupon id</option>
-                  {coupons.map(c => <option key={c._id} value={c._id}>{c.code}</option>)}
+                  {coupons.map(c => <option key={c.id} value={c.id}>{c.code}</option>)}
                 </select>
               </div>
             </div>

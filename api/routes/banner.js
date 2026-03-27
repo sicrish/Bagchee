@@ -1,11 +1,17 @@
 import express from 'express';
 import * as bannerController from '../controller/banner.controller.js';
+import adminAuth from '../middleware/adminAuth.middleware.js';
 
 const router = express.Router();
 
-// Banner Routes
-router.post("/save", bannerController.save);      // Banner save karne ke liye
-router.get("/fetch", bannerController.fetch);     // Frontend par dikhane ke liye
-router.delete("/delete", bannerController.deleteBanner); // Delete karne ke liye
+// PUBLIC — banners displayed on website
+router.get("/fetch",    bannerController.fetch);
+router.get("/list",     bannerController.list);
+router.get("/get/:id",  bannerController.getOne);
+
+// ADMIN — mutations
+router.post("/save",         adminAuth, bannerController.save);
+router.patch("/update/:id",  adminAuth, bannerController.updateBanner);
+router.delete("/delete/:id", adminAuth, bannerController.deleteBanner);
 
 export default router;

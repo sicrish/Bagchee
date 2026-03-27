@@ -91,7 +91,7 @@ const BooksOfMonthPage = () => {
                     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6 md:gap-8 transition-opacity duration-500 opacity-100">
                         {data.products.map((book) => (
                             <div 
-                                key={book._id} 
+                                key={book.id} 
                                 className="transform transition-all duration-300 hover:-translate-y-1"
                             >
                                 <ProductCardGrid 

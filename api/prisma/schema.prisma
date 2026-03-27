@@ -1,0 +1,1126 @@
+// =============================================================
+// BAGCHEE STORE — Prisma Schema
+// Database: Neon PostgreSQL
+// Migrated from: MongoDB (Mongoose) + Old MariaDB
+// =============================================================
+// HOW TO READ THIS FILE:
+//   model = one database table
+//   each line inside = one column
+//   @id = primary key
+//   @default(autoincrement()) = auto-increment integer (replaces MongoDB _id)
+//   @unique = no duplicate values allowed
+//   @default(now()) = automatically set to current time on insert
+//   @updatedAt = automatically updated on every save
+//   @map("name") = actual column name in DB (we write camelCase in JS, snake_case in DB)
+//   @@map("name") = actual table name in DB
+//   @@index([field]) = adds a DB index for faster queries on that field
+// =============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// =============================================================
+// SECTION 1: USER & AUTH
+// =============================================================
+
+// Main user table — covers both customers and admin users
+// Old DB: users table + users_groups (we simplified role into a single field)
+model User {
+  id              Int       @id @default(autoincrement())
+  email           String    @unique
+  password        String
+
+  // Name fields — we keep both 'name' and first/last for admin panel compatibility
+  name            String    @default("")
+  firstName       String    @default("") @map("first_name")
+  lastName        String    @default("") @map("last_name")
+  username        String    @default("")
+  company         String    @default("")
+  phone           String?
+
+  // Profile
+  profileImage    String    @default("") @map("profile_image")
+  gender          String    @default("")   // "male" | "female" | "other" | ""
+
+  // Address shorthand fields (for quick display, full address is in Address table)
+  city            String    @default("")
+  state           String    @default("")
+  pincode         String    @default("")
+  country         String    @default("India")
+
+  // Access control — "user" or "admin" (replaces old admin_users + users_groups)
+  role            String    @default("user")
+
+  // Account status — 1 = active, 0 = inactive
+  status          Int       @default(1)
+
+  // Membership
+  membership      String    @default("inactive") // "active" | "inactive"
+  membershipStart DateTime? @map("membership_start")
+  membershipEnd   DateTime? @map("membership_end")
+
+  // Guest account flag
+  isGuest         Boolean   @default(false) @map("is_guest")
+
+  createdAt       DateTime  @default(now()) @map("created_on")
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  addresses       Address[]
+  wishlist        Wishlist[]
+  orders          Order[]
+
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
+// Separate table for user addresses
+// Old DB: users_addresses — already existed as a proper table
+// MongoDB: was an embedded array [AddressSchema] inside User
+model Address {
+  id        Int     @id @default(autoincrement())
+  userId    Int     @map("user_id")
+
+  type      String  @default("Home")    // "Home" | "Work" | "Other"
+  firstName String  @default("") @map("first_name")
+  lastName  String  @default("") @map("last_name")
+  houseNo   String  @default("") @map("house_no")
+  street    String  @default("")
+  address2  String  @default("") @map("address_2")
+  landmark  String  @default("")
+  city      String  @default("")
+  state     String  @default("")
+  pincode   String  @default("") @map("postal_code")
+  country   String  @default("India")
+  phone     String  @default("")
+  company   String  @default("")
+  isDefault Boolean @default(false) @map("is_default")
+
+  // When user is deleted, all their addresses are deleted too
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("users_addresses")
+}
+
+// Wishlist junction table — links users to their saved products
+// Old DB: product_to_wishlist — already existed as a junction table
+// MongoDB: was an embedded array of ObjectIds inside User
+model Wishlist {
+  id        Int     @id @default(autoincrement())
+  userId    Int     @map("user_id")
+  productId Int     @map("product_id")
+
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  // One user can only save the same product once
+  @@unique([userId, productId])
+  @@index([userId])
+  @@map("product_to_wishlist")
+}
+
+// =============================================================
+// SECTION 2: PRODUCT (Core + Junction Tables + Images)
+// =============================================================
+
+// The main product table — books, music, videos, handicrafts etc.
+// Old DB: unified 'products' table (also had separate 'books' table — we use products)
+// MongoDB: Product.model.js
+model Product {
+  id                Int       @id @default(autoincrement())
+  bagcheeId         String?   @map("bagchee_id")     // Bagchee's internal product code
+  title             String
+  productType       String    @default("book") @map("product_type")  // "book" | "cd" | "dvd" etc.
+
+  // ISBN
+  isbn10            String?   @default("") @map("isbn_10")
+  isbn13            String?   @default("") @map("isbn_13")
+  isbn              String?   // general ISBN for non-book products
+
+  // Language of the product content
+  language          String?   @default("English")
+
+  // --- Pricing ---
+  price             Float     @default(0)
+  inrPrice          Float     @default(0) @map("inr_price")
+  realPrice         Float     @default(0) @map("real_price")   // original price before discount
+  discount          Float     @default(0)
+  discountInr       Float     @default(0) @map("discount_inr")
+
+  // --- Relations (Foreign Keys) ---
+  publisherId       Int?      @map("publisher_id")
+  seriesId          Int?      @map("series_id")
+  seriesNumber      String?   @map("series_number")
+  leadingCategoryId Int?      @map("leading_category_id")  // primary display category
+  labelId           Int?      @map("label_id")
+
+  // --- Physical Details ---
+  volume            String?
+  edition           String?
+  pages             Int?      @map("total_pages")
+  weight            String?
+  binding           String?   @default("Paperback")
+  pubDate           String?   @map("pub_date")              // stored as string e.g. "2024-01-15"
+
+  // --- Content ---
+  synopsis          String?   @map("review")                // main description
+  criticsNote       String?   @map("from_the_critics")
+  searchText        String?   @map("search_text")           // flattened text for search
+  tableOfContents   String?   @map("table_of_contents")
+  aboutAuthorText   String?   @map("about_author_text")
+  notes             String?
+  source            String?
+
+  // --- Main Images ---
+  defaultImage      String?   @map("default_image")
+  tocImage          String?   @map("default_toc_image")
+
+  // --- SEO ---
+  metaTitle         String?   @map("pr_meta_title")
+  metaDescription   String?   @map("pr_meta_description")
+  metaKeywords      String?   @map("pr_meta_keywords")
+
+  // --- Status & Inventory ---
+  // stock: "active" means in stock, "inactive" means out of stock
+  stock             String    @default("active")
+  availability      Int       @default(0)                   // quantity in stock
+
+  // Boolean flags
+  isActive          Boolean   @default(true)  @map("active")
+  isFeatured        Boolean   @default(false)
+  isNewRelease      Boolean   @default(false) @map("new_release")
+  isRecommended     Boolean   @default(false) @map("recommended")
+  upcoming          Boolean   @default(false)
+  upcomingDate      DateTime? @map("upcoming_date")
+  newReleaseUntil   DateTime? @map("new_release_until")
+  isExclusive       Boolean   @default(false)
+
+  // --- Stats ---
+  rating            Float     @default(0)
+  ratedTimes        Int       @default(0) @map("rated_times")
+  soldCount         Int       @default(0) @map("ordered_items")  // total units sold
+
+  // --- Shipping ---
+  shipDays          Int       @default(3) @map("ship_in_days")
+  deliverDays       Int       @default(7) @map("deliver_in_days")
+
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt
+
+  // --- Relations ---
+  publisher         Publisher?           @relation(fields: [publisherId], references: [id])
+  series            Series?              @relation(fields: [seriesId], references: [id])
+  authors           ProductAuthor[]
+  categories        ProductCategory[]
+  tags              ProductTag[]
+  formats           ProductFormat[]
+  languages         ProductLanguage[]
+  actors            ProductActor[]
+  artists           ProductArtist[]
+  images            ProductImage[]       // related/additional images
+  tocImages         ProductToc[]         // table of contents images
+  sampleImages      ProductSampleImage[] // sample/preview images
+  wishlistedBy      Wishlist[]
+  orderItems        OrderItem[]
+  reviews           Review[]
+  booksOfMonth      BooksOfMonthProduct[]
+
+  // Indexes for the most common queries
+  @@index([bagcheeId])
+  @@index([isActive])
+  @@index([isRecommended])
+  @@index([isNewRelease])
+  @@index([soldCount])
+  @@index([title])
+  @@index([publisherId])
+  @@index([seriesId])
+  @@index([leadingCategoryId])
+  @@index([discount])
+  @@index([productType])
+  @@index([isFeatured])
+  @@index([isExclusive])
+  @@map("products")
+}
+
+// --- Product Junction Tables ---
+// Each of these links products to their related entities
+
+// A product can have multiple authors, an author can have multiple products
+// Old DB: products_authors (already a proper table)
+// MongoDB: authors[] array of ObjectIds on Product
+model ProductAuthor {
+  id        Int     @id @default(autoincrement())
+  productId Int     @map("product_id")
+  authorId  Int     @map("author_id")
+  roleId    Int?    @map("role_id")   // e.g. 1=author, 2=editor, 3=translator
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  author    Author  @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([authorId])
+  @@map("products_authors")
+}
+
+// A product can belong to multiple categories
+// Old DB: products_categories (already a proper table)
+model ProductCategory {
+  productId  Int      @map("product_id")
+  categoryId Int      @map("category_id")
+
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([productId, categoryId])
+  @@index([productId])
+  @@index([categoryId])
+  @@map("products_categories")
+}
+
+// A product can have multiple tags
+model ProductTag {
+  productId Int     @map("product_id")
+  tagId     Int     @map("tag_id")
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([productId, tagId])
+  @@index([productId])
+  @@map("products_tags")
+}
+
+// A product can have multiple formats (e.g. Hardcover + Paperback)
+model ProductFormat {
+  productId Int     @map("product_id")
+  formatId  Int     @map("format_id")
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  format    Format  @relation(fields: [formatId], references: [id], onDelete: Cascade)
+
+  @@id([productId, formatId])
+  @@index([productId])
+  @@map("products_formats")
+}
+
+// A product can be available in multiple languages
+model ProductLanguage {
+  productId  Int      @map("product_id")
+  languageId Int      @map("language_id")
+
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  language   Language @relation(fields: [languageId], references: [id], onDelete: Cascade)
+
+  @@id([productId, languageId])
+  @@index([productId])
+  @@map("products_languages")
+}
+
+// For DVD/Video products — links actors to products
+model ProductActor {
+  actorId   Int     @map("actor_id")
+  productId Int     @map("product_id")
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  actor     Actor   @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@id([actorId, productId])
+  @@index([productId])
+  @@map("products_actors")
+}
+
+// For Music/CD products — links artists to products
+model ProductArtist {
+  artistId  Int     @map("artist_id")
+  productId Int     @map("product_id")
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  artist    Artist  @relation(fields: [artistId], references: [id], onDelete: Cascade)
+
+  @@id([artistId, productId])
+  @@index([productId])
+  @@map("products_artists")
+}
+
+// --- Product Image Tables ---
+// Old DB had separate tables for each image type — we keep the same structure
+
+// Additional/related images (gallery images shown on product page)
+model ProductImage {
+  id        Int     @id @default(autoincrement())
+  productId Int     @map("product_id")
+  file      String
+  alt       String?
+  ord       Int?    @default(0)   // display order
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@map("products_images")
+}
+
+// Table of Contents images
+model ProductToc {
+  id        Int     @id @default(autoincrement())
+  productId Int     @map("product_id")
+  file      String
+  alt       String?
+  ord       Int?    @default(0)
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@map("products_tocs")
+}
+
+// Sample/preview images (e.g. inside pages of a book)
+model ProductSampleImage {
+  id        Int     @id @default(autoincrement())
+  productId Int     @map("product_id")
+  file      String
+  ord       Int     @default(0)
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@map("products_sample_images")
+}
+
+// =============================================================
+// SECTION 3: ORDERS
+// =============================================================
+
+// Main order table
+// Old DB: orders — already had flat shipping/billing columns (no nested objects)
+// MongoDB: Order.js had nested shipping_details{} and billing_details{} objects
+// Decision: we flatten them just like the old DB (cleaner for SQL queries)
+model Order {
+  id                  Int       @id @default(autoincrement())
+  orderNumber         String    @unique @map("order_number")
+  customerId          Int       @map("customer_id")
+
+  // Financials
+  total               Float     @default(0)
+  shippingCost        Float     @default(0) @map("shipping_cost")
+  currency            String    @default("USD")
+
+  // Payment & Status
+  paymentType         String    @default("") @map("payment_type")
+  shippingType        String    @default("") @map("shipping_type")
+  status              String    @default("pending")
+  paymentStatus       String    @default("pending") @map("payment_status")
+  transactionId       String    @default("") @map("transaction_id")
+
+  // Membership & Coupons
+  membership          String    @default("No")          // "Yes" | "No"
+  membershipDiscount  Float     @default(0) @map("membership_discount")
+  couponId            Int?      @map("coupon_id")
+
+  // Admin comment/notes on the order
+  comment             String    @default("")
+
+  // --- Shipping Details (flat columns) ---
+  shippingEmail       String    @default("") @map("shipping_email")
+  shippingFirstName   String    @default("") @map("shipping_f_name")
+  shippingLastName    String    @default("") @map("shipping_l_name")
+  shippingAddress1    String    @default("") @map("shipping_address_1")
+  shippingAddress2    String    @default("") @map("shipping_address_2")
+  shippingCompany     String    @default("") @map("shipping_company")
+  shippingCountry     String    @default("") @map("shipping_country")
+  shippingState       String    @default("") @map("shipping_state")
+  shippingCity        String    @default("") @map("shipping_city")
+  shippingPostcode    String    @default("") @map("shipping_post_code")
+  shippingPhone       String    @default("") @map("shipping_phone")
+
+  // --- Billing Details (flat columns) ---
+  billingFirstName    String    @default("") @map("billing_f_name")
+  billingLastName     String    @default("") @map("billing_l_name")
+  billingAddress1     String    @default("") @map("billing_address_1")
+  billingAddress2     String    @default("") @map("billing_address_2")
+  billingCompany      String    @default("") @map("billing_company")
+  billingCountry      String    @default("") @map("billing_country")
+  billingState        String    @default("") @map("billing_state")
+  billingCity         String    @default("") @map("billing_city")
+  billingPostcode     String    @default("") @map("billing_post_code")
+  billingPhone        String    @default("") @map("billing_phone")
+
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  customer            User      @relation(fields: [customerId], references: [id])
+  coupon              Coupon?   @relation(fields: [couponId], references: [id])
+  items               OrderItem[]
+
+  @@index([customerId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+// Individual line items within an order
+// Old DB: product_to_order — already a proper table
+// MongoDB: was an embedded array products[] inside Order
+model OrderItem {
+  id            Int     @id @default(autoincrement())
+  orderId       Int     @map("order_id")
+  productId     Int     @map("product_id")
+  name          String                           // snapshot of product title at time of order
+  price         Float   @default(0)
+  quantity      Int     @default(1)
+  status        String  @default("") @map("product_status")
+  courierId     Int?    @map("courier_id")
+  trackingCode  String  @default("") @map("tracking_code")
+  returnNote    String  @default("") @map("return_note")
+  cancelNote    String  @default("") @map("cancel_note")
+
+  order         Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product       Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@map("product_to_order")
+}
+
+// =============================================================
+// SECTION 4: LOOKUP / REFERENCE TABLES
+// These are simple tables — mostly just id + title
+// =============================================================
+
+model Author {
+  id          Int             @id @default(autoincrement())
+  firstName   String          @default("") @map("first_name")
+  lastName    String          @default("") @map("last_name")
+  fullName    String          @default("") @map("full_name")
+  picture     String?
+  origin      String?
+  profile     String?
+
+  products    ProductAuthor[]
+
+  @@index([fullName])
+  @@map("authors")
+}
+
+model Actor {
+  id          Int             @id @default(autoincrement())
+  firstName   String          @default("") @map("first_name")
+  lastName    String          @default("") @map("last_name")
+  picture     String?
+  origin      String?
+  profile     String?
+
+  products    ProductActor[]
+
+  @@map("actors")
+}
+
+model Artist {
+  id          Int              @id @default(autoincrement())
+  firstName   String           @default("") @map("first_name")
+  lastName    String           @default("") @map("last_name")
+  picture     String?
+  role        String?
+  origin      String?
+  profile     String?
+
+  products    ProductArtist[]
+
+  @@map("artists")
+}
+
+model Publisher {
+  id          Int       @id @default(autoincrement())
+  title       String    @map("publisher_title")
+  image       String    @default("")
+  company     String?
+  address     String?
+  place       String?
+  email       String?
+  phone       String?
+  fax         String?
+  slug        String    @default("")
+  shipInDays  String    @default("3") @map("ship_in_days")
+  categoryId  Int?      @map("category_id")
+  show        Boolean   @default(false)
+  order       Int       @default(0)
+  createdAt   DateTime  @default(now())
+
+  products    Product[]
+
+  @@index([title])
+  @@map("publishers")
+}
+
+model Series {
+  id       Int       @id @default(autoincrement())
+  title    String    @map("series_title")
+
+  products Product[]
+
+  @@map("series")
+}
+
+// Category — hierarchical (parent_id points to another category)
+// Old DB: categories with parent_id for tree structure
+model Category {
+  id           Int               @id @default(autoincrement())
+  title        String            @map("category_title")
+  slug         String?
+  parentId     Int               @default(0) @map("parent_id")  // 0 = top-level category
+  active       Boolean           @default(false)
+  image        String            @default("")
+  metaTitle    String?           @map("meta_title")
+  metaKeywords String?           @map("meta_keywords")
+  metaDesc     String?           @map("meta_description")
+  productType  Int               @default(0) @map("product_type")
+  createdAt    DateTime          @default(now())
+
+  products     ProductCategory[]
+
+  @@index([parentId])
+  @@index([slug])
+  @@map("categories")
+}
+
+// SubCategory — separate model as per existing controllers
+// Old DB: was part of categories (with parent_id), we keep it separate for controller compatibility
+model SubCategory {
+  id                Int      @id @default(autoincrement())
+  categoryId        Int      @map("category_id")
+  name              String   @map("subcategoryname")
+  iconName          String   @default("") @map("subcategoryiconname")
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+
+  @@index([categoryId])
+  @@map("subcategories")
+}
+
+// Top-level navigation categories shown on homepage (e.g. Books, Music, DVDs)
+// Old DB: home_categories
+model MainCategory {
+  id        Int      @id @default(autoincrement())
+  title     String
+  image     String   @default("")
+  link      String   @default("")
+  active    Boolean  @default(true)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@map("home_categories")
+}
+
+model Tag {
+  id       Int          @id @default(autoincrement())
+  title    String
+
+  products ProductTag[]
+
+  @@map("tags")
+}
+
+model Label {
+  id     Int     @id @default(autoincrement())
+  title  String
+  active Boolean @default(true)
+  ord    Int     @default(0)
+
+  @@map("labels")
+}
+
+model Format {
+  id         Int             @id @default(autoincrement())
+  title      String
+  active     Boolean         @default(true)
+  categoryId Int             @default(0) @map("category_id")
+  ord        Int             @default(0)
+
+  products   ProductFormat[]
+
+  @@map("formats")
+}
+
+model Language {
+  id       Int               @id @default(autoincrement())
+  title    String
+  ord      Int               @default(0)
+
+  products ProductLanguage[]
+
+  @@map("languages")
+}
+
+// Product type defines what kind of product it is (Book, CD, DVD, etc.)
+model ProductType {
+  id            Int    @id @default(autoincrement())
+  name          String
+  imageFolder   String @default("") @map("image_folder")
+  bagcheePrefix String @default("") @map("bagchee_prefix")
+
+  @@map("products_type")
+}
+
+// =============================================================
+// SECTION 5: COMMERCE
+// =============================================================
+
+model Coupon {
+  id              Int      @id @default(autoincrement())
+  code            String   @unique
+  title           String
+  validFrom       DateTime @map("valid_from")
+  validTo         DateTime @map("valid_to")
+  active          Boolean  @default(false)
+  fixAmount       Boolean  @default(false) @map("fix_amount") // true=fixed amount off, false=percentage off
+  amount          Float    @default(0)
+  minimumBuy      Float    @default(0) @map("minimum_buy")   // min cart value to apply coupon
+  priceOverOnly   Float    @default(0) @map("price_over_only")
+  newCustomerOnly Boolean  @default(false) @map("new_customer_only")
+  membersOnly     Boolean  @default(false) @map("members_only")
+  nextOrderOnly   Boolean  @default(false) @map("next_order_only")
+  bestsellerOnly  Boolean  @default(false) @map("bestseller_only")
+  recommendedOnly Boolean  @default(false) @map("recommended_only")
+  newArrivalsOnly Boolean  @default(false) @map("new_arrivals_only")
+  getThirdFree    Boolean  @default(false) @map("get_third_free")
+
+  orders          Order[]
+
+  @@map("coupons")
+}
+
+model Courier {
+  id           Int     @id @default(autoincrement())
+  title        String
+  trackingPage String  @default("") @map("tracking_page") // URL template for tracking
+  active       Boolean @default(true)
+
+  @@map("couriers")
+}
+
+model ShippingOption {
+  id          Int     @id @default(autoincrement())
+  title       String
+  maxDayLimit Int     @default(0) @map("max_day_limit")
+  priceUsd    Float   @default(0) @map("price_usd")
+  priceEur    Float   @default(0) @map("price_eur")
+  priceInr    Float   @default(0) @map("price_inr")
+  active      Boolean @default(true)
+  ord         Int     @default(0)
+
+  @@map("shipping")
+}
+
+model Payment {
+  id                   Int     @id @default(autoincrement())
+  title                String
+  active               Boolean @default(true)
+  ord                  Int     @default(0)
+  additionalText       String  @default("") @map("additional_text")
+  additionalTextActive Boolean @default(false) @map("additional_text_active")
+  image                String  @default("")
+
+  @@map("payment")
+}
+
+model OrderStatus {
+  id   Int    @id @default(autoincrement())
+  name String
+
+  @@map("order_statuses")
+}
+
+// Customer reviews on products
+// Old DB: visitorreviews
+model Review {
+  id         Int      @id @default(autoincrement())
+  productId  Int      @map("item_id")
+  customerId Int?     @map("customer_id")
+  email      String?
+  name       String?
+  title      String?
+  review     String?
+  rating     Int?     // 1-5 stars
+  active     Boolean  @default(false) // admin must approve before it shows
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([active])
+  @@map("visitorreviews")
+}
+
+model NewsletterSubscriber {
+  id        Int    @id @default(autoincrement())
+  email     String @unique
+  firstName String @default("") @map("first_name")
+  lastName  String @default("") @map("last_name")
+
+  @@map("newsletter_subscribers")
+}
+
+// =============================================================
+// SECTION 6: HOME / CMS SECTIONS
+// These are all the homepage content blocks managed by admin
+// =============================================================
+
+// Hero slider on homepage
+// Old DB: sliders
+// SCHEMA-CHECK: desktopImage + mobileImage added (Mongoose model had both; original schema only had `image`). Verify with frontend if field names match.
+model HomeSlider {
+  id           Int      @id @default(autoincrement())
+  desktopImage String   @map("desktop_image")
+  mobileImage  String   @map("mobile_image")
+  link         String?
+  isActive     Boolean  @default(true) @map("is_active")
+  order        Int      @default(0)
+  addedAt      DateTime @default(now()) @map("added_at")
+
+  @@map("sliders")
+}
+
+// Admin-curated best sellers section on homepage
+// New table — no equivalent in old DB
+model HomeBestSeller {
+  id        Int      @id @default(autoincrement())
+  productId Int      @map("product_id")
+  isActive  Boolean  @default(true) @map("active")
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([productId])
+  @@map("home_best_sellers")
+}
+
+// Sale section on homepage
+// Old DB: home_section_sale
+model HomeSaleProduct {
+  id        Int     @id @default(autoincrement())
+  productId Int     @map("product_id")
+  active    Boolean @default(true)
+  order     Int     @default(0)
+
+  @@index([productId])
+  @@map("home_section_sale")
+}
+
+// "New & Noteworthy" section on homepage
+// Old DB: home_new_and_noteworthy
+model HomeNewNoteworthy {
+  id        Int     @id @default(autoincrement())
+  productId Int     @map("product_id")
+  active    Boolean @default(true)
+  order     Int     @default(0)
+
+  @@index([productId])
+  @@map("home_new_and_noteworthy")
+}
+
+// Section title/label management (e.g. "Our Picks", "On Sale Now")
+// Old DB: home_sections
+// SCHEMA-CHECK: Added `tagline` (Mongoose model had it, Prisma missed it). Added @unique on `section` (Mongoose enforced unique). Verify tagline is used in frontend.
+model HomeSection {
+  id      Int    @id @default(autoincrement())
+  section String @unique
+  title   String
+  tagline String @default("")
+
+  products HomeSectionProduct[]
+
+  @@map("home_sections")
+}
+
+// Products that appear in editable home sections (section 1, section 2, etc.)
+// Old DB: had separate home_section_1 and home_section_2 tables
+// Decision: unified into one table with sectionId FK — cleaner, extensible
+model HomeSectionProduct {
+  id            Int         @id @default(autoincrement())
+  homeSectionId Int         @map("home_section_id")
+  productId     Int         @map("product_id")
+  title         String      @default("") // display title override
+  active        Boolean     @default(true)
+  order         Int         @default(0)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  homeSection   HomeSection @relation(fields: [homeSectionId], references: [id], onDelete: Cascade)
+
+  @@index([homeSectionId])
+  @@index([productId])
+  @@map("home_section_products")
+}
+
+// Books of the Month — a curated monthly collection
+// MongoDB: BooksOfMonth.model.js had products[] array
+// We split into two tables: the collection header + a junction for its products
+model BooksOfMonth {
+  id         Int                  @id @default(autoincrement())
+  monthName  String               @map("month_name")   // e.g. "February 2026"
+  headline   String?              // e.g. "Our Romantic Picks"
+  expiryDate DateTime             @map("expiry_date")
+  isActive   Boolean              @default(true) @map("is_active")
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+
+  products   BooksOfMonthProduct[]
+
+  @@map("books_of_month")
+}
+
+// Junction table — which products belong to which Books of the Month collection
+// SCHEMA-CHECK: Added `product Product @relation(...)` — was missing, making `include: { product: true }` impossible. Also need backref `booksOfMonth BooksOfMonthProduct[]` on Product model.
+model BooksOfMonthProduct {
+  id             Int          @id @default(autoincrement())
+  booksOfMonthId Int          @map("books_of_month_id")
+  productId      Int          @map("product_id")
+
+  booksOfMonth   BooksOfMonth @relation(fields: [booksOfMonthId], references: [id], onDelete: Cascade)
+  product        Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([booksOfMonthId, productId])
+  @@index([booksOfMonthId])
+  @@map("books_of_month_products")
+}
+
+// Homepage feature banner (title, description, two images — bg + overlay)
+// Old DB: home_banners
+// SCHEMA-CHECK: Completely redesigned. Original Prisma schema had generic `image/link/active/order` which did NOT match the Mongoose model or controller (which uses title, description, buttonText, accentColor, bgImageName, overlayImageName, status). Verify with frontend banner component.
+model Banner {
+  id               Int      @id @default(autoincrement())
+  title            String
+  description      String   @default("")
+  buttonText       String   @default("Explore Now") @map("button_text")
+  accentColor      String   @default("bg-hero-primary") @map("accent_color")
+  bgImageName      String   @default("") @map("bg_image_name")
+  overlayImageName String   @default("") @map("overlay_image_name")
+  status           String   @default("active")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@map("home_banners")
+}
+
+// Featured author on homepage
+// Old DB: home_top_authors
+// SCHEMA-CHECK: Added bookId, role, quote, timestamps. Mongoose model had all of these; original Prisma only had topAuthorId/active/order. Verify bookId references Product correctly in queries.
+model TopAuthor {
+  id        Int      @id @default(autoincrement())
+  authorId  Int      @map("top_author_id")
+  bookId    Int?     @map("book_id")
+  role      String   @default("")
+  quote     String   @default("")
+  active    Boolean  @default(true)
+  order     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("home_top_authors")
+}
+
+// Side-by-side banner pair (left + right image)
+// New table — no equivalent in old DB
+model SideBannerOne {
+  id        Int      @id @default(autoincrement())
+  image1    String   @default("") // left image
+  link1     String   @default("") // left link
+  image2    String   @default("") // right image
+  link2     String   @default("") // right link
+  isActive  Boolean  @default(true) @map("is_active")
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("side_banner_one")
+}
+
+model SideBannerTwo {
+  id        Int      @id @default(autoincrement())
+  image1    String   @default("")
+  link1     String   @default("")
+  image2    String   @default("")
+  link2     String   @default("")
+  isActive  Boolean  @default(true) @map("is_active")
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("side_banner_two")
+}
+
+// =============================================================
+// SECTION 7: CONTENT / STATIC PAGES
+// Single-record tables — admin edits these pages via CMS
+// =============================================================
+
+// Old DB: information_pages (had all pages in one table)
+// Decision: keep them separate per MongoDB model structure — easier for controllers
+
+model About {
+  id           Int    @id @default(autoincrement())
+  title        String @default("About Us")
+  pageContent  String @default("") @map("page_content")
+  metaTitle    String @default("") @map("meta_title")
+  metaDesc     String @default("") @map("meta_description")
+  metaKeywords String @default("") @map("meta_keywords")
+
+  @@map("about_page")
+}
+
+model Privacy {
+  id           Int    @id @default(autoincrement())
+  title        String @default("Privacy Policy")
+  pageContent  String @default("") @map("page_content")
+  metaTitle    String @default("") @map("meta_title")
+  metaDesc     String @default("") @map("meta_description")
+  metaKeywords String @default("") @map("meta_keywords")
+
+  @@map("privacy_page")
+}
+
+model Terms {
+  id           Int    @id @default(autoincrement())
+  title        String @default("Terms & Conditions")
+  pageContent  String @default("") @map("page_content")
+  metaTitle    String @default("") @map("meta_title")
+  metaDesc     String @default("") @map("meta_description")
+  metaKeywords String @default("") @map("meta_keywords")
+
+  @@map("terms_page")
+}
+
+model AuthorsPublishers {
+  id           Int    @id @default(autoincrement())
+  title        String @default("Authors & Publishers")
+  pageContent  String @default("") @map("page_content")
+  metaTitle    String @default("") @map("meta_title")
+  metaDesc     String @default("") @map("meta_description")
+  metaKeywords String @default("") @map("meta_keywords")
+
+  @@map("authors_publishers_page")
+}
+
+// Help pages — each row is one help article
+// Old DB: help_pages
+model HelpPage {
+  id           Int    @id @default(autoincrement())
+  title        String
+  pageContent  String @default("") @map("page_content")
+  metaTitle    String @default("") @map("meta_title")
+  metaDesc     String @default("") @map("meta_description")
+  metaKeywords String @default("") @map("meta_keywords")
+
+  @@map("help_pages")
+}
+
+// Services pages (Library Services, Gift Cards etc.)
+// Old DB: services
+model Service {
+  id           Int    @id @default(autoincrement())
+  title        String
+  boxDesc      String @default("") @map("box_desc")      // short description for homepage box
+  pageContent  String @default("") @map("page_content")  // full page content
+  pageTitle    String @default("") @map("page_title")
+  metaTitle    String @default("") @map("meta_title")
+  metaDesc     String @default("") @map("meta_description")
+  metaKeywords String @default("") @map("meta_keywords")
+
+  @@map("services")
+}
+
+// Global site settings — always just one row
+// Old DB: settings
+model Settings {
+  id                     Int     @id @default(autoincrement())
+  saleThreshold          Float   @default(0) @map("sale_threshold")
+  bestSellerThreshold    Int     @default(0) @map("best_seller_threshold")
+  memberDiscount         Float   @default(0) @map("member_discount")
+  freeShippingOver       Float   @default(0) @map("free_shiping_over")
+  freeShippingOverEur    Float   @default(0) @map("free_shiping_over_eur")
+  freeShippingOverInr    Float   @default(0) @map("free_shiping_over_inr")
+  membershipCartPrice    Float   @default(0) @map("membership_cart_price")
+  membershipCartPriceEur Float   @default(0) @map("membership_cart_price_eur")
+  membershipCartPriceInr Float   @default(0) @map("membership_cart_price_inr")
+  usdToEurRate           Float   @default(0) @map("usd_to_eur_rate")
+  usdToInrRate           Float   @default(0) @map("usd_to_inr_rate")
+  mailFrom               String  @default("") @map("mail_from")
+  mailReplyTo            String  @default("") @map("mail_reply_to")
+  topbarPromotion        Boolean @default(false) @map("topbar_promotion")
+  topbarPromotionText    String  @default("") @map("topbar_promotion_text")
+  bankIban               String  @default("") @map("bank_iban")
+  bankBic                String  @default("") @map("bank_bic")
+  bankOwner              String  @default("") @map("bank_owner")
+  bankName               String  @default("") @map("bank_name")
+  emailsCopy             String  @default("") @map("emails_copy")
+
+  @@map("settings")
+}
+
+// =============================================================
+// SECTION 8: MISC / SITE CONFIG
+// =============================================================
+
+// Footer link sections
+// Old DB: footer
+model Footer {
+  id       Int    @id @default(autoincrement())
+  name     String // internal identifier e.g. "column_1"
+  title    String // display heading e.g. "Quick Links"
+  subtitle String @default("")
+  content  String @default("") // HTML content of links
+
+  @@map("footer")
+}
+
+// Top navigation menu items
+// Old DB: navigation
+model Navigation {
+  id              Int     @id @default(autoincrement())
+  item            String  // display label e.g. "Books"
+  itemLink        String  @default("") @map("item_link")
+  hasDropdown     Boolean @default(false) @map("has_dropdown")
+  dropdownContent String  @default("") @map("dropdown_content") // HTML for dropdown menu
+  active          Boolean @default(true)
+  ord             Int     @default(0)
+
+  @@map("navigation")
+}
+
+// Social media links
+// Old DB: socials
+model Social {
+  id               Int     @id @default(autoincrement())
+  title            String
+  link             String
+  fontAwesomeClass String  @default("") @map("font_awesome_class")
+  shareClass       String  @default("") @map("share_class")
+  image            String  @default("")
+  share            Boolean @default(false)
+  active           Boolean @default(true)
+  showInProduct    Boolean @default(true) @map("show_in_product")
+  showInCategory   Boolean @default(true) @map("show_in_category")
+  showInFooter     Boolean @default(true) @map("show_in_footer")
+
+  @@map("socials")
+}
+
+// Customer testimonials
+// Old DB: testemonials (note: typo in old DB — we keep same table name for migration)
+model Testimonial {
+  id        Int      @id @default(autoincrement())
+  title     String
+  madeBy    String   @default("") @map("made_by")  // customer name
+  content   String?
+  active    Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("testemonials")
+}

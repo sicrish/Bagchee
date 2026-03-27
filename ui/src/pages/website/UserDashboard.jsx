@@ -7,9 +7,11 @@ import {
   ChevronRight,
   Clock,
   Wallet,
+  ShoppingBag,
 } from "lucide-react";
 import AccountLayout from "../../layouts/AccountLayout";
 import axiosInstance from "../../utils/axiosConfig";
+import { getProductImageUrl } from "../../utils/imageUrl";
 import { CurrencyContext } from "../../context/CurrencyContext";
 
 const UserDashboard = () => {
@@ -41,7 +43,7 @@ const UserDashboard = () => {
       const authData = localStorage.getItem("auth");
       const parsedData = authData ? JSON.parse(authData) : null;
       const userId =
-        parsedData?.userDetails?.id || parsedData?.userDetails?._id;
+        parsedData?.userDetails?.id;
 
       if (!userId) {
         setLoading(false);
@@ -286,7 +288,7 @@ const UserDashboard = () => {
             <div className="divide-y divide-gray-200">
               {recentOrders.map((order) => (
                 <div
-                  key={order._id}
+                  key={order.id}
                   className="p-6 hover:bg-cream-200/30 transition-colors"
                 >
                   <div className="flex items-start justify-between mb-3">
@@ -294,8 +296,9 @@ const UserDashboard = () => {
                       <p className="font-semibold text-gray-900">
                         Order #
                         {order.order_number ||
+                          order.orderNumber ||
                           order.orderId ||
-                          order._id?.slice(-8)?.toUpperCase()}
+                          String(order.id)}
                       </p>
                       <p className="text-sm text-gray-500 mt-1">
                         {formatOrderDate(order)}
@@ -308,11 +311,38 @@ const UserDashboard = () => {
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <p className="text-sm text-gray-600">
-                      {getOrderItems(order).length}{" "}
-                      {getOrderItems(order).length === 1 ? "item" : "items"} •{" "}
-                      {formatPrice(getOrderTotal(order))}
-                    </p>
+                    <div className="flex items-center gap-3">
+                      {/* Book Thumbnails */}
+                      <div className="flex -space-x-2">
+                        {getOrderItems(order).slice(0, 3).map((item, idx) => {
+                          const image = item.product?.defaultImage || item.default_image || item.defaultImage;
+                          const title = item.product?.title || item.name || item.title || "Book";
+                          return (
+                            <div key={idx} className="w-10 h-10 rounded-lg overflow-hidden border-2 border-white bg-gray-200 flex items-center justify-center shrink-0">
+                              {image ? (
+                                <img
+                                  src={image.startsWith('http') ? image : `${process.env.REACT_APP_API_URL}${image}`}
+                                  alt={title}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }}
+                                />
+                              ) : null}
+                              <ShoppingBag className="w-5 h-5 text-gray-400" style={{ display: image ? 'none' : 'block' }} />
+                            </div>
+                          );
+                        })}
+                        {getOrderItems(order).length > 3 && (
+                          <div className="w-10 h-10 rounded-lg border-2 border-white bg-gray-100 flex items-center justify-center">
+                            <span className="text-xs font-medium text-gray-500">+{getOrderItems(order).length - 3}</span>
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-600">
+                        {getOrderItems(order).length}{" "}
+                        {getOrderItems(order).length === 1 ? "item" : "items"} •{" "}
+                        {formatPrice(getOrderTotal(order))}
+                      </p>
+                    </div>
                     <Link
                       to="/account/orders"
                       className="text-sm text-primary hover:text-primary-dark font-medium"

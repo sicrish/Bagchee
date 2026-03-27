@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import axios from "../../utils/axiosConfig";
 import { ArrowLeft, BookOpen, Sparkles, AlertCircle } from "lucide-react";
+import { createSafeHtml } from '../../utils/sanitize';
 
 const ServiceDetails = () => {
   const { id } = useParams(); // URL se service ka ID nikalne ke liye
@@ -17,7 +18,7 @@ const ServiceDetails = () => {
         const res = await axios.get(`${process.env.REACT_APP_API_URL}/services/list`);
         
         if (res.data.status) {
-          const foundService = res.data.data.find((item) => item._id === id);
+          const foundService = res.data.data.find((item) => item.id === id);
           setService(foundService);
         }
       } catch (error) {
@@ -88,7 +89,7 @@ const ServiceDetails = () => {
             {/* Box description as short intro */}
             <div 
               className="text-lg text-gray-600 leading-relaxed max-w-3xl"
-              dangerouslySetInnerHTML={{ __html: service.box_description }}
+              dangerouslySetInnerHTML={createSafeHtml(service.box_description)}
             />
           </div>
         </div>
@@ -104,7 +105,7 @@ const ServiceDetails = () => {
         <div className="bg-white p-8 md:p-12 lg:p-16 rounded-3xl shadow-xl border border-gray-100">
           <div 
             className="prose prose-lg prose-blue max-w-none font-body text-gray-700 service-rich-content"
-            dangerouslySetInnerHTML={{ __html: service.page_content }}
+            dangerouslySetInnerHTML={createSafeHtml(service.page_content)}
           />
         </div>
       </main>

@@ -1,124 +1,95 @@
-import HomeSection from '../models/HomeSection.js';
-import HomeSectionProduct from '../models/HomeSectionProduct.js';
+import prisma from '../lib/prisma.js';
 
-// ✅ HELPER FUNCTION: To fetch data dynamically by Section Name
-// Isse hume bar-bar code repeat nahi karna padega
+// Field mapping: home_section_id→homeSectionId(Int), productId→productId(Int).
+// active: old code stored string ('Yes'/'No') — Prisma has Boolean. Convert on write.
+// SCHEMA-CHECK: HomeSectionProduct has no `product Product @relation(...)` defined.
+// fetchSectionDataByName joins product data via a separate query as a workaround.
+
 const fetchSectionDataByName = async (sectionName, res) => {
     try {
-        // console.log(`➡️ Searching for: "${sectionName}"`);
+        const sectionInfo = await prisma.homeSection.findFirst({
+            where: { section: { equals: sectionName, mode: 'insensitive' } }
+        });
+        if (!sectionInfo) return res.status(404).json({ status: false, msg: `${sectionName} not found` });
 
-        // 1. Find Section by Name (Case Insensitive: "Section 1" or "section 1")
-        const sectionInfo = await HomeSection.findOne({ 
-            section: { $regex: new RegExp(`^${sectionName}$`, "i") } 
+        const entries = await prisma.homeSectionProduct.findMany({
+            where: { homeSectionId: sectionInfo.id },
+            orderBy: { order: 'asc' }
         });
 
-        if (!sectionInfo) {
-            console.log(`❌ ${sectionName} not found in DB`);
-            return res.status(404).json({ status: false, msg: `${sectionName} not found` });
-        }
+        // Fetch product details separately (no Prisma relation defined on HomeSectionProduct)
+        const productIds = entries.map(e => e.productId);
+        const products = productIds.length > 0
+            ? await prisma.product.findMany({ where: { id: { in: productIds } }, select: { id: true, title: true, defaultImage: true, price: true, bagcheeId: true } })
+            : [];
 
-        // console.log(`✅ Found ID: ${sectionInfo._id}`);
+        const productMap = Object.fromEntries(products.map(p => [p.id, p]));
+        const data = entries.map(e => ({ ...e, product: productMap[e.productId] || null }));
 
-        // 2. Fetch Products using the found ID
-        const data = await HomeSectionProduct.find({ home_section_id: sectionInfo._id })
-            .populate('productId')
-            .sort({ order: 1 });
-
-        // 3. Send Response
-        res.json({
-            status: true,
-            sectionTitle: sectionInfo.title,
-            sectionTagline: sectionInfo.tagline,
-            data: data
-        });
-
+        res.json({ status: true, sectionTitle: sectionInfo.title, sectionTagline: sectionInfo.tagline, data });
     } catch (error) {
-        console.error(`❌ Error fetching ${sectionName}:`, error);
         res.status(500).json({ status: false, msg: `Failed to fetch ${sectionName}` });
     }
 };
 
-// =========================================================
-// 🟢 SECTION HANDLERS (No Hardcoded IDs anymore!)
-// =========================================================
+export const getSectionOneProducts = async (req, res) => { await fetchSectionDataByName('section 1', res); };
+export const getSectionTwoProducts = async (req, res) => { await fetchSectionDataByName('section 2', res); };
+export const getSectionThreeProducts = async (req, res) => { await fetchSectionDataByName('section 3', res); };
+export const getSectionFourProducts = async (req, res) => { await fetchSectionDataByName('section 4', res); };
 
-// 🟢 Section 1
-export const getSectionOneProducts = async (req, res) => {
-    // Database me "section 1" dhundega, ID chahe jo bhi ho
-    await fetchSectionDataByName("section 1", res);
-};
-
-// 🟢 Section 2
-export const getSectionTwoProducts = async (req, res) => {
-    await fetchSectionDataByName("section 2", res);
-};
-
-// 🟢 Section 3 (New & Notable)
-export const getSectionThreeProducts = async (req, res) => {
-    await fetchSectionDataByName("section 3", res);
-};
-
-// 🟢 Section 4
-export const getSectionFourProducts = async (req, res) => {
-    await fetchSectionDataByName("section 4", res);
-};
-
-// =========================================================
-// 🟢 CRUD OPERATIONS (Same as before)
-// =========================================================
-
-// 🟢 SAVE NEW LINK
 export const saveProductToSection = async (req, res) => {
     try {
         const { home_section_id, productId, title, active, order } = req.body;
-        
-        console.log("Payload received:", req.body);
-
-        if (!home_section_id || home_section_id === "") {
-            return res.status(400).json({ status: false, msg: "Section ID is required" });
-        }
-
-        // Check Duplicates
-        const exists = await HomeSectionProduct.findOne({ home_section_id, productId });
-        if (exists) return res.status(400).json({ status: false, msg: "This product is already in this section!" });
-
-        const newEntry = new HomeSectionProduct({ home_section_id, productId, title, active, order });
-        await newEntry.save();
-        
-        res.json({ status: true, msg: "Product linked successfully" });
+        if (!home_section_id) return res.status(400).json({ status: false, msg: 'Section ID is required' });
+        const sectionId = parseInt(home_section_id);
+        const pId = parseInt(productId);
+        if (isNaN(sectionId) || isNaN(pId)) return res.status(400).json({ status: false, msg: 'Invalid section or product ID' });
+        const exists = await prisma.homeSectionProduct.findFirst({ where: { homeSectionId: sectionId, productId: pId } });
+        if (exists) return res.status(400).json({ status: false, msg: 'This product is already in this section!' });
+        // Convert active string ('Yes'/'No' or boolean) to Boolean
+        const isActive = active === 'Yes' || active === true || active === 'true';
+        const newEntry = await prisma.homeSectionProduct.create({
+            data: { homeSectionId: sectionId, productId: pId, title: title || '', active: isActive, order: Number(order) || 0 }
+        });
+        res.json({ status: true, msg: 'Product linked successfully', data: newEntry });
     } catch (error) {
-        console.error("CRITICAL BACKEND ERROR:", error.message);
-        res.status(500).json({ status: false, msg: error.message });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// 🟢 GET SINGLE LINK (For Edit)
 export const getSectionProductById = async (req, res) => {
     try {
-        const data = await HomeSectionProduct.findById(req.params.id);
-        if (!data) return res.status(404).json({ status: false, msg: "Record not found" });
+        const data = await prisma.homeSectionProduct.findUnique({ where: { id: parseInt(req.params.id) } });
+        if (!data) return res.status(404).json({ status: false, msg: 'Record not found' });
         res.json({ status: true, data });
     } catch (error) {
-        res.status(500).json({ status: false, msg: "Database error" });
+        res.status(500).json({ status: false, msg: 'Database error' });
     }
 };
 
-// 🟢 UPDATE LINK
 export const updateSectionProduct = async (req, res) => {
     try {
-        await HomeSectionProduct.findByIdAndUpdate(req.params.id, req.body);
-        res.json({ status: true, msg: "Link updated successfully" });
+        const { home_section_id, productId, title, active, order } = req.body;
+        const updateData = {};
+        if (home_section_id !== undefined) updateData.homeSectionId = parseInt(home_section_id);
+        if (productId !== undefined) updateData.productId = parseInt(productId);
+        if (title !== undefined) updateData.title = title;
+        if (active !== undefined) updateData.active = active === 'Yes' || active === true || active === 'true';
+        if (order !== undefined) updateData.order = Number(order);
+        await prisma.homeSectionProduct.update({ where: { id: parseInt(req.params.id) }, data: updateData });
+        res.json({ status: true, msg: 'Link updated successfully' });
     } catch (error) {
-        res.status(500).json({ status: false, msg: "Update failed" });
+        if (error.code === 'P2025') return res.status(404).json({ status: false, msg: 'Not found' });
+        res.status(500).json({ status: false, msg: 'Update failed' });
     }
 };
 
-// 🟢 DELETE LINK
 export const deleteSectionProduct = async (req, res) => {
     try {
-        await HomeSectionProduct.findByIdAndDelete(req.params.id);
-        res.json({ status: true, msg: "Product removed from section" });
+        await prisma.homeSectionProduct.delete({ where: { id: parseInt(req.params.id) } });
+        res.json({ status: true, msg: 'Product removed from section' });
     } catch (error) {
-        res.status(500).json({ status: false, msg: "Delete failed" });
+        if (error.code === 'P2025') return res.status(404).json({ status: false, msg: 'Not found' });
+        res.status(500).json({ status: false, msg: 'Delete failed' });
     }
 };

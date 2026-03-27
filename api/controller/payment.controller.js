@@ -1,214 +1,107 @@
-import PaymentModel from '../models/Payment.model.js';
-
+import prisma from '../lib/prisma.js';
 import { saveFileLocal, deleteFileLocal } from '../utils/fileHandler.js';
 
-// ==========================================
-// 🟢 1. CREATE (SAVE)
-// ==========================================
+// Field mapping: isActive→active, order→ord, additional_text→additionalText,
+// additional_text_isActive→additionalTextActive. Dropped: image_public_id (no cloud storage).
+
 export const savePayment = async (req, res) => {
     try {
         const data = req.body;
-
-        // Validation
-        if (!data.title) {
-            return res.status(400).json({ status: false, msg: "Payment Title is required" });
-        }
-
-        // 1. Handle "Active" status
-        let activeStatus = true;
-        if (data.status === 'inactive') activeStatus = false;
-
-        // 2. Handle "Additional Text Active" status
-        let additionalActive = false;
-        if (data.additional_text_status === 'active') additionalActive = true;
-
-        // 🟢 3. Local Image Upload
-        let imagePath = null;
-
+        if (!data.title) return res.status(400).json({ status: false, msg: 'Payment Title is required' });
+        const active = data.status !== 'inactive';
+        const additionalTextActive = data.additional_text_status === 'active';
+        let imagePath = '';
         if (req.files && req.files.image) {
-            try {
-                // 'payments' folder me save hoga
-                imagePath = await saveFileLocal(req.files.image, 'payments');
-            } catch (uploadError) {
-                return res.status(400).json({ status: false, msg: uploadError.message });
-            }
+            try { imagePath = await saveFileLocal(req.files.image, 'payments'); }
+            catch (uploadError) { return res.status(400).json({ status: false, msg: uploadError.message }); }
         }
-
-        const newPayment = new PaymentModel({
-            title: data.title,
-            isActive: activeStatus,
-            order: Number(data.order) || 0,
-            additional_text: data.additional_text || "",
-            additional_text_isActive: additionalActive,
-            image: imagePath, // e.g. "/uploads/payments/logo.png"     
-            image_public_id: null // Local storage me iski jarurat nahi
+        const newPayment = await prisma.payment.create({
+            data: {
+                title: data.title,
+                active,
+                ord: Number(data.order) || 0,
+                additionalText: data.additional_text || '',
+                additionalTextActive,
+                image: imagePath
+            }
         });
-
-        await newPayment.save();
-
-        res.status(201).json({
-            status: true,
-            msg: "Payment method added successfully!",
-            data: newPayment
-        });
-
+        res.status(201).json({ status: true, msg: 'Payment method added successfully!', data: newPayment });
     } catch (error) {
-        console.error("Save Payment Error:", error);
-        res.status(500).json({ status: false, msg: "Server Error", error: error.message });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// ==========================================
-// 🟢 2. READ (LIST ALL WITH PAGINATION)
-// ==========================================
 export const getAllPayments = async (req, res) => {
     try {
-        const { page, limit } = req.query;
-
-        // 1. Pagination Settings
-        const pageNum = parseInt(page) || 1;
-        const pageSize = parseInt(limit) || 10;
+        const pageNum = parseInt(req.query.page) || 1;
+        const pageSize = parseInt(req.query.limit) || 10;
         const skip = (pageNum - 1) * pageSize;
-
-        // 2. Fetch Data with Pagination
-        const list = await PaymentModel.find()
-            .sort({ order: 1, createdAt: -1 })
-            .skip(skip)
-            .limit(pageSize);
-
-        // 3. Total Count for calculation
-        const total = await PaymentModel.countDocuments();
-
-        res.status(200).json({
-            status: true,
-            msg: "Payments fetched successfully",
-            data: list,
-            total,
-            totalPages: Math.ceil(total / pageSize),
-            page: pageNum
-        });
-
+        const [list, total] = await Promise.all([
+            prisma.payment.findMany({ orderBy: { ord: 'asc' }, skip, take: pageSize }),
+            prisma.payment.count()
+        ]);
+        res.status(200).json({ status: true, data: list, total, totalPages: Math.ceil(total / pageSize), page: pageNum });
     } catch (error) {
-        res.status(500).json({ status: false, msg: "Server Error", error: error.message });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
-// ==========================================
-// 🟢 3. READ ONE (GET BY ID)
-// ==========================================
+
 export const getPaymentById = async (req, res) => {
     try {
-        const id = req.params.id;
-        const payment = await PaymentModel.findById(id);
-
-        if (!payment) {
-            return res.status(404).json({ status: false, msg: "Payment method not found" });
-        }
-
+        const payment = await prisma.payment.findUnique({ where: { id: parseInt(req.params.id) } });
+        if (!payment) return res.status(404).json({ status: false, msg: 'Payment method not found' });
         res.status(200).json({ status: true, data: payment });
-
     } catch (error) {
-        res.status(500).json({ status: false, msg: "Server Error", error: error.message });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// ==========================================
-// 🟢 4. UPDATE (Safe Local Swap)
-// ==========================================
 export const updatePayment = async (req, res) => {
     try {
-        const id = req.params.id;
+        const id = parseInt(req.params.id);
         const data = req.body;
         const { remove_image } = req.body;
-
-        const existingPayment = await PaymentModel.findById(id);
-        if (!existingPayment) {
-            return res.status(404).json({ status: false, msg: "Payment method not found" });
-        }
-
-        // Logic for Boolean Status
-        let activeStatus = undefined;
-        if (data.status === 'active') activeStatus = true;
-        else if (data.status === 'inactive') activeStatus = false;
-
-        let additionalActive = undefined;
-        if (data.additional_text_status === 'active') additionalActive = true;
-        else if (data.additional_text_status === 'inactive') additionalActive = false;
-
+        const existing = await prisma.payment.findUnique({ where: { id } });
+        if (!existing) return res.status(404).json({ status: false, msg: 'Payment method not found' });
         const updateData = {
             title: data.title,
-            order: Number(data.order) || 0,
-            additional_text: data.additional_text,
+            ord: Number(data.order) || 0,
+            additionalText: data.additional_text
         };
-
-        if (activeStatus !== undefined) updateData.isActive = activeStatus;
-        if (additionalActive !== undefined) updateData.additional_text_isActive = additionalActive;
-
-        // 🟢 IMAGE UPDATE LOGIC
+        if (data.status === 'active') updateData.active = true;
+        else if (data.status === 'inactive') updateData.active = false;
+        if (data.additional_text_status === 'active') updateData.additionalTextActive = true;
+        else if (data.additional_text_status === 'inactive') updateData.additionalTextActive = false;
         if (req.files && req.files.image) {
             try {
-                // 1. New Save
                 const newImagePath = await saveFileLocal(req.files.image, 'payments');
-
-                // 2. Old Delete (Safe Swap)
                 if (newImagePath) {
-                    if (existingPayment.image) {
-                        await deleteFileLocal(existingPayment.image);
-                    }
+                    if (existing.image) await deleteFileLocal(existing.image);
                     updateData.image = newImagePath;
-                    updateData.image_public_id = null; // Clear old cloud ID if present
                 }
-            } catch (uploadError) {
-                return res.status(400).json({ status: false, msg: uploadError.message });
-            }
-
+            } catch (uploadError) { return res.status(400).json({ status: false, msg: uploadError.message }); }
         } else if (remove_image === 'true') {
-            // Delete Old Image (No new upload)
-            if (existingPayment.image) {
-                await deleteFileLocal(existingPayment.image);
-            }
-            updateData.image = null;
-            updateData.image_public_id = null;
+            if (existing.image) await deleteFileLocal(existing.image);
+            updateData.image = '';
         }
-
-        const updatedPayment = await PaymentModel.findByIdAndUpdate(id, updateData, { new: true });
-
-        res.status(200).json({
-            status: true,
-            msg: "Payment updated successfully!",
-            data: updatedPayment
-        });
-
+        const updated = await prisma.payment.update({ where: { id }, data: updateData });
+        res.status(200).json({ status: true, msg: 'Payment updated successfully!', data: updated });
     } catch (error) {
-        console.error("Update Payment Error:", error);
-        res.status(500).json({ status: false, msg: "Server Error", error: error.message });
+        if (error.code === 'P2025') return res.status(404).json({ status: false, msg: 'Payment not found' });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// ==========================================
-// 🟢 5. DELETE (With File Cleanup)
-// ==========================================
 export const deletePayment = async (req, res) => {
     try {
-        const id = req.params.id;
-
-        const payment = await PaymentModel.findById(id);
-        if (!payment) {
-            return res.status(404).json({ status: false, msg: "Payment method not found" });
-        }
-
-        // 🟢 Delete Local Image
-        if (payment.image) {
-            await deleteFileLocal(payment.image);
-        }
-
-        await PaymentModel.findByIdAndDelete(id);
-
-        res.status(200).json({
-            status: true,
-            msg: "Payment deleted successfully!"
-        });
-
+        const id = parseInt(req.params.id);
+        const payment = await prisma.payment.findUnique({ where: { id } });
+        if (!payment) return res.status(404).json({ status: false, msg: 'Payment method not found' });
+        if (payment.image) await deleteFileLocal(payment.image);
+        await prisma.payment.delete({ where: { id } });
+        res.status(200).json({ status: true, msg: 'Payment deleted successfully!' });
     } catch (error) {
-        res.status(500).json({ status: false, msg: "Server Error", error: error.message });
+        if (error.code === 'P2025') return res.status(404).json({ status: false, msg: 'Payment not found' });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };

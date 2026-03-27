@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { createSafeHtml } from '../../utils/sanitize';
 import {
   PackageSearch,
   UserCog,
@@ -41,7 +42,7 @@ const HelpDesk = () => {
 
         setHelpPages(activePages);
         if (activePages.length > 0) {
-          setActiveTab(activePages[0]._id);
+          setActiveTab(activePages[0].id);
         }
       } catch (error) {
         console.error("Error fetching help pages:", error);
@@ -111,7 +112,7 @@ const HelpDesk = () => {
     },
   ];
 
-  const activeHelpPage = helpPages.find((page) => page._id === activeTab);
+  const activeHelpPage = helpPages.find((page) => page.id === activeTab);
 
   return (
     <div className="min-h-screen bg-cream">
@@ -174,8 +175,8 @@ const HelpDesk = () => {
 
                 return (
                   <Link
-                    key={page._id}
-                    to={`/help/${page._id}`}
+                    key={page.id}
+                    to={`/help/${page.id}`}
                     className="bg-white border border-gray-100 p-6 shadow-sm hover:shadow-xl hover:border-primary/30 transform hover:-translate-y-1 transition-all duration-300 flex items-center justify-between group rounded-2xl relative overflow-hidden"
                   >
                     {/* Subtle Background Accent on Hover */}
@@ -226,31 +227,31 @@ const HelpDesk = () => {
             <div className="max-w-4xl mx-auto space-y-4">
               {helpPages.filter(page => page.title.toLowerCase() === 'common question').map((page) => (
                 <div
-                  key={page._id}
+                  key={page.id}
                   className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
                 >
                   <button
-                    onClick={() => setActiveTab(activeTab === page._id ? null : page._id)}
+                    onClick={() => setActiveTab(activeTab === page.id ? null : page.id)}
                     className="w-full flex items-center justify-between p-5 text-left group"
                   >
-                    <span className={`font-display font-bold text-lg transition-colors ${activeTab === page._id ? 'text-primary' : 'text-text-main'}`}>
+                    <span className={`font-display font-bold text-lg transition-colors ${activeTab === page.id ? 'text-primary' : 'text-text-main'}`}>
                       {page.title}
                     </span>
-                    <div className={`p-1 rounded-full transition-transform duration-300 ${activeTab === page._id ? 'rotate-180 bg-primary text-white' : 'bg-gray-100 text-gray-500'}`}>
+                    <div className={`p-1 rounded-full transition-transform duration-300 ${activeTab === page.id ? 'rotate-180 bg-primary text-white' : 'bg-gray-100 text-gray-500'}`}>
                       <ChevronDown size={20} />
                     </div>
                   </button>
 
                   {/* 🟢 Accordion Content (Dropdown) */}
                   <div
-                    className={`overflow-hidden transition-all duration-300 ease-in-out ${activeTab === page._id ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'}`}
+                    className={`overflow-hidden transition-all duration-300 ease-in-out ${activeTab === page.id ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'}`}
                   >
                     <div className="p-6 pt-0 border-t border-gray-50">
                       <div
                         className="prose prose-blue max-w-none text-gray-600 leading-relaxed font-body
                 prose-headings:font-display prose-headings:text-text-main
                 prose-p:mb-4 prose-strong:text-primary"
-                        dangerouslySetInnerHTML={{ __html: page.content }} // Backend se aane wala HTML content
+                        dangerouslySetInnerHTML={createSafeHtml(page.content)}
                       />
 
                      

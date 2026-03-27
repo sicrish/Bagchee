@@ -1,190 +1,142 @@
-import CategorySchemaModel from '../models/category.model.js';
+import prisma from '../lib/prisma.js';
 import { saveFileLocal, deleteFileLocal } from '../utils/fileHandler.js';
 
-// ==========================================
-// 🟢 1. SAVE CATEGORY (Local Storage)
-// ==========================================
+// Field mapping: categorytitle→title, categoryiconname→image, parentid→parentId(Int),
+// active('active'/'inactive')→active(Boolean), metatitle→metaTitle, metakeywords→metaKeywords,
+// metadescription→metaDesc, producttype→productType(Int).
+// Dropped: parentslug, mainmodule, oldid, lft, rght, level, newslettercategory, newsletterorder (not in Prisma schema).
+// Old route used POST /update — kept same exports (save, fetchCategory, updateCategory, deletecategory).
+
 export const save = async (req, res) => {
     try {
-        let imageUrl = "";
+        let imageUrl = '';
         const file = req.files?.categoryicon || req.files?.image;
-        
         if (file) {
             try {
-                // 'categories' folder me save hoga: backend/uploads/categories/
                 imageUrl = await saveFileLocal(file, 'categories');
             } catch (uploadError) {
                 return res.status(400).json({ status: false, msg: uploadError.message });
             }
         }
-
-        const categoryData = {
-            categorytitle: req.body.categoryTitle || req.body.categorytitle, 
-            slug: req.body.slug,
-            parentslug: req.body.parentsSlug || req.body.parentslug,
-            mainmodule: req.body.mainModule || req.body.mainmodule,
-            oldid: req.body.oldId || req.body.oldid,
-            parentid: req.body.parentId === 'root' || !req.body.parentId ? null : req.body.parentId,
-            active: req.body.active || 'active',
-            lft: Number(req.body.lft) || 0,
-            rght: Number(req.body.rght) || 0,
-            level: Number(req.body.level) || 0,
-            metatitle: req.body.metaTitle || req.body.metatitle,
-            metakeywords: req.body.metaKeywords || req.body.metakeywords,
-            metadescription: req.body.metaDescription || req.body.metadescription,
-            producttype: req.body.productType || req.body.producttype,
-            categoryiconname: imageUrl, // e.g., "/uploads/categories/icon-123.png"
-            newslettercategory: req.body.newsletter === 'yes' || req.body.newslettercategory === 'Yes' ? 'Yes' : 'No',
-            newsletterorder: Number(req.body.newsletterCategoryOrder) || Number(req.body.newsletterorder) || 0 
-        };
-
-        const category = await CategorySchemaModel.create(categoryData);
-        res.status(201).json({ status: true, msg: "Category added successfully! 🚀", data: category });
-        
-    } catch (err) {
-        if (err.code === 11000) {
-            return res.status(400).json({ status: false, msg: "Error: Slug ya Title pehle se exist karta hai." });
-        }
-        res.status(500).json({ status: false, msg: err.message });
+        const category = await prisma.category.create({
+            data: {
+                title: req.body.categoryTitle || req.body.categorytitle || '',
+                slug: req.body.slug || null,
+                parentId: req.body.parentId === 'root' || !req.body.parentId ? 0 : parseInt(req.body.parentId),
+                active: req.body.active === 'active' || req.body.active === true,
+                image: imageUrl,
+                metaTitle: req.body.metaTitle || req.body.metatitle || null,
+                metaKeywords: req.body.metaKeywords || req.body.metakeywords || null,
+                metaDesc: req.body.metaDescription || req.body.metadescription || null,
+                productType: Number(req.body.productType || req.body.producttype) || 0
+            }
+        });
+        res.status(201).json({ status: true, msg: 'Category added successfully!', data: category });
+    } catch (error) {
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// ==========================================
-// 🔵 2. FETCH CATEGORY (Single & List)
-// ==========================================
 export const fetchCategory = async (req, res) => {
     try {
-        const { _id, page, limit } = req.query;
+        const { _id, id, page, limit } = req.query;
 
-        // A. Single Category Fetch (For Edit Page Auto-fill)
-        if (_id) {
-            const data = await CategorySchemaModel.findById(_id).lean();
-            return res.json({ status: true, data: data });
+        // Single fetch by ID
+        if (_id || id) {
+            const data = await prisma.category.findUnique({ where: { id: parseInt(_id || id) } });
+            if (!data) return res.status(404).json({ status: false, msg: 'Not found' });
+            return res.json({ status: true, data });
         }
 
-        // B. Paginated List (For Admin Table/Sliders)
+        // Paginated list
         if (page && limit) {
             const pageNum = Number(page) || 1;
             const pageSize = Number(limit) || 6;
             const skip = (pageNum - 1) * pageSize;
-
-            const query = { active: 'active' }; 
-            const data = await CategorySchemaModel.find(query)
-                .sort({ categorytitle: 1 })
-                .skip(skip)
-                .limit(pageSize)
-                .lean();
-
-            const total = await CategorySchemaModel.countDocuments(query);
-
-            return res.json({ 
-                status: true, 
-                data: data,
-                total,
-                page: pageNum,
-                limit: pageSize
-            });
+            const [data, total] = await Promise.all([
+                prisma.$queryRaw`
+                    SELECT * FROM categories
+                    WHERE active = true
+                    ORDER BY (CASE WHEN image IS NOT NULL AND image != '' THEN 0 ELSE 1 END), category_title ASC
+                    LIMIT ${pageSize} OFFSET ${skip}
+                `,
+                prisma.category.count({ where: { active: true } })
+            ]);
+            const mapped = data.map(c => ({
+                id: c.id,
+                title: c.category_title,
+                slug: c.slug,
+                parentId: c.parent_id,
+                active: c.active,
+                image: c.image,
+                metaTitle: c.meta_title,
+                metaKeywords: c.meta_keywords,
+                metaDesc: c.meta_description,
+                productType: c.product_type,
+                createdAt: c.createdAt
+            }));
+            return res.json({ status: true, data: mapped, total, totalPages: Math.ceil(total / pageSize), page: pageNum, limit: pageSize });
         }
 
-        // C. Fetch All (For Dropdowns)
-        const data = await CategorySchemaModel.find().sort({ categorytitle: 1 }).lean(); 
-        res.json({ status: true, data: data });
-
+        // All categories (for dropdowns)
+        const data = await prisma.category.findMany({ orderBy: { title: 'asc' } });
+        res.json({ status: true, data });
     } catch (error) {
-        console.error("Fetch Category Error:", error);
-        res.status(500).json({ status: false, msg: "Server Error" });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// ==========================================
-// 🟠 3. UPDATE CATEGORY (Safe Update & Mapping)
-// ==========================================
 export const updateCategory = async (req, res) => {
     try {
-        let { _id } = req.body;
-        if (!_id) return res.status(400).json({ status: false, msg: "ID is required" });
+        let id = req.body._id || req.body.id;
+        if (!id) return res.status(400).json({ status: false, msg: 'ID is required' });
+        if (Array.isArray(id)) id = id[0];
+        id = parseInt(id);
 
-        // Handle if _id comes as an array
-        if (Array.isArray(_id)) _id = _id[0];
+        const existing = await prisma.category.findUnique({ where: { id } });
+        if (!existing) return res.status(404).json({ status: false, msg: 'Category not found' });
 
-        const existingCategory = await CategorySchemaModel.findById(_id);
-        if (!existingCategory) return res.status(404).json({ status: false, msg: "Category not found" });
-
-        let imageUrl = existingCategory.categoryiconname;
+        let imageUrl = existing.image;
         const file = req.files?.categoryicon || req.files?.image;
-
         if (file) {
             try {
-                const newImagePath = await saveFileLocal(file, 'categories');
-                if (newImagePath) {
-                    // Purani image delete karein agar exist karti hai
-                    if (existingCategory.categoryiconname) {
-                        await deleteFileLocal(existingCategory.categoryiconname);
-                    }
-                    imageUrl = newImagePath;
-                }
+                const newPath = await saveFileLocal(file, 'categories');
+                if (existing.image) await deleteFileLocal(existing.image);
+                imageUrl = newPath;
             } catch (uploadError) {
                 return res.status(400).json({ status: false, msg: uploadError.message });
             }
         }
 
-        // 🟢 Precise Mapping: Backend Model Keys vs Frontend Field Names
-        const mappedData = {
-            categorytitle: req.body.categorytitle || req.body.categoryTitle,
-            slug: req.body.slug,
-            parentslug: req.body.parentslug || req.body.parentsSlug || req.body.parentSlug,
-            mainmodule: req.body.mainmodule || req.body.mainModule,
-            oldid: req.body.oldid || req.body.oldId,
-            parentid: req.body.parentid === 'root' || !req.body.parentid ? null : req.body.parentid,
-            active: req.body.active,
-            lft: Number(req.body.lft) || 0,
-            rght: Number(req.body.rght) || 0,
-            level: Number(req.body.level) || 0,
-            metatitle: req.body.metatitle || req.body.metaTitle,
-            metakeywords: req.body.metakeywords || req.body.metaKeywords,
-            metadescription: req.body.metadescription || req.body.metaDescription,
-            producttype: req.body.producttype || req.body.productType,
-            categoryiconname: imageUrl,
-            newslettercategory: req.body.newslettercategory || (req.body.newsletter === 'yes' ? 'Yes' : 'No'),
-            newsletterorder: Number(req.body.newsletterorder) || Number(req.body.newsletterCategoryOrder) || 0
+        const updateData = {
+            title: req.body.categorytitle || req.body.categoryTitle || existing.title,
+            slug: req.body.slug ?? existing.slug,
+            parentId: req.body.parentid === 'root' || !req.body.parentid ? 0 : parseInt(req.body.parentid),
+            active: req.body.active === 'active' || req.body.active === true,
+            image: imageUrl,
+            metaTitle: req.body.metatitle || req.body.metaTitle || existing.metaTitle,
+            metaKeywords: req.body.metakeywords || req.body.metaKeywords || existing.metaKeywords,
+            metaDesc: req.body.metadescription || req.body.metaDescription || existing.metaDesc,
+            productType: Number(req.body.producttype || req.body.productType) || existing.productType
         };
 
-        const updated = await CategorySchemaModel.findByIdAndUpdate(_id, mappedData, { new: true });
-        
-        res.json({ status: true, msg: "Category Updated successfully! ✅", data: updated });
-
+        const updated = await prisma.category.update({ where: { id }, data: updateData });
+        res.json({ status: true, msg: 'Category Updated successfully!', data: updated });
     } catch (error) {
-        console.error("Update Error:", error);
-        res.status(500).json({ status: false, msg: error.message });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// ==========================================
-// 🔴 4. DELETE CATEGORY (With File Cleanup)
-// ==========================================
 export const deletecategory = async (req, res) => {
     try {
-        const { id } = req.params; 
-
-        const category = await CategorySchemaModel.findById(id);
-        if (!category) {
-            return res.status(404).json({ status: false, msg: "Category not found" });
-        }
-
-        // Image delete karein local storage se
-        if (category.categoryiconname) {
-            await deleteFileLocal(category.categoryiconname);
-        }
-
-        await CategorySchemaModel.findByIdAndDelete(id);
-
-        res.status(200).json({
-            status: true,
-            msg: "Deleted successfully! 🗑️",
-        });
-
-    } catch (err) {
-        console.error("Delete Error:", err);
-        res.status(500).json({ status: false, msg: "Deletion failed" });
+        const id = parseInt(req.params.id);
+        const category = await prisma.category.findUnique({ where: { id } });
+        if (!category) return res.status(404).json({ status: false, msg: 'Category not found' });
+        if (category.image) await deleteFileLocal(category.image);
+        await prisma.category.delete({ where: { id } });
+        res.status(200).json({ status: true, msg: 'Deleted successfully!' });
+    } catch (error) {
+        if (error.code === 'P2025') return res.status(404).json({ status: false, msg: 'Category not found' });
+        res.status(500).json({ status: false, msg: 'Deletion failed' });
     }
 };

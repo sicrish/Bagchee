@@ -1,16 +1,9 @@
 import React, { useState, useEffect, memo, useCallback, useMemo } from 'react';
 import { ArrowLeft, ArrowRight, Pause, Play } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import axios from 'axios'; 
-import { useQuery } from '@tanstack/react-query'; // 🟢 React Query Import
-
-// 🟢 Optimized: Moved outside to maintain referential identity
-const getImageUrl = (imgName) => {
-  if (!imgName) return "";
-  if (imgName.startsWith("http")) return imgName;
-  const API_BASE = process.env.REACT_APP_API_URL?.replace('/api', '');
-  return `${API_BASE}/${imgName.replace(/^\//, '')}`;
-};
+import axios from 'axios';
+import { useQuery } from '@tanstack/react-query';
+import { getImageUrl } from '../../../../utils/imageUrl.js';
 
 const HeroSlider = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -72,7 +65,7 @@ const HeroSlider = () => {
       
       return (
         <div 
-          key={banner._id || index}
+          key={banner.id || index}
           className={`absolute inset-0 w-full h-full transition-opacity duration-1000 ease-in-out ${isActive ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
           style={{ willChange: 'opacity' }} // GPU optimization
         >

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
+import { createSafeHtml } from '../../utils/sanitize';
 import {
   Heart, Star, Share2, ChevronLeft, ChevronRight,
   Truck, RotateCcw, CheckCircle2, AlertTriangle, ChevronDown,
@@ -10,6 +11,7 @@ import {
 import toast from 'react-hot-toast';
 import { useCart } from '../../context/CartContext';
 import { CurrencyContext } from '../../context/CurrencyContext';
+import { getProductImageUrl, getImageUrl } from '../../utils/imageUrl.js';
 
 const BookDetail = () => {
   const { bagcheeId, slug } = useParams();
@@ -65,12 +67,12 @@ const BookDetail = () => {
   // Walk up the category tree to find the root (level === 0) for a given categoryId
   const findRootCategoryId = (categoryId, categoryMap) => {
     if (!categoryId || !categoryMap) return null;
-    const id = typeof categoryId === 'object' ? categoryId?._id : categoryId;
+    const id = typeof categoryId === 'object' ? categoryId?.id : categoryId;
     let current = categoryMap[id] || categoryMap[String(id)];
     while (current && current.level > 0 && current.parentid) {
       current = categoryMap[current.parentid] || categoryMap[String(current.parentid)];
     }
-    return current ? (current._id || id) : id;
+    return current ? (current.id || id) : id;
   };
 
   useEffect(() => {
@@ -117,7 +119,7 @@ const BookDetail = () => {
         if (catRes.status === 'fulfilled' && catRes.value?.data?.status && Array.isArray(catRes.value.data.data)) {
           const cats = catRes.value.data.data;
           setAllCategories(cats);
-          cats.forEach(c => { categoryMap[c._id] = c; categoryMap[String(c._id)] = c; });
+          cats.forEach(c => { categoryMap[c.id] = c; categoryMap[String(c.id)] = c; });
         }
 
         if (bookRes.status !== 'fulfilled') {
@@ -129,12 +131,11 @@ const BookDetail = () => {
         const response = bookRes.value;
         if (response.data.status && response.data.data) {
           const bookData = Array.isArray(response.data.data) ? response.data.data[0] : response.data.data;
-          console.log("FULL BOOK DATA FROM BACKEND:", bookData); // 👈 Ye line yahan lagao
           setBook(bookData);
 
           // Find root category ID by walking up the parentid chain
           const leafCategoryId = typeof bookData.categoryId === 'object'
-            ? bookData.categoryId?._id
+            ? bookData.categoryId?.id
             : bookData.categoryId;
 
           const rootCategoryId = findRootCategoryId(leafCategoryId, categoryMap);
@@ -146,12 +147,11 @@ const BookDetail = () => {
                 `${process.env.REACT_APP_API_URL}/product/fetch?categories=${rootCategoryId}&sort=bestseller&limit=100`
               );
               if (relatedResponse.data.status && Array.isArray(relatedResponse.data.data)) {
-                const pool = relatedResponse.data.data.filter(b => b._id !== bookData._id);
+                const pool = relatedResponse.data.data.filter(b => b.id !== bookData.id);
                 const shuffled = pool.sort(() => Math.random() - 0.5);
                 setRelatedBooks(shuffled.slice(0, 15));
               }
             } catch (error) {
-              console.log('Could not fetch related books by root category:', error);
             }
           }
         } else {
@@ -185,7 +185,7 @@ const BookDetail = () => {
         if (res.data.status && Array.isArray(res.data.data)) {
           // Sirf is book ke active reviews ko filter karke state mein daalna
           const filteredReviews = res.data.data.filter(r =>
-            String(r.itemId?._id || r.itemId) === String(book._id) && r.isActive === true
+            String(r.itemId?.id || r.itemId) === String(book.id) && r.isActive === true
           );
           setReviews(filteredReviews);
         }
@@ -204,8 +204,8 @@ const BookDetail = () => {
     const parsedAuth = JSON.parse(authData);
     try {
       const res = await axios.post(`${process.env.REACT_APP_API_URL}/reviews/save`, {
-        item_id: book._id,
-        category_id: book.categoryId?._id || book.categoryId,
+        item_id: book.id,
+        category_id: book.categoryId?.id || book.categoryId,
         name: parsedAuth.userDetails.name,
         email: parsedAuth.userDetails.email,
         title: reviewData.title,
@@ -232,14 +232,14 @@ const BookDetail = () => {
 
 
       // Series Books
-      const seriesId = typeof book.series === 'object' ? book.series?._id : book.series;
+      const seriesId = typeof book.series === 'object' ? book.series?.id : book.series;
       if (seriesId) {
         try {
           const seriesRes = await axios.get(
             `${process.env.REACT_APP_API_URL}/product/fetch?series=${seriesId}&limit=20`
           );
           if (seriesRes.data.status && Array.isArray(seriesRes.data.data)) {
-            setSeriesBooks(seriesRes.data.data.filter(b => b._id !== book._id));
+            setSeriesBooks(seriesRes.data.data.filter(b => b.id !== book.id));
           }
         } catch {
           // silently fail
@@ -249,13 +249,13 @@ const BookDetail = () => {
       // Also Bought — proxy: same publisher, bestsellers
       // Uses 'publishers' (plural) param as required by the product fetch controller
       try {
-        const publisherId = typeof book.publisher === 'object' ? book.publisher?._id : book.publisher;
+        const publisherId = typeof book.publisher === 'object' ? book.publisher?.id : book.publisher;
         if (publisherId) {
           const abRes = await axios.get(
             `${process.env.REACT_APP_API_URL}/product/fetch?publishers=${publisherId}&sort=bestseller&limit=20`
           );
           if (abRes.data.status && Array.isArray(abRes.data.data)) {
-            setAlsoBoughtBooks(abRes.data.data.filter(b => b._id !== book._id).slice(0, 15));
+            setAlsoBoughtBooks(abRes.data.data.filter(b => b.id !== book.id).slice(0, 15));
           }
         }
       } catch {
@@ -268,11 +268,11 @@ const BookDetail = () => {
 
         // 1. Agar book.authors array hai (multiple authors), toh sabki ID nikal lo
         if (Array.isArray(book.authors) && book.authors.length > 0) {
-          authorIds = book.authors.map(a => typeof a === 'object' ? a._id : a);
+          authorIds = book.authors.map(a => typeof a === 'object' ? a.id : a);
         }
         // 2. Agar array nahi hai, par single book.author hai (purana data), toh uski ID nikal lo
         else if (book.author) {
-          authorIds = [typeof book.author === 'object' ? book.author._id : book.author];
+          authorIds = [typeof book.author === 'object' ? book.author.id : book.author];
         }
 
         // 3. Agar IDs mil gayi hain, toh API call karo
@@ -306,7 +306,7 @@ const BookDetail = () => {
   const getAuthorName = (author) => {
     if (!author) return 'Unknown Author';
     if (typeof author === 'object') {
-      return `${author.first_name || ''} ${author.last_name || ''}`.trim() || 'Unknown Author';
+      return `${author.firstName || author.first_name || ''} ${author.lastName || author.last_name || ''}`.trim() || 'Unknown Author';
     }
     return author;
   };
@@ -314,7 +314,7 @@ const BookDetail = () => {
   const createAuthorSlug = (author) => {
     if (!author) return '';
     const name = typeof author === 'object'
-      ? `${author.first_name || ''} ${author.last_name || ''}`.trim()
+      ? `${author.firstName || author.first_name || ''} ${author.lastName || author.last_name || ''}`.trim()
       : author;
     return name
       .toLowerCase()
@@ -357,7 +357,7 @@ const BookDetail = () => {
       const res = await axios.post(`${process.env.REACT_APP_API_URL}/newsletter-subs/save`, {
         email: newsEmail,
         interestedBookName: book.title, // 🟢 Automatic current book title
-        interestedBookId: book.bagchee_id || book._id, // 🟢 Automatic current book ID
+        interestedBookId: book.bagcheeId || book.id, // 🟢 Automatic current book ID
         firstName: '', // Non-login user ke liye empty
         lastName: '',  // Non-login user ke liye empty
         categories: [] // Default khali array
@@ -448,7 +448,9 @@ const BookDetail = () => {
 
   // ─── Derived values ───
   const discount = book.discount || 0;
-  const hasDiscount = book.real_price && book.real_price > book.price;
+  const bookRealPrice = book.realPrice || book.real_price;
+  const bookInrPrice = book.inrPrice || book.inr_price;
+  const hasDiscount = bookRealPrice && bookRealPrice > book.price;
   const rating = book.rating || 0;
 
   // Stock logic: stock field is 'active'/'inactive', availability is quantity
@@ -458,20 +460,15 @@ const BookDetail = () => {
 
   // ─── IMAGE URL LOGIC UPDATE ───
   // Backend URL ko env file se nikaalein taaki image paths complete ho sakein
-  const BASE_URL = process.env.REACT_APP_API_URL || '';
-
-  // Helper function taaki path ko URL mein convert kiya ja sake
-  const getFullImageUrl = (path) => {
-    if (!path) return null;
-    // Agar path pehle se hi 'http' se shuru ho raha hai toh as-is rakhein, varna prefix lagayein
-    return path.startsWith('http') ? path : `${BASE_URL}${path}`;
-  };
+  // Resolve an image path to a full URL using shared utility
+  const getFullImageUrl = (path) => getImageUrl(path) || null;
 
   const allImages = [];
 
-  // 1. Default Image check
-  if (book.default_image) {
-    allImages.push(getFullImageUrl(book.default_image));
+  // 1. Default Image — use product-aware resolver (ISBN fallback for numeric filenames)
+  const bookDefaultImage = getProductImageUrl(book);
+  if (bookDefaultImage) {
+    allImages.push(bookDefaultImage);
   }
 
   // 2. Sample Images check
@@ -501,7 +498,7 @@ const BookDetail = () => {
       if (typeof cat === 'object' && cat !== null) {
         return { name: cat.categorytitle || cat.title || cat.name || '', slug: cat.slug || '' };
       }
-      const found = allCategories.find(c => c._id === cat || c._id?.toString() === cat?.toString());
+      const found = allCategories.find(c => c.id === cat || c.id?.toString() === cat?.toString());
       return found ? { name: found.categorytitle || found.title || '', slug: found.slug || '' } : null;
     }).filter(Boolean).filter(c => c.name)
     : [];
@@ -574,7 +571,7 @@ const BookDetail = () => {
                   {/* Dynamic Share Icons Loop */}
                   {socialShares.map((social) => (
                     <a
-                      key={social._id}
+                      key={social.id}
                       // URL Replacement Logic: Backend mein format aisa hona chahiye: `...php?u=[url]&t=[title]`
                       href={social.link
                         .replace('[url]', encodeURIComponent(window.location.href))
@@ -767,7 +764,7 @@ const BookDetail = () => {
                 <div className="relative">
                   <div
                     className={`text-text-main text-sm leading-relaxed font-body transition-all duration-300 overflow-hidden ${!expandedFAQ ? 'max-h-[140px] md:max-h-[180px] xl:max-h-[220px]' : 'max-h-[1000px]'}`}
-                    dangerouslySetInnerHTML={{ __html: book.synopsis || "No description available." }}
+                    dangerouslySetInnerHTML={createSafeHtml(book.synopsis || "No description available.")}
                   />
 
                   {/* Read More / Less: Bagchee Premium Style */}
@@ -801,6 +798,7 @@ const BookDetail = () => {
                 formatPrice={formatPrice}
                 isChecked={membershipAdded}
                 onToggle={() => setMembershipAdded(!membershipAdded)}
+                settingsData={settings}
               />
             )}
             <div className="bg-cream-100 border border-gray-200 rounded p-4 space-y-4 shadow-sm">
@@ -824,17 +822,17 @@ const BookDetail = () => {
                     <div className="flex items-baseline gap-2 flex-wrap">
                       {/* Final Display Price (Membership Added ? 10% Off : Normal) */}
                       <span className="text-3xl font-bold text-gray-900">
-                        {formatPrice(book.price, book.inr_price, membershipAdded ? (book.price * 0.9) : book.price)}
+                        {formatPrice(book.price, bookInrPrice, membershipAdded ? (book.price * 0.9) : book.price)}
                       </span>
 
                       {/* MRP Display (Strikethrough) */}
-                      {Number(book.price) > Number(book.real_price) && (
+                      {Number(book.price) > Number(bookRealPrice) && (
                         <>
                           <span className="text-base text-gray-400 line-through">
-                            {formatPrice(book.price, book.inr_price, book.real_price)}
+                            {formatPrice(book.price, bookInrPrice, bookRealPrice)}
                           </span>
                           <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-semibold">
-                            {Math.round(((book.price - book.real_price) / book.price) * 100)}% OFF
+                            {Math.round(((book.price - bookRealPrice) / book.price) * 100)}% OFF
                           </span>
                         </>
                       )}
@@ -1013,7 +1011,7 @@ const BookDetail = () => {
                   {book.critics_note ? (
                     <div
                       className="rich-content text-sm text-gray-700 leading-relaxed"
-                      dangerouslySetInnerHTML={{ __html: book.critics_note }}
+                      dangerouslySetInnerHTML={createSafeHtml(book.critics_note)}
                     />
                   ) : (
                     <p className="text-gray-400 text-sm italic py-4">No reviews available.</p>
@@ -1140,28 +1138,29 @@ const BookDetail = () => {
                   .replace(/[^a-z0-9]+/g, "-")
                   .replace(/(^-|-$)/g, "");
 
+                const relatedRealPrice = relatedBook.realPrice || relatedBook.real_price;
                 const hasRelatedDiscount =
-                  relatedBook.real_price &&
-                  relatedBook.real_price > relatedBook.price;
+                  relatedRealPrice &&
+                  relatedRealPrice > relatedBook.price;
 
                 const relatedDiscount = hasRelatedDiscount
                   ? Math.round(
-                    ((relatedBook.real_price - relatedBook.price) /
-                      relatedBook.real_price) *
+                    ((relatedRealPrice - relatedBook.price) /
+                      relatedRealPrice) *
                     100,
                   )
                   : 0;
 
                 return (
                   <Link
-                    key={relatedBook._id}
-                    to={`/books/${relatedBook.bagchee_id || relatedBook._id}/${relatedSlug}`}
+                    key={relatedBook.id}
+                    to={`/books/${relatedBook.bagcheeId || relatedBook.id}/${relatedSlug}`}
                     className="flex-shrink-0 w-40 bg-cream-50 border border-gray-200 rounded overflow-hidden hover:shadow-md transition-shadow group"
                   >
                     <div className="aspect-[3/4] overflow-hidden bg-white relative">
                       <img
                         /* 🟢 FIXED: Added getFullImageUrl for Related Books */
-                        src={getFullImageUrl(relatedBook.default_image) || "https://via.placeholder.com/300x400?text=No+Image"}
+                        src={getProductImageUrl(relatedBook) || "https://placehold.co/300x400?text=No+Cover"}
                         alt={relatedBook.title}
                         className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform"
                       />
@@ -1178,7 +1177,7 @@ const BookDetail = () => {
                       </p>
                       {hasRelatedDiscount && (
                         <span className="text-xs text-gray-400 line-through block">
-                          {formatPrice(relatedBook.real_price)}
+                          {formatPrice(relatedRealPrice)}
                         </span>
                       )}
                       {relatedBook.weight && (
@@ -1246,7 +1245,7 @@ const BookDetail = () => {
                   const dataList = previewTab === 'content'
                     ? (book.toc_images || [])
                     : (previewTab === 'images'
-                      ? [book.default_image, ...(book.related_images || []).map(i => i.image || i)]
+                      ? [book.defaultImage || book.default_image, ...(book.related_images || []).map(i => i.image || i)]
                       : (book.sample_images || []).map(i => i.image || i)
                     ).filter(Boolean);
 
@@ -1366,11 +1365,11 @@ const BookDetail = () => {
               {seriesBooks.map(sb => {
                 const sbSlug = sb.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
                 return (
-                  <Link key={sb._id} to={`/books/${sb.bagchee_id || sb._id}/${sbSlug}`} className="flex-shrink-0 w-40 bg-cream-50 border border-gray-200 rounded overflow-hidden hover:shadow-md transition-shadow group">
+                  <Link key={sb.id} to={`/books/${sb.bagcheeId || sb.id}/${sbSlug}`} className="flex-shrink-0 w-40 bg-cream-50 border border-gray-200 rounded overflow-hidden hover:shadow-md transition-shadow group">
                     <div className="aspect-[3/4] overflow-hidden bg-white">
                       <img
                         /* 🟢 FIXED: getFullImageUrl function added here */
-                        src={getFullImageUrl(sb.default_image) || 'https://via.placeholder.com/300x400?text=No+Image'}
+                        src={getProductImageUrl(sb) || 'https://placehold.co/300x400?text=No+Cover'}
                         alt={sb.title}
                         className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform"
                       />
@@ -1503,7 +1502,7 @@ const BookDetail = () => {
           <div className="space-y-6 mt-10">
             {reviews.length > 0 ? (
               reviews.map((rev, idx) => (
-                <div key={rev._id || idx} className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm animate-fadeIn">
+                <div key={rev.id || idx} className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm animate-fadeIn">
                   <div className="flex justify-between items-start mb-4">
                     <div>
                       <p className="font-bold text-text-main font-montserrat">{rev.name}</p>
@@ -1570,7 +1569,7 @@ const BookDetail = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
         {(authorData || []).slice(currentAuthorIndex, currentAuthorIndex + 2).map((author, index) => {
           
-          const authorId = author._id || `idx-${index}`;
+          const authorId = author.id || `idx-${index}`;
           const isExpanded = expandedAuthors[authorId];
           
           const rawProfile = author.profile ? author.profile : (book.aboutAuthorText || "");
@@ -1661,14 +1660,15 @@ const BookDetail = () => {
             <div ref={alsoBoughtCarouselRef} className="flex gap-4 overflow-x-auto scrollbar-hide scroll-smooth pb-3">
               {alsoBoughtBooks.map(ab => {
                 const abSlug = ab.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-                const abHasDiscount = ab.real_price && ab.real_price > ab.price;
-                const abDiscount = abHasDiscount ? Math.round(((ab.real_price - ab.price) / ab.real_price) * 100) : 0;
+                const abRealPrice = ab.realPrice || ab.real_price;
+                const abHasDiscount = abRealPrice && abRealPrice > ab.price;
+                const abDiscount = abHasDiscount ? Math.round(((abRealPrice - ab.price) / abRealPrice) * 100) : 0;
                 return (
-                  <Link key={ab._id} to={`/books/${ab.bagchee_id || ab._id}/${abSlug}`} className="flex-shrink-0 w-40 bg-cream-50 border border-gray-200 rounded overflow-hidden hover:shadow-md transition-shadow group">
+                  <Link key={ab.id} to={`/books/${ab.bagcheeId || ab.id}/${abSlug}`} className="flex-shrink-0 w-40 bg-cream-50 border border-gray-200 rounded overflow-hidden hover:shadow-md transition-shadow group">
                     <div className="aspect-[3/4] overflow-hidden bg-white relative">
                       <img
                         /* 🟢 FIXED: getFullImageUrl added here */
-                        src={getFullImageUrl(ab.default_image) || 'https://via.placeholder.com/300x400?text=No+Image'}
+                        src={getProductImageUrl(ab) || 'https://placehold.co/300x400?text=No+Cover'}
                         alt={ab.title}
                         className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform"
                       />
@@ -1680,7 +1680,7 @@ const BookDetail = () => {
                       <p className="text-xs font-medium text-gray-800 line-clamp-2 mb-1">{ab.title}</p>
                       {/* 🟢 FIXED: Using formatPrice for proper currency display */}
                       <p className="text-sm font-bold text-primary">{formatPrice(ab.price)}</p>
-                      {abHasDiscount && <span className="text-[10px] text-gray-400 line-through">{formatPrice(ab.real_price)}</span>}
+                      {abHasDiscount && <span className="text-[10px] text-gray-400 line-through">{formatPrice(abRealPrice)}</span>}
                     </div>
                   </Link>
                 );
@@ -1730,7 +1730,6 @@ const BookDetail = () => {
 
   );
 };
-{/* Helper for Empty States */ }
 const EmptyState = ({ message }) => (
   <div className="col-span-full py-32 text-center flex flex-col items-center justify-center">
     <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">

@@ -9,7 +9,7 @@ const SaleTodayBanner = () => {
     <div className="w-full bg-gray-50 my-8">
       
       {/* 🟢 Link Updated to /sale-today */}
-      <Link to="/sale-today" className="block w-full cursor-pointer group overflow-hidden">
+      <Link to="/sale" className="block w-full cursor-pointer group overflow-hidden">
         
         <picture>
           {/* 1. Desktop (> 1024px) */}

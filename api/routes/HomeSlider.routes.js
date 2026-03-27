@@ -1,25 +1,16 @@
 import express from 'express';
 import * as HomeSliderController from '../controller/HomeSlider.controller.js';
+import adminAuth from '../middleware/adminAuth.middleware.js';
 
 const router = express.Router();
 
-// ==============================
-// 🛡️ ADMIN ROUTES
-// ==============================
-
-// 1. Save (No middleware needed here if express-fileupload is in app.js)
-router.post('/save', HomeSliderController.save);
-
-// 2. List
-router.get('/list', HomeSliderController.list);
-
-// 3. Delete
-router.delete('/delete/:id', HomeSliderController.remove);
-
-// 4. Get One
+// PUBLIC — slider displayed on homepage
+router.get('/list',    HomeSliderController.list);
 router.get('/get/:id', HomeSliderController.getOne);
 
-// 5. Update
-router.patch('/update/:id', HomeSliderController.update);
+// ADMIN — management
+router.post('/save',         adminAuth, HomeSliderController.save);
+router.put('/update/:id',    adminAuth, HomeSliderController.update);
+router.delete('/delete/:id', adminAuth, HomeSliderController.remove);
 
 export default router;

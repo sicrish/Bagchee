@@ -3,10 +3,12 @@ import { X, ShoppingCart, Heart } from 'lucide-react';
 import { Dialog, Transition, TransitionChild, DialogPanel } from '@headlessui/react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../../context/CartContext.jsx';
+import { createSafeHtml } from '../../utils/sanitize';
 import { CurrencyContext } from '../../context/CurrencyContext.jsx';
 import toast from 'react-hot-toast';
 import { useMutation, useQueryClient } from '@tanstack/react-query'; // 🟢 Mutations use karenge
 import axios from '../../utils/axiosConfig.js';
+import { getProductImageUrl } from '../../utils/imageUrl.js';
 
 const ProductModal = ({ product, isOpen, onClose }) => {
     const { addToCart, toggleWishlist, isInWishlist } = useCart();
@@ -25,11 +27,7 @@ const ProductModal = ({ product, isOpen, onClose }) => {
 
     const previewImage = useMemo(() => {
         if (!product) return "";
-        const path = product.toc_image || product.default_image;
-        if (!path) return "https://via.placeholder.com/500x700?text=No+Preview+Available";
-        if (path.startsWith('http')) return path;
-        const API_BASE = process.env.REACT_APP_API_URL?.replace('/api', '') || "http://localhost:5000";
-        return `${API_BASE}${path.startsWith('/') ? '' : '/'}${path}`;
+        return getProductImageUrl(product) || "https://placehold.co/500x700?text=No+Cover";
     }, [product]);
 
     const handleClose = useCallback(() => {
@@ -47,7 +45,7 @@ const ProductModal = ({ product, isOpen, onClose }) => {
         e.preventDefault();
         if (product) {
             toggleWishlist(product); // Local state update (Instant UI change)
-            wishlistMutation.mutate(product._id); // Server sync
+            wishlistMutation.mutate(product.id); // Server sync
         }
     };
 
@@ -105,15 +103,15 @@ const ProductModal = ({ product, isOpen, onClose }) => {
                                             {product.title}
                                         </h2>
                                         <p className="text-sm font-semibold text-primary mb-4 italic">
-                                            By {product.author?.first_name} {product.author?.last_name || product.author?.name}
+                                            By {product.author?.firstName || product.author?.first_name} {product.author?.lastName || product.author?.last_name || product.author?.name}
                                         </p>
 
                                         <div className="text-2xl sm:text-3xl font-bold text-text-main font-montserrat mb-6">
-                                        {formatPrice(product.price, product.inr_price, product.real_price)}
-                                        {Number(product.price) > Number(product.real_price) && (
+                                        {formatPrice(product.price, product.inrPrice || product.inr_price, product.realPrice || product.real_price)}
+                                        {Number(product.price) > Number(product.realPrice || product.real_price) && (
                                                 <span className="text-base sm:text-lg font-normal text-gray-400 line-through opacity-70">
                                                     {/* Original MRP */}
-                                                    {formatPrice(product.price, product.inr_price, product.price)}
+                                                    {formatPrice(product.price, product.inrPrice || product.inr_price, product.price)}
                                                 </span>
                                             )}
                                         </div>
@@ -130,7 +128,7 @@ const ProductModal = ({ product, isOpen, onClose }) => {
                                         </div>
 
                                         <div className="text-sm text-text-muted leading-relaxed mb-4">
-                                            <div dangerouslySetInnerHTML={{ __html: product.synopsis || "No description available." }} />
+                                            <div dangerouslySetInnerHTML={createSafeHtml(product.synopsis || "No description available.")} />
                                         </div>
                                     </div>
 
@@ -145,7 +143,7 @@ const ProductModal = ({ product, isOpen, onClose }) => {
                                         
                                         <div className="flex gap-3">
                                             <Link 
-                                                to={`/books/${product.bagchee_id || product._id}/${product.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
+                                                to={`/books/${product.bagcheeId || product.id}/${product.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
                                                 className="flex-1 bg-gray-100 hover:bg-gray-200 text-text-main py-3 rounded-lg font-bold uppercase text-[11px] sm:text-xs tracking-wider transition-colors flex items-center justify-center font-montserrat"
                                             >
                                                 View Full Details
@@ -154,14 +152,14 @@ const ProductModal = ({ product, isOpen, onClose }) => {
                                                 onClick={handleWishlist}
                                                 disabled={wishlistMutation.isPending}
                                                 className={`px-4 rounded-lg transition-colors ${
-                                                    isInWishlist(product._id) 
+                                                    isInWishlist(product.id) 
                                                     ? 'bg-red-50 text-red-600 border border-red-100' 
                                                     : 'bg-gray-100 hover:bg-red-50 hover:text-red-500 border border-transparent'
                                                 }`}
                                             >
                                                 <Heart 
                                                     size={20} 
-                                                    fill={isInWishlist(product._id) ? "currentColor" : "none"}
+                                                    fill={isInWishlist(product.id) ? "currentColor" : "none"}
                                                     className={wishlistMutation.isPending ? "animate-pulse" : ""}
                                                 />
                                             </button>

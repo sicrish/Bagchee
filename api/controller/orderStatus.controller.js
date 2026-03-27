@@ -1,173 +1,82 @@
-import OrderStatusModel from '../models/OrderStatus.model.js';
+import prisma from '../lib/prisma.js';
 
-// ==========================================
-// 🟢 1. CREATE (SAVE)
-// ==========================================
+// Note: Mongoose model had `description` and `isActive` fields.
+// Prisma schema only has `name`. Those extra fields are ignored.
+
 export const createOrderStatus = async (req, res) => {
     try {
-        const { name, description, isActive } = req.body;
-
-        // 1. Validation & Trim
-        if (!name || name.trim() === "") {
-            return res.status(400).json({ status: false, msg: "Status Name is required" });
+        const { name } = req.body;
+        if (!name || name.trim() === '') {
+            return res.status(400).json({ status: false, msg: 'Status Name is required.' });
         }
-
         const cleanName = name.trim();
 
-        // 2. Check Duplicate (Case Insensitive)
-        // "Pending" aur "pending" same maane jayenge
-        const existingStatus = await OrderStatusModel.findOne({ 
-            name: { $regex: new RegExp(`^${cleanName}$`, "i") } 
+        const existing = await prisma.orderStatus.findFirst({
+            where: { name: { equals: cleanName, mode: 'insensitive' } }
         });
+        if (existing) return res.status(400).json({ status: false, msg: 'Order Status with this name already exists.' });
 
-        if (existingStatus) {
-            return res.status(400).json({ status: false, msg: "Order Status with this name already exists" });
-        }
-
-        const newStatus = new OrderStatusModel({
-            name: cleanName,
-            description: description ? description.trim() : "",
-            isActive: isActive !== undefined ? isActive : true
-        });
-
-        await newStatus.save();
-
-        res.status(201).json({ 
-            status: true, 
-            msg: "Order Status added successfully!", 
-            data: newStatus 
-        });
-
+        const status = await prisma.orderStatus.create({ data: { name: cleanName } });
+        res.status(201).json({ status: true, msg: 'Order Status added successfully!', data: status });
     } catch (error) {
-        console.error("Create Status Error:", error);
-        res.status(500).json({ status: false, msg: "Server Error", error: error.message });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// ==========================================
-// 🟢 2. READ (LIST WITH PAGINATION)
-// ==========================================
 export const getAllOrderStatus = async (req, res) => {
     try {
-        const { page, limit } = req.query;
-
-        // 1. Pagination Settings
-        const pageNum = parseInt(page) || 1;
-        const pageSize = parseInt(limit) || 10;
+        const pageNum = parseInt(req.query.page) || 1;
+        const pageSize = parseInt(req.query.limit) || 10;
         const skip = (pageNum - 1) * pageSize;
 
-        // 2. Fetch Data with Pagination
-        const statuses = await OrderStatusModel.find()
-            .sort({ name: 1 })
-            .skip(skip)
-            .limit(pageSize);
-
-        // 3. Total Count for Pagination Logic
-        const total = await OrderStatusModel.countDocuments();
-
-        res.status(200).json({ 
-            status: true, 
-            msg: "List fetched successfully",
-            data: statuses,
-            total,
-            totalPages: Math.ceil(total / pageSize),
-            page: pageNum
-        });
-
+        const [statuses, total] = await Promise.all([
+            prisma.orderStatus.findMany({ orderBy: { name: 'asc' }, skip, take: pageSize }),
+            prisma.orderStatus.count()
+        ]);
+        res.status(200).json({ status: true, data: statuses, total, totalPages: Math.ceil(total / pageSize), page: pageNum });
     } catch (error) {
-        res.status(500).json({ status: false, msg: "Server Error", error: error.message });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// ==========================================
-// 🟢 3. READ ONE (GET BY ID)
-// ==========================================
 export const getOrderStatusById = async (req, res) => {
     try {
-        const id = req.params.id;
-        const statusData = await OrderStatusModel.findById(id);
-
-        if (!statusData) {
-            return res.status(404).json({ status: false, msg: "Status not found" });
-        }
-
-        res.status(200).json({ status: true, data: statusData });
-
+        const data = await prisma.orderStatus.findUnique({ where: { id: parseInt(req.params.id) } });
+        if (!data) return res.status(404).json({ status: false, msg: 'Status not found' });
+        res.status(200).json({ status: true, data });
     } catch (error) {
-        res.status(500).json({ status: false, msg: "Server Error", error: error.message });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// ==========================================
-// 🟢 4. UPDATE (Safe Logic)
-// ==========================================
 export const updateOrderStatus = async (req, res) => {
     try {
-        const id = req.params.id;
-        const { name, description, isActive } = req.body;
-
-        // 1. Validation
-        if (!name || name.trim() === "") {
-            return res.status(400).json({ status: false, msg: "Status Name is required" });
+        const id = parseInt(req.params.id);
+        const { name } = req.body;
+        if (!name || name.trim() === '') {
+            return res.status(400).json({ status: false, msg: 'Status Name is required.' });
         }
-
         const cleanName = name.trim();
 
-        // 🟢 2. DUPLICATE CHECK (Smart)
-        // Check karo: "Kya ye naya naam kisi aur Status ka hai?" (Current ID ko chhodkar)
-        const existingStatus = await OrderStatusModel.findOne({ 
-            name: { $regex: new RegExp(`^${cleanName}$`, "i") },
-            _id: { $ne: id } // Exclude current ID
+        const existing = await prisma.orderStatus.findFirst({
+            where: { name: { equals: cleanName, mode: 'insensitive' }, NOT: { id } }
         });
+        if (existing) return res.status(400).json({ status: false, msg: 'Order Status with this name already exists.' });
 
-        if (existingStatus) {
-            return res.status(400).json({ status: false, msg: "Order Status with this name already exists." });
-        }
-
-        // 3. Update
-        const updatedStatus = await OrderStatusModel.findByIdAndUpdate(
-            id,
-            { 
-                name: cleanName, 
-                description: description ? description.trim() : "", 
-                isActive 
-            },
-            { new: true }
-        );
-
-        if (!updatedStatus) {
-            return res.status(404).json({ status: false, msg: "Status not found" });
-        }
-
-        res.status(200).json({ 
-            status: true, 
-            msg: "Order Status updated successfully!", 
-            data: updatedStatus 
-        });
-
+        const updated = await prisma.orderStatus.update({ where: { id }, data: { name: cleanName } });
+        res.status(200).json({ status: true, msg: 'Order Status updated successfully!', data: updated });
     } catch (error) {
-        res.status(500).json({ status: false, msg: "Server Error", error: error.message });
+        if (error.code === 'P2025') return res.status(404).json({ status: false, msg: 'Status not found' });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// ==========================================
-// 🟢 5. DELETE
-// ==========================================
 export const deleteOrderStatus = async (req, res) => {
     try {
-        const id = req.params.id;
-        const deletedStatus = await OrderStatusModel.findByIdAndDelete(id);
-
-        if (!deletedStatus) {
-            return res.status(404).json({ status: false, msg: "Status not found" });
-        }
-
-        res.status(200).json({ 
-            status: true, 
-            msg: "Order Status deleted successfully!" 
-        });
-
+        await prisma.orderStatus.delete({ where: { id: parseInt(req.params.id) } });
+        res.status(200).json({ status: true, msg: 'Order Status deleted successfully!' });
     } catch (error) {
-        res.status(500).json({ status: false, msg: "Server Error", error: error.message });
+        if (error.code === 'P2025') return res.status(404).json({ status: false, msg: 'Status not found' });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };

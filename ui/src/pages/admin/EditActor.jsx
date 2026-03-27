@@ -34,8 +34,8 @@ const EditActor = () => {
                 if (res.data.status) {
                     const actor = res.data.data;
                     setFormData({
-                        first_name: actor.first_name || '',
-                        last_name: actor.last_name || '',
+                        first_name: actor.firstName || '',
+                        last_name: actor.lastName || '',
                         origin: actor.origin || '',
                     });
                     setProfile(actor.profile || '');

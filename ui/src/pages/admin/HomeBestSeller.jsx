@@ -102,8 +102,8 @@ const HomeBestSeller = () => {
 
       if (res.data.status && res.data.data.length > 0) {
         const exportData = res.data.data.map(item => ({
-          "Product ID": item.product?.bagchee_id || item.productId || 'N/A',
-          "Title": item.product?.title || item.title || 'N/A',
+          "Product ID": item.productId || 'N/A',
+          "Title": item.title || 'N/A',
           "Active": item.isActive ? "Yes" : "No",
           "Order": item.order || 0,
           "Created At": new Date(item.createdAt).toLocaleDateString()
@@ -264,11 +264,11 @@ const HomeBestSeller = () => {
                 </tr>
               ) : products.length > 0 ? (
                 products.map((item, index) => {
-                  const prodId = item.product?.bagchee_id || item.productId || 'N/A';
-                  const prodTitle = item.product?.title || item.title || 'N/A';
+                  const prodId = item.productId || 'N/A';
+                  const prodTitle = item.title || 'N/A';
 
                   return (
-                    <tr key={item._id} className="hover:bg-primary-50 transition-colors">
+                    <tr key={item.id} className="hover:bg-primary-50 transition-colors">
                       {/* 🟢 Hide on Print */}
                       <td className="p-3 border-r border-cream-50 text-center hide-on-print">
                           <input type="checkbox" className="h-4 w-4 rounded accent-primary cursor-pointer" />
@@ -291,13 +291,13 @@ const HomeBestSeller = () => {
                       <td className="p-3 text-center hide-on-print">
                         <div className="flex justify-center gap-2">
                           <button 
-                            onClick={() => navigate(`/admin/edit-home-best-seller/${item._id}`)} 
+                            onClick={() => navigate(`/admin/edit-home-best-seller/${item.id}`)} 
                             className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm"
                           >
                             <Edit size={14} />
                           </button>
                           <button 
-                            onClick={() => handleDelete(item._id)}
+                            onClick={() => handleDelete(item.id)}
                             className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 hover:border-red-600 transition-all shadow-sm"
                           >
                             <Trash2 size={14} />

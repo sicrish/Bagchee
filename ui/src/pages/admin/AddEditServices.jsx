@@ -50,13 +50,13 @@ const AddEditServices = () => {
     if (isEdit && serviceData && !isDataInitialized) {
       setFormData({
         title: serviceData.title || '',
-        page_title: serviceData.page_title || '',
-        meta_title: serviceData.meta_title || '',
-        meta_description: serviceData.meta_description || '',
-        meta_keywords: serviceData.meta_keywords || '',
+        page_title: serviceData.pageTitle || '',
+        meta_title: serviceData.metaTitle || '',
+        meta_description: serviceData.metaDesc || '',
+        meta_keywords: serviceData.metaKeywords || '',
       });
-      setBoxDescription(serviceData.box_description || '');
-      setPageContent(serviceData.page_content || '');
+      setBoxDescription(serviceData.boxDesc || '');
+      setPageContent(serviceData.pageContent || '');
       
       setIsDataInitialized(true); // Lock the initialization
     }

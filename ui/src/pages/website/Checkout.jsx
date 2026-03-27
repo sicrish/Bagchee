@@ -1,5 +1,9 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useMemo } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { useMutation } from '@tanstack/react-query';
+import { encryptData } from '../../utils/encryption.js';
+import { createSafeHtml } from '../../utils/sanitize';
+
 import {
   CheckCircle,
   ShoppingBag,
@@ -14,7 +18,7 @@ import {
   Briefcase,
   Check,
   CreditCard,
-  Award
+  Award, ShoppingCart
 } from "lucide-react";
 import { useCart } from "../../context/CartContext";
 import { CurrencyContext } from "../../context/CurrencyContext";
@@ -35,7 +39,7 @@ const Checkout = () => {
     setAppliedShipping,
     membershipAdded,
   } = useCart();
-  const { currency, formatPrice, formatPriceFixed } = useContext(CurrencyContext);
+  const { currency, formatPrice, formatPriceFixed, symbols, exchangeRates } = useContext(CurrencyContext);
 
   // ─── Auth / User ───
   const [user, setUser] = useState(null);
@@ -49,6 +53,13 @@ const Checkout = () => {
   const [savingAddress, setSavingAddress] = useState(false);
   const [isEditingAddress, setIsEditingAddress] = useState(false);
   const [editAddressId, setEditAddressId] = useState(null);
+
+
+  const [showLoginDropdown, setShowLoginDropdown] = useState(false);
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+
+
   const [newAddress, setNewAddress] = useState({
     type: "Home",
     name: "",
@@ -146,6 +157,22 @@ const Checkout = () => {
 
   const API_BASE_URL = process.env.REACT_APP_API_URL || "";
 
+  // ─── Load Razorpay SDK ───
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    document.body.appendChild(script);
+    return () => { document.body.removeChild(script); };
+  }, []);
+
+  // ─── COD detection ───
+  const isCOD = (payment) => {
+    if (!payment) return false;
+    const t = payment.title?.toLowerCase() || '';
+    return t.includes('cash') || t.includes('cod') || t.includes('pay on delivery');
+  };
+
   // ─── Country list ───
   const countries = [
     "India",
@@ -167,7 +194,7 @@ const Checkout = () => {
     "Other",
   ];
 
-  // ─── Load user ───
+  // ─── Load user — redirect to login if not authenticated ───
   useEffect(() => {
     const authData = localStorage.getItem("auth");
     if (authData) {
@@ -185,8 +212,11 @@ const Checkout = () => {
       } catch (e) {
         /* ignore */
       }
+    } else {
+      // Orders require authentication — redirect to login
+      navigate('/login', { state: { returnTo: '/checkout' } });
     }
-  }, []);
+  }, [navigate]);
 
   // ─── Load saved addresses ───
   useEffect(() => {
@@ -203,40 +233,30 @@ const Checkout = () => {
         const [payRes, shipRes, couponRes, settingsRes] = await Promise.all([
           axios.get(`${API_BASE_URL}/payments/list`),
           axios.get(`${API_BASE_URL}/shipping-options/list`),
-          axios.get(`${API_BASE_URL}/coupons/list`),
-          axios.get(`${API_BASE_URL}/settings/list`),
+          axios.get(`${API_BASE_URL}/coupons/active`),
+          axios.get(`${API_BASE_URL}/settings/public`),
         ]);
 
 
-        if (settingsRes.data.status && settingsRes.data.data.length > 0) {
-          const s = settingsRes.data.data[0];
-          console.log("setting", s);
-          setSettings(s); // Poori settings save karein
-
-          // 🟢 DYNAMIC COST LOGIC (Aapke JSON ke mutabik)
-          let mPrice = 0;
-
-          if (currency === 'INR') {
-            // INR ke liye: 'membership_cart_price' (2510.87) use karein
-            mPrice = Number(s.membership_cart_price) || 2500;
-          } else {
-            // USD/Baaki ke liye: 'membership_cost' (35) use karein
-            mPrice = Number(s.membership_cost) || 35;
-          }
-
-          setMembershipPrice(mPrice); // Ab exact 35 ya 2510.87 save hoga
+        if (settingsRes.data.status && settingsRes.data.data) {
+          const s = settingsRes.data.data;
+          setSettings(s);
+          const mPrice = currency === 'INR'
+            ? Number(s.membershipCartPriceInr) || 2500
+            : Number(s.membershipCartPrice) || 35;
+          setMembershipPrice(mPrice);
         }
 
         // Payment methods
         if (payRes.data.status) {
-          const active = payRes.data.data.filter((p) => p.isActive);
+          const active = payRes.data.data.filter((p) => p.active || p.isActive);
           setPaymentMethods(active);
           if (active.length > 0) setSelectedPayment(active[0]);
         }
 
         // Shipping options
         if (shipRes.data.status) {
-          const active = shipRes.data.data.filter((o) => o.isActive);
+          const active = shipRes.data.data.filter((o) => o.active || o.isActive);
           setShippingOptions(active);
           // If cart has appliedShipping, validate it still exists; else default to first
           if (!appliedShipping && active.length > 0) {
@@ -246,9 +266,7 @@ const Checkout = () => {
 
         // Coupons — filter client-side (active endpoint omits required fields)
         if (couponRes.data.status) {
-          setActiveCoupons(
-            couponRes.data.data.filter((c) => c.active === "active"),
-          );
+          setActiveCoupons(couponRes.data.data || []);
         }
       } catch (err) {
         console.error("Checkout data fetch error:", err);
@@ -269,67 +287,69 @@ const Checkout = () => {
     return option.priceUsd || 0;
   };
 
-// ─── 🟢 FINAL BUG-FREE DYNAMIC CALCULATIONS ───
+  // ─── 🟢 STEP 1: RAW PRODUCT SUBTOTAL (Discounted) ───
+  const subtotalAfterItemDiscountUSD = cart.reduce((acc, item) => {
+    const rp = item.realPrice || item.real_price;
+    const p = (rp && rp > 0) ? rp : (item.price || 0);
+    return acc + (Number(p) * item.quantity);
+  }, 0);
 
-  // 1. Ninja Trick: Subtotal ko formatPrice se nikaalo (Taki Cart se match kare)
-  const rawSubtotalStr = formatPrice(cartTotal).replace(/[^\d.-]/g, '');
-  const subtotal = Number(rawSubtotalStr) || 0; // Iska naam 'subtotal' hi rakha hai taaki error na aaye
 
-  // 2. Settings Extraction
-  const activeSettings = (settings && Array.isArray(settings)) ? settings[0] : (settings || {});
-  const isINR = currency === 'INR';
-  const isEUR = currency === 'EUR';
 
-  // 3. Dynamic Membership Cost
+  const originalBaseUSD = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+  const originalBaseINR = cart.reduce((acc, item) => acc + ((item.inrPrice || item.inr_price || 0) * item.quantity), 0);
 
-let membershipPriceFromSetting = 0; 
-  
-if (isINR) {
-  // Pehle API ka rate uthao, agar nahi mile to fallback 2500
-  membershipPriceFromSetting = Number(activeSettings?.membership_cart_price) || 2500;
-} else if (isEUR) {
-  // Pehle API ka EUR rate, fallback 31
-  membershipPriceFromSetting = Number(activeSettings?.membership_cost_eur) || 31;
-} else {
-  // Default USD: API rate, fallback 35
-  membershipPriceFromSetting = Number(activeSettings?.membership_cost) || 35;
-}
+  const subtotal = useMemo(() => {
+    if (currency === 'INR' && originalBaseINR > 0) {
+      const ratio = originalBaseUSD > 0 ? subtotalAfterItemDiscountUSD / originalBaseUSD : 1;
+      return originalBaseINR * ratio;
+    }
+    if (currency === 'USD') return subtotalAfterItemDiscountUSD;
+    if (currency === 'GBP') return subtotalAfterItemDiscountUSD * (exchangeRates?.GBP || 0.78);
+    if (currency === 'EUR') return subtotalAfterItemDiscountUSD * (exchangeRates?.EUR || 0.92);
+    return subtotalAfterItemDiscountUSD * (exchangeRates?.[currency] || 1);
+  }, [currency, cart, exchangeRates, subtotalAfterItemDiscountUSD, originalBaseINR, originalBaseUSD]);
 
-const currentMembershipCost = membershipAdded ? membershipPriceFromSetting : 0;
+  // ─── 🟢 STEP 2: DYNAMIC MEMBERSHIP COST (Fixed - No Ratio) ───
+  const currentMembershipCost = useMemo(() => {
+    if (!membershipAdded || !settings) return 0;
+    if (currency === 'INR') return Number(settings.membership_cart_price) || 2500;
+    if (currency === 'EUR') return Number(settings.membership_cost_eur) || 31;
+    if (currency === 'GBP') return (Number(settings.membership_cost) || 35) * (exchangeRates?.GBP || 0.78);
+    return Number(settings.membership_cost) || 35;
+  }, [membershipAdded, settings, currency, exchangeRates]);
 
-  // 4. Member Discount (11%)
-  const memberDiscountPercent = Number(activeSettings?.member_discount) || 11;
-  const grossTotal = subtotal + currentMembershipCost;
-  const memberDiscount = membershipAdded
-    ? Math.round((grossTotal * (memberDiscountPercent / 100)) * 100) / 100
-    : 0;
+  // ─── 🟢 STEP 3: SHIPPING COST (Fixed - No Ratio) ───
+  const shippingCost = useMemo(() => {
+    if (!appliedShipping) return 0;
+    const freeThreshold = (currency === 'INR') ? (Number(settings?.show_promo_over_inr) || 3560) : (Number(settings?.free_shipping_over) || 50);
+    if (freeThreshold > 0 && subtotal >= freeThreshold) return 0;
+    if (currency === 'INR') return appliedShipping.priceInr || 0;
+    if (currency === 'EUR') return appliedShipping.priceEur || 0;
+    if (currency === 'GBP') return (appliedShipping.priceUsd || 0) * (exchangeRates?.GBP || 0.78);
+    return appliedShipping.priceUsd || 0;
+  }, [appliedShipping, subtotal, currency, settings, exchangeRates]);
 
-  // 5. Shipping Logic
-  const freeShippingThreshold = isINR
-    ? (Number(activeSettings?.show_promo_over_inr) || 3560)
-    : (Number(activeSettings?.free_shipping_over) || 50);
+  // 6. Member Discount (11% Logic)
+  const memberDiscountPercent = Number(settings?.member_discount) || 11;
+  const memberDiscount = membershipAdded ? Math.round((subtotal + currentMembershipCost) * (memberDiscountPercent / 100) * 100) / 100 : 0;
 
-  let baseShippingCost = Number(getShippingPrice(appliedShipping)) || 0;
-  let shippingCost = baseShippingCost;
-
-  if (freeShippingThreshold > 0 && (grossTotal - memberDiscount) >= freeShippingThreshold) {
-    shippingCost = 0;
-  }
-
-  // 6. Coupon Logic
   let couponDiscount = 0;
   if (appliedCoupon) {
-    const discountVal = Number(appliedCoupon.discount) || 0;
-    const amountAfterMemberDiscount = grossTotal - memberDiscount;
-    if (appliedCoupon.discountType === "fixed") {
-      couponDiscount = discountVal;
-    } else {
-      couponDiscount = Math.round(((amountAfterMemberDiscount * discountVal) / 100) * 100) / 100;
-    }
+    const afterMember = (subtotal + currentMembershipCost) - memberDiscount;
+    couponDiscount = appliedCoupon.discountType === "fixed" ? Number(appliedCoupon.discount) : (afterMember * Number(appliedCoupon.discount) / 100);
   }
 
-  // 🏆 7. FINAL TOTAL
-  const total = (grossTotal - memberDiscount - couponDiscount) + shippingCost;
+  // 🏆 8. GRAND TOTAL
+  const total = (subtotal + currentMembershipCost - memberDiscount - couponDiscount) + shippingCost;
+
+  // UI Display Helper (Symbols ke saath)
+  const formatCheckoutDisplay = (val) => {
+    const symbol = symbols?.[currency] || '';
+    return `${symbol}${val.toLocaleString(currency === 'INR' ? 'en-IN' : 'en-US', {
+      minimumFractionDigits: 2, maximumFractionDigits: 2
+    })}`;
+  };
 
   // ─── Address functions ───
   const fetchAddresses = async (userId) => {
@@ -407,7 +427,7 @@ const currentMembershipCost = membershipAdded ? membershipPriceFromSetting : 0;
   const handleEditAddress = (addr) => {
     setNewAddress({ ...addr });
     setIsEditingAddress(true);
-    setEditAddressId(addr._id);
+    setEditAddressId(addr.id);
     setShowAddressModal(true);
   };
 
@@ -489,7 +509,7 @@ const currentMembershipCost = membershipAdded ? membershipPriceFromSetting : 0;
   const handleEditBillingAddress = (addr) => {
     setNewBillingAddress({ ...addr });
     setIsEditingBilling(true);
-    setEditBillingId(addr._id);
+    setEditBillingId(addr.id);
     setShowBillingModal(true);
   };
 
@@ -553,7 +573,7 @@ const currentMembershipCost = membershipAdded ? membershipPriceFromSetting : 0;
         code: found.code,
         discount: found.amount,
         discountType,
-        couponId: found._id,
+        couponId: found.id,
       });
       toast.success("Promo code applied!");
     } catch (err) {
@@ -609,6 +629,11 @@ const currentMembershipCost = membershipAdded ? membershipPriceFromSetting : 0;
         toast.error("Please fill all required delivery fields");
         return;
       }
+    }
+    if (!user) {
+      toast.error("Please login to place your order");
+      setShowLoginDropdown(true);
+      return;
     }
     if (cart.length === 0) {
       toast.error("Your cart is empty");
@@ -720,9 +745,9 @@ const currentMembershipCost = membershipAdded ? membershipPriceFromSetting : 0;
       const paymentTitle = selectedPayment?.title || "Online Payment";
 
       const orderData = {
-        customer_id: user?._id || user?.id || "000000000000000000000000",
+        customer_id: user?.id || "000000000000000000000000",
         products: cart.map((item) => ({
-          product_id: item._id || null,
+          product_id: item.id || null,
           name: item.name || item.title || "Book",
           price: item.price || 0,
           quantity: item.quantity || 1,
@@ -750,22 +775,121 @@ const currentMembershipCost = membershipAdded ? membershipPriceFromSetting : 0;
 
       const res = await axios.post(`${API_BASE_URL}/orders/save`, orderData);
 
-      if (res.data?.status === true) {
-        setPlacedOrderDetails(res.data.data);
+      if (res.data?.status !== true) {
+        toast.error(res.data?.msg || "Failed to place order");
+        setLoading(false);
+        return;
+      }
+
+      const savedOrder = res.data.data;
+
+      // ─── COD: no payment gateway needed ───
+      if (isCOD(selectedPayment)) {
+        setPlacedOrderDetails(savedOrder);
         setOrderPlaced(true);
         toast.success("Order placed successfully!");
         clearCart();
-      } else {
-        toast.error(res.data?.msg || "Failed to place order");
+        setLoading(false);
+        return;
       }
+
+      // ─── Online payment: Razorpay ───
+      const rzpRes = await axios.post(`${API_BASE_URL}/razorpay/create-order`, {
+        orderId: savedOrder.id,
+      });
+
+      if (!rzpRes.data?.status) {
+        toast.error(rzpRes.data?.msg || "Failed to initiate payment");
+        setLoading(false);
+        return;
+      }
+
+      const { razorpayOrderId, amount, currency: rzpCurrency } = rzpRes.data.data;
+
+      setLoading(false); // Modal takes over UX from here
+
+      const rzpOptions = {
+        key: process.env.REACT_APP_RAZORPAY_KEY_ID,
+        amount,
+        currency: rzpCurrency,
+        name: "Bagchee",
+        description: `Order #${savedOrder.orderNumber}`,
+        order_id: razorpayOrderId,
+        prefill: {
+          name: `${shippingDetails.first_name} ${shippingDetails.last_name}`.trim(),
+          email: shippingDetails.email,
+          contact: shippingDetails.phone,
+        },
+        theme: { color: '#1a3c5e' },
+        handler: async (response) => {
+          try {
+            const verifyRes = await axios.post(`${API_BASE_URL}/razorpay/verify-payment`, {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              orderId: savedOrder.id,
+            });
+            if (verifyRes.data?.status) {
+              setPlacedOrderDetails(savedOrder);
+              setOrderPlaced(true);
+              toast.success("Payment successful!");
+              clearCart();
+            } else {
+              toast.error("Payment verification failed. Please contact support.");
+            }
+          } catch {
+            toast.error("Payment verification failed. Please contact support.");
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            toast.error("Payment cancelled. Your order is saved — retry from My Orders.");
+          },
+        },
+      };
+
+      const rzp = new window.Razorpay(rzpOptions);
+      rzp.open();
     } catch (error) {
       toast.error(
         error.response?.data?.msg || "Something went wrong. Please try again.",
       );
-    } finally {
       setLoading(false);
     }
   };
+
+
+
+  // 🟢 Login Mutation (Same as your Login page logic)
+  const loginMutation = useMutation({
+    mutationFn: async (loginData) => {
+      const url = `${process.env.REACT_APP_API_URL}/user/login`;
+      const encryptedPayload = encryptData(loginData);
+      const res = await axios.post(url, { data: encryptedPayload });
+      return res.data;
+    },
+    onSuccess: (data) => {
+      if (data.status) {
+        toast.success("Welcome back!");
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("auth", JSON.stringify(data));
+        setUser(data.userDetails); // Turant addresses load ho jayengi
+        setShowLoginDropdown(false);
+      } else {
+        toast.error(data.msg);
+      }
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.msg || "Login failed");
+    }
+  });
+
+  const handleInlineLogin = (e) => {
+    e.preventDefault();
+    loginMutation.mutate({ email: loginEmail, password: loginPassword });
+  };
+
+
 
   // ─────────────────────── EMPTY CART ───────────────────────
   if (cart.length === 0 && !orderPlaced) {
@@ -809,7 +933,7 @@ const currentMembershipCost = membershipAdded ? membershipPriceFromSetting : 0;
             <div className="flex justify-between">
               <span className="text-gray-500">Order Number:</span>
               <span className="font-bold text-text-main">
-                {placedOrderDetails?.order_number || "ORD-XXXX"}
+                {placedOrderDetails?.orderNumber || "ORD-XXXX"}
               </span>
             </div>
             <div className="flex justify-between">
@@ -1268,31 +1392,49 @@ const currentMembershipCost = membershipAdded ? membershipPriceFromSetting : 0;
       )}
 
       {/* ─── HEADER ─── */}
-      <header className="bg-gradient-to-r from-primary to-primary-dark shadow-sm">
-        {/* Logo row — centered */}
-        <div className="max-w-full mx-auto px-4 py-3 flex items-center justify-center">
+      {/* ─── HEADER ─── */}
+      <header className="bg-gradient-to-r from-primary to-primary-dark shadow-sm sticky top-0 z-50">
+        <div className="max-w-full mx-auto px-4 py-3 flex items-center justify-between">
+
+          {/* 1. Empty div for balancing flex center (Optional if you want logo dead center) */}
+          <div className="w-10 lg:block hidden"></div>
+
+          {/* 2. Logo Row (Center) */}
           <Link to="/" className="flex items-center group">
             <div className="flex items-center gap-3 px-4 py-2 rounded-xl border-2 border-white/20 hover:border-white/40 backdrop-blur-sm transition-all duration-300">
-              <div className="w-12 h-12 rounded-lg bg-white flex items-center justify-center shadow-xl">
+              <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-lg bg-white flex items-center justify-center shadow-xl">
                 <img
                   src={logoImg}
                   alt="Bagchee"
-                  className="w-10 h-10 object-contain"
-                  style={{
-                    filter:
-                      "brightness(0) saturate(100%) invert(45%) sepia(89%) saturate(2448%) hue-rotate(165deg) brightness(95%) contrast(101%)",
-                  }}
+                  className="w-8 h-8 lg:w-10 lg:h-10 object-contain"
+                  style={{ filter: "brightness(0) saturate(100%) invert(45%) sepia(89%) saturate(2448%) hue-rotate(165deg) brightness(95%) contrast(101%)" }}
                 />
               </div>
               <div className="flex flex-col leading-tight">
-                <span className="text-2xl font-semibold text-white tracking-wider uppercase font-montserrat">
-                  Bagchee
-                </span>
-                <span className="text-[9px] font-medium tracking-[0.2em] text-white/80 uppercase font-montserrat">
-                  Books That Stick
-                </span>
+                <span className="text-xl lg:text-2xl font-semibold text-white tracking-wider uppercase font-montserrat">Bagchee</span>
+                <span className="text-[8px] lg:text-[9px] font-medium tracking-[0.2em] text-white/80 uppercase font-montserrat">Books That Stick</span>
               </div>
             </div>
+          </Link>
+
+          {/* 3. CART ICON WITH FUNCTIONALITY (Right Side) */}
+          {/* 3. CART ICON WITH FUNCTIONALITY (Right Side) */}
+          <Link to="/cart" className="flex flex-col items-center gap-0.5 text-white hover:opacity-80 transition-all group relative pr-2">
+            <div className="relative p-1">
+              <ShoppingCart size={24} strokeWidth={2} />
+
+              {/* Badge: Sirf tab dikhega jab cart mein items hon */}
+              {cart.length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-accent text-white text-[9px] font-bold w-4 h-4 flex items-center justify-center rounded-full border border-primary shadow-lg animate-bounce">
+                  {cart.length}
+                </span>
+              )}
+            </div>
+
+            {/* Icon ke niche wala text */}
+            <span className="text-[10px] font-bold uppercase tracking-wider font-montserrat">
+              Cart
+            </span>
           </Link>
         </div>
       </header>
@@ -1301,19 +1443,22 @@ const currentMembershipCost = membershipAdded ? membershipPriceFromSetting : 0;
         {/* Page title */}
 
 
-        {/* Guest sign-in prompt */}
-        {/* {!user && (
-          <p className="text-center text-sm text-gray-500 mb-6">
-            <Link
-              to="/login"
-              className="text-primary font-bold hover:underline"
+        {/* Guest sign-in banner */}
+        {!user && (
+          <div className="max-w-4xl mx-auto mb-6 bg-primary/5 border border-primary/20 rounded p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <p className="text-sm text-gray-600">
+              <span className="font-semibold text-text-main">Have an account?</span>{" "}
+              Sign in for faster checkout — your addresses and order history will be saved.
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowLoginDropdown(true)}
+              className="shrink-0 bg-primary text-white text-xs font-bold px-5 py-2 uppercase tracking-wider hover:bg-primary-dark transition-colors"
             >
-              SIGN IN
-            </Link>{" "}
-            for a faster checkout experience, or you can continue as a guest.{" "}
-            You will be able to create an account during checkout.
-          </p>
-        )} */}
+              Sign In
+            </button>
+          </div>
+        )}
 
         <div className="grid lg:grid-cols-3 gap-6 items-start" >
 
@@ -1369,12 +1514,12 @@ const currentMembershipCost = membershipAdded ? membershipPriceFromSetting : 0;
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {addresses.map((addr) => (
                         <div
-                          key={addr._id}
+                          key={addr.id}
                           onClick={() => {
                             setSelectedAddress(addr);
                             if (sameAsShipping) setSelectedBillingAddress(addr);
                           }}
-                          className={`bg-cream-100 border rounded-xl shadow-sm hover:shadow-md transition-all duration-300 flex flex-col overflow-hidden cursor-pointer ${selectedAddress?._id === addr._id ? "border-primary ring-2 ring-primary/20" : "border-gray-200"}`}
+                          className={`bg-cream-100 border rounded-xl shadow-sm hover:shadow-md transition-all duration-300 flex flex-col overflow-hidden cursor-pointer ${selectedAddress?.id === addr.id ? "border-primary ring-2 ring-primary/20" : "border-gray-200"}`}
                         >
                           <div className="bg-cream-200/40 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
                             <h3 className="font-bold text-xs text-gray-900 uppercase tracking-wide flex items-center gap-2">
@@ -1437,7 +1582,7 @@ const currentMembershipCost = membershipAdded ? membershipPriceFromSetting : 0;
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleDeleteAddress(addr._id);
+                                handleDeleteAddress(addr.id);
                               }}
                               className="flex-1 bg-red-600 hover:bg-red-700 text-white py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all duration-300"
                             >
@@ -1496,15 +1641,48 @@ const currentMembershipCost = membershipAdded ? membershipPriceFromSetting : 0;
                       }
                       className="w-full px-3 py-2.5 border border-gray-300 text-sm focus:outline-none focus:border-primary"
                     />
-                    <p className="text-xs text-gray-500 mt-1.5">
-                      Have an account?{" "}
-                      <Link
-                        to="/login"
-                        className="text-primary font-bold hover:underline"
-                      >
-                        Log in
-                      </Link>
-                    </p>
+
+                    {/* ─── NAYA INLINE LOGIN OPTION ─── */}
+                    <div className="mt-3 bg-primary/5 border border-primary/10 rounded-lg p-3">
+                      <p className="text-xs text-gray-500 mb-2">
+                        Already have an account?
+                        <button
+                          type="button"
+                          onClick={() => setShowLoginDropdown(!showLoginDropdown)}
+                          className="text-primary font-bold hover:underline ml-1 uppercase"
+                        >
+                          {showLoginDropdown ? "Close Login" : "Sign In"}
+                        </button>
+                      </p>
+
+                      {/* ─── DROPDOWN FORM ─── */}
+                      {showLoginDropdown && (
+                        <div className="space-y-3 mt-3 p-3 bg-white border rounded shadow-sm animate-fadeIn">
+                          <input
+                            type="email"
+                            placeholder="Login Email"
+                            value={loginEmail}
+                            onChange={(e) => setLoginEmail(e.target.value)}
+                            className="w-full border p-2 text-xs rounded outline-none focus:border-primary"
+                          />
+                          <input
+                            type="password"
+                            placeholder="Password"
+                            value={loginPassword}
+                            onChange={(e) => setLoginPassword(e.target.value)}
+                            className="w-full border p-2 text-xs rounded outline-none focus:border-primary"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleInlineLogin}
+                            disabled={loginMutation.isPending}
+                            className="w-full bg-primary text-white py-2 rounded text-xs font-bold uppercase tracking-widest disabled:opacity-50"
+                          >
+                            {loginMutation.isPending ? "Logging in..." : "Login"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <select
@@ -1551,7 +1729,7 @@ const currentMembershipCost = membershipAdded ? membershipPriceFromSetting : 0;
                   </div>
                   <input
                     type="text"
-                    placeholder="Address line"
+                    placeholder="Address line 1"
                     required
                     value={guestAddress.address1}
                     onChange={(e) =>
@@ -1683,14 +1861,14 @@ const currentMembershipCost = membershipAdded ? membershipPriceFromSetting : 0;
                         : null;
                     return (
                       <label
-                        key={option._id}
-                        className={`flex items-center justify-between px-4 py-3 border cursor-pointer transition-all ${appliedShipping?._id === option._id ? "border-primary bg-blue-50" : "border-gray-200 hover:border-primary"}`}
+                        key={option.id}
+                        className={`flex items-center justify-between px-4 py-3 border cursor-pointer transition-all ${appliedShipping?.id === option.id ? "border-primary bg-blue-50" : "border-gray-200 hover:border-primary"}`}
                       >
                         <div className="flex items-center gap-3">
                           <input
                             type="radio"
                             name="checkoutShipping"
-                            checked={appliedShipping?._id === option._id}
+                            checked={appliedShipping?.id === option.id}
                             onChange={() => setAppliedShipping(option)}
                             className="w-3.5 h-3.5 text-primary border-gray-400 focus:ring-primary"
                           />
@@ -1740,11 +1918,11 @@ const currentMembershipCost = membershipAdded ? membershipPriceFromSetting : 0;
                   </p>
                 ) : (
                   paymentMethods.map((method) => {
-                    const isSelected = selectedPayment?._id === method._id;
+                    const isSelected = selectedPayment?.id === method.id;
                     const isCC = isCreditCardMethod(method);
                     return (
                       <div
-                        key={method._id}
+                        key={method.id}
                         className={`border transition-all overflow-hidden rounded ${isSelected ? "border-primary" : "border-gray-200 hover:border-gray-300"}`}
                       >
                         {/* Method row */}
@@ -1786,9 +1964,7 @@ const currentMembershipCost = membershipAdded ? membershipPriceFromSetting : 0;
                             <div className="px-4 pb-4 border-t border-gray-100 bg-gray-50">
                               <div
                                 className="text-sm text-gray-600 pt-3 rich-content"
-                                dangerouslySetInnerHTML={{
-                                  __html: method.additionalText,
-                                }}
+                                dangerouslySetInnerHTML={createSafeHtml(method.additionalText)}
                               />
                             </div>
                           )}
@@ -1880,9 +2056,9 @@ const currentMembershipCost = membershipAdded ? membershipPriceFromSetting : 0;
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {addresses.map((addr) => (
                           <div
-                            key={addr._id}
+                            key={addr.id}
                             onClick={() => setSelectedBillingAddress(addr)}
-                            className={`bg-cream-100 border rounded-xl shadow-sm hover:shadow-md transition-all duration-300 flex flex-col overflow-hidden cursor-pointer ${selectedBillingAddress?._id === addr._id ? "border-primary ring-2 ring-primary/20" : "border-gray-200"}`}
+                            className={`bg-cream-100 border rounded-xl shadow-sm hover:shadow-md transition-all duration-300 flex flex-col overflow-hidden cursor-pointer ${selectedBillingAddress?.id === addr.id ? "border-primary ring-2 ring-primary/20" : "border-gray-200"}`}
                           >
                             <div className="bg-cream-200/40 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
                               <h3 className="font-bold text-xs text-gray-900 uppercase tracking-wide flex items-center gap-2">
@@ -1945,7 +2121,7 @@ const currentMembershipCost = membershipAdded ? membershipPriceFromSetting : 0;
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleDeleteBillingAddress(addr._id);
+                                  handleDeleteBillingAddress(addr.id);
                                 }}
                                 className="flex-1 bg-red-600 hover:bg-red-700 text-white py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all duration-300"
                               >
@@ -2223,13 +2399,18 @@ const currentMembershipCost = membershipAdded ? membershipPriceFromSetting : 0;
             <div className="bg-cream-100 border border-gray-200 shadow-sm p-5 text-center space-y-3">
               <button
                 onClick={handlePlaceOrder}
-                disabled={loading}
+                disabled={loading || loadingPayments || loadingShipping}
                 className="w-full bg-primary text-white py-3.5 font-bold text-sm uppercase tracking-wider hover:bg-primary-dark transition-colors disabled:opacity-70 disabled:cursor-not-allowed font-montserrat flex items-center justify-center gap-2"
               >
                 {loading ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                     Processing...
+                  </>
+                ) : (loadingPayments || loadingShipping) ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Loading...
                   </>
                 ) : (
                   "CONTINUE TO PAY"
@@ -2270,7 +2451,7 @@ const currentMembershipCost = membershipAdded ? membershipPriceFromSetting : 0;
                   </span>
                   <span className="text-xl font-bold text-text-main">
                     {/* 🟢 FIXED: Using formatPriceFixed */}
-                    {formatPriceFixed(subtotal)}
+                    {formatCheckoutDisplay(subtotal)}
                   </span>
                 </div>
 
@@ -2285,7 +2466,7 @@ const currentMembershipCost = membershipAdded ? membershipPriceFromSetting : 0;
                         <span>Membership Fee (1 Year)</span>
                       </div>
                       <span className="font-bold text-primary">
-                        +{formatPriceFixed(currentMembershipCost)}
+                        +{formatCheckoutDisplay(currentMembershipCost)}
                       </span>
                     </div>
 
@@ -2295,7 +2476,7 @@ const currentMembershipCost = membershipAdded ? membershipPriceFromSetting : 0;
                         <span>Member Savings ({memberDiscountPercent}% OFF applied)</span>
                       </div>
                       <span>
-                        -{formatPriceFixed(memberDiscount)}
+                        -{formatCheckoutDisplay(memberDiscount)}
                       </span>
                     </div>
                   </div>
@@ -2305,7 +2486,7 @@ const currentMembershipCost = membershipAdded ? membershipPriceFromSetting : 0;
                 <div className="flex justify-between items-center text-sm pt-2">
                   <span className="text-gray-600">Shipping</span>
                   <span className={`font-bold ${shippingCost === 0 ? "text-primary animate-pulse" : ""}`}>
-                    {shippingCost === 0 ? "FREE" : formatPrice(shippingCost)}
+                    {shippingCost === 0 ? "FREE" : formatCheckoutDisplay(shippingCost)}
                   </span>
                 </div>
 
@@ -2381,13 +2562,13 @@ const currentMembershipCost = membershipAdded ? membershipPriceFromSetting : 0;
                             : null;
                         return (
                           <label
-                            key={option._id}
+                            key={option.id}
                             className="flex items-center gap-2 cursor-pointer"
                           >
                             <input
                               type="radio"
                               name="rightShipping"
-                              checked={appliedShipping?._id === option._id}
+                              checked={appliedShipping?.id === option.id}
                               onChange={() => setAppliedShipping(option)}
                               className="w-3 h-3 text-primary border-gray-400 focus:ring-primary"
                             />
@@ -2402,7 +2583,7 @@ const currentMembershipCost = membershipAdded ? membershipPriceFromSetting : 0;
                               )}
                             </div>
                             <span className="text-xs text-gray-600 font-bold">
-                              {price === 0 ? "Free" : formatPrice(price)}
+                              {price === 0 ? "Free" : formatCheckoutDisplay(price)}
                             </span>
                           </label>
                         );
@@ -2424,7 +2605,7 @@ const currentMembershipCost = membershipAdded ? membershipPriceFromSetting : 0;
                       Total (tax incl.)
                     </span>
                     <span className="text-2xl font-bold text-text-main">
-                      {formatPrice(total)}
+                      {formatCheckoutDisplay(total)}
                     </span>
                   </div>
                 </div>
@@ -2486,7 +2667,7 @@ const currentMembershipCost = membershipAdded ? membershipPriceFromSetting : 0;
                 <div className="space-y-3 max-h-60 overflow-y-auto">
                   {cart.map((item) => (
                     <div
-                      key={item._id}
+                      key={item.id}
                       className="flex justify-between items-start gap-2"
                     >
                       <div className="flex-1 min-w-0">
@@ -2498,7 +2679,7 @@ const currentMembershipCost = membershipAdded ? membershipPriceFromSetting : 0;
                         </p>
                       </div>
                       <p className="text-sm font-bold text-text-main shrink-0">
-                        {formatPrice(item.price * item.quantity)}
+                        {formatPrice(item.price * item.quantity, ((item.inrPrice || item.inr_price) || 0) * item.quantity, ((item.realPrice || item.real_price) || item.price) * item.quantity)}
                       </p>
                     </div>
                   ))}

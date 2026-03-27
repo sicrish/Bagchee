@@ -66,8 +66,8 @@ const EditUser = () => {
         if (res.data.status) {
           const data = res.data.data;
           
-          let fName = data.firstname || "";
-          let lName = data.lastname || "";
+          let fName = data.firstName || data.firstname || "";
+          let lName = data.lastName || data.lastname || "";
           if (!fName && data.name) {
              const parts = data.name.split(" ");
              fName = parts[0];
@@ -134,7 +134,7 @@ const EditUser = () => {
         country: addr.country || 'India',
         phone: addr.phone || ''
     });
-    setCurrentAddressId(addr._id);
+    setCurrentAddressId(addr.id);
     setIsEditingAddress(true);
     setShowAddressModal(true);
   };
@@ -159,7 +159,7 @@ const EditUser = () => {
         }
 
         // 2. Naya Add karo
-        const res = await axios.post('/user/add-address', {
+        const res = await axios.post(`${API_BASE_URL}/user/add-address`, {
             userId: id,
             ...addressForm
         });
@@ -381,7 +381,7 @@ const EditUser = () => {
                           <button type="button" onClick={() => openEditModal(addr)} className="p-2 bg-white border border-gray-200 rounded text-blue-500 hover:bg-blue-50 hover:border-blue-200 transition-all" title="Edit Address">
                               <Edit size={14} />
                           </button>
-                          <button type="button" onClick={() => handleDeleteAddress(addr._id)} className="p-2 bg-white border border-gray-200 rounded text-red-500 hover:bg-red-50 hover:border-red-200 transition-all" title="Delete Address">
+                          <button type="button" onClick={() => handleDeleteAddress(addr.id)} className="p-2 bg-white border border-gray-200 rounded text-red-500 hover:bg-red-50 hover:border-red-200 transition-all" title="Delete Address">
                               <Trash2 size={14} />
                           </button>
                         </div>

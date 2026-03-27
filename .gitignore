@@ -17,3 +17,8 @@ Thumbs.db
 
 # Build folders
 ui/build/
+
+# Dev tooling artifacts
+api/.agents/
+api/.claude/
+api/skills-lock.json

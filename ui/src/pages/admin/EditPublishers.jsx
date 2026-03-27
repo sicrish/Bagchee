@@ -50,7 +50,7 @@ const EditPublishers = () => {
         if (pubRes.data.status) {
           const data = pubRes.data.data;
           setFormData({
-            category: data.category?._id || data.category || '', // ID handle karein
+            category: data.categoryId || '',
             title: data.title || '',
             company: data.company || '',
             address: data.address || '',
@@ -58,12 +58,10 @@ const EditPublishers = () => {
             email: data.email || '',
             phone: data.phone || '',
             fax: data.fax || '',
-            // Date format YYYY-MM-DD for input field
-            date: data.date ? new Date(data.date).toISOString().split('T')[0] : '',
             order: data.order || '',
-            show: data.show || '',
+            show: data.show ? 'true' : '',
             slug: data.slug || '',
-            ship_in_days: data.ship_in_days || ''
+            ship_in_days: data.shipInDays || ''
           });
           // Agar image hai to set karein
           if (data.image) {
@@ -166,8 +164,8 @@ const EditPublishers = () => {
                 >
                   <option value="">Select Category</option>
                   {categories.map(cat => (
-                    <option key={cat._id} value={cat._id}>
-                      {cat.categorytitle}
+                    <option key={cat.id} value={cat.id}>
+                      {cat.title}
                     </option>
                   ))}
                 </select>

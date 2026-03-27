@@ -1,229 +1,150 @@
-import HomeBestSellerModel from "../models/HomeBestSeller.model.js";
-import ProductModel from "../models/Product.model.js"; 
+import prisma from '../lib/prisma.js';
 
-// ==========================================
-// 🟢 1. SAVE (Admin: Add Product Manually)
-// ==========================================
+// Old used MongoDB ObjectId ref `product`. Now uses productId (Int FK).
+// Product lookup by bagcheeId/isbn13/isbn10 — same logic, just Prisma field names.
+// SCHEMA-CHECK: HomeBestSeller has no Prisma relation to Product (no @relation defined).
+// Product data fetched separately via productId array lookup.
+// fetchForHome: auto-bestseller logic uses Product.soldCount — kept same approach.
+
+const findProductByCode = async (code) => {
+    const numId = parseInt(code);
+    if (!isNaN(numId)) {
+        const byId = await prisma.product.findUnique({ where: { id: numId } });
+        if (byId) return byId;
+    }
+    return prisma.product.findFirst({
+        where: { OR: [{ bagcheeId: code }, { isbn13: code }, { isbn10: code }] }
+    });
+};
+
 export const save = async (req, res) => {
     try {
         const { productId, isActive, order } = req.body;
-        if (!productId) return res.status(400).json({ msg: "Product ID required" });
-
-        const mainProduct = await ProductModel.findOne({
-            $or: [{ bagchee_id: productId }, { isbn13: productId }, { isbn10: productId }]
+        if (!productId) return res.status(400).json({ status: false, msg: 'Product ID required' });
+        const mainProduct = await findProductByCode(String(productId).trim());
+        if (!mainProduct) return res.status(404).json({ status: false, msg: 'Product not found' });
+        const existing = await prisma.homeBestSeller.findFirst({ where: { productId: mainProduct.id } });
+        if (existing) return res.status(400).json({ status: false, msg: 'Already in Best Sellers' });
+        const newItem = await prisma.homeBestSeller.create({
+            data: { productId: mainProduct.id, isActive: isActive === 'yes' || isActive === true, order: Number(order) || 0 }
         });
-
-        if (!mainProduct) return res.status(404).json({ msg: "Product not found" });
-
-        const existing = await HomeBestSellerModel.findOne({ product: mainProduct._id });
-        if (existing) return res.status(400).json({ msg: "Already in Best Sellers" });
-
-        const newItem = await HomeBestSellerModel.create({
-            product: mainProduct._id,
-            isActive: isActive === 'yes' || isActive === true,
-            order: Number(order) || 0
-        });
-
-        res.status(201).json({ status: true, msg: "Added to Best Seller", data: newItem });
+        res.status(201).json({ status: true, msg: 'Added to Best Seller', data: newItem });
     } catch (error) {
-        res.status(500).json({ msg: "Server Error", error: error.message });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// ==========================================
-// 🟢 2. LIST (Admin: Table View with Pagination)
-// ==========================================
 export const list = async (req, res) => {
     try {
         const { page, limit } = req.query;
-
         const isExport = limit === 'all';
         const pageNum = Number(page) || 1;
         const pageSize = isExport ? 100000 : (Number(limit) || 25);
         const skip = (pageNum - 1) * pageSize;
-
-        // Populate product details
-        const items = await HomeBestSellerModel.find()
-            .populate('product', 'title bagchee_id isbn13 isbn10 default_image') 
-            .sort({ order: 1, createdAt: -1 })
-            .skip(isExport ? 0 : skip)
-            .limit(pageSize);
-
-        const total = await HomeBestSellerModel.countDocuments();
-
-        // Data Formatting for Frontend
+        const [items, total] = await Promise.all([
+            prisma.homeBestSeller.findMany({ orderBy: { order: 'asc' }, skip: isExport ? 0 : skip, take: pageSize }),
+            prisma.homeBestSeller.count()
+        ]);
+        const productIds = items.map(i => i.productId);
+        const products = productIds.length > 0
+            ? await prisma.product.findMany({ where: { id: { in: productIds } }, select: { id: true, title: true, bagcheeId: true, defaultImage: true } })
+            : [];
+        const productMap = Object.fromEntries(products.map(p => [p.id, p]));
         const formattedData = items.map(item => ({
-            _id: item._id,       
-            productId: item.product?.bagchee_id || 'N/A', 
-            title: item.product?.title || 'Product Deleted',
-            image: item.product?.default_image || '',
+            id: item.id,
+            productId: productMap[item.productId]?.bagcheeId || 'N/A',
+            title: productMap[item.productId]?.title || 'Product Deleted',
+            image: productMap[item.productId]?.defaultImage || '',
             isActive: item.isActive,
             order: item.order,
-            createdAt: item.createdAt,
-            product: item.product // Export ke liye
+            createdAt: item.createdAt
         }));
-
-        res.status(200).json({ 
-            status: true, 
-            data: formattedData, 
-            total, 
-            page: pageNum, 
-            limit: pageSize 
-        });
+        res.status(200).json({ status: true, data: formattedData, total, page: pageNum, limit: pageSize, totalPages: Math.ceil(total / pageSize) });
     } catch (error) {
-        res.status(500).json({ msg: "Server Error" });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// ==========================================
-// 🟢 3. GET ONE (Admin: Edit Form Populate) - MISSING THA
-// ==========================================
 export const getOne = async (req, res) => {
     try {
-        const item = await HomeBestSellerModel.findById(req.params.id).populate('product', 'bagchee_id title');
-        if (!item) return res.status(404).json({ status: false, msg: "Not found" });
-
-        const data = {
-            _id: item._id,
-            productId: item.product?.bagchee_id || '', 
-            title: item.product?.title || '',
-            isActive: item.isActive,
-            order: item.order
-        };
-
-        res.status(200).json({ status: true, data });
+        const item = await prisma.homeBestSeller.findUnique({ where: { id: parseInt(req.params.id) } });
+        if (!item) return res.status(404).json({ status: false, msg: 'Not found' });
+        const product = await prisma.product.findUnique({ where: { id: item.productId }, select: { bagcheeId: true, title: true } });
+        res.status(200).json({ status: true, data: { id: item.id, productId: product?.bagcheeId || '', title: product?.title || '', isActive: item.isActive, order: item.order } });
     } catch (error) {
-        res.status(500).json({ status: false, msg: "Server Error" });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// ==========================================
-// 🟢 4. UPDATE (Admin: Edit Save) - MISSING THA
-// ==========================================
 export const update = async (req, res) => {
     try {
-        const { id } = req.params;
+        const id = parseInt(req.params.id);
         const { productId, isActive, order } = req.body;
-
-        const item = await HomeBestSellerModel.findById(id);
-        if (!item) return res.status(404).json({ msg: "Entry not found" });
-
-        // Update Product Link if ID changed
+        const item = await prisma.homeBestSeller.findUnique({ where: { id } });
+        if (!item) return res.status(404).json({ status: false, msg: 'Entry not found' });
+        const updateData = {};
         if (productId) {
-            const mainProduct = await ProductModel.findOne({
-                $or: [{ bagchee_id: productId }, { isbn13: productId }, { isbn10: productId }]
-            });
-            if (mainProduct) {
-                item.product = mainProduct._id;
-            }
+            const mainProduct = await findProductByCode(String(productId).trim());
+            if (!mainProduct) return res.status(404).json({ status: false, msg: 'Product not found in inventory' });
+            updateData.productId = mainProduct.id;
         }
-
-        if (isActive !== undefined) item.isActive = (isActive === 'yes' || isActive === true);
-        if (order !== undefined) item.order = Number(order);
-
-        await item.save();
-
-        res.status(200).json({ status: true, msg: "Updated successfully" });
+        if (isActive !== undefined) updateData.isActive = (isActive === 'yes' || isActive === true);
+        if (order !== undefined) updateData.order = Number(order);
+        await prisma.homeBestSeller.update({ where: { id }, data: updateData });
+        res.status(200).json({ status: true, msg: 'Updated successfully' });
     } catch (error) {
-        res.status(500).json({ status: false, msg: "Server Error" });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// ==========================================
-// 🟢 5. DELETE (Admin: Remove)
-// ==========================================
 export const remove = async (req, res) => {
     try {
-        await HomeBestSellerModel.findByIdAndDelete(req.params.id);
-        res.status(200).json({ status: true, msg: "Removed successfully" });
+        await prisma.homeBestSeller.delete({ where: { id: parseInt(req.params.id) } });
+        res.status(200).json({ status: true, msg: 'Removed successfully' });
     } catch (error) {
-        res.status(500).json({ msg: "Error deleting" });
+        if (error.code === 'P2025') return res.status(404).json({ status: false, msg: 'Not found' });
+        res.status(500).json({ status: false, msg: 'Error deleting' });
     }
 };
 
-// ==========================================
-// 🟢 6. SEARCH INVENTORY (For Dropdown)
-// ==========================================
 export const searchMainInventory = async (req, res) => {
     try {
-        const { q } = req.query; 
+        const { q } = req.query;
         if (!q) return res.status(200).json({ status: true, data: [] });
-
-        const products = await ProductModel.find({
-            $or: [
-                { title: { $regex: q, $options: 'i' } },      
-                { bagchee_id: { $regex: q, $options: 'i' } }, 
-                { isbn13: { $regex: q, $options: 'i' } }, 
-                { isbn10: { $regex: q, $options: 'i' } }
-            ]
-        })
-        .select('title bagchee_id isbn13 isbn10 default_image') 
-        .limit(10); 
-
+        const products = await prisma.product.findMany({
+            where: { OR: [{ title: { contains: q, mode: 'insensitive' } }, { bagcheeId: { contains: q, mode: 'insensitive' } }, { isbn13: { contains: q, mode: 'insensitive' } }, { isbn10: { contains: q, mode: 'insensitive' } }] },
+            select: { id: true, title: true, bagcheeId: true, isbn13: true, isbn10: true, defaultImage: true },
+            take: 10
+        });
         res.status(200).json({ status: true, data: products });
-
     } catch (error) {
-        res.status(500).json({ status: false, msg: "Server Error" });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// ==========================================
-// 🟢 7. FETCH FOR HOME (Frontend: Hybrid Logic)
-// ==========================================
 export const fetchForHome = async (req, res) => {
     try {
         let { page, limit } = req.query;
         page = Number(page) || 1;
         limit = Number(limit) || 6;
-
-        // --- STEP 1: Fetch Manual Admin Products ---
-        const manualEntries = await HomeBestSellerModel.find({ isActive: true })
-            .sort({ order: 1 })
-            .populate({
-                path: 'product',
-                select: 'title author price real_price producticonname default_image discount oldPrice isbn13 bagchee_id soldCount inr_price isbn10',
-                populate: { path: 'author', select: 'name first_name last_name' }
-            });
-
-        const manualProducts = manualEntries
-            .map(item => item.product)
-            .filter(prod => prod != null);
-
-        const manualIds = manualProducts.map(prod => prod._id);
-
-        // --- STEP 2: Fetch Auto Best Sellers ---
-        const autoLimit = 50; 
-        const autoProducts = await ProductModel.find({
-            _id: { $nin: manualIds }, 
-            isActive: true,
-            soldCount: { $gt: 0 } 
-        })
-        .sort({ soldCount: -1 })
-        .limit(autoLimit)
-        .populate('author', 'name first_name last_name')
-        .select('title author price real_price producticonname default_image discount oldPrice isbn13 bagchee_id soldCount');
-
-        // --- STEP 3: Merge ---
-        const combinedList = [...manualProducts, ...autoProducts];
-
-        // --- STEP 4: Paginate ---
-        const startIndex = (page - 1) * limit;
-        const endIndex = startIndex + limit;
-        
-        const paginatedData = combinedList.slice(startIndex, endIndex);
-        const total = combinedList.length;
-
-        res.status(200).json({ 
-            status: true, 
-            data: paginatedData,
-            total,
-            page,
-            limit,
-            sectionTitle: "Best Sellers",
-            sectionTagline: "Our most popular picks"
+        // Manual admin picks (active only)
+        const manualEntries = await prisma.homeBestSeller.findMany({ where: { isActive: true }, orderBy: { order: 'asc' } });
+        const manualProductIds = manualEntries.map(e => e.productId);
+        const manualProducts = manualProductIds.length > 0
+            ? await prisma.product.findMany({ where: { id: { in: manualProductIds } }, select: { id: true, title: true, price: true, inrPrice: true, realPrice: true, discount: true, defaultImage: true, isbn13: true, bagcheeId: true, soldCount: true, authors: { select: { author: { select: { id: true, firstName: true, lastName: true, fullName: true } } } } } })
+            : [];
+        // Auto best sellers (by soldCount, excluding manual picks)
+        const autoProducts = await prisma.product.findMany({
+            where: { isActive: true, soldCount: { gt: 0 }, id: { notIn: manualProductIds } },
+            orderBy: { soldCount: 'desc' },
+            take: 50,
+            select: { id: true, title: true, price: true, inrPrice: true, realPrice: true, discount: true, defaultImage: true, isbn13: true, bagcheeId: true, soldCount: true, authors: { select: { author: { select: { id: true, firstName: true, lastName: true, fullName: true } } } } }
         });
-
+        const combined = [...manualProducts, ...autoProducts];
+        const startIndex = (page - 1) * limit;
+        const paginatedData = combined.slice(startIndex, startIndex + limit);
+        res.status(200).json({ status: true, data: paginatedData, total: combined.length, page, limit, sectionTitle: 'Best Sellers', sectionTagline: 'Our most popular picks' });
     } catch (error) {
-        res.status(500).json({ status: false, msg: "Server Error", error: error.message });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };

@@ -259,7 +259,7 @@ const AddBook = () => {
                     toast.success("Author added & linked!", { id: toastId });
                     const savedAuthor = res.data;
                     setAuthors(prev => [...prev, savedAuthor]);
-                    setFormData(prev => ({ ...prev, authors: [...prev.authors, savedAuthor._id] }));
+                    setFormData(prev => ({ ...prev, authors: [...prev.authors, savedAuthor.id] }));
                     setIsAuthorPanelOpen(false);
                     setNewAuthorData({ first_name: '', last_name: '', origin: '' });
                     setNewAuthorProfile('');
@@ -308,7 +308,7 @@ const AddBook = () => {
                     toast.success("Publisher added & linked!", { id: toastId });
                     const savedPub = res.data;
                     setPublishers(prev => [...prev, savedPub]);
-                    setFormData(prev => ({ ...prev, publisher: savedPub._id }));
+                    setFormData(prev => ({ ...prev, publisher: savedPub.id }));
                     setIsPubPanelOpen(false);
                     setNewPubData({ category: '', title: '', company: '', address: '', place: '', email: '', phone: '', fax: '', date: '', order: '', show: '', slug: '', ship_in_days: '' });
                     setNewPubImage(null);
@@ -331,7 +331,7 @@ const AddBook = () => {
                     toast.success("Series added & linked! 📚", { id: toastId });
                     const savedSeries = res.data;
                     setSeriesList(prev => [...prev, savedSeries]);
-                    setFormData(prev => ({ ...prev, series: savedSeries._id, series_number: "1" }));
+                    setFormData(prev => ({ ...prev, series: savedSeries.id, series_number: "1" }));
                     setIsSeriesPanelOpen(false);
                     setNewSeriesData({ title: '' });
                 }
@@ -496,7 +496,7 @@ const AddBook = () => {
             const currentSeries = Array.isArray(prev.series) ? prev.series : [];
     
             // 2. Check karein ki ye series pehle se list me toh nahi hai (Duplicate check)
-            if (currentSeries.includes(selectedSeries._id)) {
+            if (currentSeries.includes(selectedSeries.id)) {
                 toast.error("This series is already added!");
                 return prev;
             }
@@ -504,7 +504,7 @@ const AddBook = () => {
             // 3. Nayi series ko array me add karein
             return {
                 ...prev,
-                series: [...currentSeries, selectedSeries._id],
+                series: [...currentSeries, selectedSeries.id],
                 // Note: Multiple series me 'series_number' ka logic tricky ho sakta hai
                 // Isliye hum pehli select ki gayi series ke basis pe default number set kar rahe hain
                 series_number: prev.series_number || (selectedSeries.total_books ? (selectedSeries.total_books + 1).toString() : "1")
@@ -517,7 +517,7 @@ const AddBook = () => {
     };
 
     const handlePublisherSelect = (pub) => {
-        setFormData(prev => ({ ...prev, publisher: pub._id }));
+        setFormData(prev => ({ ...prev, publisher: pub.id }));
         setIsPublisherDropdownOpen(false);
         setPublisherSearch("");
     };
@@ -539,7 +539,7 @@ const AddBook = () => {
     }, [relatedSearchQuery, isRelatedDropdownOpen]);
 
     const handleAddRelatedProduct = (product) => {
-        const idToAdd = product.bagchee_id || product._id;
+        const idToAdd = product.bagcheeId || product.id;
         if (selectedRelatedItems.find(item => item.id === idToAdd)) return toast.error("Already linked!");
         const updatedList = [...selectedRelatedItems, { id: idToAdd, title: product.title }];
         setSelectedRelatedItems(updatedList);
@@ -594,7 +594,7 @@ const AddBook = () => {
         document.getElementById('toc_image_input').value = "";
     };
 
-    const selectedLeadingCategory = categories.find(c => c._id === formData.leading_category);
+    const selectedLeadingCategory = categories.find(c => c.id === formData.leading_category);
 
 
 
@@ -655,7 +655,7 @@ const AddBook = () => {
                             <div className="col-span-9 relative">
                                 <div onClick={() => setIsLeadingOpen(!isLeadingOpen)} className="theme-input w-1/2 cursor-pointer flex justify-between items-center bg-white border border-gray-300 rounded p-2 text-sm">
                                     <span className={selectedLeadingCategory ? "text-gray-700" : "text-gray-400"}>
-                                        {selectedLeadingCategory ? selectedLeadingCategory.categorytitle : "Select category"}
+                                        {selectedLeadingCategory ? selectedLeadingCategory.title : "Select category"}
                                     </span>
                                     <span className="text-gray-400 text-[10px]">▼</span>
                                 </div>
@@ -665,12 +665,12 @@ const AddBook = () => {
                                             <input type="text" placeholder="Search..." value={leadingSearch} onChange={(e) => setLeadingSearch(e.target.value)} className="w-full text-xs p-1.5 border border-gray-200 rounded focus:border-primary outline-none" autoFocus />
                                         </div>
                                         <div className="overflow-y-auto">
-                                            {categories.filter(cat => cat.categorytitle.toLowerCase().includes(leadingSearch.toLowerCase())).map((cat) => (
-                                                <div key={cat._id} onClick={() => { setFormData({ ...formData, leading_category: cat._id }); setIsLeadingOpen(false); setLeadingSearch(""); }} className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${formData.leading_category === cat._id ? "bg-blue-50 text-primary font-bold" : "text-gray-600"}`}>
-                                                    {cat.categorytitle}
+                                            {categories.filter(cat => cat.title.toLowerCase().includes(leadingSearch.toLowerCase())).map((cat) => (
+                                                <div key={cat.id} onClick={() => { setFormData({ ...formData, leading_category: cat.id }); setIsLeadingOpen(false); setLeadingSearch(""); }} className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${formData.leading_category === cat.id ? "bg-blue-50 text-primary font-bold" : "text-gray-600"}`}>
+                                                    {cat.title}
                                                 </div>
                                             ))}
-                                            {categories.filter(cat => cat.categorytitle.toLowerCase().includes(leadingSearch.toLowerCase())).length === 0 && (
+                                            {categories.filter(cat => cat.title.toLowerCase().includes(leadingSearch.toLowerCase())).length === 0 && (
                                                 <div className="p-3 text-xs text-gray-400 text-center">No category found</div>
                                             )}
                                         </div>
@@ -685,10 +685,10 @@ const AddBook = () => {
                                 <div className="border border-gray-300 rounded p-2 bg-white cursor-pointer min-h-[38px] flex flex-wrap gap-2 items-center hover:border-primary transition-colors" onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}>
                                     {formData.product_categories && formData.product_categories.length > 0 ? (
                                         formData.product_categories.map((catId) => {
-                                            const category = categories.find(c => c._id === catId);
+                                            const category = categories.find(c => c.id === catId);
                                             return category ? (
                                                 <span key={catId} className="bg-blue-50 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded border border-blue-100 flex items-center gap-1">
-                                                    {category.categorytitle}
+                                                    {category.title}
                                                     <button type="button" onClick={(e) => { e.stopPropagation(); handleCheckboxChange('product_categories', catId); }} className="hover:text-red-500">×</button>
                                                 </span>
                                             ) : null;
@@ -702,16 +702,16 @@ const AddBook = () => {
                                             <input type="text" placeholder="Search categories..." value={categorySearch} onChange={(e) => setCategorySearch(e.target.value)} onClick={(e) => e.stopPropagation()} className="w-full text-xs p-1.5 border border-gray-300 rounded focus:border-primary outline-none bg-white" autoFocus />
                                         </div>
                                         <div className="max-h-48 overflow-y-auto p-1 scrollbar-thin scrollbar-thumb-gray-300">
-                                            {categories.filter((cat) => cat.categorytitle.toLowerCase().includes(categorySearch.toLowerCase())).map((cat) => {
-                                                const isSelected = formData.product_categories.includes(cat._id);
+                                            {categories.filter((cat) => cat.title.toLowerCase().includes(categorySearch.toLowerCase())).map((cat) => {
+                                                const isSelected = formData.product_categories.includes(cat.id);
                                                 return (
-                                                    <div key={cat.categorytitle} onClick={() => handleCheckboxChange('product_categories', cat._id)} className={`flex items-center gap-2 p-2 cursor-pointer text-sm rounded hover:bg-blue-50 transition-colors ${isSelected ? 'bg-blue-50' : ''}`}>
+                                                    <div key={cat.title} onClick={() => handleCheckboxChange('product_categories', cat.id)} className={`flex items-center gap-2 p-2 cursor-pointer text-sm rounded hover:bg-blue-50 transition-colors ${isSelected ? 'bg-blue-50' : ''}`}>
                                                         <input type="checkbox" checked={isSelected} readOnly className="accent-primary h-4 w-4 pointer-events-none" />
-                                                        <span className={`text-gray-700 ${isSelected ? 'font-bold text-primary' : ''}`}>{cat.categorytitle}</span>
+                                                        <span className={`text-gray-700 ${isSelected ? 'font-bold text-primary' : ''}`}>{cat.title}</span>
                                                     </div>
                                                 );
                                             })}
-                                            {categories.filter(cat => cat.categorytitle.toLowerCase().includes(categorySearch.toLowerCase())).length === 0 && (
+                                            {categories.filter(cat => cat.title.toLowerCase().includes(categorySearch.toLowerCase())).length === 0 && (
                                                 <div className="p-3 text-xs text-gray-400 text-center">No categories found</div>
                                             )}
                                         </div>
@@ -819,9 +819,9 @@ const AddBook = () => {
                                     {isRelatedDropdownOpen && relatedSearchQuery.length > 2 && (
                                         <div className="absolute z-50 top-full left-0 w-full bg-white border border-gray-300 rounded shadow-lg mt-1 max-h-60 overflow-y-auto">
                                             {relatedSearchResults.length > 0 ? relatedSearchResults.map(prod => (
-                                                <div key={prod._id} onClick={() => handleAddRelatedProduct(prod)} className="px-3 py-2 border-b hover:bg-blue-50 cursor-pointer">
+                                                <div key={prod.id} onClick={() => handleAddRelatedProduct(prod)} className="px-3 py-2 border-b hover:bg-blue-50 cursor-pointer">
                                                     <span className="text-sm font-bold block">{prod.title}</span>
-                                                    <span className="text-[10px] text-gray-500">ID: {prod.bagchee_id || prod._id}</span>
+                                                    <span className="text-[10px] text-gray-500">ID: {prod.bagcheeId || prod.id}</span>
                                                 </div>
                                             )) : <div className="p-3 text-xs text-gray-400 text-center">No products found</div>}
                                         </div>
@@ -838,8 +838,8 @@ const AddBook = () => {
                                     <div className="border border-gray-300 rounded p-2 bg-white cursor-pointer min-h-[38px] flex flex-wrap gap-2 items-center hover:border-primary transition-colors" onClick={() => setIsAuthorDropdownOpen(!isAuthorDropdownOpen)}>
                                         {formData.authors && formData.authors.length > 0 ? (
                                             formData.authors.map((authId) => {
-                                                const author = authors.find(a => a._id === authId);
-                                                const authorName = author ? `${author.first_name} ${author.last_name}` : "Unknown Author";
+                                                const author = authors.find(a => a.id === authId);
+                                                const authorName = author ? `${author.firstName || author.first_name} ${author.lastName || author.last_name}` : "Unknown Author";
                                                 return (
                                                     <span key={authId} className="bg-blue-50 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded border border-blue-100 flex items-center gap-1">
                                                         {authorName}
@@ -856,12 +856,12 @@ const AddBook = () => {
                                                 <input type="text" placeholder="Search authors..." value={authorSearch} onChange={(e) => setAuthorSearch(e.target.value)} onClick={(e) => e.stopPropagation()} className="w-full text-xs p-1.5 border border-gray-300 rounded focus:border-primary outline-none bg-white" autoFocus />
                                             </div>
                                             <div className="max-h-48 overflow-y-auto p-1 scrollbar-thin">
-                                                {authors.filter(a => `${a.first_name} ${a.last_name}`.toLowerCase().includes(authorSearch.toLowerCase())).map((auth) => {
-                                                    const isSelected = formData.authors.includes(auth._id);
+                                                {authors.filter(a => `${a.firstName || a.first_name} ${a.lastName || a.last_name}`.toLowerCase().includes(authorSearch.toLowerCase())).map((auth) => {
+                                                    const isSelected = formData.authors.includes(auth.id);
                                                     return (
-                                                        <div key={auth._id} onClick={() => handleCheckboxChange('authors', auth._id)} className={`flex items-center gap-2 p-2 cursor-pointer text-sm rounded hover:bg-blue-50 transition-colors ${isSelected ? 'bg-blue-50 font-bold text-primary' : ''}`}>
+                                                        <div key={auth.id} onClick={() => handleCheckboxChange('authors', auth.id)} className={`flex items-center gap-2 p-2 cursor-pointer text-sm rounded hover:bg-blue-50 transition-colors ${isSelected ? 'bg-blue-50 font-bold text-primary' : ''}`}>
                                                             <input type="checkbox" checked={isSelected} readOnly className="accent-primary h-4 w-4 pointer-events-none" />
-                                                            <span>{auth.first_name} {auth.last_name}</span>
+                                                            <span>{auth.firstName || auth.first_name} {auth.lastName || auth.last_name}</span>
                                                         </div>
                                                     );
                                                 })}
@@ -1232,7 +1232,7 @@ const AddBook = () => {
             >
                 {formData.series && formData.series.length > 0 ? (
                     formData.series.map((serId) => {
-                        const seriesObj = seriesList.find(s => s._id === serId);
+                        const seriesObj = seriesList.find(s => s.id === serId);
                         return seriesObj ? (
                             <span key={serId} className="bg-purple-50 text-purple-700 text-[10px] font-bold px-2 py-0.5 rounded border border-purple-100 flex items-center gap-1">
                                 {seriesObj.title}
@@ -1271,10 +1271,10 @@ const AddBook = () => {
                     </div>
                     <div className="max-h-48 overflow-y-auto p-1 scrollbar-thin">
                         {seriesList.filter(s => s.title.toLowerCase().includes(seriesSearch.toLowerCase())).map(s => {
-                            const isSelected = formData.series.includes(s._id);
+                            const isSelected = formData.series.includes(s.id);
                             return (
                                 <div 
-                                    key={s._id} 
+                                    key={s.id} 
                                     onClick={() => handleSeriesSelect(s)} 
                                     className={`px-3 py-2 text-sm cursor-pointer rounded hover:bg-blue-50 flex justify-between items-center ${isSelected ? "bg-blue-50 text-primary font-bold" : "text-gray-600"}`}
                                 >
@@ -1409,7 +1409,7 @@ const AddBook = () => {
                             <div className="col-span-9 space-y-3">
                                 <div className="relative">
                                     <div className="border border-gray-300 rounded p-2 bg-white cursor-pointer min-h-[38px] flex justify-between items-center hover:border-primary transition-colors theme-input w-full md:w-1/2" onClick={() => setIsPublisherDropdownOpen(!isPublisherDropdownOpen)}>
-                                        <span className={formData.publisher ? "text-gray-700 font-medium" : "text-gray-400 text-sm"}>{formData.publisher ? (publishers.find(p => p._id === formData.publisher)?.name || publishers.find(p => p._id === formData.publisher)?.title || "Unknown Publisher") : "Select Publisher"}</span>
+                                        <span className={formData.publisher ? "text-gray-700 font-medium" : "text-gray-400 text-sm"}>{formData.publisher ? (publishers.find(p => p.id === formData.publisher)?.name || publishers.find(p => p.id === formData.publisher)?.title || "Unknown Publisher") : "Select Publisher"}</span>
                                         <ChevronDown size={14} className="text-gray-400" />
                                     </div>
                                     {isPublisherDropdownOpen && (
@@ -1419,7 +1419,7 @@ const AddBook = () => {
                                             </div>
                                             <div className="max-h-48 overflow-y-auto">
                                                 {publishers.filter(p => (p.name || p.title || "").toLowerCase().includes(publisherSearch.toLowerCase())).map(p => (
-                                                    <div key={p._id} onClick={() => handlePublisherSelect(p)} className="px-3 py-2 text-sm hover:bg-primary/5 cursor-pointer">{p.name || p.title}</div>
+                                                    <div key={p.id} onClick={() => handlePublisherSelect(p)} className="px-3 py-2 text-sm hover:bg-primary/5 cursor-pointer">{p.name || p.title}</div>
                                                 ))}
                                             </div>
                                         </div>
@@ -1441,7 +1441,7 @@ const AddBook = () => {
                                                 <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Category*</label>
                                                 <select value={newPubData.category} onChange={(e) => setNewPubData({ ...newPubData, category: e.target.value })} className="theme-input w-full bg-white text-xs">
                                                     <option value="">Select Category</option>
-                                                    {categories.map(c => <option key={c._id} value={c._id}>{c.categorytitle}</option>)}
+                                                    {categories.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
                                                 </select>
                                             </div>
                                             <div className="space-y-1">

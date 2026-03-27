@@ -1,180 +1,85 @@
-import CourierModel from '../models/Courier.model.js';
+import prisma from '../lib/prisma.js';
 
-// ==========================================
-// 🟢 1. CREATE (SAVE)
-// ==========================================
+// Field mapping: isActive → active (Boolean in Prisma)
+
 export const saveCourier = async (req, res) => {
     try {
         const { title, trackingPage, isActive, active } = req.body;
-
-        // 1. Validation & Trim
-        if (!title || title.trim() === "") {
-            return res.status(400).json({ status: false, msg: "Courier Title is required" });
-        }
-        if (!trackingPage || trackingPage.trim() === "") {
-            return res.status(400).json({ status: false, msg: "Tracking Page URL is required" });
-        }
-
+        if (!title || title.trim() === '') return res.status(400).json({ status: false, msg: 'Courier Title is required' });
+        if (!trackingPage || trackingPage.trim() === '') return res.status(400).json({ status: false, msg: 'Tracking Page URL is required' });
         const cleanTitle = title.trim();
-
-        // 🟢 2. DUPLICATE CHECK (Case Insensitive)
-        const existingCourier = await CourierModel.findOne({ 
-            title: { $regex: new RegExp(`^${cleanTitle}$`, "i") } 
-        });
-
-        if (existingCourier) {
-            return res.status(400).json({ status: false, msg: "Courier partner already exists" });
-        }
-
-        // 3. Handle Active Status Logic
+        const existing = await prisma.courier.findFirst({ where: { title: { equals: cleanTitle, mode: 'insensitive' } } });
+        if (existing) return res.status(400).json({ status: false, msg: 'Courier partner already exists' });
         let activeStatus = true;
         if (isActive !== undefined) activeStatus = (isActive === true || isActive === 'true');
         else if (active !== undefined) activeStatus = (active === 'active');
-
-        const newCourier = new CourierModel({
-            title: cleanTitle,
-            trackingPage: trackingPage.trim(),
-            isActive: activeStatus
+        const newCourier = await prisma.courier.create({
+            data: { title: cleanTitle, trackingPage: trackingPage.trim(), active: activeStatus }
         });
-
-        await newCourier.save();
-
-        res.status(201).json({ 
-            status: true, 
-            msg: "Courier added successfully!", 
-            data: newCourier 
-        });
-
+        res.status(201).json({ status: true, msg: 'Courier added successfully!', data: newCourier });
     } catch (error) {
-        console.error("Save Courier Error:", error);
-        res.status(500).json({ status: false, msg: "Server Error", error: error.message });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// ==========================================
-// 🔵 2. READ (LIST ALL WITH PAGINATION)
-// ==========================================
 export const getAllCouriers = async (req, res) => {
     try {
-        const { page, limit } = req.query;
-
-        // 1. Pagination Settings
-        const pageNum = parseInt(page) || 1;
-        const pageSize = parseInt(limit) || 10;
+        const pageNum = parseInt(req.query.page) || 1;
+        const pageSize = parseInt(req.query.limit) || 10;
         const skip = (pageNum - 1) * pageSize;
-
-        // 2. Fetch Data with Pagination
-        const couriers = await CourierModel.find()
-            .sort({ title: 1 })
-            .skip(skip)
-            .limit(pageSize);
-
-        // 3. Total Count for Pagination calculation
-        const total = await CourierModel.countDocuments();
-
-        res.status(200).json({ 
-            status: true, 
-            msg: "Couriers fetched successfully",
-            data: couriers,
-            total,
-            totalPages: Math.ceil(total / pageSize),
-            page: pageNum
-        });
-
+        const [couriers, total] = await Promise.all([
+            prisma.courier.findMany({ orderBy: { title: 'asc' }, skip, take: pageSize }),
+            prisma.courier.count()
+        ]);
+        res.status(200).json({ status: true, data: couriers, total, totalPages: Math.ceil(total / pageSize), page: pageNum });
     } catch (error) {
-        res.status(500).json({ status: false, msg: "Server Error", error: error.message });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// ==========================================
-// 🟡 3. READ ONE
-// ==========================================
 export const getCourierById = async (req, res) => {
     try {
-        const id = req.params.id;
-        const courier = await CourierModel.findById(id);
-
-        if (!courier) {
-            return res.status(404).json({ status: false, msg: "Courier not found" });
-        }
-
+        const courier = await prisma.courier.findUnique({ where: { id: parseInt(req.params.id) } });
+        if (!courier) return res.status(404).json({ status: false, msg: 'Courier not found' });
         res.status(200).json({ status: true, data: courier });
-
     } catch (error) {
-        res.status(500).json({ status: false, msg: "Server Error", error: error.message });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// ==========================================
-// 🟠 4. UPDATE (Safe Logic)
-// ==========================================
 export const updateCourier = async (req, res) => {
     try {
-        const id = req.params.id;
+        const id = parseInt(req.params.id);
         const { title, trackingPage, isActive, active } = req.body;
-
-        // 1. Duplicate Check for New Title
         if (title) {
             const cleanTitle = title.trim();
-            const existingCourier = await CourierModel.findOne({ 
-                title: { $regex: new RegExp(`^${cleanTitle}$`, "i") },
-                _id: { $ne: id } 
-            });
-
-            if (existingCourier) {
-                return res.status(400).json({ status: false, msg: "Another courier already has this name." });
-            }
+            const existing = await prisma.courier.findFirst({ where: { title: { equals: cleanTitle, mode: 'insensitive' }, NOT: { id } } });
+            if (existing) return res.status(400).json({ status: false, msg: 'Another courier already has this name.' });
         }
-
-        // 2. Determine Active Status
         let activeStatus = undefined;
         if (isActive !== undefined) activeStatus = (isActive === true || isActive === 'true');
         else if (active !== undefined) activeStatus = (active === 'active');
-
-        const updateData = {};
-        if (title) updateData.title = title.trim();
-        if (trackingPage) updateData.trackingPage = trackingPage.trim();
-        if (activeStatus !== undefined) updateData.isActive = activeStatus;
-
-        const updatedCourier = await CourierModel.findByIdAndUpdate(
-            id, 
-            { $set: updateData }, 
-            { new: true }
-        );
-
-        if (!updatedCourier) {
-            return res.status(404).json({ status: false, msg: "Courier not found" });
-        }
-
-        res.status(200).json({ 
-            status: true, 
-            msg: "Courier updated successfully!", 
-            data: updatedCourier 
+        const updated = await prisma.courier.update({
+            where: { id },
+            data: {
+                ...(title && { title: title.trim() }),
+                ...(trackingPage && { trackingPage: trackingPage.trim() }),
+                ...(activeStatus !== undefined && { active: activeStatus })
+            }
         });
-
+        res.status(200).json({ status: true, msg: 'Courier updated successfully!', data: updated });
     } catch (error) {
-        res.status(500).json({ status: false, msg: "Server Error", error: error.message });
+        if (error.code === 'P2025') return res.status(404).json({ status: false, msg: 'Courier not found' });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// ==========================================
-// 🔴 5. DELETE
-// ==========================================
 export const deleteCourier = async (req, res) => {
     try {
-        const id = req.params.id;
-        const deletedCourier = await CourierModel.findByIdAndDelete(id);
-
-        if (!deletedCourier) {
-            return res.status(404).json({ status: false, msg: "Courier not found" });
-        }
-
-        res.status(200).json({ 
-            status: true, 
-            msg: "Courier deleted successfully!" 
-        });
-
+        await prisma.courier.delete({ where: { id: parseInt(req.params.id) } });
+        res.status(200).json({ status: true, msg: 'Courier deleted successfully!' });
     } catch (error) {
-        res.status(500).json({ status: false, msg: "Server Error", error: error.message });
+        if (error.code === 'P2025') return res.status(404).json({ status: false, msg: 'Courier not found' });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };

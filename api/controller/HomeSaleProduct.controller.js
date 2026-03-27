@@ -1,225 +1,142 @@
-import HomeSaleProductModel from "../models/HomeSaleProduct.model.js";
-import ProductModel from "../models/Product.model.js"; 
+import prisma from '../lib/prisma.js';
 
-// ==========================================
-// 🟢 1. SAVE (Connect Product)
-// ==========================================
+// Old used MongoDB ObjectId ref `product`. Now uses productId (Int FK).
+// Field: `active` (not isActive!) — matches Prisma HomeSaleProduct schema.
+// SCHEMA-CHECK: HomeSaleProduct has no Prisma @relation to Product — fetched separately.
+
+const findProductByCode = async (code) => {
+    const numId = parseInt(code);
+    if (!isNaN(numId)) {
+        const byId = await prisma.product.findUnique({ where: { id: numId } });
+        if (byId) return byId;
+    }
+    return prisma.product.findFirst({
+        where: { OR: [{ bagcheeId: code }, { isbn13: code }, { isbn10: code }] }
+    });
+};
+
 export const save = async (req, res) => {
     try {
         const { productId, isActive, order } = req.body;
-
-        if (!productId) {
-            return res.status(400).json({ status: false, msg: "Product ID is required" });
-        }
-
-        // 1️⃣ Find in Main Product Collection
-        const mainProduct = await ProductModel.findOne({
-            $or: [
-                { bagchee_id: productId.trim() },
-                { isbn13: productId.trim() },
-                { isbn10: productId.trim() }
-            ]
+        if (!productId) return res.status(400).json({ status: false, msg: 'Product ID is required' });
+        const mainProduct = await findProductByCode(String(productId).trim());
+        if (!mainProduct) return res.status(404).json({ status: false, msg: 'Product not found in inventory!' });
+        const existing = await prisma.homeSaleProduct.findFirst({ where: { productId: mainProduct.id } });
+        if (existing) return res.status(400).json({ status: false, msg: 'This product is already listed in Home Sale.' });
+        const newItem = await prisma.homeSaleProduct.create({
+            data: { productId: mainProduct.id, active: isActive === 'yes' || isActive === true, order: Number(order) || 0 }
         });
-
-        if (!mainProduct) {
-            return res.status(404).json({ status: false, msg: "Product not found in inventory!" });
-        }
-
-        // 2️⃣ Check Duplicate
-        const existing = await HomeSaleProductModel.findOne({ product: mainProduct._id });
-        if (existing) {
-            return res.status(400).json({ status: false, msg: "This product is already listed in Home Sale." });
-        }
-
-        // 3️⃣ Create Link
-        const newSaleProduct = await HomeSaleProductModel.create({
-            product: mainProduct._id, 
-            isActive: isActive === 'yes' || isActive === true,
-            order: Number(order) || 0
-        });
-
-        res.status(201).json({ status: true, msg: "Connected & Added successfully", data: newSaleProduct });
-
+        res.status(201).json({ status: true, msg: 'Connected & Added successfully', data: newItem });
     } catch (error) {
-        console.error("Save Error:", error);
-        res.status(500).json({ status: false, msg: "Server Error", error: error.message });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// ==========================================
-// 🟢 2. LIST (Fetch Data)
-// ==========================================
 export const list = async (req, res) => {
     try {
-        const { page, limit, order } = req.query;
+        const { page, limit } = req.query;
         const isExport = limit === 'all';
         const pageNum = Number(page) || 1;
         const pageSize = isExport ? 100000 : (Number(limit) || 25);
         const skip = (pageNum - 1) * pageSize;
-
-        let sortObj = { order: 1, createdAt: -1 };
-
-        const items = await HomeSaleProductModel.find()
-            .populate('product', 'title bagchee_id isbn13 default_image inr_price isbn10 price real_price') 
-            .sort(sortObj)
-            .skip(isExport ? 0 : skip)
-            .limit(pageSize);
-
-        const total = await HomeSaleProductModel.countDocuments();
-
-        const formattedData = items.map(item => {
-            const prod = item.product || {}; 
-            return {
-                _id: item._id,
-                productId: prod.bagchee_id || 'N/A', 
-                title: prod.title || 'Product Deleted',
-                image: prod.default_image || '',
-                isActive: item.isActive,
-                order: item.order,
-                createdAt: item.createdAt
-            };
-        });
-
-        res.status(200).json({ status: true, data: formattedData, total, page: pageNum, limit: pageSize });
-
+        const [items, total] = await Promise.all([
+            prisma.homeSaleProduct.findMany({ orderBy: { order: 'asc' }, skip: isExport ? 0 : skip, take: pageSize }),
+            prisma.homeSaleProduct.count()
+        ]);
+        const productIds = items.map(i => i.productId);
+        const products = productIds.length > 0
+            ? await prisma.product.findMany({ where: { id: { in: productIds } }, select: { id: true, title: true, bagcheeId: true, defaultImage: true } })
+            : [];
+        const productMap = Object.fromEntries(products.map(p => [p.id, p]));
+        const formattedData = items.map(item => ({
+            id: item.id,
+            productId: productMap[item.productId]?.bagcheeId || 'N/A',
+            title: productMap[item.productId]?.title || 'Product Deleted',
+            image: productMap[item.productId]?.defaultImage || '',
+            isActive: item.active,
+            order: item.order
+        }));
+        res.status(200).json({ status: true, data: formattedData, total, page: pageNum, limit: pageSize, totalPages: Math.ceil(total / pageSize) });
     } catch (error) {
-        res.status(500).json({ status: false, msg: "Server Error", error: error.message });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// ==========================================
-// 🟢 3. GET ONE
-// ==========================================
 export const getOne = async (req, res) => {
     try {
-        const item = await HomeSaleProductModel.findById(req.params.id).populate('product', 'bagchee_id title');
-        if (!item) return res.status(404).json({ status: false, msg: "Not found" });
-
-        const data = {
-            _id: item._id,
-            productId: item.product?.bagchee_id || '',
-            title: item.product?.title || '',
-            isActive: item.isActive,
-            order: item.order
-        };
-
-        res.status(200).json({ status: true, data });
+        const item = await prisma.homeSaleProduct.findUnique({ where: { id: parseInt(req.params.id) } });
+        if (!item) return res.status(404).json({ status: false, msg: 'Not found' });
+        const product = await prisma.product.findUnique({ where: { id: item.productId }, select: { bagcheeId: true, title: true } });
+        res.status(200).json({ status: true, data: { id: item.id, productId: product?.bagcheeId || '', title: product?.title || '', isActive: item.active, order: item.order } });
     } catch (error) {
-        res.status(500).json({ status: false, msg: "Server Error" });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// ==========================================
-// 🟢 4. UPDATE
-// ==========================================
 export const update = async (req, res) => {
     try {
-        const { id } = req.params;
+        const id = parseInt(req.params.id);
         const { productId, isActive, order } = req.body;
-
-        const homeSaleItem = await HomeSaleProductModel.findById(id);
-        if (!homeSaleItem) return res.status(404).json({ msg: "Entry not found" });
-
+        const item = await prisma.homeSaleProduct.findUnique({ where: { id } });
+        if (!item) return res.status(404).json({ status: false, msg: 'Entry not found' });
+        const updateData = {};
         if (productId) {
-            const mainProduct = await ProductModel.findOne({
-                $or: [{ bagchee_id: productId }, { isbn13: productId }, { isbn10: productId }]
-            });
-            if (mainProduct) {
-                homeSaleItem.product = mainProduct._id;
-            }
+            const mainProduct = await findProductByCode(String(productId).trim());
+            if (!mainProduct) return res.status(404).json({ status: false, msg: 'Product not found in inventory' });
+            updateData.productId = mainProduct.id;
         }
-
-        if (isActive !== undefined) homeSaleItem.isActive = (isActive === 'yes' || isActive === true);
-        if (order !== undefined) homeSaleItem.order = Number(order);
-
-        await homeSaleItem.save();
-        res.status(200).json({ status: true, msg: "Updated successfully" });
+        if (isActive !== undefined) updateData.active = (isActive === 'yes' || isActive === true);
+        if (order !== undefined) updateData.order = Number(order);
+        await prisma.homeSaleProduct.update({ where: { id }, data: updateData });
+        res.status(200).json({ status: true, msg: 'Updated successfully' });
     } catch (error) {
-        res.status(500).json({ status: false, msg: "Server Error" });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// ==========================================
-// 🟢 5. DELETE
-// ==========================================
 export const remove = async (req, res) => {
     try {
-        await HomeSaleProductModel.findByIdAndDelete(req.params.id);
-        res.status(200).json({ status: true, msg: "Removed from Home Sale" });
+        await prisma.homeSaleProduct.delete({ where: { id: parseInt(req.params.id) } });
+        res.status(200).json({ status: true, msg: 'Removed from Home Sale' });
     } catch (error) {
-        res.status(500).json({ status: false, msg: "Error deleting" });
+        if (error.code === 'P2025') return res.status(404).json({ status: false, msg: 'Not found' });
+        res.status(500).json({ status: false, msg: 'Error deleting' });
     }
 };
 
-// ==========================================
-// 🟢 6. SEARCH MAIN INVENTORY (For Frontend Dropdown)
-// ==========================================
 export const searchMainInventory = async (req, res) => {
     try {
-        const { q } = req.query; // Frontend bhejega: ?q=Harry Potter
-        
+        const { q } = req.query;
         if (!q) return res.status(200).json({ status: true, data: [] });
-
-        const products = await ProductModel.find({
-            $or: [
-                { title: { $regex: q, $options: 'i' } },      // Title Search
-                { bagchee_id: { $regex: q, $options: 'i' } }, // ID Search
-                { isbn13: { $regex: q, $options: 'i' } },     // ISBN Search
-                { isbn10: { $regex: q, $options: 'i' } }
-            ]
-        })
-        .select('title price bagchee_id isbn13 default_image inr_price real_price isbn10') // Sirf zaruri data bhejo
-        .limit(10); // Sirf top 10 results taaki dropdown fast rahe
-
+        const products = await prisma.product.findMany({
+            where: { OR: [{ title: { contains: q, mode: 'insensitive' } }, { bagcheeId: { contains: q, mode: 'insensitive' } }, { isbn13: { contains: q, mode: 'insensitive' } }, { isbn10: { contains: q, mode: 'insensitive' } }] },
+            select: { id: true, title: true, price: true, bagcheeId: true, isbn13: true, defaultImage: true },
+            take: 10
+        });
         res.status(200).json({ status: true, data: products });
-
     } catch (error) {
-        console.error("Search Inventory Error:", error);
-        res.status(500).json({ status: false, msg: "Server Error" });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// ... existing imports ...
-
-// ==========================================
-// 🟢 7. FETCH FOR HOME (Frontend API)
-// ==========================================
 export const fetchForHome = async (req, res) => {
     try {
-        // Frontend sends page & limit
         let { page, limit } = req.query;
-
         page = Number(page) || 1;
-        limit = Number(limit) || 6; // Default 6 for slider
+        limit = Number(limit) || 6;
         const skip = (page - 1) * limit;
-
-        // Fetch Active Sale Items
-        const items = await HomeSaleProductModel.find({ isActive: true })
-            .sort({ order: 1 }) // Sort by Admin Order
-            .skip(skip)
-            .limit(limit)
-            .populate({
-                path: 'product',
-                select: 'title author price inr_price real_price producticonname default_image discount oldPrice isbn13 bagchee_id',
-                populate: { path: 'author', select: 'name first_name last_name' } 
-            });
-
-        // Filter out null products (deleted ones)
-        const validItems = items.filter(item => item.product != null);
-        
-        // Total count for pagination
-        const total = await HomeSaleProductModel.countDocuments({ isActive: true });
-
-        res.status(200).json({ 
-            status: true, 
-            data: validItems,
-            total,
-            page,
-            limit
-        });
-
+        const [items, total] = await Promise.all([
+            prisma.homeSaleProduct.findMany({ where: { active: true }, orderBy: { order: 'asc' }, skip, take: limit }),
+            prisma.homeSaleProduct.count({ where: { active: true } })
+        ]);
+        const productIds = items.map(i => i.productId);
+        const products = productIds.length > 0
+            ? await prisma.product.findMany({ where: { id: { in: productIds }, isActive: true }, select: { id: true, title: true, price: true, inrPrice: true, realPrice: true, discount: true, defaultImage: true, isbn13: true, bagcheeId: true, authors: { select: { author: { select: { id: true, firstName: true, lastName: true, fullName: true } } } } } })
+            : [];
+        const productMap = Object.fromEntries(products.map(p => [p.id, p]));
+        const validItems = items.filter(i => productMap[i.productId]).map(i => ({ ...i, product: productMap[i.productId] }));
+        res.status(200).json({ status: true, data: validItems, total, page, limit });
     } catch (error) {
-        console.error("Home Sale Fetch Error:", error);
-        res.status(500).json({ status: false, msg: "Server Error", error: error.message });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };

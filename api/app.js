@@ -1,13 +1,20 @@
+import 'dotenv/config'; // Must be first — loads .env before any other module reads process.env
+
+// Fail fast — crash at startup if critical env vars are missing
+const REQUIRED_ENV = ['JWT_SECRET_KEY', 'ENCRYPTION_SECRET', 'DATABASE_URL'];
+const missingEnv = REQUIRED_ENV.filter(k => !process.env[k]);
+if (missingEnv.length) {
+    throw new Error(`Missing required environment variables: ${missingEnv.join(', ')}`);
+}
+
 import express from 'express';
-import helmet from 'helmet'; // 🟢 1. Security Headers ke liye
-import rateLimit from 'express-rate-limit'; // 🟢 2. Bot Protection ke liye
+import compression from 'compression';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import fileupload from 'express-fileupload';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import connectDB from './models/connection.js';
-
 // 🟢 FIX 1: Decrypt Body Import karein (Check karein file path sahi ho)
 import { decryptBody } from './middleware/decryptBody.js'
 
@@ -58,19 +65,21 @@ import sideBannerOneRoutes from './routes/sideBannerOneRoutes.js';
 import socialRoutes from './routes/socialRoutes.js'
 import sideBannerTwoRoutes from './routes/sideBannerTwoRoutes.js'
 import footerRoutes from './routes/footerRoutes.js';
+import razorpayRoutes from './routes/razorpay.routes.js';
 
 
 
 const app = express();
 
+// Trust proxy — required for Railway/Vercel (reverse proxy) so rate limiting works correctly
+app.set('trust proxy', 1);
 
-
-// 🟢 Global Limiter: Pure website ke liye
+// Global Limiter
 // Ek IP se 15 minute mein maximum 200 requests
 const globalLimiter = rateLimit({
-    windowMs: 1 * 60 * 1000, // 15 minutes
-    max: 1000, 
-    message: { status: false, msg: "Too many requests, please try again after 5 min." },
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: process.env.NODE_ENV === 'production' ? 200 : 2000,
+    message: { status: false, msg: "Too many requests, please try again later." },
     standardHeaders: true, 
     legacyHeaders: false,
 });
@@ -79,14 +88,13 @@ const globalLimiter = rateLimit({
 // Ek IP se 1 ghante mein sirf 10 attempts (Brute force protection)
 const authLimiter = rateLimit({
     windowMs: 60 * 60 * 1000, // 1 hour
-    max: 500,                    //NOTE: isko bad me 10 krna h testing ke liye badayi h 
+    max: 10,
     message: { status: false, msg: "Too many login attempts. Try again after an hour." }
 });
 
 
 
-dotenv.config();
-connectDB(); // DB Connection
+// Prisma connects lazily on first query — no explicit connectDB() call needed.
 
 const PORT = process.env.PORT || 3001;
 
@@ -94,21 +102,24 @@ const PORT = process.env.PORT || 3001;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // 1. Middlewares
+app.use(compression());
 app.use(helmet({
-    crossOriginResourcePolicy: false,        // NOTE: bad me change krna h dono ko 
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
     crossOriginEmbedderPolicy: false,
-})); // 🟢 Helmet sabse pehle (Security Headers set karega)
+}));
 app.use(globalLimiter);// 1. Middlewares
 
 
 app.use(cors({
-    origin: "http://localhost:3000",
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    credentials: true
+    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    maxAge: 86400, // Pre-flight cache for 24h
 }));
-app.use(express.json({ limit: '50mb' }));
-app.use(decryptBody);
+app.use(express.json({ limit: '100kb' })); // 100kb — encrypted payloads are ~33% larger than plaintext
 app.use(express.urlencoded({ extended: true }));
+app.use(decryptBody);
 
 app.use(fileupload({
     createParentPath: true,
@@ -122,19 +133,22 @@ app.use(fileupload({
 
 
 const cacheOptions = {
-    maxAge: '7d',          // 1. Browser 7 din tak server se nahi puchega
-    etag: true,            // 2. File ki unique ID (Validation ke liye)
-    lastModified: true,    // 3. File kab badli thi uski date
-    setHeaders: (res, path) => {
-        res.setHeader('Cache-Control', 'public, no-cache'); // Dev ke waqt useful
+    maxAge: process.env.NODE_ENV === 'production' ? '7d' : 0,
+    etag: true,
+    lastModified: true,
+    setHeaders: (res, filePath) => {
+        if (process.env.NODE_ENV === 'production') {
+            res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
+        } else {
+            res.setHeader('Cache-Control', 'no-cache');
+        }
     }
 };
 
 
-// 2. 🟢 STATIC FOLDER (Images ko Public Access Dene ke liye)
-// Browser me access hoga: http://localhost:3001/uploads/image.jpg
+// Static folder for uploaded images
 app.use('/uploads',(req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', '*'); // Extra safety for images
+    res.setHeader('Access-Control-Allow-Origin', process.env.FRONTEND_URL || 'http://localhost:3000');
     next();
 }, express.static(path.join(__dirname, 'uploads'),cacheOptions));
 
@@ -194,32 +208,28 @@ app.use('/side-banner-one', sideBannerOneRoutes);
 app.use('/socials', socialRoutes);
 app.use('/side-banner-two', sideBannerTwoRoutes);
 app.use('/footer', footerRoutes);
+app.use('/razorpay', razorpayRoutes);
 
-// Step 1: Frontend ke 'dist' folder ka path set karein
-// NOTE: Agar aapka folder name 'build' hai to 'dist' ki jagah 'build' likhein.
-// Hum maan rahe hain: Root -> backend -> server.js & frontend -> dist
-// const frontendBuildPath = path.join(__dirname, "../ui/build");
+// Global 404 handler — must be after all routes
+app.use((req, res) => {
+    res.status(404).json({ status: false, msg: 'Route not found' });
+});
 
-// Step 2: Backend ko bole ki static files (CSS/JS) yahan se le
-// app.use(express.static(frontendBuildPath));
-
-// Step 3: Koi bhi aisa route jo upar API mein match nahi hua, 
-// uske liye React ka index.html bhejein (React Router fix)
-// app.get("*", (req, res) => {
-//     res.sendFile(path.join(frontendBuildPath, "index.html"));
-// });
+// Global error handler — catches unhandled errors from any route
+app.use((err, req, res, next) => {
+    const statusCode = err.statusCode || 500;
+    const message = process.env.NODE_ENV === 'production'
+        ? 'Internal Server Error'
+        : err.message;
+    if (process.env.NODE_ENV !== 'production') {
+        console.error('Unhandled Error:', err);
+    }
+    res.status(statusCode).json({ status: false, msg: message });
+});
 
 // Server Listen
-// app.listen(PORT, () => {
-//     console.log(`Server invoked at http://localhost:${PORT}`);
-// });
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT} [${process.env.NODE_ENV || 'development'}]`);
+});
 
-// Server Listen (for local development)
-if (process.env.NODE_ENV !== 'production') {
-    app.listen(PORT, () => {
-        console.log(`Server invoked at http://localhost:${PORT}`);
-    });
-}
-
-// Export for Vercel
 export default app;

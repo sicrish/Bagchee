@@ -1,4 +1,5 @@
-import React,{ lazy, Suspense } from 'react';
+import React, { lazy, Suspense } from 'react';
+import ErrorBoundary from './components/common/ErrorBoundary.jsx';
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
@@ -16,7 +17,7 @@ import { CartProvider } from './context/CartContext.jsx';
 // 1. Layouts
 import WebsiteLayout from './layouts/WebsiteLayout.jsx';
 import AdminLayout from './layouts/AdminLayout.jsx';
-import HelpDetail from './pages/website/HelpDetail';
+const HelpDetail = lazy(() => import('./pages/website/HelpDetail'));
 
 // Isse poori app mein data caching enable ho jayegi
 const queryClient = new QueryClient({
@@ -43,6 +44,8 @@ const UserDashboard = lazy(() => import('./pages/website/UserDashboard.jsx'));
 const AllCategories = lazy(() => import('./pages/website/Categories.jsx'));
 // import AllCategories from './pages/website/Categories.jsx';
 
+const AllSubcategories = lazy(() => import('./pages/website/AllSubcategories.jsx'));
+
 const ProductListing = lazy(() => import('./pages/website/ProductListing.jsx'));
 // import ProductListing from './pages/website/ProductListing.jsx';
 
@@ -56,6 +59,8 @@ const Checkout = lazy(() => import('./pages/website/Checkout.jsx'));
 // import Checkout from './pages/website/Checkout.jsx';
 
 // Company Pages
+
+const AuthorDetail = lazy(() => import('./pages/website/AuthorDetail.jsx'));
 
 // import AboutUs from './pages/website/AboutUs.jsx';
 const AboutUs = lazy(() => import('./pages/website/AboutUs.jsx'));
@@ -133,6 +138,8 @@ const ContactUs = lazy(() => import('./pages/website/ContactUs.jsx'));
 
 
 const TraceOrder = lazy(() => import('./pages/website/TraceOrder.jsx'));
+const NotFound = lazy(() => import('./pages/website/NotFound.jsx'));
+const UnderMaintenance = lazy(() => import('./pages/website/UnderMaintenance.jsx'));
 
 
 
@@ -578,6 +585,7 @@ function App() {
         <BrowserRouter>
           <ScrollToHashHandler /> {/* 🟢 Hash scroll handler */}
           <Toaster position="top-center" reverseOrder={false} />
+          <ErrorBoundary>
           <Suspense fallback={
             <div className="flex items-center justify-center h-screen bg-cream-50 text-primary font-bold">
                Loading Bagchee Store...
@@ -590,6 +598,7 @@ function App() {
               <Route index element={<Home />} />
               <Route path="membership" element={<Membership />} />
               <Route path="allcategories" element={<AllCategories />} />
+              <Route path="allsubcategories/:slug" element={<AllSubcategories />} />
 
               <Route path="books-of-the-month" element={<BooksOfMonthPage />} />
               {/* 1. New Arrivals */}
@@ -604,6 +613,9 @@ function App() {
               {/* 4. Sale Page */}
               <Route path="sale" element={<ProductListing type="sale" />} />
 
+              {/* Search results page */}
+              <Route path="books" element={<ProductListing type="search" />} />
+
               <Route path="books/:bagcheeId/:slug" element={<BookDetail />} />
 
               {/* 5. Dynamic Category Page (Jese: /category/history) */}
@@ -613,19 +625,21 @@ function App() {
               <Route path="cart" element={<Cart />} />
               <Route path="checkout" element={<Checkout />} />
 
-              {/* User Account Routes */}
-              <Route path="account" element={<UserDashboard />} />
-              <Route path="account/profile" element={<Profile />} />
-              <Route path="account/address" element={<Address />} />
-              <Route path="account/orders" element={<Orders />} />
-              <Route path="account/wishlist" element={<Wishlist />} />
+              {/* User Account Routes — require login */}
+              <Route element={<ProtectedRoute requireAuth />}>
+                <Route path="account" element={<UserDashboard />} />
+                <Route path="account/profile" element={<Profile />} />
+                <Route path="account/address" element={<Address />} />
+                <Route path="account/orders" element={<Orders />} />
+                <Route path="account/wishlist" element={<Wishlist />} />
+              </Route>
 
               {/* Company Pages */}
               <Route path="useful-links" element={<UsefulLinksPage />} />
               <Route path="about-us" element={<AboutUs />} />
               <Route path="testimonials" element={<Testimonials />} />
               <Route path="publishers-authors" element={<PublishersAuthors />} />
-              {/* <Route path="author/:slug" element={<AuthorDetail />} /> */}
+              <Route path="author/:slug" element={<AuthorDetail />} />
               <Route path="career-opportunities" element={<CareerOpportunities />} />
               <Route path="privacy-policy" element={<PrivacyPolicy />} />
               <Route path="terms-conditions" element={<TermsConditions />} />
@@ -660,7 +674,9 @@ function App() {
               {/* <Route path="shipping-info" element={<ShippingInfo />} />
               <Route path="returns-refunds" element={<ReturnsRefunds />} /> */}
               <Route path="contact-us" element={<ContactUs />} />
-              
+              <Route path="forgot-password" element={<UnderMaintenance />} />
+              <Route path="disclaimer" element={<UnderMaintenance />} />
+
             </Route>
 
             {/* --- SECTION 2: AUTH --- */}
@@ -866,10 +882,11 @@ function App() {
             </Route>
 
             {/* Global Fallback */}
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<NotFound />} />
 
           </Routes>
           </Suspense>
+          </ErrorBoundary>
         </BrowserRouter>
       </CartProvider>
     </CurrencyProvider>

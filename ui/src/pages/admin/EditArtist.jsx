@@ -37,8 +37,8 @@ const EditArtist = () => {
         if (res.data.status) {
           const data = res.data.data;
           setFormData({
-            first_name: data.first_name || '',
-            last_name: data.last_name || '',
+            first_name: data.firstName || '',
+            last_name: data.lastName || '',
             role: data.role || '',
             origin: data.origin || '',
           });

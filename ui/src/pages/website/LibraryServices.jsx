@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "../../utils/axiosConfig";
 import toast from "react-hot-toast";
+import { createSafeHtml } from '../../utils/sanitize';
 import { ChevronRight, Sparkles, BookOpen, Globe, ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom"; // Import useNavigate
 import LibraryHeroImg from "../../assets/images/website/services/library-hero.png";
@@ -36,7 +37,7 @@ const LibraryServices = () => {
     if (activeService) {
       // Yahan aap apne route ke hisaab se URL set karein
       // Example: /service-details/12345
-      navigate(`/service-details/${activeService._id}`); 
+      navigate(`/service-details/${activeService.id}`); 
     }
   };
 
@@ -94,7 +95,7 @@ const LibraryServices = () => {
           <div className="flex justify-center overflow-x-auto scrollbar-hide">
             {services.map((service, index) => (
               <button
-                key={service._id}
+                key={service.id}
                 onClick={() => setActiveTab(index)}
                 className={`group relative px-8 py-6 text-xs font-bold uppercase tracking-[0.2em] transition-all whitespace-nowrap
                   ${activeTab === index ? "text-primary" : "text-gray-400 hover:text-gray-700"}`}
@@ -130,7 +131,7 @@ const LibraryServices = () => {
                 {/* Box Description */}
                 <div
                   className="prose prose-lg max-w-none font-body text-gray-600 leading-relaxed mb-8 line-clamp-4"
-                  dangerouslySetInnerHTML={{ __html: activeService.box_description }}
+                  dangerouslySetInnerHTML={createSafeHtml(activeService.box_description)}
                 />
 
                 {/* Explore Button */}

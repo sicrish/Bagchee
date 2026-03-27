@@ -1,15 +1,16 @@
 import express from "express";
 import * as PublisherController from "../controller/publisher.controller.js";
-
+import adminAuth from '../middleware/adminAuth.middleware.js';
 
 const router = express.Router();
 
-// Define Routes
-// Use upload.single('image') if you are uploading files
-router.post("/save", PublisherController.savePublisher);
-router.get("/list", PublisherController.getAllPublishers);
+// PUBLIC — publisher data used in website
+router.get("/list",    PublisherController.getAllPublishers);
 router.get("/get/:id", PublisherController.getPublisherById);
-router.patch("/update/:id", PublisherController.updatePublisher);
-router.delete("/delete/:id", PublisherController.deletePublisher);
+
+// ADMIN — mutations
+router.post("/save",         adminAuth, PublisherController.savePublisher);
+router.patch("/update/:id",  adminAuth, PublisherController.updatePublisher);
+router.delete("/delete/:id", adminAuth, PublisherController.deletePublisher);
 
 export default router;

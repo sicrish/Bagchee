@@ -1,17 +1,18 @@
 import express from 'express';
 import * as HomeBestSellerController from '../controller/HomeBestSeller.controller.js';
+import adminAuth from '../middleware/adminAuth.middleware.js';
 
 const router = express.Router();
 
-router.post('/save', HomeBestSellerController.save);
-router.get('/list', HomeBestSellerController.list);
-router.delete('/delete/:id', HomeBestSellerController.remove);
-
-// 🟢 4. EDIT KE LIYE (Ye missing tha - Zaroori hai)
-router.get('/get/:id', HomeBestSellerController.getOne);
-router.patch('/update/:id', HomeBestSellerController.update);
-router.get('/search-inventory', HomeBestSellerController.searchMainInventory);
-// 🟢 Frontend Route
+// PUBLIC — homepage display
 router.get('/frontend-list', HomeBestSellerController.fetchForHome);
+
+// ADMIN — management
+router.get('/list',             adminAuth, HomeBestSellerController.list);
+router.get('/get/:id',          adminAuth, HomeBestSellerController.getOne);
+router.get('/search-inventory', adminAuth, HomeBestSellerController.searchMainInventory);
+router.post('/save',            adminAuth, HomeBestSellerController.save);
+router.patch('/update/:id',     adminAuth, HomeBestSellerController.update);
+router.delete('/delete/:id',    adminAuth, HomeBestSellerController.remove);
 
 export default router;

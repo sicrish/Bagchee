@@ -1,10 +1,9 @@
 import CryptoJS from 'crypto-js';
-import dotenv from 'dotenv';
 
-dotenv.config();
-
-// 🗝️ Secret Key ko .env se uthayein (Best Practice)
-const SECRET_KEY = process.env.ENCRYPTION_SECRET||"Bagchee_secret_data_key_2026";
+if (!process.env.ENCRYPTION_SECRET) {
+    throw new Error('ENCRYPTION_SECRET env var is required but not set');
+}
+const SECRET_KEY = process.env.ENCRYPTION_SECRET;
 
 // Function: Encrypted Payload se asli data nikalne ke liye
 export const decryptPayload = (payload) => {
@@ -16,7 +15,6 @@ export const decryptPayload = (payload) => {
         
         return JSON.parse(decryptedData);
     } catch (error) {
-        console.error("Decryption failed:", error.message);
         return null;
     }
 };

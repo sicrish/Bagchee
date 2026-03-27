@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import AccountLayout from '../../../layouts/AccountLayout';
 import { useCart } from '../../../context/CartContext';
 import { useQuery } from '@tanstack/react-query'; // 🟢 React Query
+import { getProductImageUrl } from '../../../utils/imageUrl.js';
 
 const Wishlist = () => {
     const { wishlist, toggleWishlist, cart, addToCart, updateQuantity } = useCart();
@@ -18,12 +19,12 @@ const Wishlist = () => {
     // 🟢 1. FETCH PRODUCT DETAILS FOR WISHLIST ITEMS
     // Hum useQuery ka use karke poore wishlist data ko ek saath manage karenge
     const { data: productsData = {}, isLoading: loading } = useQuery({
-        queryKey: ['wishlist-details', wishlist.map(item => item._id)], // Depend on wishlist IDs
+        queryKey: ['wishlist-details', wishlist.map(item => item.id)], // Depend on wishlist IDs
         queryFn: async () => {
             const productDetails = {};
             // Wishlist ke har item ke liye detail fetch karenge
             const detailPromises = wishlist.map(async (product) => {
-                const productId = product.bagchee_id || product._id;
+                const productId = product.bagcheeId || product.id;
                 try {
                     let response;
                     // Aapka purana fallback logic
@@ -39,10 +40,10 @@ const Wishlist = () => {
 
                     if (response.data.status && response.data.data) {
                         const bookData = Array.isArray(response.data.data) ? response.data.data[0] : response.data.data;
-                        productDetails[product._id] = bookData;
+                        productDetails[product.id] = bookData;
                     }
                 } catch (error) {
-                    console.error(`Error fetching product ${product._id}:`, error);
+                    console.error(`Error fetching product ${product.id}:`, error);
                 }
             });
 
@@ -56,7 +57,7 @@ const Wishlist = () => {
     const handleRemove = async (productId) => {
         try {
             setRemoving(productId);
-            const product = wishlist.find(item => item._id === productId);
+            const product = wishlist.find(item => item.id === productId);
             if (product) {
                 toggleWishlist(product);
                 toast.success('Removed from wishlist');
@@ -69,21 +70,10 @@ const Wishlist = () => {
         }
     };
 
-    const getImageUrl = (product) => {
-        if (product?.default_image) {
-            return product.default_image;
-        }
-        if (product?.images && product.images.length > 0) {
-            const image = product.images[0];
-            return image.startsWith('http') ? image : `${API_BASE_URL}${image}`;
-        }
-        return 'https://via.placeholder.com/300x400?text=No+Image';
-    };
-
     const getAuthorName = (author) => {
         if (!author) return 'Unknown Author';
         if (typeof author === 'object') {
-            return `${author.first_name || ''} ${author.last_name || ''}`.trim() || 'Unknown Author';
+            return `${author.firstName || author.first_name || ''} ${author.lastName || author.last_name || ''}`.trim() || 'Unknown Author';
         }
         return author;
     };
@@ -148,10 +138,10 @@ const Wishlist = () => {
             /* Wishlist List View */
             <div className="flex flex-col gap-4">
               {wishlist.map((product) => {
-                const fullProduct = productsData[product._id] || product;
+                const fullProduct = productsData[product.id] || product;
 
                 const price = fullProduct.price || 0;
-                const realPrice = fullProduct.real_price || fullProduct.price || 0;
+                const realPrice = fullProduct.realPrice || fullProduct.real_price || fullProduct.price || 0;
                 const hasDiscount = realPrice > price;
                 const discount = hasDiscount ? Math.round(((realPrice - price) / realPrice) * 100) : 0;
                 const rating = fullProduct.rating || 0;
@@ -159,11 +149,11 @@ const Wishlist = () => {
                 const availability = fullProduct.availability || fullProduct.stock || 0;
 
                 const slug = createSlug(fullProduct.title);
-                const productUrl = `/books/${fullProduct.bagchee_id || fullProduct._id}/${slug}`;
+                const productUrl = `/books/${fullProduct.bagcheeId || fullProduct.id}/${slug}`;
 
                 return (
                   <div
-                    key={product._id}
+                    key={product.id}
                     className="bg-cream-100 rounded-xl border border-gray-200 hover:shadow-xl transition-all duration-300 p-4 sm:p-5 flex flex-col sm:flex-row gap-5 relative group"
                   >
                     {/* Image Section */}
@@ -173,7 +163,7 @@ const Wishlist = () => {
                     >
                       <div className="aspect-[3/4] relative w-32 sm:w-full max-w-[130px] mx-auto">
                         <img
-                          src={getImageUrl(fullProduct)}
+                          src={getProductImageUrl(fullProduct)}
                           alt={fullProduct.title}
                           className="w-full h-full object-contain mix-blend-multiply drop-shadow-sm transition-transform duration-300 group-hover:scale-105"
                           onError={(e) => { e.target.src = "https://via.placeholder.com/300x400?text=No+Image"; }}
@@ -236,12 +226,12 @@ const Wishlist = () => {
                         </div>
 
                         <button
-                          onClick={() => handleRemove(product._id)}
-                          disabled={removing === product._id}
+                          onClick={() => handleRemove(product.id)}
+                          disabled={removing === product.id}
                           className="hidden sm:flex items-center justify-center w-10 h-10 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-all flex-shrink-0"
                           title="Remove from wishlist"
                         >
-                          {removing === product._id ? <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div> : <Trash2 size={20} />}
+                          {removing === product.id ? <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div> : <Trash2 size={20} />}
                         </button>
                       </div>
 
@@ -267,15 +257,15 @@ const Wishlist = () => {
                         <div className="w-full sm:w-auto flex items-center gap-3">
                           <div className="sm:w-48 w-full">
                             {(() => {
-                              const cartItem = cart.find(item => item._id === fullProduct._id);
+                              const cartItem = cart.find(item => item.id === fullProduct.id);
                               const qty = cartItem ? cartItem.quantity : 0;
                               const outOfStock = (fullProduct.stock <= 0);
                               if (qty > 0) {
                                 return (
                                   <div className="flex items-center bg-primary text-white rounded-md overflow-hidden shadow-sm w-full justify-center">
-                                    <button onClick={() => updateQuantity(fullProduct._id, 'dec')} className="px-3 py-2 hover:bg-primary-dark transition-colors flex items-center justify-center"><Minus size={16} /></button>
+                                    <button onClick={() => updateQuantity(fullProduct.id, 'dec')} className="px-3 py-2 hover:bg-primary-dark transition-colors flex items-center justify-center"><Minus size={16} /></button>
                                     <span className="px-2 font-bold min-w-[20px] text-center text-sm">{qty}</span>
-                                    <button onClick={() => updateQuantity(fullProduct._id, 'inc')} disabled={qty >= (fullProduct.stock || 10)} className="px-3 py-2 hover:bg-primary-dark transition-colors flex items-center justify-center disabled:opacity-50"><Plus size={16} /></button>
+                                    <button onClick={() => updateQuantity(fullProduct.id, 'inc')} disabled={qty >= (fullProduct.stock || 10)} className="px-3 py-2 hover:bg-primary-dark transition-colors flex items-center justify-center disabled:opacity-50"><Plus size={16} /></button>
                                   </div>
                                 );
                               }
@@ -283,7 +273,7 @@ const Wishlist = () => {
                                 <button
                                   onClick={() => {
                                     if (outOfStock) { toast.error("Product is out of stock"); return; }
-                                    addToCart({ ...fullProduct, bagcheeId: fullProduct.bagchee_id || fullProduct._id, slug });
+                                    addToCart({ ...fullProduct, bagcheeId: fullProduct.bagcheeId || fullProduct.id, slug });
                                     toast.success("Added to Cart");
                                   }}
                                   disabled={outOfStock}
@@ -295,8 +285,8 @@ const Wishlist = () => {
                               );
                             })()}
                           </div>
-                          <button onClick={() => handleRemove(product._id)} disabled={removing === product._id} className="sm:hidden flex items-center justify-center w-12 h-12 border border-gray-200 text-gray-500 rounded-lg transition-colors">
-                            {removing === product._id ? <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div> : <Trash2 size={20} />}
+                          <button onClick={() => handleRemove(product.id)} disabled={removing === product.id} className="sm:hidden flex items-center justify-center w-12 h-12 border border-gray-200 text-gray-500 rounded-lg transition-colors">
+                            {removing === product.id ? <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div> : <Trash2 size={20} />}
                           </button>
                         </div>
                       </div>

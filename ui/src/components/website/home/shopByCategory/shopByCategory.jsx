@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, memo } from 'react';
 import axios from 'axios';
 import { ChevronLeft, ChevronRight, ArrowRight, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { getImageUrl } from '../../../../utils/imageUrl.js';
 
 // 🟢 Skeleton Component: Keeps layout stable during transitions
 const CategorySkeleton = () => (
@@ -20,19 +21,6 @@ const ShopByCategory = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const itemsPerPage = 6; 
-
-  // 🛠️ Image Logic (Memoized to prevent jitter during re-renders)
-  const getImageUrl = useCallback((cat) => {
-    const imgRaw = cat.categoryiconname;
-    if (!imgRaw) return "https://placehold.co/300x300?text=No+Img";
-    
-    const API_BASE = process.env.REACT_APP_API_URL?.replace('/api', '') || "http://localhost:5000";
-    let url = imgRaw.startsWith('http') ? imgRaw : `${API_BASE}${imgRaw.startsWith('/') ? '' : '/'}${imgRaw}`;
-    
-    // Efficient Cache busting using DB updatedAt timestamp
-    const version = cat.updatedAt ? new Date(cat.updatedAt).getTime() : new Date().getTime();
-    return `${url}?v=${version}`;
-  }, []);
 
   // 🟢 FETCH FUNCTION
   const fetchData = useCallback(async (showLoading = true) => {
@@ -98,7 +86,7 @@ const ShopByCategory = () => {
               Shop by Category
             </h2>
           </div>
-          <Link to="/categories" className="hidden md:flex items-center gap-2 text-sm text-text-muted hover:text-primary transition-colors font-montserrat font-semibold">
+          <Link to="/allcategories" className="hidden md:flex items-center gap-2 text-sm text-text-muted hover:text-primary transition-colors font-montserrat font-semibold">
             View All Categories <ArrowRight size={16} />
           </Link>
         </div>
@@ -123,22 +111,27 @@ const ShopByCategory = () => {
                 Array(itemsPerPage).fill(0).map((_, i) => <CategorySkeleton key={i} />)
             ) : (
                 categories.map((cat) => (
-                    <div key={cat._id} className="group cursor-pointer flex flex-col items-center text-center">
-                        <Link to={`/category/${cat.slug}`} className="contents">
+                    <div key={cat.id} className="group cursor-pointer flex flex-col items-center text-center">
+                        <Link to={`/books/${cat.slug}`} className="contents">
                             {/* Circle Container with GPU Acceleration */}
-                            <div className="relative w-28 h-28 md:w-32 md:h-32 lg:w-40 lg:h-40 rounded-full overflow-hidden border-4 border-cream-200 shadow-sm group-hover:border-secondary group-hover:shadow-2xl transition-all duration-500 transform group-hover:scale-105" style={{ willChange: 'transform, border-color' }}>
-                                <img 
-                                    src={getImageUrl(cat)} 
-                                    alt={cat.categorytitle} 
-                                    loading="lazy"
-                                    decoding="async" // 🟢 High performance decoding
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => { e.target.src = "https://placehold.co/300x300?text=Error"; }}
-                                />
+                            <div className="relative w-28 h-28 md:w-32 md:h-32 lg:w-40 lg:h-40 rounded-full overflow-hidden border-4 border-cream-200 shadow-sm group-hover:border-secondary group-hover:shadow-2xl transition-all duration-500 transform group-hover:scale-105 bg-cream-200 flex items-center justify-center" style={{ willChange: 'transform, border-color' }}>
+                                {getImageUrl(cat) ? (
+                                    <img
+                                        src={getImageUrl(cat)}
+                                        alt={cat.title || cat.categorytitle}
+                                        loading="lazy"
+                                        decoding="async"
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => { e.target.style.display='none'; e.target.nextSibling.style.display='flex'; }}
+                                    />
+                                ) : null}
+                                <span className={`${getImageUrl(cat) ? 'hidden' : 'flex'} absolute inset-0 items-center justify-center text-3xl md:text-4xl font-display font-bold text-primary/40 uppercase`}>
+                                    {(cat.title || cat.categorytitle || '?').charAt(0)}
+                                </span>
                                 <div className="absolute inset-0 bg-secondary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                             </div>
                             <h3 className="mt-3 md:mt-4 text-sm md:text-base font-bold text-text-main group-hover:text-primary transition-colors font-display tracking-wide uppercase">
-                                {cat.categorytitle}
+                                {cat.title || cat.categorytitle}
                             </h3>
                         </Link>
                     </div>

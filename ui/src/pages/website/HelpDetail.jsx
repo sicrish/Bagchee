@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ChevronRight, HelpCircle } from 'lucide-react';
 import axiosInstance from "../../utils/axiosConfig";
+import { createSafeHtml } from '../../utils/sanitize';
 
 const HelpDetail = () => {
   const { id } = useParams();
@@ -16,7 +17,7 @@ const HelpDetail = () => {
         const activeData = response.data.data.filter(p => p.status === "active");
         setHelpPages(activeData);
         
-        const current = activeData.find(p => p._id === id);
+        const current = activeData.find(p => p.id === id);
         setActivePage(current);
       } catch (error) {
         console.error("Error:", error);
@@ -53,10 +54,10 @@ const HelpDetail = () => {
             
             {helpPages.map((item) => (
               <Link
-                key={item._id}
-                to={`/help/${item._id}`}
+                key={item.id}
+                to={`/help/${item.id}`}
                 className={`px-5 py-2.5 rounded-full text-xs font-montserrat font-bold uppercase tracking-wider transition-all duration-300 border ${
-                  id === item._id 
+                  id === item.id 
                   ? "bg-primary text-white border-primary shadow-md shadow-primary/20" 
                   : "bg-gray-50 text-text-muted border-gray-200 hover:bg-white hover:border-primary hover:text-primary"
                 }`}
@@ -87,7 +88,7 @@ const HelpDetail = () => {
                 prose-p:text-lg prose-p:mb-6
                 prose-strong:text-primary prose-strong:font-bold
                 prose-ul:list-disc prose-ul:pl-6 prose-li:mb-3"
-              dangerouslySetInnerHTML={{ __html: activePage?.content }}
+              dangerouslySetInnerHTML={createSafeHtml(activePage?.content)}
             />
           </div>
         </main>

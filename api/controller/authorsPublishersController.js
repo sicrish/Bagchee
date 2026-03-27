@@ -1,28 +1,37 @@
-import AuthorsPublishers from '../models/AuthorsPublishers.js';
+import prisma from '../lib/prisma.js';
 
-// 🟢 GET logic
+// Field mapping: content→pageContent, meta_title→metaTitle,
+// meta_description→metaDesc, meta_keywords→metaKeywords.
+
 export const getData = async (req, res) => {
     try {
-        let data = await AuthorsPublishers.findOne();
-        if (!data) {
-            data = await AuthorsPublishers.create({ title: 'Authors & Publishers' });
-        }
+        const data = await prisma.authorsPublishers.findFirst();
+        if (!data) return res.status(404).json({ status: false, msg: 'No record found' });
         res.status(200).json({ status: true, data });
     } catch (error) {
-        res.status(500).json({ status: false, msg: error.message });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
-// 🟢 UPDATE logic (Upsert)
 export const updateData = async (req, res) => {
     try {
-        const updated = await AuthorsPublishers.findOneAndUpdate(
-            {}, 
-            req.body,
-            { upsert: true, new: true, setDefaultsOnInsert: true }
-        );
-        res.status(200).json({ status: true, msg: "Data updated successfully! ✍️", data: updated });
+        const { title, content, pageContent, meta_title, metaTitle, meta_description, metaDesc, meta_keywords, metaKeywords } = req.body;
+        const payload = {
+            title: title || 'Authors & Publishers',
+            pageContent: pageContent || content || '',
+            metaTitle: metaTitle || meta_title || '',
+            metaDesc: metaDesc || meta_description || '',
+            metaKeywords: metaKeywords || meta_keywords || ''
+        };
+        const first = await prisma.authorsPublishers.findFirst();
+        let updated;
+        if (first) {
+            updated = await prisma.authorsPublishers.update({ where: { id: first.id }, data: payload });
+        } else {
+            updated = await prisma.authorsPublishers.create({ data: payload });
+        }
+        res.status(200).json({ status: true, msg: 'Data updated successfully!', data: updated });
     } catch (error) {
-        res.status(500).json({ status: false, msg: error.message });
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };

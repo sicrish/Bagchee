@@ -38,12 +38,12 @@ const EditPayments = () => {
           const data = res.data.data;
           setFormData({
             title: data.title || '',
-            status: data.status || 'active', // Handle boolean/string mapping if needed
-            order: data.order || '',
-            additional_text_status: data.additional_text_status || 'active',
-            image: null 
+            status: data.active ? 'active' : 'inactive',
+            order: data.ord || '',
+            additional_text_status: data.additionalTextActive ? 'active' : 'inactive',
+            image: null
           });
-          setAdditionalText(data.additional_text || '');
+          setAdditionalText(data.additionalText || '');
           
           // Store existing image path/name
           if (data.image) {

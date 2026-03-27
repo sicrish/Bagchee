@@ -84,8 +84,8 @@ const AddReviews = () => {
 
   // 🟢 3. SELECT PRODUCT HANDLER
   const handleSelectProduct = (product) => {
-    setFormData({ ...formData, item_id: product._id }); // Backend ke liye ID
-    setSearchQuery(`${product.bagchee_id} - ${product.title}`); // UI ke liye text
+    setFormData({ ...formData, item_id: product.id }); // Backend ke liye ID
+    setSearchQuery(`${product.bagcheeId} - ${product.title}`); // UI ke liye text
     setIsDropdownOpen(false);
   };
 
@@ -179,7 +179,7 @@ const AddReviews = () => {
                 >
                   <option value="">Select Category</option>
                   {categories.map(cat => (
-                    <option key={cat._id} value={cat._id}>{cat.categorytitle}</option>
+                    <option key={cat.id} value={cat.id}>{cat.title}</option>
                   ))}
                 </select>
               </div>
@@ -212,10 +212,10 @@ const AddReviews = () => {
                 {isDropdownOpen && searchResults.length > 0 && (
                   <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded shadow-lg mt-1 max-h-60 overflow-y-auto z-[100]">
                     {searchResults.map((prod) => (
-                      <div key={prod._id} onClick={() => handleSelectProduct(prod)} className="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-0 flex flex-col">
+                      <div key={prod.id} onClick={() => handleSelectProduct(prod)} className="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-0 flex flex-col">
                         <p className="text-xs font-bold text-gray-800">{prod.title}</p>
                         <div className="text-[10px] text-gray-500 flex gap-x-2">
-                            <span>ID: <strong className="text-primary">{prod.bagchee_id}</strong></span>
+                            <span>ID: <strong className="text-primary">{prod.bagcheeId}</strong></span>
                             {prod.isbn13 && <span>| ISBN: {prod.isbn13}</span>}
                         </div>
                       </div>

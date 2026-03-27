@@ -16,21 +16,13 @@ const AddCategory = () => {
 
   const [formData, setFormData] = useState({
     slug: '',
-    parentsSlug: '',
-    mainModule: '',
-    oldId: '',
     parentId: '',
     categoryTitle: '',
     active: 'inactive',
-    lft: '',
-    rght: '',
-    level: '',
     metaTitle: '',
     metaKeywords: '',
     metaDescription: '',
     productType: '',
-    newsletter: 'no',
-    newsletterCategoryOrder: ''
   });
 
   // 🟢 React Query: Fetch Parent Categories (Fast & Cached)
@@ -99,37 +91,6 @@ const AddCategory = () => {
         const newSlug = value.toLowerCase().replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-');
         updatedData.slug = newSlug;
         if (!prev.metaTitle) updatedData.metaTitle = value;
-
-        if (prev.parentId) {
-          const parent = parentCategories.find(cat => cat._id === prev.parentId);
-          if (parent) {
-            const parentFullRoute = parent.parentslug || parent.parentsSlug;
-            const basePath = (parentFullRoute && parentFullRoute !== 'root-category')
-              ? parentFullRoute
-              : parent.slug;
-            updatedData.parentsSlug = `${basePath}/${newSlug}`;
-          }
-        }
-      }
-
-      if (name === 'parentId') {
-        const selectedParent = parentCategories.find(cat => cat._id === value);
-        if (selectedParent) {
-          updatedData.level = (Number(selectedParent.level) || 0) + 1;
-          const currentSlug = updatedData.slug || prev.slug || '';
-
-          const parentFullRoute = selectedParent.parentslug || selectedParent.parentsSlug;
-          const basePath = (parentFullRoute && parentFullRoute !== 'root-category')
-            ? parentFullRoute
-            : selectedParent.slug;
-
-          updatedData.parentsSlug = currentSlug
-            ? `${basePath}/${currentSlug}`
-            : basePath;
-        } else {
-          updatedData.parentsSlug = 'root-category';
-          updatedData.level = 0;
-        }
       }
       return updatedData;
     });
@@ -143,7 +104,7 @@ const AddCategory = () => {
       return toast.error("Category Title and Slug are required!");
     }
 
-    const toastId = toast.loading("Saving category to Cloudinary...");
+    const toastId = toast.loading("Saving category...");
 
     const data = new FormData();
     Object.keys(formData).forEach(key => {
@@ -162,10 +123,8 @@ const AddCategory = () => {
             navigate('/admin/categories');
           } else {
             setFormData({
-              slug: '', parentsSlug: '', mainModule: '', oldId: '', parentId: '',
-              categoryTitle: '', active: 'inactive', lft: '', rght: '', level: '',
+              slug: '', parentId: '', categoryTitle: '', active: 'inactive',
               metaTitle: '', metaKeywords: '', metaDescription: '', productType: '',
-              newsletter: 'no', newsletterCategoryOrder: ''
             });
             removeImage();
           }
@@ -188,23 +147,15 @@ const AddCategory = () => {
         </div>
 
         <form className="p-6 md:p-10 space-y-6" onSubmit={(e) => e.preventDefault()}>
+          <FormRow label="Category title *">
+            <input type="text" name="categoryTitle" value={formData.categoryTitle} onChange={handleChange} className="theme-input" placeholder="e.g., History & Fiction" />
+          </FormRow>
+
           <FormRow label="Slug *">
             <input type="text" name="slug" value={formData.slug} onChange={handleChange} className="theme-input" placeholder="e.g., book-category-slug" />
           </FormRow>
 
-          <FormRow label="Parents slug">
-            <input type="text" name="parentsSlug" value={formData.parentsSlug} onChange={handleChange} className="theme-input" />
-          </FormRow>
-
-          <FormRow label="Main module">
-            <input type="text" name="mainModule" value={formData.mainModule} onChange={handleChange} className="theme-input" />
-          </FormRow>
-
-          <FormRow label="Old id">
-            <input type="text" name="oldId" value={formData.oldId} onChange={handleChange} className="theme-input" />
-          </FormRow>
-
-          <FormRow label="Parent id">
+          <FormRow label="Parent Category">
             <div className="relative">
               <select
                 name="parentId"
@@ -215,8 +166,8 @@ const AddCategory = () => {
                 <option value="">Select Parent id</option>
                 {parentCategories && parentCategories.length > 0 ? (
                   parentCategories.map((category) => (
-                    <option key={category._id} value={category._id}>
-                      {category.categorytitle || category.categoryTitle || category.title || "Unnamed Category"}
+                    <option key={category.id} value={category.id}>
+                      {category.title || "Unnamed Category"}
                     </option>
                   ))
                 ) : (
@@ -225,10 +176,6 @@ const AddCategory = () => {
               </select>
               <ChevronDown size={14} className="absolute right-3 top-3.5 text-gray-500 pointer-events-none" />
             </div>
-          </FormRow>
-
-          <FormRow label="Category title *">
-            <input type="text" name="categoryTitle" value={formData.categoryTitle} onChange={handleChange} className="theme-input" placeholder="e.g., History & Fiction" />
           </FormRow>
 
           <FormRow label="Active">
@@ -243,18 +190,6 @@ const AddCategory = () => {
                 </label>
               ))}
             </div>
-          </FormRow>
-
-          <FormRow label="Lft">
-            <input type="text" name="lft" value={formData.lft} onChange={handleChange} className="theme-input" />
-          </FormRow>
-
-          <FormRow label="Rght">
-            <input type="text" name="rght" value={formData.rght} onChange={handleChange} className="theme-input" />
-          </FormRow>
-
-          <FormRow label="Level">
-            <input type="text" name="level" value={formData.level} onChange={handleChange} className="theme-input" />
           </FormRow>
 
           <FormRow label="Meta title">
@@ -315,24 +250,6 @@ const AddCategory = () => {
                 </div>
               </div>
             </div>
-          </FormRow>
-
-          <FormRow label="Newsletter category">
-            <div className="flex flex-col gap-3 pt-2">
-              {['yes', 'no'].map((opt) => (
-                <label key={opt} className="flex items-center gap-3 text-sm text-text-main font-medium cursor-pointer group uppercase font-montserrat">
-                  <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${formData.newsletter === opt ? 'border-primary' : 'border-gray-400'}`}>
-                    {formData.newsletter === opt && <div className="w-2 h-2 bg-primary rounded-full"></div>}
-                  </div>
-                  <input type="radio" name="newsletter" value={opt} checked={formData.newsletter === opt} onChange={handleChange} className="hidden" />
-                  <span className="group-hover:text-primary transition-colors">{opt}</span>
-                </label>
-              ))}
-            </div>
-          </FormRow>
-
-          <FormRow label="Newsletter category order">
-            <input type="text" name="newsletterCategoryOrder" value={formData.newsletterCategoryOrder} onChange={handleChange} className="theme-input" />
           </FormRow>
 
           <div className="pt-8 flex flex-wrap justify-center gap-4 border-t border-gray-100 mt-8 font-montserrat">

@@ -67,7 +67,28 @@ const AddCoupons = () => {
 
     const toastId = toast.loading("Saving coupon...");
 
-    saveCouponMutation.mutate(formData, {
+    const parseBoolStr = (val) => val === 'active';
+    const payload = {
+      code: formData.code,
+      title: formData.title,
+      validFrom: formData.valid_from,
+      validTo: formData.valid_to,
+      active: parseBoolStr(formData.active),
+      fixAmount: parseBoolStr(formData.fix_amount),
+      amount: formData.amount,
+      minimumBuy: formData.minimum_buy,
+      priceOverOnly: formData.price_over_only,
+      newCustomerOnly: parseBoolStr(formData.new_customer_only),
+      membersOnly: parseBoolStr(formData.members_only),
+      nextOrderOnly: parseBoolStr(formData.next_order_only),
+      bestsellerOnly: parseBoolStr(formData.bestseller_only),
+      recommendedOnly: parseBoolStr(formData.recommended_only),
+      newArrivalsOnly: parseBoolStr(formData.new_arrivals_only),
+      getThirdFree: parseBoolStr(formData.get_third_free),
+      categories: formData.categories
+    };
+
+    saveCouponMutation.mutate(payload, {
       onSuccess: (resData) => {
         if (resData.status) {
           toast.success("Coupon added successfully! 🎫", { id: toastId });
@@ -217,8 +238,8 @@ const AddCoupons = () => {
                 <select name="categories" value={formData.categories} onChange={handleChange} className="theme-input w-full" disabled={isCategoriesLoading}>
                   <option value="">{isCategoriesLoading ? "Loading Categories..." : "Select Categories"}</option>
                   {categoryList.map((cat) => (
-                    <option key={cat._id} value={cat._id}>
-                      {cat.categorytitle} {/* Show Title, Value is ID */}
+                    <option key={cat.id} value={cat.id}>
+                      {cat.title || cat.categorytitle} {/* Show Title, Value is ID */}
                     </option>
                   ))}
                 </select>

@@ -63,7 +63,7 @@ const ProductListing = ({ type }) => {
             const cleanTitle = title.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]/g, '');
             const cleanSlug = currentSlug.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-            if (cat._id === currentSlug || cleanTitle === cleanSlug || cat.slug === currentSlug) {
+            if (cat.id === currentSlug || cleanTitle === cleanSlug || cat.slug === currentSlug) {
                 return cat;
             }
             if (cat.children && cat.children.length > 0) {
@@ -98,7 +98,7 @@ const ProductListing = ({ type }) => {
                             setPageTitle(foundCat.categorytitle || foundCat.title);
                             // Filter all categories whose parentid matches this category's _id
                             const children = flatCategories.filter(
-                                c => c.parentid && String(c.parentid) === String(foundCat._id)
+                                c => c.parentid && String(c.parentid) === String(foundCat.id)
                             );
                             setSubcategoriesList(children);
                         } else {
@@ -135,9 +135,17 @@ const ProductListing = ({ type }) => {
             setLoading(true);
             try {
                 const query = new URLSearchParams();
+                
+                // Read URL params
+        const params = new URLSearchParams(location.search);
+        const searchKeyword = params.get('keyword') || params.get('search');
+        const tagParam = params.get('tag');
 
                 query.append('page', currentPage);
                 query.append('limit', 36);
+
+                if (searchKeyword) query.append('keyword', searchKeyword);
+                if (tagParam) query.append('tag', tagParam);
 
                 // 🟢 STEP 1: Pehle sidebar ke manually checked IDs lo
                 let categoryIds = [...filters.categories];
@@ -145,8 +153,8 @@ const ProductListing = ({ type }) => {
                 // 🟢 STEP 2: Agar URL mein slug hai, toh flat list se category ID nikaalo
                 if (slug && allCategories.length > 0) {
                     const foundCat = findCategoryObject(allCategories, slug);
-                    if (foundCat && !categoryIds.includes(foundCat._id)) {
-                        categoryIds.push(foundCat._id);
+                    if (foundCat && !categoryIds.includes(foundCat.id)) {
+                        categoryIds.push(foundCat.id);
                     }
                 }
 
@@ -218,7 +226,7 @@ const ProductListing = ({ type }) => {
         if (allCategories.length > 0 || !slug) {
             fetchProducts();
         }
-    }, [filters, type, slug, allCategories, location.pathname, currentPage]);
+    }, [filters, type, slug, allCategories, location.pathname, location.search, currentPage]);
 
 
 
@@ -331,8 +339,8 @@ const ProductListing = ({ type }) => {
                         <div className={viewMode === 'grid' ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5" : "flex flex-col gap-6"}>
                             {products.map(product => (
                                 viewMode === 'grid'
-                                    ? <ProductCardGrid key={product._id} data={product} onQuickView={openQuickView} />
-                                    : <ProductCardList key={product._id} data={product} onQuickView={openQuickView} />
+                                    ? <ProductCardGrid key={product.id} data={product} onQuickView={openQuickView} />
+                                    : <ProductCardList key={product.id} data={product} onQuickView={openQuickView} />
                             ))}
                         </div>
                     ) : (
@@ -441,10 +449,10 @@ const ProductListing = ({ type }) => {
 
 const buildCategoryTree = (categories) => {
     const map = {}; const tree = [];
-    categories.forEach(c => map[c._id] = { ...c, children: [] });
+    categories.forEach(c => map[c.id] = { ...c, children: [] });
     categories.forEach(c => {
-        if (c.parentid && map[c.parentid]) map[c.parentid].children.push(map[c._id]);
-        else tree.push(map[c._id]);
+        if (c.parentid && map[c.parentid]) map[c.parentid].children.push(map[c.id]);
+        else tree.push(map[c.id]);
     });
     return tree;
 };

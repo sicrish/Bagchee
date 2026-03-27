@@ -1,104 +1,118 @@
-import BooksOfMonth from '../models/BooksOfMonth.model.js';
+import prisma from '../lib/prisma.js';
 
-// 🟢 1. Create or Update (Admin side)
+// Old MongoDB: BooksOfMonth.products[] was embedded ObjectId array.
+// Now: BooksOfMonthProduct junction table (booksOfMonthId, productId).
+// BooksOfMonthProduct has a Prisma @relation to Product — include: { product: true } works.
+// isActive, expiryDate fields match Prisma BooksOfMonth schema exactly.
+
 export const saveBooksOfMonth = async (req, res) => {
     try {
         const { id, monthName, headline, products, expiryDate } = req.body;
-
-        // Validation: Ensure products is an array and not empty
         if (!products || products.length === 0) {
-            return res.status(400).json({ status: false, msg: "Please select at least one product" });
+            return res.status(400).json({ status: false, msg: 'Please select at least one product' });
         }
+        const productIds = products.map(p => parseInt(p));
 
         if (id) {
-            // Case 1: Update existing record
-            const updated = await BooksOfMonth.findByIdAndUpdate(
-                id, 
-                { monthName, headline, products, expiryDate, isActive: true }, 
-                { new: true }
-            );
-            return res.json({ status: true, msg: "Updated successfully", data: updated });
-        } else {
-            // Case 2: Create new record
-            // 🟢 Logic: Naya save karne se pehle purane saare records ko deactivate kar do
-            await BooksOfMonth.updateMany({}, { isActive: false });
-
-            const newData = await BooksOfMonth.create({ 
-                monthName, 
-                headline, 
-                products, 
-                expiryDate,
-                isActive: true 
+            // Update: replace junction rows
+            await prisma.booksOfMonthProduct.deleteMany({ where: { booksOfMonthId: parseInt(id) } });
+            const updated = await prisma.booksOfMonth.update({
+                where: { id: parseInt(id) },
+                data: {
+                    monthName,
+                    headline: headline || '',
+                    expiryDate: new Date(expiryDate),
+                    isActive: true,
+                    products: { create: productIds.map(pid => ({ productId: pid })) }
+                }
             });
-            res.json({ status: true, msg: "New Month Selection Saved successfully", data: newData });
+            return res.json({ status: true, msg: 'Updated successfully', data: updated });
+        } else {
+            // Create: deactivate all existing, then create new
+            await prisma.booksOfMonth.updateMany({}, { data: { isActive: false } });
+            const newData = await prisma.booksOfMonth.create({
+                data: {
+                    monthName,
+                    headline: headline || '',
+                    expiryDate: new Date(expiryDate),
+                    isActive: true,
+                    products: { create: productIds.map(pid => ({ productId: pid })) }
+                }
+            });
+            res.json({ status: true, msg: 'New Month Selection Saved successfully', data: newData });
         }
     } catch (error) {
-        res.status(500).json({ status: false, error: error.message });
+        res.status(500).json({ status: false });
     }
 };
 
-// 🟢 2. Fetch for Website (Auto-Expiry Logic)
 export const getActiveBooksOfMonth = async (req, res) => {
     try {
         const today = new Date();
-        
-        // Find the active record where today's date is less than expiryDate
-        const data = await BooksOfMonth.findOne({
-            isActive: true,
-            expiryDate: { $gt: today } // Check: Is today still before expiry?
-        }).populate({
-            path: 'products',
-            // Sirf wahi products dikhao jo isActive: true hain
-            match: { isActive: true },
-            populate: { path: 'author', select: 'first_name last_name inr_price isbn13 isbn10' }
+        const data = await prisma.booksOfMonth.findFirst({
+            where: { isActive: true, expiryDate: { gt: today } },
+            include: {
+                products: {
+                    include: {
+                        product: {
+                            select: { id: true, title: true, price: true, inrPrice: true, realPrice: true, discount: true, defaultImage: true, bagcheeId: true, isbn13: true, isActive: true }
+                        }
+                    }
+                }
+            }
         });
-
         if (!data || data.products.length === 0) {
-            return res.json({ status: false, msg: "Selection has expired or no products available" });
+            return res.json({ status: false, msg: 'Selection has expired or no products available' });
         }
-        
-        res.json({ status: true, data });
+        // Filter out deleted/inactive products
+        const validProducts = data.products.filter(p => p.product && p.product.isActive);
+        if (validProducts.length === 0) {
+            return res.json({ status: false, msg: 'No active products in this selection' });
+        }
+        res.json({ status: true, data: { ...data, products: validProducts } });
     } catch (error) {
-        res.status(500).json({ status: false, error: error.message });
+        res.status(500).json({ status: false });
     }
 };
 
-// 🟢 3. Admin History List (All records with full details)
 export const getAllBooksOfMonthHistory = async (req, res) => {
     try {
-        // Admin ke liye hum products bhi populate karenge taaki table mein dikh sake
-        const history = await BooksOfMonth.find()
-            .populate('products', 'title price bagchee_id')
-            .sort({ createdAt: -1 });
-            
+        const history = await prisma.booksOfMonth.findMany({
+            orderBy: { createdAt: 'desc' },
+            include: {
+                products: {
+                    include: {
+                        product: { select: { id: true, title: true, price: true, bagcheeId: true } }
+                    }
+                }
+            }
+        });
         res.json({ status: true, data: history });
     } catch (error) {
-        res.status(500).json({ status: false, error: error.message });
+        res.status(500).json({ status: false });
     }
 };
 
-// 🟢 4. Delete (Admin side)
 export const deleteBooksOfMonth = async (req, res) => {
     try {
-        const id = req.params.id;
-        const result = await BooksOfMonth.findByIdAndDelete(id);
-        
-        if (!result) return res.status(404).json({ status: false, msg: "Record not found" });
-        
-        res.json({ status: true, msg: "Selection deleted successfully" });
+        const id = parseInt(req.params.id);
+        // Junction rows deleted automatically via onDelete: Cascade
+        await prisma.booksOfMonth.delete({ where: { id } });
+        res.json({ status: true, msg: 'Selection deleted successfully' });
     } catch (error) {
-        res.status(500).json({ status: false, error: error.message });
+        if (error.code === 'P2025') return res.status(404).json({ status: false, msg: 'Record not found' });
+        res.status(500).json({ status: false });
     }
 };
 
-// 🟢 5. Toggle Status Manual (Optional - Use for quick activate/deactivate)
 export const toggleBooksOfMonthStatus = async (req, res) => {
     try {
-        const data = await BooksOfMonth.findById(req.params.id);
-        data.isActive = !data.isActive;
-        await data.save();
-        res.json({ status: true, msg: `Status updated to ${data.isActive ? 'Active' : 'Inactive'}` });
+        const id = parseInt(req.params.id);
+        const data = await prisma.booksOfMonth.findUnique({ where: { id } });
+        if (!data) return res.status(404).json({ status: false, msg: 'Not found' });
+        const updated = await prisma.booksOfMonth.update({ where: { id }, data: { isActive: !data.isActive } });
+        res.json({ status: true, msg: `Status updated to ${updated.isActive ? 'Active' : 'Inactive'}` });
     } catch (error) {
-        res.status(500).json({ status: false, error: error.message });
+        res.status(500).json({ status: false });
     }
 };

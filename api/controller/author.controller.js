@@ -1,146 +1,106 @@
-import Author from "../models/Author.js";
+import prisma from '../lib/prisma.js';
 import { saveFileLocal, deleteFileLocal } from '../utils/fileHandler.js';
 
-// ==========================================
-// 🟢 1. CREATE (SAVE AUTHOR)
-// ==========================================
+// Field mapping: first_name→firstName, last_name→lastName.
+// Added: fullName (computed from firstName+lastName) — used for search index in Prisma schema.
+
 export const saveAuthor = async (req, res) => {
-  try {
-    const { first_name, last_name, origin, profile } = req.body;
-
-    if (!first_name || first_name.trim() === "") {
-      return res.status(400).json({ status: false, msg: "First Name is required." });
+    try {
+        const { first_name, last_name, origin, profile } = req.body;
+        if (!first_name || first_name.trim() === '') return res.status(400).json({ status: false, msg: 'First Name is required.' });
+        let picturePath = null;
+        if (req.files && (req.files.picture || req.files.image)) {
+            try { picturePath = await saveFileLocal(req.files.picture || req.files.image, 'authors'); }
+            catch (uploadError) { return res.status(400).json({ status: false, msg: uploadError.message }); }
+        }
+        const fn = first_name.trim();
+        const ln = last_name ? last_name.trim() : '';
+        const newAuthor = await prisma.author.create({
+            data: {
+                firstName: fn,
+                lastName: ln,
+                fullName: `${fn} ${ln}`.trim(),
+                picture: picturePath,
+                origin: origin || null,
+                profile: profile || null
+            }
+        });
+        res.status(201).json({ status: true, msg: 'Author added successfully!', data: newAuthor });
+    } catch (error) {
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
-
-    let picturePath = "";
-    if (req.files && (req.files.picture || req.files.image)) {
-      try {
-        const file = req.files.picture || req.files.image;
-        picturePath = await saveFileLocal(file, 'authors');
-      } catch (uploadError) {
-        return res.status(400).json({ status: false, msg: uploadError.message });
-      }
-    }
-
-    const newAuthor = new Author({
-      first_name: first_name.trim(),
-      last_name: last_name ? last_name.trim() : "",
-      picture: picturePath,
-      origin,
-      profile
-    });
-
-    await newAuthor.save();
-    res.status(201).json({ status: true, msg: "Author added successfully!", data: newAuthor });
-
-  } catch (error) {
-    res.status(500).json({ status: false, msg: "Server Error", error: error.message });
-  }
 };
 
-
-// ==========================================
-// 🔵 2. READ ALL (WITH PAGINATION & SEARCH)
-// ==========================================
 export const getAllAuthors = async (req, res) => {
-  try {
-    const { q, page, limit } = req.query;
-
-    // 1. Pagination Settings
-    const pageNum = parseInt(page) || 1;      // Default page 1
-    const pageSize = parseInt(limit) || 20;   // Default 20 records per page
-    const skip = (pageNum - 1) * pageSize;    // Kitne records chhodne hain
-
-    // 2. Search Query logic
-    let query = {};
-    if (q) {
-      query = {
-        $or: [
-          { first_name: { $regex: q, $options: 'i' } },
-          { last_name: { $regex: q, $options: 'i' } }
-        ]
-      };
+    try {
+        const { q, page, limit } = req.query;
+        const pageNum = parseInt(page) || 1;
+        const pageSize = parseInt(limit) || 20;
+        const skip = (pageNum - 1) * pageSize;
+        const where = q ? {
+            OR: [
+                { firstName: { contains: q, mode: 'insensitive' } },
+                { lastName: { contains: q, mode: 'insensitive' } },
+                { fullName: { contains: q, mode: 'insensitive' } }
+            ]
+        } : {};
+        const [authors, total] = await Promise.all([
+            prisma.author.findMany({ where, orderBy: { firstName: 'asc' }, skip, take: pageSize }),
+            prisma.author.count({ where })
+        ]);
+        res.status(200).json({ status: true, data: authors, total, page: pageNum, limit: pageSize, totalPages: Math.ceil(total / pageSize) });
+    } catch (error) {
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
-
-    // 3. Database Fetching with Skip and Limit
-    const authors = await Author.find(query)
-      .sort({ first_name: 1 })
-      .skip(skip)   // Pagination logic here
-      .limit(pageSize);
-
-    // 4. Total count for frontend calculation
-    const total = await Author.countDocuments(query);
-
-    res.status(200).json({ 
-      status: true, 
-      data: authors,
-      total,                         // Kul kitne authors hain
-      page: pageNum,                 // Current page kaun sa hai
-      limit: pageSize,               // Ek page par kitni limit hai
-      totalPages: Math.ceil(total / pageSize) // Total kitne pages bane
-    });
-
-  } catch (error) {
-    res.status(500).json({ status: false, msg: "Server Error", error: error.message });
-  }
 };
-// ==========================================
-// 🟡 3. READ ONE
-// ==========================================
+
 export const getAuthorById = async (req, res) => {
-  try {
-    const author = await Author.findById(req.params.id);
-    if (!author) return res.status(404).json({ status: false, msg: "Author not found" });
-    res.status(200).json({ status: true, data: author });
-  } catch (error) {
-    res.status(500).json({ status: false, msg: "Server Error", error: error.message });
-  }
-};
-
-// ==========================================
-// 🟠 4. UPDATE
-// ==========================================
-export const updateAuthor = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const existingAuthor = await Author.findById(id);
-
-    if (!existingAuthor) return res.status(404).json({ status: false, msg: "Author not found" });
-
-    let updateData = { ...req.body };
-
-    if (req.files && (req.files.picture || req.files.image)) {
-      const file = req.files.picture || req.files.image;
-      const newPath = await saveFileLocal(file, 'authors');
-      if (newPath) {
-        if (existingAuthor.picture) await deleteFileLocal(existingAuthor.picture);
-        updateData.picture = newPath;
-      }
+    try {
+        const author = await prisma.author.findUnique({ where: { id: parseInt(req.params.id) } });
+        if (!author) return res.status(404).json({ status: false, msg: 'Author not found' });
+        res.status(200).json({ status: true, data: author });
+    } catch (error) {
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
-
-    const updatedAuthor = await Author.findByIdAndUpdate(id, { $set: updateData }, { new: true });
-    res.status(200).json({ status: true, msg: "Author updated successfully!", data: updatedAuthor });
-
-  } catch (error) {
-    res.status(500).json({ status: false, msg: "Update failed", error: error.message });
-  }
 };
 
-// ==========================================
-// 🔴 5. DELETE
-// ==========================================
+export const updateAuthor = async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        const existing = await prisma.author.findUnique({ where: { id } });
+        if (!existing) return res.status(404).json({ status: false, msg: 'Author not found' });
+        const { first_name, last_name, origin, profile } = req.body;
+        const updateData = {};
+        const fn = first_name !== undefined ? first_name.trim() : existing.firstName;
+        const ln = last_name !== undefined ? last_name.trim() : existing.lastName;
+        if (first_name !== undefined) updateData.firstName = fn;
+        if (last_name !== undefined) updateData.lastName = ln;
+        if (first_name !== undefined || last_name !== undefined) updateData.fullName = `${fn} ${ln}`.trim();
+        if (origin !== undefined) updateData.origin = origin;
+        if (profile !== undefined) updateData.profile = profile;
+        if (req.files && (req.files.picture || req.files.image)) {
+            const newPath = await saveFileLocal(req.files.picture || req.files.image, 'authors');
+            if (newPath) {
+                if (existing.picture) await deleteFileLocal(existing.picture);
+                updateData.picture = newPath;
+            }
+        }
+        const updated = await prisma.author.update({ where: { id }, data: updateData });
+        res.status(200).json({ status: true, msg: 'Author updated successfully!', data: updated });
+    } catch (error) {
+        res.status(500).json({ status: false, msg: 'Update failed' });
+    }
+};
+
 export const deleteAuthor = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const author = await Author.findById(id);
-
-    if (!author) return res.status(404).json({ status: false, msg: "Author not found" });
-
-    if (author.picture) await deleteFileLocal(author.picture);
-    await Author.findByIdAndDelete(id);
-
-    res.status(200).json({ status: true, msg: "Author deleted successfully!" });
-  } catch (error) {
-    res.status(500).json({ status: false, msg: "Delete failed", error: error.message });
-  }
+    try {
+        const id = parseInt(req.params.id);
+        const author = await prisma.author.findUnique({ where: { id } });
+        if (!author) return res.status(404).json({ status: false, msg: 'Author not found' });
+        if (author.picture) await deleteFileLocal(author.picture);
+        await prisma.author.delete({ where: { id } });
+        res.status(200).json({ status: true, msg: 'Author deleted successfully!' });
+    } catch (error) {
+        res.status(500).json({ status: false, msg: 'Delete failed' });
+    }
 };
