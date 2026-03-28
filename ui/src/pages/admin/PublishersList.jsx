@@ -69,7 +69,7 @@ const PublishersList = () => {
       const dataToExport = allData.map((pub, i) => ({
         "Sr No": i + 1,
         "Title": pub.title,
-        "Category": pub.categoryId || "N/A",
+        "Category": pub.categoryName || "N/A",
         "Company": pub.company || "-",
         "Place": pub.place || "-",
         "Email": pub.email || "-",
@@ -249,7 +249,7 @@ const PublishersList = () => {
                     </td>
                     <td className="p-3 border-r border-cream-50 text-text-main font-medium">{pub.title}</td>
                     <td className="p-3 border-r border-cream-50 text-text-main font-bold">
-                        {pub.categoryId || "N/A"}
+                        {pub.categoryName || '-'}
                     </td>
                     <td className="p-3 border-r border-cream-50 text-text-main">{pub.company || '-'}</td>
                     <td className="p-3 border-r border-cream-50 text-text-main max-w-xs truncate">{pub.address || '-'}</td>
@@ -258,6 +258,7 @@ const PublishersList = () => {
                     <td className="p-3 border-r border-cream-50 text-text-main">{pub.phone || '-'}</td>
                     <td className="p-3 border-r border-cream-50 text-text-main">{pub.fax || '-'}</td>
                     <td className="p-3 border-r border-cream-50 text-text-main italic text-[10px]">{pub.slug}</td>
+                    <td className="p-3 border-r border-cream-50 text-text-muted text-[10px]">{formatDate(pub.createdAt)}</td>
                     <td className="p-3 border-r border-cream-50 text-center">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${pub.show ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                         {pub.show ? 'Yes' : 'No'}

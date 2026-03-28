@@ -119,7 +119,12 @@ const ProductCardGrid = ({ data }) => {
 
                 {/* Author */}
                 <p className="text-[11px] md:text-xs text-text-muted mb-3 line-clamp-1 font-medium italic opacity-80">
-                    {data.author?.name || (data.author?.firstName || data.author?.first_name ? `${data.author.firstName || data.author.first_name} ${data.author.lastName || data.author.last_name || ''}` : 'Unknown Author')}
+                    {Array.isArray(data.authors) && data.authors.length > 0
+                      ? data.authors.map(pa => {
+                          const a = pa.author || pa;
+                          return a.fullName || a.full_name || `${a.firstName || a.first_name || ''} ${a.lastName || a.last_name || ''}`.trim();
+                        }).filter(Boolean).join(', ') || 'Unknown Author'
+                      : data.author?.fullName || data.author?.name || (data.author?.firstName || data.author?.first_name ? `${data.author.firstName || data.author.first_name} ${data.author.lastName || data.author.last_name || ''}` : 'Unknown Author')}
                 </p>
 
                 {/* BOTTOM ROW */}

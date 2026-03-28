@@ -61,7 +61,7 @@ const CouriersList = () => {
                 "Sr No": i + 1,
                 "Partner Name": item.title,
                 "Tracking Page": item.trackingPage,
-                "Status": item.isActive ? "Active" : "Inactive",
+                "Status": item.active ? "Active" : "Inactive",
                 "Created At": new Date(item.createdAt).toLocaleDateString('en-GB')
             }));
 
@@ -200,9 +200,9 @@ const CouriersList = () => {
                                             {item.title}
                                         </td>
                                         <td className="p-4">
-                                            <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter shadow-sm ${item.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                            <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter shadow-sm ${item.active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                                                 }`}>
-                                                {item.isActive ? 'Active' : 'Inactive'}
+                                                {item.active ? 'Active' : 'Inactive'}
                                             </span>
                                         </td>
                                         <td className="p-4">

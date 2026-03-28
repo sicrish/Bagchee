@@ -36,8 +36,8 @@ const HelpDesk = () => {
     const fetchHelpPages = async () => {
       try {
         const response = await axiosInstance.get("/help-pages/list");
-        const activePages = response.data.data
-          .filter((page) => page.status === "active")
+        const allPages = Array.isArray(response.data.data) ? response.data.data : [];
+        const activePages = allPages
           .sort((a, b) => a.title.localeCompare(b.title));
 
         setHelpPages(activePages);
@@ -251,7 +251,7 @@ const HelpDesk = () => {
                         className="prose prose-blue max-w-none text-gray-600 leading-relaxed font-body
                 prose-headings:font-display prose-headings:text-text-main
                 prose-p:mb-4 prose-strong:text-primary"
-                        dangerouslySetInnerHTML={createSafeHtml(page.content)}
+                        dangerouslySetInnerHTML={createSafeHtml(page.pageContent || page.content)}
                       />
 
                      

@@ -266,18 +266,26 @@ const BookDetail = () => {
       try {
         let authorIds = [];
 
-        // 1. Agar book.authors array hai (multiple authors), toh sabki ID nikal lo
+        // 1. Agar book.authors array hai (multiple authors via join table), toh author IDs nikal lo
         if (Array.isArray(book.authors) && book.authors.length > 0) {
-          authorIds = book.authors.map(a => typeof a === 'object' ? a.id : a);
+          authorIds = book.authors.map(a => {
+            // ProductAuthor join table object — get the actual author ID
+            if (a.authorId) return a.authorId;
+            if (a.author?.id) return a.author.id;
+            if (typeof a === 'object') return a.id;
+            return a;
+          });
         }
         // 2. Agar array nahi hai, par single book.author hai (purana data), toh uski ID nikal lo
         else if (book.author) {
           authorIds = [typeof book.author === 'object' ? book.author.id : book.author];
         }
 
+        // Deduplicate author IDs
+        authorIds = [...new Set(authorIds)];
+
         // 3. Agar IDs mil gayi hain, toh API call karo
         if (authorIds.length > 0) {
-          // Ek saath sabhi authors ka data mangwane ke liye promises banayein
           const authorPromises = authorIds.map(id =>
             axios.get(`${process.env.REACT_APP_API_URL}/authors/get/${id}`)
           );
@@ -303,9 +311,34 @@ const BookDetail = () => {
     fetchSecondaryData();
   }, [book]);
 
+  // SEO meta tags
+  useEffect(() => {
+    if (!book) return;
+    const title = book.metaTitle || book.meta_title || book.title;
+    if (title) document.title = `${title} | Bagchee`;
+
+    const setMeta = (name, content) => {
+      if (!content) return;
+      let el = document.querySelector(`meta[name="${name}"]`);
+      if (!el) {
+        el = document.createElement('meta');
+        el.setAttribute('name', name);
+        document.head.appendChild(el);
+      }
+      el.setAttribute('content', content);
+    };
+
+    setMeta('description', book.metaDescription || book.meta_description || book.synopsis?.replace(/<[^>]*>/g, '').slice(0, 160));
+    setMeta('keywords', book.metaKeywords || book.meta_keywords);
+
+    return () => { document.title = 'Bagchee'; };
+  }, [book]);
+
   const getAuthorName = (author) => {
     if (!author) return 'Unknown Author';
     if (typeof author === 'object') {
+      // Prefer fullName (most reliable), then construct from first+last
+      if (author.fullName || author.full_name) return author.fullName || author.full_name;
       return `${author.firstName || author.first_name || ''} ${author.lastName || author.last_name || ''}`.trim() || 'Unknown Author';
     }
     return author;
@@ -340,7 +373,7 @@ const BookDetail = () => {
   const handleShare = () => {
     navigator.share?.({
       title: book?.title,
-      text: `Check out "${book?.title}" by ${getAuthorName(book?.author)}`,
+      text: `Check out "${book?.title}" by ${Array.isArray(book?.authors) && book.authors.length > 0 ? getAuthorName(book.authors[0]?.author || book.authors[0]) : getAuthorName(book?.author)}`,
       url: window.location.href
     }) || navigator.clipboard.writeText(window.location.href).then(() => {
       toast.success('Link copied to clipboard');
@@ -652,15 +685,44 @@ const BookDetail = () => {
                 <p className="text-sm text-gray-500 mb-1">{book.edition}</p>
               )}
 
-              {/* Author */}
+              {/* Author(s) */}
               <p className="text-base text-gray-700 mb-2">
                 by{" "}
-                <Link
-                  to={`/author/${createAuthorSlug(book.author)}`}
-                  className="text-primary hover:underline font-medium"
-                >
-                  {getAuthorName(book.author)}
-                </Link>
+                {Array.isArray(book.authors) && book.authors.length > 0 ? (
+                  (() => {
+                    // Deduplicate by authorId
+                    const seen = new Set();
+                    const unique = book.authors.filter(pa => {
+                      const aid = pa.authorId || pa.author?.id || pa.id;
+                      if (seen.has(aid)) return false;
+                      seen.add(aid);
+                      return true;
+                    });
+                    return unique.map((pa, idx) => {
+                      const author = pa.author || pa;
+                      return (
+                        <span key={pa.authorId || pa.id || idx}>
+                          <Link
+                            to={`/author/${createAuthorSlug(author)}`}
+                            className="text-primary hover:underline font-medium"
+                          >
+                            {getAuthorName(author)}
+                          </Link>
+                          {idx < unique.length - 1 && ', '}
+                        </span>
+                      );
+                    });
+                  })()
+                ) : book.author ? (
+                  <Link
+                    to={`/author/${createAuthorSlug(book.author)}`}
+                    className="text-primary hover:underline font-medium"
+                  >
+                    {getAuthorName(book.author)}
+                  </Link>
+                ) : (
+                  <span className="text-gray-400">Unknown Author</span>
+                )}
               </p>
 
               {/* 🟢 Series Display */}
@@ -748,9 +810,9 @@ const BookDetail = () => {
                   )}
 
                   {/* 🟢 Publication Date Pill (Naya Addition) */}
-                  {book.pub_date && (
+                  {(book.pubDate || book.pub_date) && (
                     <span className="inline-flex items-center bg-gray-100 text-gray-600 text-[10px] font-bold px-3 py-1.5 rounded-full border border-gray-200 uppercase tracking-widest font-montserrat">
-                      {new Date(book.pub_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                      {new Date(book.pubDate || book.pub_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
                     </span>
                   )}
                 </div>
@@ -972,25 +1034,23 @@ const BookDetail = () => {
                   {/* 🟢 List Layout: Ek ke niche ek (Single Column) */}
                   <div className="space-y-4">
                     {[
+                      { label: "Publisher", value: getDisplayValue(book.publisher) },
                       {
                         label: "Series",
                         value: book.series
                           ? (typeof book.series === 'object' ? book.series.title : book.series)
                           : null
                       },
-                      // 🟢 Series Number Logic
-                      { label: "Series Number", value: book.series_number ? `#${book.series_number}` : null },
-                      { label: "Format", value: book.binding },
-                      { label: "Language", value: getDisplayValue(book.language) },
-                      { label: "ISBN", value: (book.isbn10 ? book.isbn10 : book.isbn13) },
-
-
-                      { label: "Release Date", value: book.pub_date },
-                      { label: "Publisher", value: getDisplayValue(book.publisher) },
-                      { label: "Length", value: book.total_pages || book.pages ? `${book.total_pages || book.pages} Pages` : null },
+                      { label: "Series Number", value: (book.seriesNumber || book.series_number) ? `#${book.seriesNumber || book.series_number}` : null },
+                      { label: "Format", value: book.binding || (Array.isArray(book.formats) && book.formats.length > 0 ? book.formats.map(f => f.format?.title).filter(Boolean).join(', ') : null) },
+                      { label: "Language", value: book.language || (Array.isArray(book.languages) && book.languages.length > 0 ? book.languages.map(l => l.language?.title).filter(Boolean).join(', ') : null) },
+                      { label: "ISBN-10", value: book.isbn10 },
+                      { label: "ISBN-13", value: book.isbn13 },
+                      { label: "Release Date", value: book.pubDate || book.pub_date },
+                      { label: "Length", value: (book.pages || book.total_pages) ? `${book.pages || book.total_pages} Pages` : null },
                       { label: "Weight", value: book.weight },
-
-
+                      { label: "Edition", value: book.edition },
+                      { label: "Volume", value: book.volume },
                     ]
                       .filter((row) => row.value)
                       .map((row) => (

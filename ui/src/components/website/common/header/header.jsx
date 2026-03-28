@@ -844,6 +844,39 @@ ActionIcon.displayName = 'ActionIcon';
 const SearchSuggestions = memo(({ suggestions, isSearching, searchTerm, onSelect }) => {
   if (searchTerm.length < 3) return null;
 
+  const getLink = (item) => {
+    switch (item.type) {
+      case 'author': return `/books?keyword=${encodeURIComponent(item.title)}`;
+      case 'category': return item.slug ? `/books/${item.slug}` : `/books?keyword=${encodeURIComponent(item.title)}`;
+      case 'series': return `/books?keyword=${encodeURIComponent(item.title)}`;
+      case 'publisher': return `/books?keyword=${encodeURIComponent(item.title)}`;
+      case 'book': return item.bagcheeId ? `/books/${item.bagcheeId}/${encodeURIComponent(item.title.replace(/\s+/g, '-').toLowerCase())}` : `/books?keyword=${encodeURIComponent(item.title)}`;
+      default: return `/books?keyword=${encodeURIComponent(item.title)}`;
+    }
+  };
+
+  const getTypeLabel = (item) => {
+    switch (item.type) {
+      case 'author': return 'author';
+      case 'category': return 'category';
+      case 'series': return 'series';
+      case 'publisher': return 'publisher';
+      case 'book': return 'book';
+      default: return 'item';
+    }
+  };
+
+  const getTypeBadgeColor = (type) => {
+    switch (type) {
+      case 'author': return 'bg-blue-500';
+      case 'category': return 'bg-green-600';
+      case 'series': return 'bg-purple-500';
+      case 'publisher': return 'bg-orange-500';
+      case 'book': return 'bg-primary/60 group-hover:bg-primary';
+      default: return 'bg-gray-400';
+    }
+  };
+
   return (
     <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 shadow-2xl z-[9999] overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200 rounded-b-xl">
       {isSearching ? (
@@ -852,37 +885,29 @@ const SearchSuggestions = memo(({ suggestions, isSearching, searchTerm, onSelect
           Searching matching items...
         </div>
       ) : suggestions.length > 0 ? (
-        <div className="max-h-[380px] overflow-y-auto custom-scrollbar">
-          {suggestions.map((item) => {
-            let typeLabel = "Item";
-            let displayTitle = item.title || item.categorytitle || "Unnamed";
-            let subText = "";
-
-            if (item.isbn13) {
-              typeLabel = "Book";
-              subText = item.author ? `by ${item.author.firstName || item.author.first_name} ${item.author.lastName || item.author.last_name}` : "";
-            } else if (item.categorytitle || item.title) {
-              typeLabel = "Category";
-            } else if (item.firstName || item.first_name) {
-              typeLabel = "Author";
-              displayTitle = `${item.firstName || item.first_name} ${item.lastName || item.last_name}`;
-            }
+        <div className="max-h-[420px] overflow-y-auto custom-scrollbar">
+          {suggestions.map((item, idx) => {
+            const typeLabel = getTypeLabel(item);
+            const displayTitle = item.title || "Unnamed";
+            const subText = item.type === 'book' && item.author
+              ? `by ${item.author.firstName || ''} ${item.author.lastName || ''}`.trim()
+              : '';
 
             return (
               <Link
-                key={item.id || item._id}
-                to={`/books?keyword=${encodeURIComponent(displayTitle)}`}
+                key={`${item.type}-${item.id}-${idx}`}
+                to={getLink(item)}
                 onClick={() => onSelect()}
-                className="flex items-center justify-between px-4 py-3 hover:bg-cream-50 transition-colors border-b border-gray-50 last:border-0 group"
+                className="flex items-center justify-between px-4 py-2.5 hover:bg-cream-50 transition-colors border-b border-gray-50 last:border-0 group"
               >
                 <div className="flex flex-col truncate pr-4">
-                  <span className="text-sm font-semibold text-gray-700 group-hover:text-primary truncate">
-                    {displayTitle}
+                  <span className="text-sm text-gray-700 group-hover:text-primary truncate">
+                    {displayTitle} <span className="text-gray-400 text-xs">({typeLabel})</span>
                   </span>
                   {subText && <span className="text-[10px] text-gray-400 italic">{subText}</span>}
                 </div>
 
-                <span className="text-[9px] font-black text-white uppercase tracking-tighter shrink-0 bg-primary/40 px-1.5 py-0.5 rounded shadow-sm group-hover:bg-primary transition-colors">
+                <span className={`text-[9px] font-black text-white uppercase tracking-tighter shrink-0 px-1.5 py-0.5 rounded shadow-sm transition-colors ${getTypeBadgeColor(item.type)}`}>
                   {typeLabel}
                 </span>
               </Link>

@@ -194,7 +194,7 @@ const EditBook = () => {
                 product_languages: book.languages ? book.languages.map(l => l.language?.title).filter(Boolean) : (book.product_languages || (book.language ? [book.language] : [])),
                 product_tags: book.tags ? book.tags.map(t => t.tag?.title).filter(Boolean) : (book.product_tags || []),
                 product_formats: book.formats ? book.formats.map(f => f.format?.title).filter(Boolean) : (book.product_formats || (book.binding ? [book.binding] : [])),
-                authors: book.authors ? book.authors.map(a => typeof a === 'object' ? (a.authorId || a.id) : a) : (book.author ? [book.author] : []),
+                authors: book.authors ? [...new Set(book.authors.map(a => typeof a === 'object' ? (a.authorId || a.id) : a))] : (book.author ? [book.author] : []),
                 // Agar series array hai to wahi rakho, single hai to array bana do, warna khali array []
 series: Array.isArray(book.series) 
 ? book.series.map(s => typeof s === 'object' ? s.id : s) 
@@ -222,10 +222,10 @@ series: Array.isArray(book.series)
                 upcoming: (book.upcoming || book.Upcoming) ? 'active' : 'inactive',
                 upcoming_date: book.upcoming_date ? new Date(book.upcoming_date).toISOString().split('T')[0] : '',
                 new_release: book.isNewRelease ? 'active' : 'inactive',
-                new_release_until: book.new_release_until ? new Date(book.new_release_until).toISOString().split('T')[0] : '',
+                new_release_until: (book.newReleaseUntil || book.new_release_until) ? new Date(book.newReleaseUntil || book.new_release_until).toISOString().split('T')[0] : '',
                 exclusive: book.isExclusive ? 'active' : 'inactive',
-                ship_days: (book.ship_days !== undefined && book.ship_days !== null) ? String(book.ship_days) : (book.shipDays ? String(book.shipDays) : ""),
-                deliver_days: (book.deliver_days !== undefined && book.deliver_days !== null) ? String(book.deliver_days) : (book.deliverDays ? String(book.deliverDays) : ""),
+                ship_days: (book.shipDays !== undefined && book.shipDays !== null) ? String(book.shipDays) : (book.ship_days !== undefined && book.ship_days !== null) ? String(book.ship_days) : "",
+                deliver_days: (book.deliverDays !== undefined && book.deliverDays !== null) ? String(book.deliverDays) : (book.deliver_days !== undefined && book.deliver_days !== null) ? String(book.deliver_days) : "",
                 pub_date: book.pub_date || '',
                 source: book.source || '',
                 rating: book.rating || '',
@@ -245,8 +245,8 @@ series: Array.isArray(book.series)
                 setPreloadedAuthorNames(nameMap);
             }
 
-            if (book.new_release_until) {
-                setUserSelectedDate(new Date(book.new_release_until).toISOString().split('T')[0]);
+            if (book.newReleaseUntil || book.new_release_until) {
+                setUserSelectedDate(new Date(book.newReleaseUntil || book.new_release_until).toISOString().split('T')[0]);
             }
 
             if (book.toc_images && book.toc_images.length > 0) setTocImagesList(book.toc_images.map((img) => ({ id: img.id, image: img.image, order: img.order, file: null })));
@@ -274,7 +274,7 @@ series: Array.isArray(book.series)
 
             setSynopsis(book.synopsis || book.description || '');
             setCriticsNote(book.criticsNote || book.critics_note || '');
-            setSearchText(book.aboutAuthorText || book.search_text || '');
+            setSearchText(book.searchText || book.search_text || book.aboutAuthorText || '');
 
             if (book.related_products) {
                 const ids = book.related_products.split(',').map(s => s.trim()).filter(Boolean);
@@ -1497,8 +1497,8 @@ series: Array.isArray(book.series)
                         </div>
 
                         {/* 18. Ship & Search */}
-                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Ship Days</label><div className="col-span-9"><select name="ship_days" value={formData.ship_days} onChange={handleChange} className="theme-input w-48"><option value="">Select</option>{["24", "1-2", "2-4", "3-5", "1-7", "5-7", "7-10", "7-14", "10-15", "10-18", "14-21", "15-25", "28", "25-30", "28-45", "30-45"].map(d => <option key={d} value={d}>{d}</option>)}</select></div></div>
-                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Deliver Days</label><div className="col-span-9"><select name="deliver_days" value={formData.deliver_days} onChange={handleChange} className="theme-input w-48"><option value="">Select</option>{["1-2", "3-5", "5-7", "10-18"].map(d => <option key={d} value={d}>{d}</option>)}</select></div></div>
+                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Ship Days</label><div className="col-span-9"><select name="ship_days" value={formData.ship_days} onChange={handleChange} className="theme-input w-48"><option value="">Select</option>{["1", "2", "3", "5", "7", "10", "14", "15", "21", "24", "25", "28", "30", "45"].map(d => <option key={d} value={d}>{d}</option>)}</select></div></div>
+                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Deliver Days</label><div className="col-span-9"><select name="deliver_days" value={formData.deliver_days} onChange={handleChange} className="theme-input w-48"><option value="">Select</option>{["1", "2", "3", "5", "7", "10", "14", "18", "21"].map(d => <option key={d} value={d}>{d}</option>)}</select></div></div>
 
                         <div className="grid grid-cols-12 gap-4 items-start border-b border-gray-50 pb-12">
                             <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase pt-2">Search Text</label>

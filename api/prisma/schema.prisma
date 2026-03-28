@@ -575,19 +575,27 @@ model Series {
 // Category — hierarchical (parent_id points to another category)
 // Old DB: categories with parent_id for tree structure
 model Category {
-  id           Int               @id @default(autoincrement())
-  title        String            @map("category_title")
-  slug         String?
-  parentId     Int               @default(0) @map("parent_id")  // 0 = top-level category
-  active       Boolean           @default(false)
-  image        String            @default("")
-  metaTitle    String?           @map("meta_title")
-  metaKeywords String?           @map("meta_keywords")
-  metaDesc     String?           @map("meta_description")
-  productType  Int               @default(0) @map("product_type")
-  createdAt    DateTime          @default(now())
+  id                  Int               @id @default(autoincrement())
+  title               String            @map("category_title")
+  slug                String?
+  parentSlug          String?           @map("parent_slug")
+  mainModule          String?           @map("main_module")
+  oldId               String?           @map("old_id")
+  parentId            Int               @default(0) @map("parent_id")  // 0 = top-level category
+  active              Boolean           @default(false)
+  lft                 Int?
+  rght                Int?
+  level               Int?
+  metaTitle           String?           @map("meta_title")
+  metaKeywords        String?           @map("meta_keywords")
+  metaDesc            String?           @map("meta_description")
+  image               String            @default("")
+  newsletterCategory  Boolean           @default(false) @map("newsletter_category")
+  newsletterOrder     Int?              @map("newsletter_order")
+  productType         Int               @default(0) @map("product_type")
+  createdAt           DateTime          @default(now())
 
-  products     ProductCategory[]
+  products            ProductCategory[]
 
   @@index([parentId])
   @@index([slug])
@@ -771,6 +779,22 @@ model NewsletterSubscriber {
   createdAt  DateTime @default(now()) @map("created_at")
 
   @@map("newsletter_subscribers")
+}
+
+model ScheduledEmail {
+  id         Int      @id @default(autoincrement())
+  subject    String
+  body       String
+  audience   String[] @default([])  // ["subscribers", "members", "purchased", "categories"]
+  categories String[] @default([])  // category filter (if "categories" is in audience)
+  sendAt     DateTime @map("send_at")
+  status     String   @default("pending") // "pending" | "sent" | "failed"
+  sent       Int      @default(0)
+  failed     Int      @default(0)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([status, sendAt])
+  @@map("scheduled_emails")
 }
 
 // =============================================================

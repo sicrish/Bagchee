@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Send, Users, Mail, Loader2, ArrowLeft, FileText, FlaskConical } from 'lucide-react';
+import { Send, Users, Mail, Loader2, ArrowLeft, FileText, FlaskConical, Clock, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import JoditEditor from 'jodit-react';
 import axios from '../../utils/axiosConfig';
@@ -102,6 +102,13 @@ const EMAIL_TEMPLATES = [
   }
 ];
 
+const AUDIENCE_OPTIONS = [
+  { key: 'subscribers', label: 'All subscribers' },
+  { key: 'members', label: 'All members' },
+  { key: 'purchasers', label: 'All with purchase' },
+  { key: 'categories', label: 'Categories subscribers' },
+];
+
 const SendEmail = () => {
   const navigate = useNavigate();
   const editor = useRef(null);
@@ -109,12 +116,15 @@ const SendEmail = () => {
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState('Blank');
-  const [audience, setAudience] = useState('subscribers');
+  const [audience, setAudience] = useState(['subscribers']);
   const [recipientCount, setRecipientCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [testLoading, setTestLoading] = useState(false);
   const [countLoading, setCountLoading] = useState(false);
   const [testEmail, setTestEmail] = useState('');
+  const [sendAt, setSendAt] = useState('');
+  const [scheduledEmails, setScheduledEmails] = useState([]);
+  const [scheduledLoading, setScheduledLoading] = useState(false);
 
   const API_BASE_URL = process.env.REACT_APP_API_URL;
 
@@ -139,10 +149,14 @@ const SendEmail = () => {
 
   // Fetch recipient count when audience changes
   useEffect(() => {
+    if (audience.length === 0) {
+      setRecipientCount(0);
+      return;
+    }
     const fetchCount = async () => {
       setCountLoading(true);
       try {
-        const res = await axios.get(`${API_BASE_URL}/email-campaign/recipients-count?audience=${audience}`);
+        const res = await axios.get(`${API_BASE_URL}/email-campaign/recipients-count?audience=${audience.join(',')}`);
         if (res.data.status) {
           setRecipientCount(res.data.count);
         }
@@ -155,7 +169,29 @@ const SendEmail = () => {
     fetchCount();
   }, [audience, API_BASE_URL]);
 
-  // Load template into editor
+  // Fetch scheduled emails
+  useEffect(() => {
+    const fetchScheduled = async () => {
+      try {
+        const res = await axios.get(`${API_BASE_URL}/email-campaign/scheduled`);
+        if (res.data.status) {
+          setScheduledEmails(res.data.data);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    fetchScheduled();
+  }, [API_BASE_URL]);
+
+  const toggleAudience = (key) => {
+    setAudience(prev =>
+      prev.includes(key)
+        ? prev.filter(a => a !== key)
+        : [...prev, key]
+    );
+  };
+
   const handleLoadTemplate = () => {
     const tmpl = EMAIL_TEMPLATES.find(t => t.name === selectedTemplate);
     if (!tmpl) return;
@@ -169,7 +205,6 @@ const SendEmail = () => {
     toast.success(`"${tmpl.name}" template loaded`);
   };
 
-  // Send test email
   const handleSendTest = async () => {
     if (!testEmail.trim()) return toast.error('Please enter a test email address.');
     if (!subject.trim()) return toast.error('Please enter a subject line.');
@@ -197,14 +232,57 @@ const SendEmail = () => {
     }
   };
 
-  // Send campaign
   const handleSend = async () => {
     if (!subject.trim()) return toast.error('Please enter a subject line.');
     if (!body.trim() || body === '<p><br></p>') return toast.error('Please compose an email body.');
+    if (audience.length === 0) return toast.error('Please select at least one audience.');
     if (recipientCount === 0) return toast.error('No recipients found for selected audience.');
 
+    // If sendAt is set, schedule instead of sending immediately
+    if (sendAt) {
+      const sendAtDate = new Date(sendAt);
+      if (sendAtDate <= new Date()) {
+        return toast.error('Scheduled time must be in the future.');
+      }
+
+      const confirmed = window.confirm(
+        `Schedule this email for ${sendAtDate.toLocaleString()}?\n\nSubject: ${subject}\nRecipients: ~${recipientCount.toLocaleString()}`
+      );
+      if (!confirmed) return;
+
+      setLoading(true);
+      const toastId = toast.loading('Scheduling campaign...');
+
+      try {
+        const res = await axios.post(`${API_BASE_URL}/email-campaign/schedule`, {
+          subject: subject.trim(),
+          body,
+          audience,
+          sendAt: sendAtDate.toISOString()
+        });
+
+        if (res.data.status) {
+          toast.success(res.data.msg, { id: toastId });
+          setSubject('');
+          setBody('');
+          setSendAt('');
+          // Refresh scheduled list
+          const listRes = await axios.get(`${API_BASE_URL}/email-campaign/scheduled`);
+          if (listRes.data.status) setScheduledEmails(listRes.data.data);
+        } else {
+          toast.error(res.data.msg || 'Failed to schedule', { id: toastId });
+        }
+      } catch (error) {
+        toast.error(error.response?.data?.msg || 'Failed to schedule campaign', { id: toastId });
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    // Send immediately
     const confirmed = window.confirm(
-      `Send this email to ${recipientCount.toLocaleString()} recipient(s) (${audience})?\n\nSubject: ${subject}`
+      `Send this email to ~${recipientCount.toLocaleString()} recipient(s) NOW?\n\nSubject: ${subject}`
     );
     if (!confirmed) return;
 
@@ -232,11 +310,35 @@ const SendEmail = () => {
     }
   };
 
-  const audienceOptions = [
-    { value: 'subscribers', label: 'Newsletter Subscribers', desc: 'People who subscribed to newsletter' },
-    { value: 'customers', label: 'Registered Customers', desc: 'All registered users on the platform' },
-    { value: 'all', label: 'Everyone', desc: 'Both subscribers and customers (deduplicated)' },
-  ];
+  const handleCancelScheduled = async (id) => {
+    if (!window.confirm('Cancel this scheduled email?')) return;
+    try {
+      const res = await axios.delete(`${API_BASE_URL}/email-campaign/scheduled/${id}`);
+      if (res.data.status) {
+        toast.success('Scheduled email cancelled.');
+        setScheduledEmails(prev => prev.map(e => e.id === id ? { ...e, status: 'cancelled' } : e));
+      } else {
+        toast.error(res.data.msg);
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.msg || 'Failed to cancel');
+    }
+  };
+
+  // Get min datetime for the picker (now + 5 min)
+  const getMinDateTime = () => {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() + 5);
+    return now.toISOString().slice(0, 16);
+  };
+
+  const statusColors = {
+    pending: 'bg-yellow-100 text-yellow-700',
+    sending: 'bg-blue-100 text-blue-700',
+    sent: 'bg-green-100 text-green-700',
+    failed: 'bg-red-100 text-red-700',
+    cancelled: 'bg-gray-100 text-gray-500',
+  };
 
   return (
     <div className="bg-gray-50 min-h-screen p-4 md:p-6 font-body text-text-main">
@@ -283,33 +385,38 @@ const SendEmail = () => {
           </div>
         </div>
 
-        {/* Audience Selector */}
+        {/* Audience Selector — Checkboxes */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5 mb-4">
           <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-3 block">
             Select Audience
           </label>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {audienceOptions.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => setAudience(opt.value)}
-                className={`
-                  p-4 rounded-lg border-2 text-left transition-all
-                  ${audience === opt.value
-                    ? 'border-primary bg-primary/5 shadow-md'
-                    : 'border-gray-200 hover:border-gray-300 bg-white'
-                  }
-                `}
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <Users size={16} className={audience === opt.value ? 'text-primary' : 'text-gray-400'} />
-                  <span className={`text-sm font-bold font-montserrat ${audience === opt.value ? 'text-primary' : 'text-gray-700'}`}>
-                    {opt.label}
-                  </span>
-                </div>
-                <p className="text-[11px] text-gray-500">{opt.desc}</p>
-              </button>
-            ))}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {AUDIENCE_OPTIONS.map((opt) => {
+              const checked = audience.includes(opt.key);
+              return (
+                <label
+                  key={opt.key}
+                  className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                    checked
+                      ? 'border-primary bg-primary/5 shadow-md'
+                      : 'border-gray-200 hover:border-gray-300 bg-white'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggleAudience(opt.key)}
+                    className="w-4 h-4 accent-primary rounded"
+                  />
+                  <div className="flex items-center gap-2">
+                    <Users size={16} className={checked ? 'text-primary' : 'text-gray-400'} />
+                    <span className={`text-sm font-bold font-montserrat ${checked ? 'text-primary' : 'text-gray-700'}`}>
+                      {opt.label}
+                    </span>
+                  </div>
+                </label>
+              );
+            })}
           </div>
 
           {/* Recipient Count Badge */}
@@ -354,6 +461,29 @@ const SendEmail = () => {
           </div>
         </div>
 
+        {/* Send At (Scheduler) */}
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5 mb-4">
+          <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-2 block">
+            <Clock size={13} className="inline mr-1 -mt-0.5" /> Send At (Optional)
+          </label>
+          <p className="text-[11px] text-gray-400 mb-3 font-montserrat">Leave empty to send immediately, or pick a date/time to schedule</p>
+          <input
+            type="datetime-local"
+            value={sendAt}
+            onChange={(e) => setSendAt(e.target.value)}
+            min={getMinDateTime()}
+            className="w-full sm:w-auto border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-montserrat"
+          />
+          {sendAt && (
+            <button
+              onClick={() => setSendAt('')}
+              className="ml-3 text-xs text-red-500 hover:text-red-700 font-montserrat font-bold"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+
         {/* Test Email */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5 mb-4">
           <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-2 block">
@@ -383,14 +513,16 @@ const SendEmail = () => {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-3 mb-8">
+        <div className="flex items-center gap-3 mb-6">
           <button
             onClick={handleSend}
             disabled={loading}
             className="bg-primary hover:bg-primary-hover text-white px-6 py-3 rounded-lg shadow-md font-montserrat font-bold text-sm flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
           >
             {loading ? (
-              <><Loader2 size={16} className="animate-spin" /> Sending...</>
+              <><Loader2 size={16} className="animate-spin" /> {sendAt ? 'Scheduling...' : 'Sending...'}</>
+            ) : sendAt ? (
+              <><Clock size={16} /> Schedule Campaign</>
             ) : (
               <><Send size={16} /> Send Campaign</>
             )}
@@ -403,6 +535,59 @@ const SendEmail = () => {
             Cancel
           </button>
         </div>
+
+        {/* Scheduled Emails Table */}
+        {scheduledEmails.length > 0 && (
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5 mb-8">
+            <h2 className="text-sm font-bold text-gray-700 font-montserrat mb-4 flex items-center gap-2">
+              <Clock size={16} className="text-primary" /> Scheduled & Recent Campaigns
+            </h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200 text-left">
+                    <th className="pb-2 font-bold text-gray-500 text-xs uppercase font-montserrat">Subject</th>
+                    <th className="pb-2 font-bold text-gray-500 text-xs uppercase font-montserrat">Send At</th>
+                    <th className="pb-2 font-bold text-gray-500 text-xs uppercase font-montserrat">Status</th>
+                    <th className="pb-2 font-bold text-gray-500 text-xs uppercase font-montserrat">Result</th>
+                    <th className="pb-2 font-bold text-gray-500 text-xs uppercase font-montserrat"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {scheduledEmails.map((email) => (
+                    <tr key={email.id} className="border-b border-gray-100 last:border-0">
+                      <td className="py-3 pr-4 font-montserrat text-gray-700 max-w-[200px] truncate">
+                        {email.subject}
+                      </td>
+                      <td className="py-3 pr-4 font-montserrat text-gray-500 text-xs whitespace-nowrap">
+                        {new Date(email.sendAt).toLocaleString()}
+                      </td>
+                      <td className="py-3 pr-4">
+                        <span className={`text-xs font-bold px-2 py-1 rounded-full font-montserrat ${statusColors[email.status] || 'bg-gray-100 text-gray-500'}`}>
+                          {email.status}
+                        </span>
+                      </td>
+                      <td className="py-3 pr-4 font-montserrat text-xs text-gray-500">
+                        {email.status === 'sent' ? `${email.sent} sent, ${email.failed} failed` : '-'}
+                      </td>
+                      <td className="py-3">
+                        {email.status === 'pending' && (
+                          <button
+                            onClick={() => handleCancelScheduled(email.id)}
+                            className="text-red-400 hover:text-red-600 transition-colors"
+                            title="Cancel"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

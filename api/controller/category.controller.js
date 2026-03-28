@@ -1,12 +1,6 @@
 import prisma from '../lib/prisma.js';
 import { saveFileLocal, deleteFileLocal } from '../utils/fileHandler.js';
 
-// Field mapping: categorytitle→title, categoryiconname→image, parentid→parentId(Int),
-// active('active'/'inactive')→active(Boolean), metatitle→metaTitle, metakeywords→metaKeywords,
-// metadescription→metaDesc, producttype→productType(Int).
-// Dropped: parentslug, mainmodule, oldid, lft, rght, level, newslettercategory, newsletterorder (not in Prisma schema).
-// Old route used POST /update — kept same exports (save, fetchCategory, updateCategory, deletecategory).
-
 export const save = async (req, res) => {
     try {
         let imageUrl = '';
@@ -22,17 +16,26 @@ export const save = async (req, res) => {
             data: {
                 title: req.body.categoryTitle || req.body.categorytitle || '',
                 slug: req.body.slug || null,
+                parentSlug: req.body.parentSlug || req.body.parentslug || null,
+                mainModule: req.body.mainModule || req.body.mainmodule || null,
+                oldId: req.body.oldId || req.body.oldid || null,
                 parentId: req.body.parentId === 'root' || !req.body.parentId ? 0 : parseInt(req.body.parentId),
                 active: req.body.active === 'active' || req.body.active === true,
+                lft: req.body.lft ? parseInt(req.body.lft) : null,
+                rght: req.body.rght ? parseInt(req.body.rght) : null,
+                level: req.body.level ? parseInt(req.body.level) : null,
                 image: imageUrl,
                 metaTitle: req.body.metaTitle || req.body.metatitle || null,
                 metaKeywords: req.body.metaKeywords || req.body.metakeywords || null,
                 metaDesc: req.body.metaDescription || req.body.metadescription || null,
+                newsletterCategory: req.body.newsletterCategory === 'yes' || req.body.newsletterCategory === true,
+                newsletterOrder: req.body.newsletterOrder ? parseInt(req.body.newsletterOrder) : null,
                 productType: Number(req.body.productType || req.body.producttype) || 0
             }
         });
         res.status(201).json({ status: true, msg: 'Category added successfully!', data: category });
     } catch (error) {
+        console.error('Category save error:', error.message);
         res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
@@ -54,34 +57,22 @@ export const fetchCategory = async (req, res) => {
             const pageSize = Number(limit) || 6;
             const skip = (pageNum - 1) * pageSize;
             const [data, total] = await Promise.all([
-                prisma.$queryRaw`
-                    SELECT * FROM categories
-                    WHERE active = true
-                    ORDER BY (CASE WHEN image IS NOT NULL AND image != '' THEN 0 ELSE 1 END), category_title ASC
-                    LIMIT ${pageSize} OFFSET ${skip}
-                `,
+                prisma.category.findMany({
+                    orderBy: [{ image: 'desc' }, { title: 'asc' }],
+                    where: { active: true },
+                    skip,
+                    take: pageSize
+                }),
                 prisma.category.count({ where: { active: true } })
             ]);
-            const mapped = data.map(c => ({
-                id: c.id,
-                title: c.category_title,
-                slug: c.slug,
-                parentId: c.parent_id,
-                active: c.active,
-                image: c.image,
-                metaTitle: c.meta_title,
-                metaKeywords: c.meta_keywords,
-                metaDesc: c.meta_description,
-                productType: c.product_type,
-                createdAt: c.createdAt
-            }));
-            return res.json({ status: true, data: mapped, total, totalPages: Math.ceil(total / pageSize), page: pageNum, limit: pageSize });
+            return res.json({ status: true, data, total, totalPages: Math.ceil(total / pageSize), page: pageNum, limit: pageSize });
         }
 
         // All categories (for dropdowns)
         const data = await prisma.category.findMany({ orderBy: { title: 'asc' } });
         res.json({ status: true, data });
     } catch (error) {
+        console.error('Category fetch error:', error.message);
         res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
@@ -108,21 +99,37 @@ export const updateCategory = async (req, res) => {
             }
         }
 
+        const b = req.body;
         const updateData = {
-            title: req.body.categorytitle || req.body.categoryTitle || existing.title,
-            slug: req.body.slug ?? existing.slug,
-            parentId: req.body.parentid === 'root' || !req.body.parentid ? 0 : parseInt(req.body.parentid),
-            active: req.body.active === 'active' || req.body.active === true,
+            title: b.categorytitle || b.categoryTitle || existing.title,
+            slug: b.slug ?? existing.slug,
+            parentSlug: b.parentSlug ?? b.parentslug ?? existing.parentSlug,
+            mainModule: b.mainModule ?? b.mainmodule ?? existing.mainModule,
+            oldId: b.oldId ?? b.oldid ?? existing.oldId,
+            parentId: b.parentId != null ? (b.parentId === 'root' || b.parentId === '' ? 0 : parseInt(b.parentId))
+                     : b.parentid != null ? (b.parentid === 'root' || b.parentid === '' ? 0 : parseInt(b.parentid))
+                     : existing.parentId,
+            active: b.active === 'active' || b.active === true,
+            lft: b.lft != null ? (b.lft === '' ? null : parseInt(b.lft)) : existing.lft,
+            rght: b.rght != null ? (b.rght === '' ? null : parseInt(b.rght)) : existing.rght,
+            level: b.level != null ? (b.level === '' ? null : parseInt(b.level)) : existing.level,
             image: imageUrl,
-            metaTitle: req.body.metatitle || req.body.metaTitle || existing.metaTitle,
-            metaKeywords: req.body.metakeywords || req.body.metaKeywords || existing.metaKeywords,
-            metaDesc: req.body.metadescription || req.body.metaDescription || existing.metaDesc,
-            productType: Number(req.body.producttype || req.body.productType) || existing.productType
+            metaTitle: b.metatitle || b.metaTitle || existing.metaTitle,
+            metaKeywords: b.metakeywords || b.metaKeywords || existing.metaKeywords,
+            metaDesc: b.metadescription || b.metaDescription || existing.metaDesc,
+            newsletterCategory: b.newsletterCategory != null
+                ? (b.newsletterCategory === 'yes' || b.newsletterCategory === true)
+                : existing.newsletterCategory,
+            newsletterOrder: b.newsletterOrder != null
+                ? (b.newsletterOrder === '' ? null : parseInt(b.newsletterOrder))
+                : existing.newsletterOrder,
+            productType: Number(b.producttype || b.productType) || existing.productType
         };
 
         const updated = await prisma.category.update({ where: { id }, data: updateData });
         res.json({ status: true, msg: 'Category Updated successfully!', data: updated });
     } catch (error) {
+        console.error('Category update error:', error.message);
         res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };

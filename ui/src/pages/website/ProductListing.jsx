@@ -58,7 +58,7 @@ const ProductListing = ({ type }) => {
     const findCategoryObject = (categories, currentSlug) => {
         if (!categories || !currentSlug) return null;
         for (let cat of categories) {
-            const title = cat.categorytitle || cat.title || "";
+            const title = cat.title || cat.categorytitle || "";
             // Clean match logic (Art & Nature -> art-and-nature)
             const cleanTitle = title.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]/g, '');
             const cleanSlug = currentSlug.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -92,13 +92,13 @@ const ProductListing = ({ type }) => {
                     if (slug) {
                         // Find current category by slug from flat list
                         const foundCat = flatCategories.find(
-                            c => c.slug === slug || c.slug.endsWith('/' + slug)
+                            c => c.slug === slug || (c.slug && c.slug.endsWith('/' + slug))
                         );
                         if (foundCat) {
-                            setPageTitle(foundCat.categorytitle || foundCat.title);
-                            // Filter all categories whose parentid matches this category's _id
+                            setPageTitle(foundCat.title || foundCat.categorytitle);
+                            // Filter all categories whose parentId matches this category's id
                             const children = flatCategories.filter(
-                                c => c.parentid && String(c.parentid) === String(foundCat.id)
+                                c => (c.parentId || c.parentid) && String(c.parentId || c.parentid) === String(foundCat.id)
                             );
                             setSubcategoriesList(children);
                         } else {
@@ -108,7 +108,7 @@ const ProductListing = ({ type }) => {
                     } else {
                         setPageTitle(type ? type.replace(/-/g, ' ') : 'category');
                         // No slug = special page (recommended/bestsellers etc.) — show root categories
-                        const rootCategories = flatCategories.filter(c => !c.parentid || c.level === 0);
+                        const rootCategories = flatCategories.filter(c => (!c.parentId && !c.parentid) || c.parentId === 0 || c.level === 0);
                         setSubcategoriesList(rootCategories);
                     }
                 }
@@ -451,7 +451,8 @@ const buildCategoryTree = (categories) => {
     const map = {}; const tree = [];
     categories.forEach(c => map[c.id] = { ...c, children: [] });
     categories.forEach(c => {
-        if (c.parentid && map[c.parentid]) map[c.parentid].children.push(map[c.id]);
+        const pid = c.parentId || c.parentid;
+        if (pid && map[pid]) map[pid].children.push(map[c.id]);
         else tree.push(map[c.id]);
     });
     return tree;

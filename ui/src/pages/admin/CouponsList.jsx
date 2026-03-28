@@ -75,12 +75,12 @@ const CouponsList = () => {
         "Sr No": i + 1,
         "Coupon Title": c.title || "N/A",
         "Code": c.code,
-        "Discount Type": c.fix_amount === 'active' ? "Fixed Amount" : "Percentage", // Model logic
-        "Discount Value": c.amount || 0, // Model mein 'amount' field hai
-        "Min. Purchase": c.minimum_buy || 0,
-        "Valid From": formatDate(c.valid_from),
-        "Expiry Date": formatDate(c.valid_to),
-        "Status": c.active === 'active' ? "Active" : "Inactive"
+        "Discount Type": (c.fixAmount || c.fix_amount) ? "Fixed Amount" : "Percentage",
+        "Discount Value": c.amount || 0,
+        "Min. Purchase": c.minimumBuy || c.minimum_buy || 0,
+        "Valid From": formatDate(c.validFrom || c.valid_from),
+        "Expiry Date": formatDate(c.validTo || c.valid_to),
+        "Status": c.active ? "Active" : "Inactive"
       }));
 
       // 3. Create Workbook
@@ -310,7 +310,7 @@ const CouponsList = () => {
                 </tr>
               ) : filteredCoupons.length > 0 ? (
                 filteredCoupons.map((coupon, index) => {
-                  const isExpired = coupon.valid_to && new Date(coupon.valid_to) < new Date();
+                  const isExpired = (coupon.validTo || coupon.valid_to) && new Date(coupon.validTo || coupon.valid_to) < new Date();
 
                   return (
                     <tr key={coupon.id} className="hover:bg-primary/5 transition-colors group">
@@ -332,8 +332,8 @@ const CouponsList = () => {
                           <Copy size={10} className="opacity-40 group-hover/btn:opacity-100" />
                         </button>
                       </td>
-                      <td className="p-4 border-r border-gray-50 text-gray-600 font-medium text-xs italic">{formatDate(coupon.valid_from)}</td>
-                      <td className="p-4 border-r border-gray-50 text-gray-600 font-medium text-xs italic">{formatDate(coupon.valid_to)}</td>
+                      <td className="p-4 border-r border-gray-50 text-gray-600 font-medium text-xs italic">{formatDate(coupon.validFrom || coupon.valid_from)}</td>
+                      <td className="p-4 border-r border-gray-50 text-gray-600 font-medium text-xs italic">{formatDate(coupon.validTo || coupon.valid_to)}</td>
                       <td className="p-4">
                         <div className="flex justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button

@@ -131,7 +131,7 @@ const LibraryServices = () => {
                 {/* Box Description */}
                 <div
                   className="prose prose-lg max-w-none font-body text-gray-600 leading-relaxed mb-8 line-clamp-4"
-                  dangerouslySetInnerHTML={createSafeHtml(activeService.box_description)}
+                  dangerouslySetInnerHTML={createSafeHtml(activeService.boxDesc || activeService.box_description)}
                 />
 
                 {/* Explore Button */}

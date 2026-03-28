@@ -43,11 +43,8 @@ const FormatsList = () => {
   const { data: queryData, isLoading, isFetching, refetch } = useQuery({
     queryKey: ['formatsList', currentPage, itemsPerPage],
     queryFn: fetchFormats,
-    staleTime: 1000 * 60 * 5, // Cache for 5 mins for lightning fast pagination
-    keepPreviousData: true, // Pagination ke time table blink/blank nahi hogi
-    onError: () => {
-      toast.error("Failed to load formats");
-    }
+    staleTime: 1000 * 60 * 5,
+    placeholderData: (prev) => prev,
   });
 
   // Extract Data from Query

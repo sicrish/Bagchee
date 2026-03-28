@@ -51,8 +51,26 @@ export const getAllPublishers = async (req, res) => {
             prisma.publisher.findMany({ orderBy: { order: 'asc' }, skip, take: pageSize }),
             prisma.publisher.count()
         ]);
-        res.status(200).json({ status: true, data: publishers, total, totalPages: Math.ceil(total / pageSize), page: pageNum });
+
+        // Resolve category names
+        const categoryIds = [...new Set(publishers.map(p => p.categoryId).filter(Boolean))];
+        let categoryMap = {};
+        if (categoryIds.length > 0) {
+            const categories = await prisma.category.findMany({
+                where: { id: { in: categoryIds } },
+                select: { id: true, title: true }
+            });
+            categoryMap = Object.fromEntries(categories.map(c => [c.id, c.title]));
+        }
+
+        const data = publishers.map(p => ({
+            ...p,
+            categoryName: p.categoryId ? (categoryMap[p.categoryId] || `ID: ${p.categoryId}`) : null
+        }));
+
+        res.status(200).json({ status: true, data, total, totalPages: Math.ceil(total / pageSize), page: pageNum });
     } catch (error) {
+        console.error('Publisher list error:', error.message);
         res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };

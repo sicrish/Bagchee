@@ -329,8 +329,8 @@ export const update = async (req, res) => {
         if (req.body.total_pages  !== undefined) updateData.pages       = Number(req.body.total_pages);
         if (req.body.rating       !== undefined) updateData.rating      = Number(req.body.rating);
         if (req.body.rated_times  !== undefined) updateData.ratedTimes  = Number(req.body.rated_times);
-        if (req.body.ship_days    !== undefined) updateData.shipDays    = Number(req.body.ship_days);
-        if (req.body.deliver_days !== undefined) updateData.deliverDays = Number(req.body.deliver_days);
+        if (req.body.ship_days    !== undefined) updateData.shipDays    = Number(req.body.ship_days) || 0;
+        if (req.body.deliver_days !== undefined) updateData.deliverDays = Number(req.body.deliver_days) || 0;
         if (req.body.availability !== undefined) updateData.availability= Number(req.body.availability);
 
         // ── FK IDs ────────────────────────────────────────────────────────────
@@ -492,7 +492,7 @@ export const fetch = async (req, res) => {
 };
 
 // GET /product/search-suggestions?keyword=...&limit=8
-// Lightweight endpoint for search autocomplete — uses raw SQL with trigram index
+// Lightweight endpoint for search autocomplete — searches books, authors, categories, series, publishers
 export const searchSuggestions = async (req, res) => {
     try {
         const { keyword, limit } = req.query;
@@ -504,23 +504,86 @@ export const searchSuggestions = async (req, res) => {
 
         const searchParam = `%${keyword.trim()}%`;
 
-        const products = await prisma.$queryRaw`
-            SELECT DISTINCT ON (p.id) p.id, p.bagchee_id AS "bagcheeId", p.title, p.isbn_13 AS "isbn13",
-                   p.default_image AS "defaultImage", p.price, p.real_price AS "realPrice",
-                   a.first_name AS "authorFirstName", a.last_name AS "authorLastName"
-            FROM products p
-            LEFT JOIN products_authors pa ON pa.product_id = p.id AND pa.id = (
-                SELECT MIN(pa2.id) FROM products_authors pa2 WHERE pa2.product_id = p.id
-            )
-            LEFT JOIN authors a ON a.id = pa.author_id
-            WHERE p.active = true
-              AND (p.title ILIKE ${searchParam} OR p.isbn_13 ILIKE ${searchParam} OR p.isbn_10 ILIKE ${searchParam} OR p.bagchee_id ILIKE ${searchParam})
-            ORDER BY p.id DESC
-            LIMIT ${pageSize}
-        `;
+        // Run all searches in parallel
+        const [products, authors, categories, series, publishers] = await Promise.all([
+            prisma.$queryRaw`
+                SELECT DISTINCT ON (p.id) p.id, p.bagchee_id AS "bagcheeId", p.title, p.isbn_13 AS "isbn13",
+                       p.default_image AS "defaultImage", p.price, p.real_price AS "realPrice",
+                       a.first_name AS "authorFirstName", a.last_name AS "authorLastName"
+                FROM products p
+                LEFT JOIN products_authors pa ON pa.product_id = p.id AND pa.id = (
+                    SELECT MIN(pa2.id) FROM products_authors pa2 WHERE pa2.product_id = p.id
+                )
+                LEFT JOIN authors a ON a.id = pa.author_id
+                WHERE p.active = true
+                  AND (p.title ILIKE ${searchParam} OR p.isbn_13 ILIKE ${searchParam} OR p.isbn_10 ILIKE ${searchParam} OR p.bagchee_id ILIKE ${searchParam})
+                ORDER BY p.id DESC
+                LIMIT ${pageSize}
+            `,
+            prisma.$queryRaw`
+                SELECT id, first_name AS "firstName", last_name AS "lastName", full_name AS "fullName"
+                FROM authors
+                WHERE full_name ILIKE ${searchParam} OR first_name ILIKE ${searchParam} OR last_name ILIKE ${searchParam}
+                ORDER BY full_name ASC
+                LIMIT 5
+            `,
+            prisma.$queryRaw`
+                SELECT id, category_title AS "title", slug
+                FROM categories
+                WHERE category_title ILIKE ${searchParam} AND active = true
+                ORDER BY category_title ASC
+                LIMIT 5
+            `,
+            prisma.$queryRaw`
+                SELECT id, series_title AS "title"
+                FROM series
+                WHERE series_title ILIKE ${searchParam}
+                ORDER BY series_title ASC
+                LIMIT 5
+            `,
+            prisma.$queryRaw`
+                SELECT id, publisher_title AS "title", slug
+                FROM publishers
+                WHERE publisher_title ILIKE ${searchParam}
+                ORDER BY publisher_title ASC
+                LIMIT 5
+            `,
+        ]);
 
-        // Reshape to match expected format
-        const data = products.map(p => ({
+        const data = [];
+
+        // Add authors first
+        authors.forEach(a => data.push({
+            id: a.id,
+            title: a.fullName || `${a.firstName} ${a.lastName}`.trim(),
+            type: 'author',
+        }));
+
+        // Add categories
+        categories.forEach(c => data.push({
+            id: c.id,
+            title: c.title,
+            slug: c.slug,
+            type: 'category',
+        }));
+
+        // Add series
+        series.forEach(s => data.push({
+            id: s.id,
+            title: s.title,
+            type: 'series',
+        }));
+
+        // Add publishers
+        publishers.forEach(p => data.push({
+            id: p.id,
+            title: p.title,
+            slug: p.slug,
+            type: 'publisher',
+        }));
+
+        // Add books last
+        products.forEach(p => data.push({
             id: p.id,
             bagcheeId: p.bagcheeId,
             title: p.title,
@@ -529,6 +592,7 @@ export const searchSuggestions = async (req, res) => {
             price: Number(p.price),
             realPrice: Number(p.realPrice),
             author: p.authorFirstName ? { firstName: p.authorFirstName, lastName: p.authorLastName || '' } : null,
+            type: 'book',
         }));
 
         res.json({ status: true, data });

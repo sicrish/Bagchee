@@ -67,6 +67,7 @@ import sideBannerTwoRoutes from './routes/sideBannerTwoRoutes.js'
 import footerRoutes from './routes/footerRoutes.js';
 import razorpayRoutes from './routes/razorpay.routes.js';
 import emailCampaignRoutes from './routes/emailCampaignRoutes.js';
+import { processScheduledEmails } from './controller/emailCampaignController.js';
 
 
 
@@ -232,6 +233,10 @@ app.use((err, req, res, next) => {
 // Server Listen
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT} [${process.env.NODE_ENV || 'development'}]`);
+
+    // Check for scheduled emails every 60 seconds
+    setInterval(processScheduledEmails, 60 * 1000);
+    console.log('Scheduled email processor started (checks every 60s)');
 });
 
 export default app;
