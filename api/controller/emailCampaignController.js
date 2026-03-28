@@ -65,53 +65,64 @@ export const sendCampaignEmail = async (req, res) => {
             return res.status(400).json({ status: false, msg: 'Audience must be "subscribers", "customers", or "all".' });
         }
 
-        // Collect recipient emails based on audience
-        let emails = [];
-
-        if (audience === 'subscribers' || audience === 'all') {
-            const subs = await prisma.newsletterSubscriber.findMany({ select: { email: true } });
-            emails.push(...subs.map(s => s.email));
-        }
-
-        if (audience === 'customers' || audience === 'all') {
-            const users = await prisma.user.findMany({
-                where: { role: 'user' },
-                select: { email: true }
-            });
-            emails.push(...users.map(u => u.email));
-        }
-
-        // Deduplicate
-        const uniqueEmails = [...new Set(emails.filter(Boolean))];
-
-        if (uniqueEmails.length === 0) {
-            return res.status(400).json({ status: false, msg: 'No recipients found for the selected audience.' });
-        }
-
         const transporter = createTransporter();
         const htmlContent = wrapInTemplate(escapeHtml(subject), body);
 
-        // Send emails in batches of 10 to avoid Gmail rate limits
-        const BATCH_SIZE = 10;
+        const FETCH_BATCH = 500; // Fetch from DB in chunks
+        const SEND_BATCH = 10;   // Send emails in parallel chunks
         let sent = 0;
         let failed = 0;
+        const seenEmails = new Set();
 
-        for (let i = 0; i < uniqueEmails.length; i += BATCH_SIZE) {
-            const batch = uniqueEmails.slice(i, i + BATCH_SIZE);
-            const promises = batch.map(email =>
-                transporter.sendMail({
-                    from: `"Bagchee" <${process.env.EMAIL_USER}>`,
-                    to: email,
-                    subject: subject,
-                    html: htmlContent
-                })
-                .then(() => { sent++; })
-                .catch((err) => {
-                    console.error(`Failed to send to ${email}:`, err.message);
-                    failed++;
-                })
-            );
-            await Promise.all(promises);
+        // Helper: fetch emails in cursor-paginated batches and send
+        const processModel = async (model, where = {}) => {
+            let cursor = undefined;
+            while (true) {
+                const rows = await model.findMany({
+                    select: { id: true, email: true },
+                    where,
+                    take: FETCH_BATCH,
+                    ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+                    orderBy: { id: 'asc' }
+                });
+                if (rows.length === 0) break;
+                cursor = rows[rows.length - 1].id;
+
+                // Deduplicate and collect new emails
+                const newEmails = rows
+                    .map(r => r.email)
+                    .filter(e => e && !seenEmails.has(e));
+                newEmails.forEach(e => seenEmails.add(e));
+
+                // Send in small batches
+                for (let i = 0; i < newEmails.length; i += SEND_BATCH) {
+                    const batch = newEmails.slice(i, i + SEND_BATCH);
+                    await Promise.all(batch.map(email =>
+                        transporter.sendMail({
+                            from: `"Bagchee" <${process.env.EMAIL_USER}>`,
+                            to: email,
+                            subject,
+                            html: htmlContent
+                        })
+                        .then(() => { sent++; })
+                        .catch((err) => {
+                            console.error(`Failed to send to ${email}:`, err.message);
+                            failed++;
+                        })
+                    ));
+                }
+            }
+        };
+
+        if (audience === 'subscribers' || audience === 'all') {
+            await processModel(prisma.newsletterSubscriber);
+        }
+        if (audience === 'customers' || audience === 'all') {
+            await processModel(prisma.user, { role: 'user' });
+        }
+
+        if (sent === 0 && failed === 0) {
+            return res.status(400).json({ status: false, msg: 'No recipients found for the selected audience.' });
         }
 
         res.status(200).json({
@@ -119,7 +130,7 @@ export const sendCampaignEmail = async (req, res) => {
             msg: `Campaign sent! ${sent} delivered, ${failed} failed.`,
             sent,
             failed,
-            total: uniqueEmails.length
+            total: sent + failed
         });
     } catch (error) {
         console.error('Campaign send error:', error.message);
@@ -129,7 +140,7 @@ export const sendCampaignEmail = async (req, res) => {
 
 /**
  * GET /email-campaign/recipients-count?audience=subscribers|customers|all
- * Returns the count of recipients for preview
+ * Returns the count of recipients for preview (uses DB count, not findMany)
  */
 export const getRecipientsCount = async (req, res) => {
     try {
@@ -139,25 +150,24 @@ export const getRecipientsCount = async (req, res) => {
             return res.status(400).json({ status: false, msg: 'Valid audience param required.' });
         }
 
-        let emails = [];
+        let count = 0;
 
-        if (audience === 'subscribers' || audience === 'all') {
-            const subs = await prisma.newsletterSubscriber.findMany({ select: { email: true } });
-            emails.push(...subs.map(s => s.email));
+        if (audience === 'subscribers') {
+            count = await prisma.newsletterSubscriber.count();
+        } else if (audience === 'customers') {
+            count = await prisma.user.count({ where: { role: 'user' } });
+        } else {
+            // "all" — count both, approximate (some overlap possible)
+            const [subCount, userCount] = await Promise.all([
+                prisma.newsletterSubscriber.count(),
+                prisma.user.count({ where: { role: 'user' } })
+            ]);
+            count = subCount + userCount;
         }
 
-        if (audience === 'customers' || audience === 'all') {
-            const users = await prisma.user.findMany({
-                where: { role: 'user' },
-                select: { email: true }
-            });
-            emails.push(...users.map(u => u.email));
-        }
-
-        const uniqueCount = new Set(emails.filter(Boolean)).size;
-
-        res.status(200).json({ status: true, count: uniqueCount });
+        res.status(200).json({ status: true, count });
     } catch (error) {
+        console.error('Recipients count error:', error.message);
         res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
