@@ -139,6 +139,40 @@ export const sendCampaignEmail = async (req, res) => {
 };
 
 /**
+ * POST /email-campaign/send-test
+ * Body: { subject, body (HTML), testEmail }
+ * Sends to a single email for preview before bulk sending
+ */
+export const sendTestEmail = async (req, res) => {
+    try {
+        const { subject, body, testEmail } = req.body;
+
+        if (!subject || !body || !testEmail) {
+            return res.status(400).json({ status: false, msg: 'Subject, body, and test email are required.' });
+        }
+
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(testEmail)) {
+            return res.status(400).json({ status: false, msg: 'Invalid email address.' });
+        }
+
+        const transporter = createTransporter();
+        const htmlContent = wrapInTemplate(escapeHtml(subject), body);
+
+        await transporter.sendMail({
+            from: `"Bagchee" <${process.env.EMAIL_USER}>`,
+            to: testEmail,
+            subject: `[TEST] ${subject}`,
+            html: htmlContent
+        });
+
+        res.status(200).json({ status: true, msg: `Test email sent to ${testEmail}` });
+    } catch (error) {
+        console.error('Test email error:', error.message);
+        res.status(500).json({ status: false, msg: 'Failed to send test email.' });
+    }
+};
+
+/**
  * GET /email-campaign/recipients-count?audience=subscribers|customers|all
  * Returns the count of recipients for preview (uses DB count, not findMany)
  */
