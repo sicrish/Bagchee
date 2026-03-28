@@ -9,14 +9,14 @@ import { CurrencyContext } from '../../../context/CurrencyContext';
 import { useQuery } from '@tanstack/react-query';
 
 const Orders = () => {
-  
+
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [productDetails, setProductDetails] = useState({}); // Cache for product details
   const { formatPrice } = useContext(CurrencyContext);
-  
 
-  
+
+
 
 
 
@@ -30,7 +30,7 @@ const Orders = () => {
 
   // 🟢 2. REACT QUERY: Ye akela hook loading aur data dono handle kar lega
   const { data: orders = [], isLoading: loading } = useQuery({
-    queryKey: ['my-orders', userId], 
+    queryKey: ['my-orders', userId],
     queryFn: async () => {
       if (!userId) return [];
       const res = await axios.get('/orders/my-orders', {
