@@ -5,16 +5,21 @@ import prisma from '../lib/prisma.js';
 
 export const saveSubscriber = async (req, res) => {
     try {
-        const { email, firstName, lastName } = req.body;
+        const { email, firstName, lastName, categories } = req.body;
         if (!email) return res.status(400).json({ status: false, msg: 'Email is required.' });
 
         const existing = await prisma.newsletterSubscriber.findUnique({ where: { email } });
         if (existing) return res.status(400).json({ status: false, msg: 'Email already subscribed!' });
 
         const sub = await prisma.newsletterSubscriber.create({
-            data: { email, firstName: firstName || '', lastName: lastName || '' }
+            data: {
+                email,
+                firstName: firstName || '',
+                lastName: lastName || '',
+                categories: Array.isArray(categories) ? categories : []
+            }
         });
-        res.status(201).json({ status: true, msg: 'Subscriber added successfully!', data: sub });
+        res.status(201).json({ status: true, msg: 'Subscribed successfully!', data: sub });
     } catch (error) {
         res.status(500).json({ status: false, msg: 'Server Error' });
     }
@@ -48,10 +53,13 @@ export const getSubscriberById = async (req, res) => {
 
 export const updateSubscriber = async (req, res) => {
     try {
-        const { email, firstName, lastName } = req.body;
+        const { email, firstName, lastName, categories } = req.body;
+        const data = { email, firstName: firstName || '', lastName: lastName || '' };
+        if (categories !== undefined) data.categories = Array.isArray(categories) ? categories : [];
+
         const updated = await prisma.newsletterSubscriber.update({
             where: { id: parseInt(req.params.id) },
-            data: { email, firstName: firstName || '', lastName: lastName || '' }
+            data
         });
         res.status(200).json({ status: true, msg: 'Subscriber updated successfully!', data: updated });
     } catch (error) {

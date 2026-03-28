@@ -6,8 +6,10 @@ import authMiddleware from '../middleware/auth.middleware.js';
 import adminAuth from '../middleware/adminAuth.middleware.js';
 
 // PUBLIC — no auth needed
-router.post("/register", usercontroller.register);
-router.post("/login",    usercontroller.login);
+router.post("/register",        usercontroller.register);
+router.post("/login",           usercontroller.login);
+router.post("/forgot-password", usercontroller.forgotPassword);
+router.post("/reset-password",  usercontroller.resetPassword);
 
 // ADMIN — fetch/list all users or single user by id
 router.get("/fetch",    adminAuth, usercontroller.fetch);

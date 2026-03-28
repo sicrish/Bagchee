@@ -93,6 +93,74 @@ const sendMail = async (email, name) => {
 
 export default sendMail;
 
+export const sendPasswordResetEmail = async (email, name, resetLink) => {
+    try {
+        const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASS
+            }
+        });
+
+        const emailTemplate = `
+            <div style="font-family: 'Inter', Helvetica, Arial, sans-serif; background-color: ${theme.cream}; padding: 40px 0;">
+                <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #e6decd;">
+
+                    <div style="background-color: ${theme.primary}; padding: 35px; text-align: center;">
+                        <h1 style="color: ${theme.textLight}; margin: 0; font-size: 26px; font-weight: 700; letter-spacing: 0.5px;">Bagchee</h1>
+                        <p style="color: ${theme.textLight}; margin-top: 5px; opacity: 0.9; font-size: 14px;">Your Favorite Bookstore</p>
+                    </div>
+
+                    <div style="padding: 40px 30px; text-align: center;">
+                        <h2 style="color: ${theme.textMain}; font-size: 22px; margin-bottom: 15px; font-weight: 600;">Reset Your Password</h2>
+
+                        <p style="color: ${theme.textMain}; font-size: 15px; line-height: 1.6; margin-bottom: 10px; opacity: 0.8;">
+                            Hi <strong>${escapeHtml(name)}</strong>,
+                        </p>
+                        <p style="color: ${theme.textMain}; font-size: 15px; line-height: 1.6; margin-bottom: 30px; opacity: 0.8;">
+                            We received a request to reset your password. Click the button below to create a new password. This link will expire in <strong>15 minutes</strong>.
+                        </p>
+
+                        <a href="${resetLink}" style="display: inline-block; background-color: ${theme.primary}; color: ${theme.textLight}; text-decoration: none; padding: 14px 36px; font-size: 16px; font-weight: bold; border-radius: 8px;">
+                            Reset Password
+                        </a>
+
+                        <p style="margin-top: 30px; font-size: 13px; color: ${theme.textMuted};">
+                            If the button doesn't work, copy and paste this link:<br>
+                            <a href="${resetLink}" style="color: ${theme.primary}; font-weight: 600; word-break: break-all;">${resetLink}</a>
+                        </p>
+
+                        <div style="margin-top: 30px; padding: 16px; background: #fff3cd; border-radius: 8px; border: 1px solid #ffc107;">
+                            <p style="font-size: 13px; color: #856404; margin: 0;">
+                                If you didn't request a password reset, you can safely ignore this email. Your password will not be changed.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div style="background-color: #fffdf5; padding: 20px; text-align: center; border-top: 1px solid #e6decd;">
+                        <p style="font-size: 12px; color: ${theme.textMuted}; margin: 0;">&copy; ${new Date().getFullYear()} Bagchee. All rights reserved.</p>
+                        <div style="margin-top: 8px;">
+                            <span style="font-size: 12px; color: ${theme.textMuted}; opacity: 0.7;">Indore, India</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        await transporter.sendMail({
+            from: `"Bagchee" <${process.env.EMAIL_USER}>`,
+            to: email,
+            subject: 'Reset Your Password - Bagchee',
+            html: emailTemplate
+        });
+
+    } catch (error) {
+        console.error('Password reset email failed:', error.message);
+        throw error;
+    }
+};
+
 export const sendOrderConfirmation = async (email, order) => {
     try {
         const transporter = nodemailer.createTransport({

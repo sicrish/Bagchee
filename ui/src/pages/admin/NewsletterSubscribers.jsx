@@ -146,6 +146,7 @@ const NewsletterSubscribers = () => {
           </button>
 
           <button
+            onClick={() => navigate('/admin/send-email')}
             className="bg-[#e9ecef] border border-gray-300 text-gray-700 hover:bg-white px-4 py-2 rounded shadow-sm flex items-center justify-center gap-2 font-montserrat font-bold text-xs uppercase transition-all active:scale-95"
           >
             <Mail size={14} className="text-gray-600" /> Send Newsletters

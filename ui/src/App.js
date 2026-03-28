@@ -164,6 +164,8 @@ const Register = lazy(() => import('./pages/auth/Register.jsx'));
 
 // import Login from './pages/auth/Login.jsx';
 const Login = lazy(() => import('./pages/auth/Login.jsx'));
+const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword.jsx'));
+const ResetPassword = lazy(() => import('./pages/auth/ResetPassword.jsx'));
 
 
 //auth for admin
@@ -464,6 +466,8 @@ const NewsletterSubscribers = lazy(() => import('./pages/admin/NewsletterSubscri
 // import NewsletterSubscriberForm from './pages/admin/NewsletterSubscriberForm.jsx';
 const NewsletterSubscriberForm = lazy(() => import('./pages/admin/NewsletterSubscriberForm.jsx'));
 
+const SendEmail = lazy(() => import('./pages/admin/SendEmail.jsx'));
+
 // import TopAuthors from './pages/admin/TopAuthors.jsx';
 const TopAuthors = lazy(() => import('./pages/admin/TopAuthors.jsx'));
 
@@ -674,7 +678,8 @@ function App() {
               {/* <Route path="shipping-info" element={<ShippingInfo />} />
               <Route path="returns-refunds" element={<ReturnsRefunds />} /> */}
               <Route path="contact-us" element={<ContactUs />} />
-              <Route path="forgot-password" element={<UnderMaintenance />} />
+              <Route path="forgot-password" element={<ForgotPassword />} />
+              <Route path="reset-password" element={<ResetPassword />} />
               <Route path="disclaimer" element={<UnderMaintenance />} />
 
             </Route>
@@ -802,6 +807,7 @@ function App() {
                 <Route path="newsletter-subs" element={<NewsletterSubscribers />} />
                 <Route path="add-newsletter-subscriber" element={<NewsletterSubscriberForm />} />
                 <Route path="edit-newsletter-subscriber/:id" element={<NewsletterSubscriberForm />} />
+                <Route path="send-email" element={<SendEmail />} />
                 <Route path="top-authors" element={<TopAuthors />} />
                 <Route path="add-top-author" element={<AddEditTopAuthor />} />
                 <Route path="edit-top-author/:id" element={<AddEditTopAuthor />} />

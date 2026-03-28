@@ -66,6 +66,7 @@ import socialRoutes from './routes/socialRoutes.js'
 import sideBannerTwoRoutes from './routes/sideBannerTwoRoutes.js'
 import footerRoutes from './routes/footerRoutes.js';
 import razorpayRoutes from './routes/razorpay.routes.js';
+import emailCampaignRoutes from './routes/emailCampaignRoutes.js';
 
 
 
@@ -209,6 +210,7 @@ app.use('/socials', socialRoutes);
 app.use('/side-banner-two', sideBannerTwoRoutes);
 app.use('/footer', footerRoutes);
 app.use('/razorpay', razorpayRoutes);
+app.use('/email-campaign', emailCampaignRoutes);
 
 // Global 404 handler — must be after all routes
 app.use((req, res) => {

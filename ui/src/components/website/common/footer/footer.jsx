@@ -1,6 +1,8 @@
-import React, { memo } from 'react';
+import React, { memo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { MapPin, Mail, Facebook, Twitter, Instagram, ArrowRight } from 'lucide-react';
+import { MapPin, Mail, Facebook, Twitter, Instagram, ArrowRight, Loader2, Check } from 'lucide-react';
+import axios from '../../../../utils/axiosConfig.js';
+import toast from 'react-hot-toast';
 import Logo from '../../../../components/common/Logo.jsx';
 
 const Footer = () => {
@@ -323,18 +325,54 @@ const Footer = () => {
 // --- SUB COMPONENTS (Memoized for Speed) ---
 
 // 1. Newsletter Form Component
-const NewsletterForm = memo(({ mobile }) => (
-  <form className={`relative flex items-center shadow-lg rounded-full overflow-hidden bg-white/10 backdrop-blur-sm border border-white/20 hover:border-accent/50 transition-colors duration-300 ${mobile ? 'w-full' : ''}`}>
-    <input 
-      type="email" 
-      placeholder="Enter your email for updates..." 
-      className="w-full bg-transparent text-white placeholder-gray-300 px-6 py-3 focus:outline-none text-sm"
-    />
-    <button className="bg-accent text-text-main hover:bg-white hover:text-primary transition-colors px-6 py-3 flex items-center justify-center font-bold">
-      <ArrowRight size={18} />
-    </button>
-  </form>
-));
+const NewsletterForm = memo(({ mobile }) => {
+  const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [subscribed, setSubscribed] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!email.trim()) return toast.error('Please enter your email.');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return toast.error('Please enter a valid email.');
+
+    setLoading(true);
+    try {
+      const res = await axios.post(`${process.env.REACT_APP_API_URL}/newsletter-subs/save`, { email });
+      if (res.data.status) {
+        toast.success(res.data.msg);
+        setSubscribed(true);
+        setEmail('');
+        setTimeout(() => setSubscribed(false), 4000);
+      } else {
+        toast.error(res.data.msg);
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.msg || 'Failed to subscribe. Try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className={`relative flex items-center shadow-lg rounded-full overflow-hidden bg-white/10 backdrop-blur-sm border border-white/20 hover:border-accent/50 transition-colors duration-300 ${mobile ? 'w-full' : ''}`}>
+      <input
+        type="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="Enter your email for updates..."
+        className="w-full bg-transparent text-white placeholder-gray-300 px-6 py-3 focus:outline-none text-sm"
+        disabled={loading}
+      />
+      <button
+        type="submit"
+        disabled={loading}
+        className="bg-accent text-text-main hover:bg-white hover:text-primary transition-colors px-6 py-3 flex items-center justify-center font-bold disabled:opacity-60"
+      >
+        {loading ? <Loader2 size={18} className="animate-spin" /> : subscribed ? <Check size={18} /> : <ArrowRight size={18} />}
+      </button>
+    </form>
+  );
+});
 NewsletterForm.displayName = 'NewsletterForm';
 
 // 2. Social Icon Component

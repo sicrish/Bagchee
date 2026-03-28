@@ -69,6 +69,10 @@ model User {
   // Guest account flag
   isGuest         Boolean   @default(false) @map("is_guest")
 
+  // Password reset
+  resetToken        String?   @map("reset_token")
+  resetTokenExpiry  DateTime? @map("reset_token_expiry")
+
   createdAt       DateTime  @default(now()) @map("created_on")
   updatedAt       DateTime  @updatedAt
 
@@ -759,10 +763,12 @@ model Review {
 }
 
 model NewsletterSubscriber {
-  id        Int    @id @default(autoincrement())
-  email     String @unique
-  firstName String @default("") @map("first_name")
-  lastName  String @default("") @map("last_name")
+  id         Int      @id @default(autoincrement())
+  email      String   @unique
+  firstName  String   @default("") @map("first_name")
+  lastName   String   @default("") @map("last_name")
+  categories String[] @default([])
+  createdAt  DateTime @default(now()) @map("created_at")
 
   @@map("newsletter_subscribers")
 }
