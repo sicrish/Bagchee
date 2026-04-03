@@ -1,4 +1,5 @@
 import prisma from '../lib/prisma.js';
+import { cache } from '../lib/cache.js';
 
 // Accepts both camelCase (Prisma) and snake_case (old frontend) field names.
 const mapBody = (b) => {
@@ -33,6 +34,7 @@ const mapBody = (b) => {
 export const saveSetting = async (req, res) => {
     try {
         const newSetting = await prisma.settings.create({ data: mapBody(req.body) });
+        cache.invalidate('settings');
         res.status(201).json({ status: true, msg: 'Settings saved successfully!', data: newSetting });
     } catch (error) {
         res.status(500).json({ status: false, msg: 'Server Error' });
@@ -67,6 +69,7 @@ export const getSetting = async (req, res) => {
 export const updateSetting = async (req, res) => {
     try {
         const updated = await prisma.settings.update({ where: { id: parseInt(req.params.id) }, data: mapBody(req.body) });
+        cache.invalidate('settings');
         res.status(200).json({ status: true, msg: 'Settings updated!', data: updated });
     } catch (error) {
         if (error.code === 'P2025') return res.status(404).json({ status: false, msg: 'Not found' });

@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Check, RotateCcw, X, Upload, Loader2, XCircle } from 'lucide-react'; // 🟢 XCircle import kiya
-import JoditEditor from 'jodit-react';
+import JoditEditor from '../../components/admin/LazyJoditEditor';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
 import { validateImageFiles } from '../../utils/fileValidator'; // 🟢 Validation Import kiya

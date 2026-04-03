@@ -1,7 +1,13 @@
 import prisma from '../lib/prisma.js';
+import { cache } from '../lib/cache.js';
 import { saveFileLocal, deleteFileLocal } from '../utils/fileHandler.js';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+const THIRTY_MIN = 30 * 60 * 1000;
+const getCachedSettings = () => cache.get('settings', THIRTY_MIN, () =>
+    prisma.settings.findFirst({ orderBy: { id: 'desc' } })
+);
 
 const cleanArray = (data) => {
     if (!data) return [];
@@ -28,17 +34,25 @@ const toIntArray = (raw) =>
     [...new Set(cleanArray(raw).map(v => parseInt(v)).filter(n => !isNaN(n)))];
 
 // Resolve an array of IDs or title strings to integer IDs using the given Prisma model.
-// Values that are valid integers are used directly; strings are looked up by title.
+// Values that are valid integers are used directly; strings are batch-looked up by title.
 const resolveToIds = async (model, raw) => {
     const values = cleanArray(raw);
     if (!values.length) return [];
-    const results = await Promise.all(values.map(async (v) => {
+    const intIds = [];
+    const titleStrings = [];
+    for (const v of values) {
         const asInt = parseInt(v);
-        if (!isNaN(asInt)) return asInt;
-        const found = await model.findFirst({ where: { title: { equals: String(v), mode: 'insensitive' } }, select: { id: true } });
-        return found ? found.id : null;
-    }));
-    return [...new Set(results.filter(Boolean))];
+        if (!isNaN(asInt)) intIds.push(asInt);
+        else titleStrings.push(String(v));
+    }
+    if (titleStrings.length) {
+        const found = await model.findMany({
+            where: { title: { in: titleStrings, mode: 'insensitive' } },
+            select: { id: true },
+        });
+        intIds.push(...found.map(r => r.id));
+    }
+    return [...new Set(intIds)];
 };
 
 // Save multiple uploaded files, return [{image, order}]
@@ -154,7 +168,7 @@ const buildWhereClause = (query, { includeInactive = false } = {}) => {
     return { AND: conditions };
 };
 
-// What to include when returning product data
+// What to include when returning product data (full — for detail/admin views)
 const PRODUCT_INCLUDE = {
     publisher:    { select: { id: true, title: true } },
     series:       { select: { id: true, title: true } },
@@ -166,6 +180,13 @@ const PRODUCT_INCLUDE = {
     images:       { orderBy: { ord: 'asc' } },
     tocImages:    { orderBy: { ord: 'asc' } },
     sampleImages: { orderBy: { ord: 'asc' } },
+};
+
+// Lightweight include for list/grid views (smaller response, faster queries)
+const PRODUCT_LIST_INCLUDE = {
+    authors:    { include: { author: { select: { id: true, fullName: true } } }, take: 2 },
+    categories: { include: { category: { select: { id: true, title: true } } }, take: 1 },
+    images:     { orderBy: { ord: 'asc' }, take: 1 },
 };
 
 // Sort option map
@@ -231,7 +252,7 @@ export const save = async (req, res) => {
                 seriesId:       isNaN(seriesId)    ? null : seriesId,
                 seriesNumber:   req.body.series_number || null,
                 leadingCategoryId: catId,
-                pages:          Number(req.body.pages || req.body.total_pages) || null,
+                pages:          req.body.pages || req.body.total_pages || null,
                 weight:         req.body.weight   || null,
                 edition:        req.body.edition  || null,
                 volume:         req.body.volume   || null,
@@ -258,6 +279,9 @@ export const save = async (req, res) => {
                 ratedTimes:     Number(req.body.rated_times) || 0,
                 shipDays:       Number(req.body.ship_days)   || 3,
                 deliverDays:    Number(req.body.deliver_days) || 7,
+                metaTitle:      req.body.meta_title       || null,
+                metaKeywords:   req.body.meta_keywords    || null,
+                metaDescription:req.body.meta_description || null,
 
                 // Junction tables
                 authors:    { create: authorIds.map(id   => ({ authorId:   id })) },
@@ -282,6 +306,7 @@ export const save = async (req, res) => {
             include: PRODUCT_INCLUDE
         });
 
+        cache.invalidate('filter-options');
         res.status(201).json({ status: true, msg: 'Product saved successfully', data: updated });
     } catch (error) {
         console.error('Save Error:', error);
@@ -311,6 +336,9 @@ export const update = async (req, res) => {
         if (req.body.search_text  !== undefined) updateData.searchText  = req.body.search_text;
         if (req.body.notes        !== undefined) updateData.notes       = req.body.notes;
         if (req.body.source       !== undefined) updateData.source      = req.body.source;
+        if (req.body.meta_title       !== undefined) updateData.metaTitle       = req.body.meta_title;
+        if (req.body.meta_keywords    !== undefined) updateData.metaKeywords    = req.body.meta_keywords;
+        if (req.body.meta_description !== undefined) updateData.metaDescription = req.body.meta_description;
         if (req.body.weight       !== undefined) updateData.weight      = req.body.weight;
         if (req.body.edition      !== undefined) updateData.edition     = req.body.edition;
         if (req.body.volume       !== undefined) updateData.volume      = req.body.volume;
@@ -325,8 +353,8 @@ export const update = async (req, res) => {
         if (req.body.inr_price    !== undefined) updateData.inrPrice    = Number(req.body.inr_price);
         if (req.body.real_price   !== undefined) updateData.realPrice   = Number(req.body.real_price);
         if (req.body.discount     !== undefined) updateData.discount    = Number(req.body.discount);
-        if (req.body.pages        !== undefined) updateData.pages       = Number(req.body.pages);
-        if (req.body.total_pages  !== undefined) updateData.pages       = Number(req.body.total_pages);
+        if (req.body.pages        !== undefined) updateData.pages       = req.body.pages || null;
+        if (req.body.total_pages  !== undefined) updateData.pages       = req.body.total_pages || null;
         if (req.body.rating       !== undefined) updateData.rating      = Number(req.body.rating);
         if (req.body.rated_times  !== undefined) updateData.ratedTimes  = Number(req.body.rated_times);
         if (req.body.ship_days    !== undefined) updateData.shipDays    = Number(req.body.ship_days) || 0;
@@ -437,6 +465,7 @@ export const update = async (req, res) => {
         if (newSample.length)  await prisma.productSampleImage.createMany({ data: newSample.map(i => ({ productId: id, file: i.image, ord: i.order })) });
 
         const result = await prisma.product.findUnique({ where: { id }, include: PRODUCT_INCLUDE });
+        cache.invalidate('filter-options');
         res.status(200).json({ status: true, msg: 'Product updated successfully', data: result });
     } catch (error) {
         console.error('Update Error:', error);
@@ -475,8 +504,11 @@ export const fetch = async (req, res) => {
 
         const orderBy = SORT_MAP[sort] || { createdAt: 'desc' };
 
+        // Use lightweight include for public list views, full include for admin
+        const includeSet = isAdmin ? PRODUCT_INCLUDE : PRODUCT_LIST_INCLUDE;
+
         const [products, total] = await Promise.all([
-            prisma.product.findMany({ where, include: PRODUCT_INCLUDE, orderBy, skip, take: pageSize }),
+            prisma.product.findMany({ where, include: includeSet, orderBy, skip, take: pageSize }),
             prisma.product.count({ where })
         ]);
 
@@ -552,7 +584,20 @@ export const searchSuggestions = async (req, res) => {
 
         const data = [];
 
-        // Add authors first
+        // Add books first so they are prominent in results
+        products.forEach(p => data.push({
+            id: p.id,
+            bagcheeId: p.bagcheeId,
+            title: p.title,
+            isbn13: p.isbn13,
+            defaultImage: p.defaultImage,
+            price: Number(p.price),
+            realPrice: Number(p.realPrice),
+            author: p.authorFirstName ? { firstName: p.authorFirstName, lastName: p.authorLastName || '' } : null,
+            type: 'book',
+        }));
+
+        // Add authors
         authors.forEach(a => data.push({
             id: a.id,
             title: a.fullName || `${a.firstName} ${a.lastName}`.trim(),
@@ -580,19 +625,6 @@ export const searchSuggestions = async (req, res) => {
             title: p.title,
             slug: p.slug,
             type: 'publisher',
-        }));
-
-        // Add books last
-        products.forEach(p => data.push({
-            id: p.id,
-            bagcheeId: p.bagcheeId,
-            title: p.title,
-            isbn13: p.isbn13,
-            defaultImage: p.defaultImage,
-            price: Number(p.price),
-            realPrice: Number(p.realPrice),
-            author: p.authorFirstName ? { firstName: p.authorFirstName, lastName: p.authorLastName || '' } : null,
-            type: 'book',
         }));
 
         res.json({ status: true, data });
@@ -636,49 +668,57 @@ export const deleteProduct = async (req, res) => {
 
         // Cascade in schema handles junction tables
         await prisma.product.delete({ where: { id } });
+        cache.invalidate('filter-options');
         res.status(200).json({ status: true, msg: 'Product deleted successfully' });
     } catch (error) {
         res.status(500).json({ status: false, msg: 'Error deleting' });
     }
 };
 
-// GET /products/filter-options  — sidebar filter data
+// GET /products/filter-options  — sidebar filter data (cached 1 hour)
 export const getFilterOptions = async (req, res) => {
     try {
-        const [formats, languages, priceStats, authors, publishers, series] = await Promise.all([
-            prisma.format.findMany({
-                where:   { products: { some: {} } },
-                select:  { id: true, title: true },
-                orderBy: { title: 'asc' }
-            }),
-            prisma.language.findMany({
-                where:   { products: { some: {} } },
-                select:  { id: true, title: true },
-                orderBy: { title: 'asc' }
-            }),
-            prisma.product.findFirst({
-                where:   { isActive: true },
-                select:  { price: true },
-                orderBy: { price: 'desc' }
-            }),
-            prisma.author.findMany({
-                select:  { id: true, firstName: true, lastName: true, fullName: true },
-                orderBy: { firstName: 'asc' }
-            }),
-            prisma.publisher.findMany({
-                select:  { id: true, title: true },
-                orderBy: { title: 'asc' }
-            }),
-            prisma.series.findMany({
-                select:  { id: true, title: true },
-                orderBy: { title: 'asc' }
-            }),
-        ]);
-
-        res.status(200).json({
-            status: true,
-            data: { formats, languages, maxPrice: priceStats?.price ?? 10000, authors, publishers, series }
+        const ONE_HOUR = 60 * 60 * 1000;
+        const data = await cache.get('filter-options', ONE_HOUR, async () => {
+            const [formats, languages, priceStats, authors, publishers, series] = await Promise.all([
+                prisma.format.findMany({
+                    where:   { products: { some: {} } },
+                    select:  { id: true, title: true },
+                    orderBy: { title: 'asc' }
+                }),
+                prisma.language.findMany({
+                    where:   { products: { some: {} } },
+                    select:  { id: true, title: true },
+                    orderBy: { title: 'asc' }
+                }),
+                prisma.product.findFirst({
+                    where:   { isActive: true },
+                    select:  { price: true },
+                    orderBy: { price: 'desc' }
+                }),
+                prisma.author.findMany({
+                    where:   { products: { some: {} } },
+                    select:  { id: true, firstName: true, lastName: true, fullName: true },
+                    orderBy: { firstName: 'asc' },
+                    take:    500
+                }),
+                prisma.publisher.findMany({
+                    where:   { products: { some: {} } },
+                    select:  { id: true, title: true },
+                    orderBy: { title: 'asc' },
+                    take:    500
+                }),
+                prisma.series.findMany({
+                    where:   { products: { some: {} } },
+                    select:  { id: true, title: true },
+                    orderBy: { title: 'asc' },
+                    take:    500
+                }),
+            ]);
+            return { formats, languages, maxPrice: priceStats?.price ?? 10000, authors, publishers, series };
         });
+
+        res.status(200).json({ status: true, data });
     } catch (error) {
         res.status(500).json({ status: false, msg: 'Server Error' });
     }
@@ -695,7 +735,7 @@ export const getRecommended = async (req, res) => {
         const [products, total] = await Promise.all([
             prisma.product.findMany({
                 where,
-                include: { authors: { include: { author: { select: { id: true, firstName: true, lastName: true, fullName: true } } } } },
+                include: PRODUCT_LIST_INCLUDE,
                 orderBy: { createdAt: 'desc' },
                 skip, take: limit
             }),
@@ -715,14 +755,14 @@ export const getBestSellers = async (req, res) => {
         const limit = Math.max(1, Number(req.query.limit) || 6);
         const skip  = (page - 1) * limit;
 
-        const settings  = await prisma.settings.findFirst({ orderBy: { id: 'desc' } });
+        const settings  = await getCachedSettings();
         const threshold = settings?.bestSellerThreshold ?? 1;
 
         const where = buildWhereClause(req.query);
         where.AND.push({ soldCount: { gte: threshold } });
 
         const [products, total] = await Promise.all([
-            prisma.product.findMany({ where, orderBy: [{ soldCount: 'desc' }, { createdAt: 'desc' }], skip, take: limit }),
+            prisma.product.findMany({ where, include: PRODUCT_LIST_INCLUDE, orderBy: [{ soldCount: 'desc' }, { createdAt: 'desc' }], skip, take: limit }),
             prisma.product.count({ where })
         ]);
 
@@ -761,10 +801,7 @@ export const getNewArrivals = async (req, res) => {
         const [products, total] = await Promise.all([
             prisma.product.findMany({
                 where,
-                include: {
-                    categories: { include: { category: { select: { id: true, title: true } } } },
-                    authors: { include: { author: { select: { id: true, firstName: true, lastName: true, fullName: true } } } },
-                },
+                include: PRODUCT_LIST_INCLUDE,
                 orderBy: { createdAt: 'desc' },
                 skip, take: limit
             }),
@@ -784,7 +821,7 @@ export const getSaleProducts = async (req, res) => {
         const limit = Math.max(1, Number(req.query.limit) || 12);
         const skip  = (page - 1) * limit;
 
-        const settings  = await prisma.settings.findFirst({ orderBy: { id: 'desc' } });
+        const settings  = await getCachedSettings();
         const threshold = settings?.saleThreshold ?? 0;
 
         const conditions = [
@@ -811,7 +848,7 @@ export const getSaleProducts = async (req, res) => {
 
         const where = { AND: conditions };
         const [products, total] = await Promise.all([
-            prisma.product.findMany({ where, orderBy: { discount: 'desc' }, skip, take: limit }),
+            prisma.product.findMany({ where, include: PRODUCT_LIST_INCLUDE, orderBy: { discount: 'desc' }, skip, take: limit }),
             prisma.product.count({ where })
         ]);
 

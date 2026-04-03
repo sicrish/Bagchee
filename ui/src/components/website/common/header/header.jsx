@@ -434,6 +434,7 @@ const PremiumHeader = () => {
                 {searchTerm && (
                   <button
                     type="button"
+                    aria-label="Clear search"
                     onClick={() => setSearchTerm("")}
                     className="absolute right-[120px] p-2 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-full transition-all duration-200 z-10"
                   >
@@ -597,7 +598,7 @@ const PremiumHeader = () => {
               </Link>
             </div>
 
-            <button onClick={() => setMobileMenuOpen(true)} className="lg:hidden text-text-light hover:text-accent transition-colors ml-1">
+            <button aria-label="Open menu" onClick={() => setMobileMenuOpen(true)} className="lg:hidden text-text-light hover:text-accent transition-colors ml-1">
               <MenuIcon size={24} />
             </button>
           </div>
@@ -700,7 +701,7 @@ const PremiumHeader = () => {
 
                 <div className="flex px-5 pt-6 pb-4 justify-between items-center border-b border-primary-dark bg-primary">
                   <Logo className="h-10 w-auto text-white" />
-                  <button onClick={() => setMobileMenuOpen(false)} className="p-2 text-white hover:text-accent hover:bg-primary-dark rounded-full transition-colors"><X size={24} /></button>
+                  <button aria-label="Close menu" onClick={() => setMobileMenuOpen(false)} className="p-2 text-white hover:text-accent hover:bg-primary-dark rounded-full transition-colors"><X size={24} /></button>
                 </div>
 
                 <div className="flex-1 px-4 py-4 space-y-2 font-montserrat">
@@ -790,6 +791,7 @@ const PremiumHeader = () => {
                   <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
                     <h3 className="text-lg font-bold text-gray-900 font-montserrat">Search Books</h3>
                     <button
+                      aria-label="Close search"
                       onClick={() => setSearchDialogOpen(false)}
                       className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                     >
@@ -846,10 +848,10 @@ const SearchSuggestions = memo(({ suggestions, isSearching, searchTerm, onSelect
 
   const getLink = (item) => {
     switch (item.type) {
-      case 'author': return `/books?keyword=${encodeURIComponent(item.title)}`;
+      case 'author': return `/books?author=${item.id}`;
       case 'category': return item.slug ? `/books/${item.slug}` : `/books?keyword=${encodeURIComponent(item.title)}`;
-      case 'series': return `/books?keyword=${encodeURIComponent(item.title)}`;
-      case 'publisher': return `/books?keyword=${encodeURIComponent(item.title)}`;
+      case 'series': return `/books?series=${item.id}`;
+      case 'publisher': return `/books?publisher=${item.id}`;
       case 'book': return item.bagcheeId ? `/books/${item.bagcheeId}/${encodeURIComponent(item.title.replace(/\s+/g, '-').toLowerCase())}` : `/books?keyword=${encodeURIComponent(item.title)}`;
       default: return `/books?keyword=${encodeURIComponent(item.title)}`;
     }

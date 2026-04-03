@@ -7,8 +7,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
-import * as XLSX from 'xlsx';
-import { saveAs } from 'file-saver';
+import { exportToExcel } from '../../utils/exportExcel';
 
 const HomeNewNoteworthy = () => {
   const navigate = useNavigate();
@@ -112,12 +111,7 @@ const HomeNewNoteworthy = () => {
           "Created At": new Date(item.createdAt).toLocaleDateString()
         }));
 
-        const worksheet = XLSX.utils.json_to_sheet(exportData);
-        const workbook = { Sheets: { 'data': worksheet }, SheetNames: ['data'] };
-        const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-        const data = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
-        
-        saveAs(data, 'new_and_noteworthy_products.xlsx');
+        await exportToExcel(exportData, "New And Noteworthy", "new_and_noteworthy_products");
         toast.success("Export complete!", { id: toastId });
       } else {
         toast.error("No data to export", { id: toastId });

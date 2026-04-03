@@ -2,8 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Save, RotateCcw, Plus, Search, Check, X, Upload, Eye, Loader2, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
-import JoditEditor from 'jodit-react';
-import 'react-quill/dist/quill.snow.css';
+import JoditEditor from '../../components/admin/LazyJoditEditor';
 import axios from '../../utils/axiosConfig';
 import { useQuery, useMutation } from '@tanstack/react-query'; // 🟢 React Query
 import { validateImageFiles } from '../../utils/fileValidator'; // 🟢 Image Validator

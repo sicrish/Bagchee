@@ -9,7 +9,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
-import * as XLSX from 'xlsx'
+import { exportToExcel } from '../../utils/exportExcel';
 
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:3001";
@@ -83,13 +83,7 @@ const CouponsList = () => {
         "Status": c.active ? "Active" : "Inactive"
       }));
 
-      // 3. Create Workbook
-      const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Coupons");
-
-      // 4. Download
-      XLSX.writeFile(workbook, `Coupons_Report_${Date.now()}.xlsx`);
+      await exportToExcel(dataToExport, "Coupons", "Coupons_Report");
       toast.success("Excel exported successfully! 📊", { id: toastId });
     } catch (error) {
       console.error("Export Error:", error);

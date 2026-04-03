@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Check, RotateCcw, X, Loader2, Plus, Trash2, Printer, Mail,Search  } from 'lucide-react';
-import JoditEditor from 'jodit-react';
+import JoditEditor from '../../components/admin/LazyJoditEditor';
 import axios from '../../utils/axiosConfig.js';
 import toast from 'react-hot-toast';
 
@@ -266,6 +266,132 @@ const EditOrders = () => {
   };
 
   // --- Submit Logic (Update) ---
+  const handleSendShippedEmail = async () => {
+    const toastId = toast.loading("Sending shipped email...");
+    try {
+      const API_URL = process.env.REACT_APP_API_URL;
+      const res = await axios.post(`${API_URL}/orders/${id}/send-shipped-email`);
+      if (res.data.status) toast.success(res.data.msg, { id: toastId });
+      else toast.error(res.data.msg || "Failed to send email", { id: toastId });
+    } catch (error) {
+      toast.error(error.response?.data?.msg || "Failed to send email", { id: toastId });
+    }
+  };
+
+  const handleSendStatusEmail = async () => {
+    const toastId = toast.loading("Sending status email...");
+    try {
+      const API_URL = process.env.REACT_APP_API_URL;
+      const res = await axios.post(`${API_URL}/orders/${id}/send-status-email`);
+      if (res.data.status) toast.success(res.data.msg, { id: toastId });
+      else toast.error(res.data.msg || "Failed to send email", { id: toastId });
+    } catch (error) {
+      toast.error(error.response?.data?.msg || "Failed to send email", { id: toastId });
+    }
+  };
+
+  const handlePrintInvoice = () => {
+    const invoiceWindow = window.open('', '_blank');
+    const items = orderProducts.map(item => `
+      <tr>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb;">${item.name || item.product?.title || 'Item'}</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; text-align: center;">${item.quantity || 1}</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; text-align: right;">${Number(item.price || 0).toFixed(2)}</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; text-align: right;">${(Number(item.price || 0) * Number(item.quantity || 1)).toFixed(2)}</td>
+      </tr>
+    `).join('');
+
+    invoiceWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Invoice #${formData.order_number}</title>
+        <style>
+          body { font-family: 'Helvetica Neue', Arial, sans-serif; margin: 0; padding: 40px; color: #333; }
+          .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; border-bottom: 3px solid #008DDA; padding-bottom: 20px; }
+          .logo { font-size: 28px; font-weight: 700; color: #008DDA; }
+          .logo span { font-size: 12px; color: #666; display: block; font-weight: 400; }
+          .invoice-title { text-align: right; }
+          .invoice-title h2 { margin: 0; font-size: 24px; color: #333; }
+          .invoice-title p { margin: 4px 0 0; color: #666; font-size: 13px; }
+          .details { display: flex; justify-content: space-between; margin-bottom: 30px; }
+          .details-block { font-size: 13px; line-height: 1.8; }
+          .details-block strong { color: #008DDA; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+          th { background: #008DDA; color: white; padding: 10px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+          th:nth-child(2), th:nth-child(3), th:nth-child(4) { text-align: right; }
+          th:nth-child(2) { text-align: center; }
+          .totals { text-align: right; margin-top: 10px; font-size: 14px; }
+          .totals .row { display: flex; justify-content: flex-end; gap: 30px; padding: 4px 0; }
+          .totals .grand { font-size: 18px; font-weight: 700; color: #008DDA; border-top: 2px solid #008DDA; padding-top: 8px; margin-top: 8px; }
+          .footer { margin-top: 50px; text-align: center; font-size: 11px; color: #999; border-top: 1px solid #eee; padding-top: 20px; }
+          @media print { body { padding: 20px; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="logo">Bagchee<span>Books That Stick</span></div>
+          <div class="invoice-title">
+            <h2>INVOICE</h2>
+            <p>Order #${formData.order_number}</p>
+            <p>${formData.created_at ? new Date(formData.created_at).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' }) : ''}</p>
+          </div>
+        </div>
+
+        <div class="details">
+          <div class="details-block">
+            <strong>Ship To</strong><br/>
+            ${formData.shipping_first_name} ${formData.shipping_last_name}<br/>
+            ${formData.shipping_address_1}${formData.shipping_address_2 ? ', ' + formData.shipping_address_2 : ''}<br/>
+            ${formData.shipping_city}, ${formData.shipping_state_region} ${formData.shipping_postcode}<br/>
+            ${formData.shipping_country}<br/>
+            ${formData.shipping_phone ? 'Phone: ' + formData.shipping_phone : ''}
+          </div>
+          <div class="details-block">
+            <strong>Bill To</strong><br/>
+            ${formData.billing_first_name} ${formData.billing_last_name}<br/>
+            ${formData.billing_address_1}${formData.billing_address_2 ? ', ' + formData.billing_address_2 : ''}<br/>
+            ${formData.billing_city}, ${formData.billing_state_region} ${formData.billing_postcode}<br/>
+            ${formData.billing_country}<br/>
+            ${formData.billing_phone ? 'Phone: ' + formData.billing_phone : ''}
+          </div>
+          <div class="details-block">
+            <strong>Order Info</strong><br/>
+            Status: ${formData.status}<br/>
+            Payment: ${formData.payment_type || '-'}<br/>
+            Payment Status: ${formData.payment_status || '-'}<br/>
+            ${formData.transaction_id ? 'Transaction: ' + formData.transaction_id : ''}
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th style="text-align:center">Qty</th>
+              <th style="text-align:right">Price</th>
+              <th style="text-align:right">Total</th>
+            </tr>
+          </thead>
+          <tbody>${items}</tbody>
+        </table>
+
+        <div class="totals">
+          <div class="row"><span>Shipping:</span> <span>${formData.currency || 'INR'} ${Number(formData.shipping_cost || 0).toFixed(2)}</span></div>
+          <div class="row grand"><span>Grand Total:</span> <span>${formData.currency || 'INR'} ${Number(formData.total || 0).toFixed(2)}</span></div>
+        </div>
+
+        <div class="footer">
+          <p>&copy; ${new Date().getFullYear()} Bagchee. All rights reserved. | Indore, India</p>
+        </div>
+
+        <script>window.onload = function() { window.print(); }</script>
+      </body>
+      </html>
+    `);
+    invoiceWindow.document.close();
+  };
+
   const handleSubmit = async (e, actionType) => {
     e.preventDefault();
     if (!formData.customer_id) return toast.error("Customer is required!");
@@ -696,10 +822,10 @@ const EditOrders = () => {
             <div className="grid grid-cols-12 gap-4 items-center">
               <label className={labelClass}>Notification email</label>
               <div className="col-span-9 flex gap-2">
-                <button type="button" className="bg-gray-100 border border-gray-300 px-3 py-1 rounded text-[11px] font-bold hover:bg-gray-200 flex items-center gap-1 text-text-muted">
+                <button type="button" onClick={handleSendShippedEmail} className="bg-gray-100 border border-gray-300 px-3 py-1 rounded text-[11px] font-bold hover:bg-gray-200 flex items-center gap-1 text-text-muted">
                   <Mail size={12} /> Send order shipped email
                 </button>
-                <button type="button" className="bg-gray-100 border border-gray-300 px-3 py-1 rounded text-[11px] font-bold hover:bg-gray-200 flex items-center gap-1 text-text-muted">
+                <button type="button" onClick={handleSendStatusEmail} className="bg-gray-100 border border-gray-300 px-3 py-1 rounded text-[11px] font-bold hover:bg-gray-200 flex items-center gap-1 text-text-muted">
                   <Mail size={12} /> Send order status email
                 </button>
               </div>
@@ -707,7 +833,7 @@ const EditOrders = () => {
             <div className="grid grid-cols-12 gap-4 items-center">
               <label className={labelClass}>Invoice</label>
               <div className="col-span-9">
-                <button type="button" className="bg-gray-100 border border-gray-300 px-3 py-1 rounded text-[11px] font-bold hover:bg-gray-200 flex items-center gap-1 text-text-muted">
+                <button type="button" onClick={handlePrintInvoice} className="bg-gray-100 border border-gray-300 px-3 py-1 rounded text-[11px] font-bold hover:bg-gray-200 flex items-center gap-1 text-text-muted">
                   <Printer size={12} /> Print invoice
                 </button>
               </div>

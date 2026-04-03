@@ -54,11 +54,41 @@ export const getAllAuthors = async (req, res) => {
     }
 };
 
+export const getAuthorBySlug = async (req, res) => {
+    try {
+        const { slug } = req.params;
+        // Reconstruct search: slug is "first-last", convert back to space-separated words
+        const nameQuery = slug.replace(/-/g, ' ');
+        const authors = await prisma.author.findMany({
+            where: { fullName: { contains: nameQuery, mode: 'insensitive' } }
+        });
+        // Find exact slug match among results
+        const createSlug = (name) => name.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+        const found = authors.find(a => createSlug(`${a.firstName} ${a.lastName}`) === slug);
+        if (!found) return res.status(404).json({ status: false, msg: 'Author not found' });
+        res.status(200).json({ status: true, data: found });
+    } catch (error) {
+        res.status(500).json({ status: false, msg: 'Server Error' });
+    }
+};
+
 export const getAuthorById = async (req, res) => {
     try {
         const author = await prisma.author.findUnique({ where: { id: parseInt(req.params.id) } });
         if (!author) return res.status(404).json({ status: false, msg: 'Author not found' });
         res.status(200).json({ status: true, data: author });
+    } catch (error) {
+        res.status(500).json({ status: false, msg: 'Server Error' });
+    }
+};
+
+// GET /authors/batch?ids=1,2,3
+export const getAuthorsByIds = async (req, res) => {
+    try {
+        const ids = (req.query.ids || '').split(',').map(Number).filter(n => !isNaN(n) && n > 0);
+        if (!ids.length) return res.json({ status: true, data: [] });
+        const authors = await prisma.author.findMany({ where: { id: { in: ids } } });
+        res.json({ status: true, data: authors });
     } catch (error) {
         res.status(500).json({ status: false, msg: 'Server Error' });
     }

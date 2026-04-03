@@ -7,7 +7,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
-import * as XLSX from 'xlsx';
+import { exportToExcel } from '../../utils/exportExcel';
 
 const TopAuthors = () => {
   const navigate = useNavigate();
@@ -92,7 +92,7 @@ const TopAuthors = () => {
   };
 
   // 🟢 3. Export to Excel (Updated with Quotes and Roles)
-  const handleExport = () => {
+  const handleExport = async () => {
     const exportData = authors.map((item) => ({
       "Order": item.order,
       "Author": `${item.authorData?.firstName || ''} ${item.authorData?.lastName || ''}`.trim(),
@@ -101,10 +101,7 @@ const TopAuthors = () => {
       "Quote": item.quote || "N/A", // 🟢 Backend sync
       "Status": item.active ? "Active" : "Inactive"
     }));
-    const worksheet = XLSX.utils.json_to_sheet(exportData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Top Authors");
-    XLSX.writeFile(workbook, "Top_Authors_Complete_Report.xlsx");
+    await exportToExcel(exportData, "Top Authors", "Top_Authors_Complete_Report");
   };
 
   const filterInputClass = "w-full rounded-[4px] px-2 py-1 text-[11px] outline-none text-gray-700 font-montserrat shadow-inner focus:ring-1 focus:ring-blue-300 transition-all bg-white/20 placeholder:text-white/60";

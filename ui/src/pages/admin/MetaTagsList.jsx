@@ -7,8 +7,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
-import * as XLSX from 'xlsx';
-import { saveAs } from 'file-saver';
+import { exportToExcel } from '../../utils/exportExcel';
 
 const MetaTagsList = () => {
   const navigate = useNavigate();
@@ -125,12 +124,7 @@ const MetaTagsList = () => {
       "Meta Title": item.metaTitle
     }));
 
-    const worksheet = XLSX.utils.json_to_sheet(exportData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "MetaTags");
-    const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
-    const dataBlob = new Blob([excelBuffer], { type: "application/octet-stream" });
-    saveAs(dataBlob, `MetaTags_List.xlsx`);
+    await exportToExcel(exportData, "MetaTags", "MetaTags_List");
     toast.success("Export successful!");
   };
 

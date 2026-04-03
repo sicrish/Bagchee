@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import axios from '../../utils/axiosConfig';
 import { LayoutGrid, List, ChevronDown, SlidersHorizontal, ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -75,39 +76,88 @@ const ProductListing = ({ type }) => {
     };
 
 
-    // --- 1. Fetch Sidebar Options ---
+    // --- Fetch sidebar data + products in parallel (no waterfall) ---
     useEffect(() => {
-        const fetchSidebarData = async () => {
+        const fetchAll = async () => {
+            setLoading(true);
             try {
+                // Build product query params upfront
+                const query = new URLSearchParams();
+                const params = new URLSearchParams(location.search);
+                const searchKeyword = params.get('keyword') || params.get('search');
+                const tagParam = params.get('tag');
+                const seriesParam = params.get('series');
+                const publisherParam = params.get('publisher');
+                const authorParam = params.get('author');
+
+                query.append('page', currentPage);
+                query.append('limit', 36);
+                if (searchKeyword) query.append('keyword', searchKeyword);
+                if (tagParam) query.append('tag', tagParam);
+                if (seriesParam) query.append('series', seriesParam);
+                if (publisherParam) query.append('publishers', publisherParam);
+                if (authorParam) query.append('authors', authorParam);
+
+                // Apply sidebar filters
+                let categoryIds = [...filters.categories];
+                if (filters.formats.length) query.append('formats', filters.formats.join(','));
+                if (filters.authors) {
+                    const authValue = Array.isArray(filters.authors) ? filters.authors.join(',') : filters.authors;
+                    if (authValue) query.append('authors', authValue);
+                }
+                if (filters.publishers) {
+                    const pubValue = Array.isArray(filters.publishers) ? filters.publishers.join(',') : filters.publishers;
+                    if (pubValue) query.append('publishers', pubValue);
+                }
+                if (filters.series) {
+                    const serValue = Array.isArray(filters.series) ? filters.series.join(',') : filters.series;
+                    if (serValue) query.append('series', serValue);
+                }
+                if (filters.price) {
+                    const [min, max] = filters.price.split('-');
+                    query.append('minPrice', min);
+                    query.append('maxPrice', max);
+                }
+                query.append('sort', filters.sort);
+                if (filters.rating) query.append('rating', filters.rating);
+                if (filters.daysOld) query.append('daysOld', filters.daysOld);
+
+                let apiEndpoint = `${process.env.REACT_APP_API_URL}/product/fetch`;
+                if (type === 'new-arrivals') apiEndpoint = `${process.env.REACT_APP_API_URL}/product/new-arrivals`;
+                else if (type === 'bestsellers') apiEndpoint = `${process.env.REACT_APP_API_URL}/product/best-sellers`;
+                else if (type === 'recommended') apiEndpoint = `${process.env.REACT_APP_API_URL}/product/recommended`;
+                else if (type === 'sale') apiEndpoint = `${process.env.REACT_APP_API_URL}/product/sale-products`;
+
+                // Fetch categories, filter options, and products in parallel
                 const [catRes, optRes] = await Promise.all([
                     axios.get(`${process.env.REACT_APP_API_URL}/category/fetch`),
                     axios.get(`${process.env.REACT_APP_API_URL}/product/filter-options`)
                 ]);
 
+                // Process categories and resolve slug to ID before product fetch
+                let treeData = [];
                 if (catRes.data.status) {
-                    const flatCategories = catRes.data.data; // flat array, all categories
-                    const treeData = buildCategoryTree(flatCategories);
+                    const flatCategories = catRes.data.data;
+                    treeData = buildCategoryTree(flatCategories);
                     setAllCategories(treeData);
 
                     if (slug) {
-                        // Find current category by slug from flat list
                         const foundCat = flatCategories.find(
                             c => c.slug === slug || (c.slug && c.slug.endsWith('/' + slug))
                         );
                         if (foundCat) {
                             setPageTitle(foundCat.title || foundCat.categorytitle);
-                            // Filter all categories whose parentId matches this category's id
                             const children = flatCategories.filter(
                                 c => (c.parentId || c.parentid) && String(c.parentId || c.parentid) === String(foundCat.id)
                             );
                             setSubcategoriesList(children);
+                            if (!categoryIds.includes(foundCat.id)) categoryIds.push(foundCat.id);
                         } else {
                             setPageTitle(slug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()));
                             setSubcategoriesList([]);
                         }
                     } else {
                         setPageTitle(type ? type.replace(/-/g, ' ') : 'category');
-                        // No slug = special page (recommended/bestsellers etc.) — show root categories
                         const rootCategories = flatCategories.filter(c => (!c.parentId && !c.parentid) || c.parentId === 0 || c.level === 0);
                         setSubcategoriesList(rootCategories);
                     }
@@ -120,94 +170,48 @@ const ProductListing = ({ type }) => {
                     setAuthorsList(d.authors || []);
                     setPublishersList(d.publishers || []);
                     setSeriesList(d.series || []);
-                }
 
-            } catch (err) {
-                console.error("Sidebar Error:", err);
-            }
-        };
-        fetchSidebarData();
-    }, [slug, type]);
-
-    // --- 2. Fetch Products ---
-    useEffect(() => {
-        const fetchProducts = async () => {
-            setLoading(true);
-            try {
-                const query = new URLSearchParams();
-                
-                // Read URL params
-        const params = new URLSearchParams(location.search);
-        const searchKeyword = params.get('keyword') || params.get('search');
-        const tagParam = params.get('tag');
-
-                query.append('page', currentPage);
-                query.append('limit', 36);
-
-                if (searchKeyword) query.append('keyword', searchKeyword);
-                if (tagParam) query.append('tag', tagParam);
-
-                // 🟢 STEP 1: Pehle sidebar ke manually checked IDs lo
-                let categoryIds = [...filters.categories];
-
-                // 🟢 STEP 2: Agar URL mein slug hai, toh flat list se category ID nikaalo
-                if (slug && allCategories.length > 0) {
-                    const foundCat = findCategoryObject(allCategories, slug);
-                    if (foundCat && !categoryIds.includes(foundCat.id)) {
-                        categoryIds.push(foundCat.id);
+                    // Set page title for series/publisher/author filter from URL
+                    if (seriesParam) {
+                        const s = (d.series || []).find(s => String(s.id) === seriesParam);
+                        if (s) setPageTitle(s.title);
+                    }
+                    if (publisherParam) {
+                        const p = (d.publishers || []).find(p => String(p.id) === publisherParam);
+                        if (p) setPageTitle(p.title);
+                    }
+                    if (authorParam) {
+                        const a = (d.authors || []).find(a => String(a.id) === authorParam);
+                        if (a) setPageTitle(a.fullName || `${a.firstName} ${a.lastName}`);
                     }
                 }
 
-                // 🟢 STEP 3: Common filters for all API calls
-                if (categoryIds.length > 0) {
-                    query.append('categories', categoryIds.join(','));
+                // Resolve /series/:slug and /publisher/:slug to IDs
+                if (type === 'series' && slug && optRes.data.status) {
+                    const allSeries = optRes.data.data.series || [];
+                    const cleanSlug = slug.toLowerCase().replace(/[^a-z0-9]/g, '');
+                    const match = !isNaN(slug)
+                        ? allSeries.find(s => String(s.id) === slug)
+                        : allSeries.find(s => s.title.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanSlug);
+                    if (match) {
+                        query.append('series', match.id);
+                        setPageTitle(match.title);
+                    }
                 }
-                if (filters.formats.length) query.append('formats', filters.formats.join(','));
-
-                if (filters.authors) {
-                    const authValue = Array.isArray(filters.authors)
-                        ? filters.authors.join(',')
-                        : filters.authors;
-                    if (authValue) query.append('authors', authValue);
-                }
-
-                if (filters.publishers) {
-                    const pubValue = Array.isArray(filters.publishers)
-                        ? filters.publishers.join(',')
-                        : filters.publishers;
-                    if (pubValue) query.append('publishers', pubValue);
-                }
-
-                if (filters.series) {
-                    const serValue = Array.isArray(filters.series)
-                        ? filters.series.join(',')
-                        : filters.series;
-                    if (serValue) query.append('series', serValue);
+                if (type === 'publisher' && slug && optRes.data.status) {
+                    const allPubs = optRes.data.data.publishers || [];
+                    const cleanSlug = slug.toLowerCase().replace(/[^a-z0-9]/g, '');
+                    const match = !isNaN(slug)
+                        ? allPubs.find(p => String(p.id) === slug)
+                        : allPubs.find(p => p.title.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanSlug);
+                    if (match) {
+                        query.append('publishers', match.id);
+                        setPageTitle(match.title);
+                    }
                 }
 
-                if (filters.price) {
-                    const [min, max] = filters.price.split('-');
-                    query.append('minPrice', min);
-                    query.append('maxPrice', max);
-                }
-
-                query.append('sort', filters.sort);
-                if (filters.rating) query.append('rating', filters.rating);
-                if (filters.daysOld) query.append('daysOld', filters.daysOld);
-
-                // 🟢 STEP 4: Determine which API endpoint to use based on type
-                let apiEndpoint = `${process.env.REACT_APP_API_URL}/product/fetch`;
-
-                if (type === 'new-arrivals') {
-                    apiEndpoint = `${process.env.REACT_APP_API_URL}/product/new-arrivals`;
-                } else if (type === 'bestsellers') {
-                    apiEndpoint = `${process.env.REACT_APP_API_URL}/product/best-sellers`;
-                } else if (type === 'recommended') {
-                    apiEndpoint = `${process.env.REACT_APP_API_URL}/product/recommended`;
-                } else if (type === 'sale') {
-                    apiEndpoint = `${process.env.REACT_APP_API_URL}/product/sale-products`;
-                }
-
+                // Now fetch products with resolved category IDs
+                if (categoryIds.length > 0) query.append('categories', categoryIds.join(','));
                 const res = await axios.get(`${apiEndpoint}?${query.toString()}`);
 
                 if (res.data.status) {
@@ -216,17 +220,14 @@ const ProductListing = ({ type }) => {
                     setTotalPages(res.data.totalPages || Math.ceil(res.data.total / 36));
                 }
             } catch (error) {
-                console.error("Product Fetch Error:", error);
+                console.error("Fetch Error:", error);
             } finally {
                 setLoading(false);
             }
         };
 
-        // 🟢 Trick: Tabhi fetch karo jab categories load ho chuki hon
-        if (allCategories.length > 0 || !slug) {
-            fetchProducts();
-        }
-    }, [filters, type, slug, allCategories, location.pathname, location.search, currentPage]);
+        fetchAll();
+    }, [filters, type, slug, location.pathname, location.search, currentPage]);
 
 
 
@@ -259,6 +260,10 @@ const ProductListing = ({ type }) => {
 
     return (
         <div className="min-h-screen bg-cream-50 font-body text-text-main pb-10">
+            <Helmet>
+                <title>{pageTitle ? `${pageTitle} — Bagchee` : 'Books — Bagchee'}</title>
+                <meta name="description" content={`Shop ${pageTitle || 'books'} at Bagchee — India's favourite online bookstore. Best prices, free delivery.`} />
+            </Helmet>
             {/* --- PAGE HEADER --- */}
             <div className="bg-white border-b border-cream-200 py-6 md:py-8 mb-6 shadow-sm">
                 <div className="container mx-auto px-4">

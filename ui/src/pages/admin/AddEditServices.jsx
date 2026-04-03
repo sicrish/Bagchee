@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Check, RotateCcw, X, Loader2 } from 'lucide-react';
-import JoditEditor from 'jodit-react';
+import JoditEditor from '../../components/admin/LazyJoditEditor';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // 🟢 React Query Imports

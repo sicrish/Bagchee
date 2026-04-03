@@ -1,5 +1,5 @@
 import prisma from '../lib/prisma.js';
-import sendOrderConfirmation from './email.controller.js';
+import { sendOrderConfirmation, sendOrderShippedEmail, sendOrderStatusEmail } from './email.controller.js';
 
 // What to include when returning a single order
 const ORDER_DETAIL_INCLUDE = {
@@ -79,7 +79,7 @@ export const saveOrder = async (req, res) => {
 
         const dbProducts = await prisma.product.findMany({
             where: { id: { in: productIds } },
-            select: { id: true, title: true, price: true, inrPrice: true }
+            select: { id: true, title: true, price: true, inrPrice: true, defaultImage: true }
         });
         if (dbProducts.length !== productIds.length)
             return res.status(400).json({ status: false, msg: 'One or more products not found' });
@@ -94,6 +94,7 @@ export const saveOrder = async (req, res) => {
             return {
                 productId:    pId,
                 name:         p.name || p.title || dbProd.title || '',
+                image:        dbProd.defaultImage || '',
                 price:        dbPrice,
                 quantity:     Math.max(1, Number(p.quantity) || 1),
                 status:       p.status           || '',
@@ -339,5 +340,62 @@ export const getUserOrders = async (req, res) => {
         });
     } catch (error) {
         res.status(500).json({ status: false, msg: 'Server Error' });
+    }
+};
+
+// POST /orders/:id/send-shipped-email
+export const sendShippedEmail = async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) return res.status(400).json({ status: false, msg: 'Invalid ID' });
+
+        const order = await prisma.order.findUnique({
+            where: { id },
+            include: {
+                customer: true,
+                items: { select: { trackingCode: true, courierId: true } }
+            }
+        });
+        if (!order) return res.status(404).json({ status: false, msg: 'Order not found' });
+
+        const email = order.shippingEmail || order.customer?.email;
+        if (!email) return res.status(400).json({ status: false, msg: 'No customer email found' });
+
+        // Attach courier name and tracking codes for the email template
+        const courierIds = [...new Set(order.items.map(i => i.courierId).filter(Boolean))];
+        if (courierIds.length) {
+            const couriers = await prisma.courier.findMany({ where: { id: { in: courierIds } }, select: { id: true, title: true } });
+            const courierMap = Object.fromEntries(couriers.map(c => [c.id, c.title]));
+            order.courierName = couriers.length === 1 ? couriers[0].title : couriers.map(c => c.title).join(', ');
+            order.items = order.items.map(i => ({ ...i, courierName: i.courierId ? courierMap[i.courierId] : null }));
+        }
+        const trackingCodes = [...new Set(order.items.map(i => i.trackingCode).filter(Boolean))];
+        order.trackingId = trackingCodes.join(', ') || null;
+
+        await sendOrderShippedEmail(email, order);
+        res.json({ status: true, msg: `Shipped email sent to ${email}` });
+    } catch (error) {
+        console.error('Send shipped email error:', error);
+        res.status(500).json({ status: false, msg: 'Failed to send email' });
+    }
+};
+
+// POST /orders/:id/send-status-email
+export const sendStatusEmail = async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) return res.status(400).json({ status: false, msg: 'Invalid ID' });
+
+        const order = await prisma.order.findUnique({ where: { id }, include: { customer: true } });
+        if (!order) return res.status(404).json({ status: false, msg: 'Order not found' });
+
+        const email = order.shippingEmail || order.customer?.email;
+        if (!email) return res.status(400).json({ status: false, msg: 'No customer email found' });
+
+        await sendOrderStatusEmail(email, order);
+        res.json({ status: true, msg: `Status email sent to ${email}` });
+    } catch (error) {
+        console.error('Send status email error:', error);
+        res.status(500).json({ status: false, msg: 'Failed to send email' });
     }
 };

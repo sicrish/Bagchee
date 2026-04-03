@@ -9,7 +9,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
-import * as XLSX from 'xlsx';
+import { exportToExcel } from '../../utils/exportExcel';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL;
 
@@ -65,10 +65,7 @@ const CouriersList = () => {
                 "Created At": new Date(item.createdAt).toLocaleDateString('en-GB')
             }));
 
-            const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-            const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "Couriers");
-            XLSX.writeFile(workbook, `Couriers_Report_${Date.now()}.xlsx`);
+            await exportToExcel(dataToExport, "Couriers", "Couriers_Report");
             toast.success("Excel exported successfully! 📊", { id: toastId });
         } catch (error) { toast.error("Export failed", { id: toastId }); }
     };

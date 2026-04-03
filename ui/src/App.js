@@ -476,6 +476,7 @@ const AddEditTopAuthor = lazy(() => import('./pages/admin/AddEditTopAuthor.jsx')
 
 // import MetaTagsList from './pages/admin/MetaTagsList.jsx';
 const MetaTagsList = lazy(() => import('./pages/admin/MetaTagsList.jsx'));
+const MetaTagForm  = lazy(() => import('./pages/admin/MetaTagForm.jsx'));
 
 // import HomeSaleProducts from './pages/admin/HomeSaleProducts.jsx';
 const HomeSaleProducts = lazy(() => import('./pages/admin/HomeSaleProducts.jsx'));
@@ -607,6 +608,8 @@ function App() {
               <Route path="books-of-the-month" element={<BooksOfMonthPage />} />
               {/* 1. New Arrivals */}
               <Route path="new-arrivals" element={<ProductListing type="new-arrivals" />} />
+              <Route path="new_arrival" element={<Navigate to="/new-arrivals" replace />} />
+              <Route path="new_arrivals" element={<Navigate to="/new-arrivals" replace />} />
 
               {/* 2. Bestsellers */}
               <Route path="bestsellers" element={<ProductListing type="bestsellers" />} />
@@ -616,6 +619,10 @@ function App() {
 
               {/* 4. Sale Page */}
               <Route path="sale" element={<ProductListing type="sale" />} />
+
+              {/* Series / Publisher / Author browse pages */}
+              <Route path="series/:slug" element={<ProductListing type="series" />} />
+              <Route path="publisher/:slug" element={<ProductListing type="publisher" />} />
 
               {/* Search results page */}
               <Route path="books" element={<ProductListing type="search" />} />
@@ -812,6 +819,8 @@ function App() {
                 <Route path="add-top-author" element={<AddEditTopAuthor />} />
                 <Route path="edit-top-author/:id" element={<AddEditTopAuthor />} />
                 <Route path="meta-tags" element={<MetaTagsList />} />
+                <Route path="add-meta-tag" element={<MetaTagForm />} />
+                <Route path="edit-meta-tag/:id" element={<MetaTagForm />} />
                 <Route path="sale-today" element={<HomeSaleProducts />} />
                 {/* Add Page */}
                 <Route path="add-home-sale" element={<HomeSaleForm />} />

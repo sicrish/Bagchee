@@ -7,8 +7,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
-import * as XLSX from 'xlsx';
-import { saveAs } from 'file-saver';
+import { exportToExcel } from '../../utils/exportExcel';
 
 const BooksOfMonthList = () => {
   const navigate = useNavigate();
@@ -78,12 +77,7 @@ const BooksOfMonthList = () => {
           "Created At": new Date(item.createdAt).toLocaleDateString()
         }));
 
-        const worksheet = XLSX.utils.json_to_sheet(exportData);
-        const workbook = { Sheets: { 'History': worksheet }, SheetNames: ['History'] };
-        const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-        const data = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
-        
-        saveAs(data, 'Books_of_the_Month_History.xlsx');
+        await exportToExcel(exportData, "History", "Books_of_the_Month_History");
         toast.success("Export complete!", { id: toastId });
       } else {
         toast.error("No data to export", { id: toastId });

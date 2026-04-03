@@ -7,8 +7,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig'; 
 import toast from 'react-hot-toast';
-import * as XLSX from 'xlsx'; 
-import { saveAs } from 'file-saver';
+import { exportToExcel } from '../../utils/exportExcel';
 import { getImageUrl } from '../../utils/imageUrl.js';
 
 const HomeSlider = () => {
@@ -111,12 +110,7 @@ const HomeSlider = () => {
           "Created At": new Date(item.createdAt).toLocaleDateString()
         }));
 
-        const worksheet = XLSX.utils.json_to_sheet(exportData);
-        const workbook = { Sheets: { 'data': worksheet }, SheetNames: ['data'] };
-        const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-        const data = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
-        
-        saveAs(data, 'home_sliders.xlsx');
+        await exportToExcel(exportData, "Home Sliders", "home_sliders");
         toast.success("Export complete!", { id: toastId });
       } else {
         toast.error("No data to export", { id: toastId });

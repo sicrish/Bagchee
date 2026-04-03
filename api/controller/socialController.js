@@ -8,8 +8,10 @@ import { saveFileLocal, deleteFileLocal } from '../utils/fileHandler.js';
 export const saveSocial = async (req, res) => {
     try {
         const { title, link, isActive, isShareActive, showInFooter, showInProduct, showInCategory } = req.body;
-        if (!req.files || !req.files.icon_image) return res.status(400).json({ status: false, msg: 'Icon image is required!' });
-        const iconPath = await saveFileLocal(req.files.icon_image, 'socials');
+        let iconPath = '';
+        if (req.files && req.files.icon_image) {
+            iconPath = await saveFileLocal(req.files.icon_image, 'socials');
+        }
         await prisma.social.create({
             data: {
                 title,

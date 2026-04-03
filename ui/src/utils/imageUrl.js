@@ -15,13 +15,28 @@ const BAGCHEE_SLIDERS = 'https://www.bagchee.com/assets/images/sliders';
 // Slider/banner filenames have a hex-hash prefix, e.g. "20d39-baner2-2-.png"
 const isSliderFilename = (name) => /^[a-f0-9]+-/i.test(name);
 
-export const getImageUrl = (imgName) => {
+/**
+ * Inject Cloudinary auto-format/quality/width transforms into a Cloudinary URL.
+ * e.g. .../upload/v123/img.jpg → .../upload/f_auto,q_auto,w_400/v123/img.jpg
+ */
+const addCloudinaryTransforms = (url, width) => {
+  const transforms = width ? `f_auto,q_auto,w_${width}` : 'f_auto,q_auto';
+  return url.replace('/upload/', `/upload/${transforms}/`);
+};
+
+export const getImageUrl = (imgName, { width } = {}) => {
   // Handle object — extract the image field
   if (imgName && typeof imgName === 'object') {
     imgName = imgName.defaultImage || imgName.image || imgName.picture || '';
   }
   if (!imgName || typeof imgName !== 'string') return '';
-  if (imgName.startsWith('http')) return imgName;
+  if (imgName.startsWith('http')) {
+    // Apply Cloudinary transforms to Cloudinary-hosted images
+    if (imgName.includes('res.cloudinary.com') && imgName.includes('/upload/')) {
+      return addCloudinaryTransforms(imgName, width);
+    }
+    return imgName;
+  }
 
   const clean = imgName.replace(/^\//, ''); // strip leading slash
 
@@ -42,11 +57,11 @@ export const getImageUrl = (imgName) => {
  * Google Books has broad Indian publisher coverage and returns a proper
  * redirect to the cover JPG, or 404 when not found (triggering onError).
  */
-export const getProductImageUrl = (product) => {
+export const getProductImageUrl = (product, { width } = {}) => {
   if (!product || typeof product !== 'object') return '';
 
   // 1. Try local/slider image from stored filename
-  const stored = getImageUrl(product);
+  const stored = getImageUrl(product, { width });
   if (stored) return stored;
 
   // 2. Google Books cover by ISBN — returns actual cover or 404 (triggers onError)

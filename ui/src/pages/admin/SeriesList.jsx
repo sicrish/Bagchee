@@ -7,7 +7,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
-import * as XLSX from 'xlsx';
+import { exportToExcel } from '../../utils/exportExcel';
 
 const SeriesList = () => {
   const navigate = useNavigate();
@@ -65,10 +65,7 @@ const SeriesList = () => {
         "Created Date": new Date(item.createdAt).toLocaleDateString('en-GB'),
       }));
 
-      const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Series");
-      XLSX.writeFile(workbook, `Series_Report_${Date.now()}.xlsx`);
+      await exportToExcel(dataToExport, "Series", "Series_Report");
       toast.success("Excel exported successfully! 📊", { id: toastId });
     } catch (error) { toast.error("Export failed", { id: toastId }); }
   };

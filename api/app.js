@@ -47,6 +47,7 @@ import homeSectionRoutes from './routes/homeSectionRoutes.js'
 import homeSectionProductRoutes from './routes/homeSectionProductRoutes.js';
 import mainCategoryRoutes from './routes/mainCategoryRoutes.js';
 import newsletterRoutes from './routes/newsletterRoutes.js';
+import metaTagRoutes from './routes/metaTagRoutes.js';
 import topAuthorRoutes from './routes/topAuthorRoutes.js';
 import homeSaleRoutes from './routes/HomeSaleProduct.routes.js';
 import homeNewNoteworthyRoutes from './routes/HomeNewNoteworthy.routes.js'; 
@@ -68,6 +69,7 @@ import footerRoutes from './routes/footerRoutes.js';
 import razorpayRoutes from './routes/razorpay.routes.js';
 import emailCampaignRoutes from './routes/emailCampaignRoutes.js';
 import { processScheduledEmails } from './controller/emailCampaignController.js';
+import sitemapRoutes from './routes/sitemap.routes.js';
 
 
 
@@ -192,6 +194,7 @@ app.use('/home-sections', homeSectionRoutes);
 app.use('/home-sections/products', homeSectionProductRoutes);
 app.use('/main-categories', mainCategoryRoutes);
 app.use('/newsletter-subs', newsletterRoutes);
+app.use('/meta-tags', metaTagRoutes);
 app.use('/top-authors', topAuthorRoutes);
 app.use('/home-sale-products', homeSaleRoutes);
 app.use('/home-new-noteworthy', homeNewNoteworthyRoutes);
@@ -212,6 +215,7 @@ app.use('/side-banner-two', sideBannerTwoRoutes);
 app.use('/footer', footerRoutes);
 app.use('/razorpay', razorpayRoutes);
 app.use('/email-campaign', emailCampaignRoutes);
+app.use('/', sitemapRoutes);
 
 // Global 404 handler — must be after all routes
 app.use((req, res) => {

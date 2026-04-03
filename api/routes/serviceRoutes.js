@@ -10,7 +10,7 @@ router.get('/get/:id', ServiceController.getService);
 
 // ADMIN — mutations
 router.post('/save',         adminAuth, ServiceController.saveService);
-router.put('/update/:id',    adminAuth, ServiceController.updateService);
+router.patch('/update/:id',  adminAuth, ServiceController.updateService);
 router.delete('/delete/:id', adminAuth, ServiceController.deleteService);
 
 export default router;

@@ -29,13 +29,13 @@ const createTransporter = () => {
     });
 };
 
-const wrapInTemplate = (subject, bodyHtml) => {
+const wrapInTemplate = (subject, bodyHtml, unsubscribeUrl = null) => {
     return `
         <div style="font-family: 'Inter', Helvetica, Arial, sans-serif; background-color: ${theme.cream}; padding: 40px 0;">
             <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #e6decd;">
                 <div style="background-color: ${theme.primary}; padding: 35px; text-align: center;">
                     <h1 style="color: ${theme.textLight}; margin: 0; font-size: 26px; font-weight: 700; letter-spacing: 0.5px;">Bagchee</h1>
-                    <p style="color: ${theme.textLight}; margin-top: 5px; opacity: 0.9; font-size: 14px;">Your Favorite Bookstore</p>
+                    <p style="color: ${theme.textLight}; margin-top: 5px; opacity: 0.9; font-size: 14px;">${subject}</p>
                 </div>
                 <div style="padding: 40px 30px; color: ${theme.textMain}; font-size: 15px; line-height: 1.7;">
                     ${bodyHtml}
@@ -43,6 +43,7 @@ const wrapInTemplate = (subject, bodyHtml) => {
                 <div style="background-color: #fffdf5; padding: 20px; text-align: center; border-top: 1px solid #e6decd;">
                     <p style="font-size: 12px; color: ${theme.textMuted}; margin: 0;">&copy; ${new Date().getFullYear()} Bagchee. All rights reserved.</p>
                     <p style="font-size: 11px; color: ${theme.textMuted}; margin-top: 6px; opacity: 0.7;">Indore, India</p>
+                    ${unsubscribeUrl ? `<p style="font-size: 11px; color: ${theme.textMuted}; margin-top: 8px;">Don't want these emails? <a href="${unsubscribeUrl}" style="color: ${theme.textMuted}; text-decoration: underline;">Unsubscribe</a></p>` : ''}
                 </div>
             </div>
         </div>
@@ -50,15 +51,21 @@ const wrapInTemplate = (subject, bodyHtml) => {
 };
 
 // Valid audience keys
-const VALID_AUDIENCES = ['subscribers', 'members', 'purchasers', 'categories'];
+const VALID_AUDIENCES = ['subscribers', 'members', 'purchasers', 'categories', 'specific'];
 
 /**
  * Core send logic — sends emails to recipients based on audience array.
  * Returns { sent, failed }.
  */
-const sendToAudience = async (subject, bodyHtml, audience) => {
+const generateUnsubscribeToken = (email) => {
+    return require('crypto')
+        .createHmac('sha256', process.env.ENCRYPTION_SECRET || 'bagchee-unsub-secret')
+        .update(email.toLowerCase())
+        .digest('hex');
+};
+
+const sendToAudience = async (subject, bodyHtml, audience, specificEmails = []) => {
     const transporter = createTransporter();
-    const htmlContent = wrapInTemplate(escapeHtml(subject), bodyHtml);
 
     const FETCH_BATCH = 500;
     const SEND_BATCH = 10;
@@ -66,7 +73,7 @@ const sendToAudience = async (subject, bodyHtml, audience) => {
     let failed = 0;
     const seenEmails = new Set();
 
-    const processModel = async (model, where = {}) => {
+    const processModel = async (model, where = {}, isSubscriberModel = false) => {
         let cursor = undefined;
         while (true) {
             const rows = await model.findMany({
@@ -86,19 +93,25 @@ const sendToAudience = async (subject, bodyHtml, audience) => {
 
             for (let i = 0; i < newEmails.length; i += SEND_BATCH) {
                 const batch = newEmails.slice(i, i + SEND_BATCH);
-                await Promise.all(batch.map(email =>
-                    transporter.sendMail({
+                await Promise.all(batch.map(email => {
+                    const token = generateUnsubscribeToken(email);
+                    const unsubscribeUrl = isSubscriberModel
+                        ? `${process.env.FRONTEND_URL || ''}/api/newsletter/unsubscribe?email=${encodeURIComponent(email)}&token=${token}`
+                        : null;
+                    const htmlContent = wrapInTemplate(escapeHtml(subject), bodyHtml, unsubscribeUrl);
+                    return transporter.sendMail({
                         from: `"Bagchee" <${process.env.EMAIL_USER}>`,
                         to: email,
                         subject,
-                        html: htmlContent
+                        html: htmlContent,
+                        headers: unsubscribeUrl ? { 'List-Unsubscribe': `<${unsubscribeUrl}>` } : {}
                     })
                     .then(() => { sent++; })
                     .catch((err) => {
                         console.error(`Failed to send to ${email}:`, err.message);
                         failed++;
-                    })
-                ));
+                    });
+                }));
             }
         }
     };
@@ -106,20 +119,36 @@ const sendToAudience = async (subject, bodyHtml, audience) => {
     // audience is an array like ["subscribers", "members", "purchasers"]
     for (const aud of audience) {
         if (aud === 'subscribers') {
-            await processModel(prisma.newsletterSubscriber);
+            await processModel(prisma.newsletterSubscriber, { isActive: true }, true);
         } else if (aud === 'members') {
-            await processModel(prisma.user, { role: 'user' });
+            await processModel(prisma.user, { membership: 'active' });
         } else if (aud === 'purchasers') {
-            // Users who have at least one order
             await processModel(prisma.user, {
                 role: 'user',
                 orders: { some: {} }
             });
         } else if (aud === 'categories') {
-            // Newsletter subscribers who have categories
             await processModel(prisma.newsletterSubscriber, {
+                isActive: true,
                 categories: { isEmpty: false }
-            });
+            }, true);
+        } else if (aud === 'specific' && specificEmails.length > 0) {
+            const emails = specificEmails.filter(e => e && !seenEmails.has(e));
+            emails.forEach(e => seenEmails.add(e));
+            for (let i = 0; i < emails.length; i += SEND_BATCH) {
+                const batch = emails.slice(i, i + SEND_BATCH);
+                await Promise.all(batch.map(email => {
+                    const htmlContent = wrapInTemplate(escapeHtml(subject), bodyHtml, null);
+                    return transporter.sendMail({
+                        from: `"Bagchee" <${process.env.EMAIL_USER}>`,
+                        to: email,
+                        subject,
+                        html: htmlContent
+                    })
+                    .then(() => { sent++; })
+                    .catch((err) => { console.error(`Failed to send to ${email}:`, err.message); failed++; });
+                }));
+            }
         }
     }
 
@@ -133,7 +162,7 @@ const sendToAudience = async (subject, bodyHtml, audience) => {
  */
 export const sendCampaignEmail = async (req, res) => {
     try {
-        const { subject, body, audience } = req.body;
+        const { subject, body, audience, specificEmails } = req.body;
 
         if (!subject || !body || !audience || !Array.isArray(audience) || audience.length === 0) {
             return res.status(400).json({ status: false, msg: 'Subject, body, and audience array are required.' });
@@ -144,7 +173,7 @@ export const sendCampaignEmail = async (req, res) => {
             return res.status(400).json({ status: false, msg: `Invalid audience: ${invalidAudience.join(', ')}` });
         }
 
-        const { sent, failed } = await sendToAudience(subject, body, audience);
+        const { sent, failed } = await sendToAudience(subject, body, audience, specificEmails || []);
 
         if (sent === 0 && failed === 0) {
             return res.status(400).json({ status: false, msg: 'No recipients found for the selected audience.' });
@@ -334,6 +363,14 @@ export const getRecipientsCount = async (req, res) => {
 export const processScheduledEmails = async () => {
     try {
         const now = new Date();
+        const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000);
+
+        // Recover emails stuck in 'sending' for more than 10 min (server restart mid-send)
+        await prisma.scheduledEmail.updateMany({
+            where: { status: 'sending', updatedAt: { lte: tenMinutesAgo } },
+            data: { status: 'pending' }
+        });
+
         const pendingEmails = await prisma.scheduledEmail.findMany({
             where: {
                 status: 'pending',
@@ -368,5 +405,74 @@ export const processScheduledEmails = async () => {
         }
     } catch (error) {
         console.error('Scheduled email processor error:', error.message);
+    }
+};
+
+/**
+ * POST /email-campaign/products-preview
+ * Body: { ids: string[] }  — bagchee_id / isbn13 / isbn10 values
+ * Returns product title, image, and ID for email preview.
+ */
+export const fetchProductsForEmail = async (req, res) => {
+    try {
+        const { ids } = req.body;
+        if (!ids || !Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ status: false, msg: 'ids array is required.' });
+        }
+
+        const trimmed = ids.map(id => String(id).trim()).filter(Boolean);
+        if (trimmed.length === 0) {
+            return res.status(400).json({ status: false, msg: 'No valid IDs provided.' });
+        }
+
+        const products = await prisma.product.findMany({
+            where: {
+                OR: trimmed.flatMap(id => [
+                    { bagcheeId: id },
+                    { isbn13: id },
+                    { isbn10: id }
+                ])
+            },
+            select: { id: true, title: true, bagcheeId: true, defaultImage: true, isbn13: true, isbn10: true, price: true, inrPrice: true }
+        });
+
+        res.status(200).json({ status: true, data: products });
+    } catch (error) {
+        console.error('Fetch products for email error:', error.message);
+        res.status(500).json({ status: false, msg: 'Server Error' });
+    }
+};
+
+/**
+ * GET /newsletter/unsubscribe?email=xxx&token=yyy
+ * Public endpoint — marks subscriber as inactive (unsubscribe).
+ */
+export const unsubscribeNewsletter = async (req, res) => {
+    try {
+        const { email, token } = req.query;
+        if (!email || !token) {
+            return res.status(400).send('<p>Invalid unsubscribe link.</p>');
+        }
+
+        const expectedToken = generateUnsubscribeToken(decodeURIComponent(email));
+        if (token !== expectedToken) {
+            return res.status(400).send('<p>Invalid or expired unsubscribe link.</p>');
+        }
+
+        await prisma.newsletterSubscriber.updateMany({
+            where: { email: decodeURIComponent(email).toLowerCase() },
+            data: { isActive: false }
+        });
+
+        res.send(`
+            <div style="font-family:Inter,sans-serif;max-width:480px;margin:80px auto;text-align:center;padding:40px;border:1px solid #e6decd;border-radius:12px;">
+                <h2 style="color:#0B2F3A;">You've been unsubscribed</h2>
+                <p style="color:#666;">You will no longer receive marketing emails from Bagchee.</p>
+                <a href="${process.env.FRONTEND_URL || '/'}" style="color:#008DDA;">Back to Bagchee</a>
+            </div>
+        `);
+    } catch (error) {
+        console.error('Unsubscribe error:', error.message);
+        res.status(500).send('<p>Something went wrong. Please try again.</p>');
     }
 };

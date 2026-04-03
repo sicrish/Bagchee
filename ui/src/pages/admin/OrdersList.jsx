@@ -7,7 +7,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
-import * as XLSX from 'xlsx';
+import { exportToExcel } from '../../utils/exportExcel';
 
 
 const OrdersList = () => {
@@ -198,13 +198,7 @@ const handleExport = async () => {
         };
       });
 
-      // 3. XLSX Workbook Creation
-      const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Detailed Orders");
-
-      // 4. Trigger Download
-      XLSX.writeFile(workbook, `Detailed_Orders_Export_${new Date().getTime()}.xlsx`);
+      await exportToExcel(dataToExport, "Detailed Orders", "Detailed_Orders_Export");
       
       toast.success("Detailed export successful! 📊", { id: toastId });
     }

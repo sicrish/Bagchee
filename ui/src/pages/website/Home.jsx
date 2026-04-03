@@ -1,6 +1,7 @@
 'use client';
 
 import React, { Suspense, lazy } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { Loader2 } from 'lucide-react';
 
 // 🟢 Performance Optimization: Lazy Loading Components
@@ -27,6 +28,14 @@ const PageLoader = () => (
 function Home() {
   return (
     <div className="bg-cream-50">
+      <Helmet>
+        <title>Bagchee — Books That Stick</title>
+        <meta name="description" content="Bagchee — India's favourite online bookstore. Shop books, CDs, DVDs, music, handicrafts and more with free delivery." />
+        <meta name="keywords" content="buy books online, books india, online bookstore, bagchee, hindi books, english books, children books" />
+        <meta property="og:title" content="Bagchee — Books That Stick" />
+        <meta property="og:description" content="India's favourite online bookstore. Shop books, CDs, DVDs and more." />
+        <meta property="og:type" content="website" />
+      </Helmet>
       {/* 🟢 Suspense handles lazy loading state */}
       <Suspense fallback={<PageLoader />}>
         

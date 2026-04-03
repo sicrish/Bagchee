@@ -7,7 +7,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
-import * as XLSX from 'xlsx';
+import { exportToExcel } from '../../utils/exportExcel';
 
 const PublishersList = () => {
   const navigate = useNavigate();
@@ -78,10 +78,7 @@ const PublishersList = () => {
         "Display Order": pub.order || 0
       }));
 
-      const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Publishers");
-      XLSX.writeFile(workbook, `Publishers_Report_${Date.now()}.xlsx`);
+      await exportToExcel(dataToExport, "Publishers", "Publishers_Report");
       toast.success("Excel exported successfully! 📊", { id: toastId });
     } catch (error) { toast.error("Export failed", { id: toastId }); }
   };

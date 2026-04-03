@@ -1,11 +1,13 @@
 import express from 'express';
 import * as NewsletterSubscriberController from '../controller/newsletterController.js';
+import { unsubscribeNewsletter } from '../controller/emailCampaignController.js';
 import adminAuth from '../middleware/adminAuth.middleware.js';
 
 const router = express.Router();
 
-// PUBLIC — anyone can subscribe to the newsletter
+// PUBLIC — anyone can subscribe or unsubscribe
 router.post('/save', NewsletterSubscriberController.saveSubscriber);
+router.get('/unsubscribe', unsubscribeNewsletter);
 
 // ADMIN — subscriber management
 router.get('/list',           adminAuth, NewsletterSubscriberController.getAllSubscribers);

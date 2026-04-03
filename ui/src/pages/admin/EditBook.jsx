@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { Save, RotateCcw, Plus, Search, Check, X, Upload, Eye, Loader2, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useNavigate, useParams } from 'react-router-dom';
-import JoditEditor from 'jodit-react';
+import JoditEditor from '../../components/admin/LazyJoditEditor';
 import axios from '../../utils/axiosConfig';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { validateImageFiles } from '../../utils/fileValidator';
@@ -208,15 +208,15 @@ series: Array.isArray(book.series)
                 weight: book.weight || '',
                 price: book.price || '',
                 real_price: book.realPrice || book.real_price || book.priceForeign || '',
-                inr_price: book.inrPrice || book.inr_price || book.price || '',
+                inr_price: book.inrPrice || book.inr_price || '',
                 discount: book.discount || '',
                 stock: typeof book.stock === 'number' ? (book.stock > 0 ? 'active' : 'inactive') : (book.stock || 'active'),
                 availability: book.availability ? Number(book.availability) : 0,
                 notes: book.notes || '',
                 series_number: (book.series_number !== undefined && book.series_number !== null) ? String(book.series_number) : '',
-                meta_title: book.meta_title || '',
-                meta_keywords: book.meta_keywords || '',
-                meta_description: book.meta_description || '',
+                meta_title: book.metaTitle || book.meta_title || '',
+                meta_keywords: book.metaKeywords || book.meta_keywords || '',
+                meta_description: book.metaDescription || book.meta_description || '',
                 active: book.isActive ? 'active' : 'inactive',
                 recommended: book.isRecommended ? 'active' : 'inactive',
                 upcoming: (book.upcoming || book.Upcoming) ? 'active' : 'inactive',
@@ -226,12 +226,12 @@ series: Array.isArray(book.series)
                 exclusive: book.isExclusive ? 'active' : 'inactive',
                 ship_days: (book.shipDays !== undefined && book.shipDays !== null) ? String(book.shipDays) : (book.ship_days !== undefined && book.ship_days !== null) ? String(book.ship_days) : "",
                 deliver_days: (book.deliverDays !== undefined && book.deliverDays !== null) ? String(book.deliverDays) : (book.deliver_days !== undefined && book.deliver_days !== null) ? String(book.deliver_days) : "",
-                pub_date: book.pub_date || '',
+                pub_date: book.pubDate || book.pub_date || '',
                 source: book.source || '',
                 rating: book.rating || '',
-                rated_times: book.rated_times || '',
-                toc_image: book.toc_image || book.tocImage || '',
-                ordered_items_count: book.soldCount || 0,
+                rated_times: book.ratedTimes || book.rated_times || '',
+                toc_image: book.tocImage || book.toc_image || '',
+                ordered_items_count: book.soldCount || book.ordered_items_count || 0,
             });
 
             // Build author name map from embedded junction data (handles 91k authors pagination issue)
@@ -249,12 +249,16 @@ series: Array.isArray(book.series)
                 setUserSelectedDate(new Date(book.newReleaseUntil || book.new_release_until).toISOString().split('T')[0]);
             }
 
-            if (book.toc_images && book.toc_images.length > 0) setTocImagesList(book.toc_images.map((img) => ({ id: img.id, image: img.image, order: img.order, file: null })));
-            if (book.related_images && book.related_images.length > 0) setRelatedImagesList(book.related_images.map((img) => ({ id: img.id, image: img.image, order: img.order, file: null })));
-            if (book.sample_images && book.sample_images.length > 0) setSampleImagesList(book.sample_images.map((img) => ({ id: img.id, image: img.image, order: img.order, file: null })));
+            const tocImgs = book.tocImages || book.toc_images || [];
+            const relImgs = book.images || book.related_images || [];
+            const sampImgs = book.sampleImages || book.sample_images || [];
+            if (tocImgs.length > 0) setTocImagesList(tocImgs.map((img) => ({ id: img.id, image: img.file || img.image, order: img.ord ?? img.order, file: null })));
+            if (relImgs.length > 0) setRelatedImagesList(relImgs.map((img) => ({ id: img.id, image: img.file || img.image, order: img.ord ?? img.order, file: null })));
+            if (sampImgs.length > 0) setSampleImagesList(sampImgs.map((img) => ({ id: img.id, image: img.file || img.image, order: img.ord ?? img.order, file: null })));
 
-            if (book.toc_image) {
-                let cleanTocPath = book.toc_image.replace(/\\/g, '/');
+            const tocImgField = book.tocImage || book.toc_image;
+            if (tocImgField) {
+                let cleanTocPath = tocImgField.replace(/\\/g, '/');
                 if (!cleanTocPath.startsWith('http')) {
                     const baseUrl = API_URL.replace('/api', '') || 'http://localhost:3001';
                     cleanTocPath = `${baseUrl}${cleanTocPath.startsWith('/') ? '' : '/'}${cleanTocPath}`;
@@ -262,7 +266,7 @@ series: Array.isArray(book.series)
                 setTocPreview(cleanTocPath);
             }
 
-            const imgRaw = book.default_image || book.producticonname;
+            const imgRaw = book.defaultImage || book.default_image || book.producticonname;
             if (imgRaw) {
                 let cleanPath = imgRaw.replace(/\\/g, '/');
                 if (!cleanPath.startsWith('http')) {
@@ -1091,7 +1095,7 @@ series: Array.isArray(book.series)
                                     <div key={item.id} className="flex flex-col sm:flex-row items-center gap-3 border p-3 rounded bg-gray-50">
                                         <div className="w-full sm:w-14 h-14 border bg-white flex-shrink-0 overflow-hidden rounded relative">
                                             {(item.file || item.image) ? (
-                                                <img src={item.file ? URL.createObjectURL(item.file) : `${process.env.REACT_APP_API_URL}${item.image}`} alt="preview" className="w-full h-full object-cover" />
+                                                <img src={item.file ? URL.createObjectURL(item.file) : (item.image?.startsWith('http') ? item.image : `${process.env.REACT_APP_API_URL}${item.image?.startsWith('/') ? '' : '/'}${item.image}`)} alt="preview" className="w-full h-full object-cover" />
                                             ) : <div className="flex items-center justify-center h-full bg-gray-100 text-[9px] text-gray-400">No Img</div>}
                                         </div>
                                         <div className="flex-1 w-full text-center sm:text-left">
@@ -1118,7 +1122,7 @@ series: Array.isArray(book.series)
                                     <div key={item.id} className="flex flex-col sm:flex-row items-center gap-3 border p-3 rounded bg-gray-50">
                                         <div className="w-full sm:w-14 h-14 border bg-white flex-shrink-0 overflow-hidden rounded relative">
                                             {(item.file || item.image) ? (
-                                                <img src={item.file ? URL.createObjectURL(item.file) : `${process.env.REACT_APP_API_URL}${item.image}`} alt="preview" className="w-full h-full object-cover" />
+                                                <img src={item.file ? URL.createObjectURL(item.file) : (item.image?.startsWith('http') ? item.image : `${process.env.REACT_APP_API_URL}${item.image?.startsWith('/') ? '' : '/'}${item.image}`)} alt="preview" className="w-full h-full object-cover" />
                                             ) : <div className="flex items-center justify-center h-full bg-gray-100 text-[9px] text-gray-400">No Img</div>}
                                         </div>
                                         <div className="flex-1 w-full text-center sm:text-left">
@@ -1145,7 +1149,7 @@ series: Array.isArray(book.series)
                                     <div key={item.id} className="flex flex-col sm:flex-row items-center gap-3 border p-3 rounded bg-gray-50">
                                         <div className="w-full sm:w-14 h-14 border bg-white flex-shrink-0 overflow-hidden rounded relative">
                                             {(item.file || item.image) ? (
-                                                <img src={item.file ? URL.createObjectURL(item.file) : `${process.env.REACT_APP_API_URL}${item.image}`} alt="preview" className="w-full h-full object-cover" />
+                                                <img src={item.file ? URL.createObjectURL(item.file) : (item.image?.startsWith('http') ? item.image : `${process.env.REACT_APP_API_URL}${item.image?.startsWith('/') ? '' : '/'}${item.image}`)} alt="preview" className="w-full h-full object-cover" />
                                             ) : <div className="flex items-center justify-center h-full bg-gray-100 text-[9px] text-gray-400">No Img</div>}
                                         </div>
                                         <div className="flex-1 w-full text-center sm:text-left">

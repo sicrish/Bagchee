@@ -50,16 +50,39 @@ export const list = async (req, res) => {
             ? await prisma.product.findMany({ where: { id: { in: productIds } }, select: { id: true, title: true, bagcheeId: true, defaultImage: true } })
             : [];
         const productMap = Object.fromEntries(products.map(p => [p.id, p]));
-        const formattedData = items.map(item => ({
+        const manualData = items.map(item => ({
             id: item.id,
             productId: productMap[item.productId]?.bagcheeId || 'N/A',
             title: productMap[item.productId]?.title || 'Product Deleted',
             image: productMap[item.productId]?.defaultImage || '',
             isActive: item.isActive,
             order: item.order,
+            source: 'manual',
+            soldCount: 0,
             createdAt: item.createdAt
         }));
-        res.status(200).json({ status: true, data: formattedData, total, page: pageNum, limit: pageSize, totalPages: Math.ceil(total / pageSize) });
+
+        // Also fetch auto best sellers (by soldCount) excluding manual picks
+        const autoProducts = await prisma.product.findMany({
+            where: { isActive: true, soldCount: { gt: 0 }, id: { notIn: productIds.length > 0 ? productIds : [0] } },
+            orderBy: { soldCount: 'desc' },
+            take: 50,
+            select: { id: true, title: true, bagcheeId: true, defaultImage: true, soldCount: true }
+        });
+        const autoData = autoProducts.map((p, i) => ({
+            id: `auto-${p.id}`,
+            productId: p.bagcheeId || 'N/A',
+            title: p.title,
+            image: p.defaultImage || '',
+            isActive: true,
+            order: manualData.length + i + 1,
+            source: 'auto',
+            soldCount: p.soldCount,
+            createdAt: null
+        }));
+
+        const combined = [...manualData, ...autoData];
+        res.status(200).json({ status: true, data: combined, total: combined.length, page: pageNum, limit: pageSize, totalPages: 1 });
     } catch (error) {
         res.status(500).json({ status: false, msg: 'Server Error' });
     }

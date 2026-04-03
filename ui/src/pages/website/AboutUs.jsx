@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Helmet } from 'react-helmet-async';
 import { Link } from "react-router-dom";
 import axios from "../../utils/axiosConfig";
 import { createSafeHtml } from '../../utils/sanitize';
@@ -30,6 +31,10 @@ const AboutUs = () => {
 
   return (
     <div className="min-h-screen bg-cream">
+      <Helmet>
+        <title>{title} — Bagchee</title>
+        <meta name="description" content="Learn about Bagchee — India's favourite online bookstore, our story, mission and values." />
+      </Helmet>
       <div className="container mx-auto px-4 py-8 md:py-12 lg:py-16">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 lg:gap-8">
           <div className="md:col-span-1">

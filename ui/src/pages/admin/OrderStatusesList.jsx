@@ -7,7 +7,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
-import * as XLSX from 'xlsx';
+import { exportToExcel } from '../../utils/exportExcel';
 
 
 const OrderStatusesList = () => {
@@ -70,10 +70,7 @@ const [totalItems, setTotalItems] = useState(0);
         "Created Date": new Date(s.createdAt).toLocaleDateString('en-GB')
       }));
 
-      const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "OrderStatuses");
-      XLSX.writeFile(workbook, `OrderStatuses_${Date.now()}.xlsx`);
+      await exportToExcel(dataToExport, "OrderStatuses", "OrderStatuses");
       toast.success("Excel exported successfully! 📊", { id: toastId });
     } catch (error) { toast.error("Export failed", { id: toastId }); }
   };

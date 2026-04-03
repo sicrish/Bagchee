@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import { createSafeHtml } from '../../utils/sanitize';
@@ -284,19 +285,13 @@ const BookDetail = () => {
         // Deduplicate author IDs
         authorIds = [...new Set(authorIds)];
 
-        // 3. Agar IDs mil gayi hain, toh API call karo
+        // 3. Batch fetch all authors in one call
         if (authorIds.length > 0) {
-          const authorPromises = authorIds.map(id =>
-            axios.get(`${process.env.REACT_APP_API_URL}/authors/get/${id}`)
+          const batchRes = await axios.get(
+            `${process.env.REACT_APP_API_URL}/authors/batch?ids=${authorIds.join(',')}`
           );
 
-          // Sabka result aane ka wait karein
-          const authorResponses = await Promise.allSettled(authorPromises);
-
-          // Jo response success huye hain, unka data filter karke array bana lein
-          const fetchedAuthors = authorResponses
-            .filter(res => res.status === 'fulfilled' && res.value.data.status)
-            .map(res => res.value.data.data);
+          const fetchedAuthors = batchRes.data.status ? batchRes.data.data : [];
 
           // Data ko state me save kar dein (Ab ye Array hoga)
           setAuthorData(fetchedAuthors);
@@ -311,28 +306,7 @@ const BookDetail = () => {
     fetchSecondaryData();
   }, [book]);
 
-  // SEO meta tags
-  useEffect(() => {
-    if (!book) return;
-    const title = book.metaTitle || book.meta_title || book.title;
-    if (title) document.title = `${title} | Bagchee`;
-
-    const setMeta = (name, content) => {
-      if (!content) return;
-      let el = document.querySelector(`meta[name="${name}"]`);
-      if (!el) {
-        el = document.createElement('meta');
-        el.setAttribute('name', name);
-        document.head.appendChild(el);
-      }
-      el.setAttribute('content', content);
-    };
-
-    setMeta('description', book.metaDescription || book.meta_description || book.synopsis?.replace(/<[^>]*>/g, '').slice(0, 160));
-    setMeta('keywords', book.metaKeywords || book.meta_keywords);
-
-    return () => { document.title = 'Bagchee'; };
-  }, [book]);
+  // SEO handled via Helmet below in JSX
 
   const getAuthorName = (author) => {
     if (!author) return 'Unknown Author';
@@ -554,8 +528,19 @@ const BookDetail = () => {
 
 
 
+  const seoTitle = book ? (book.metaTitle || book.meta_title || book.title) : 'Book Detail';
+  const seoDescription = book ? (book.metaDescription || book.meta_description || book.synopsis?.replace(/<[^>]*>/g, '').slice(0, 160)) : '';
+  const seoKeywords = book ? (book.metaKeywords || book.meta_keywords) : '';
+
   return (
     <div className="min-h-screen bg-cream">
+      <Helmet>
+        <title>{seoTitle ? `${seoTitle} | Bagchee` : 'Bagchee'}</title>
+        {seoDescription && <meta name="description" content={seoDescription} />}
+        {seoKeywords && <meta name="keywords" content={seoKeywords} />}
+        {book?.defaultImage && <meta property="og:image" content={book.defaultImage} />}
+        <meta property="og:type" content="product" />
+      </Helmet>
       {/* Breadcrumb Navigation */}
       {/* <div className="bg-cream-100 border-b">
         <div className="max-w-7xl mx-auto px-4 py-3">

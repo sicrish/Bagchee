@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import axios from '../../utils/axiosConfig';
 import { ChevronRight, MapPin, BookOpen, Star, Award } from 'lucide-react';
 import { createSafeHtml } from '../../utils/sanitize';
@@ -12,60 +13,26 @@ const AuthorDetail = () => {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Helper function to create slug from name
-  const createSlug = (name) => {
-    if (!name) return '';
-    return name
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-');
-  };
-
   useEffect(() => {
     const fetchAuthorData = async () => {
       try {
         setLoading(true);
-        
-        // Fetch all authors and find by slug
-        const authorsRes = await axios.get(`${process.env.REACT_APP_API_URL}/authors/list`);
-        
-        if (!authorsRes.data || !authorsRes.data.data) {
+
+        const authorRes = await axios.get(`${process.env.REACT_APP_API_URL}/authors/by-slug/${slug}`);
+
+        if (!authorRes.data || !authorRes.data.data) {
           navigate('/');
           return;
         }
 
-        const foundAuthor = authorsRes.data.data.find(a => {
-          const authorSlug = createSlug(`${a.firstName || a.first_name} ${a.lastName || a.last_name}`);
-          return authorSlug === slug;
-        });
-
-        if (!foundAuthor) {
-          navigate('/');
-          return;
-        }
-
+        const foundAuthor = authorRes.data.data;
         setAuthor(foundAuthor);
 
-        // Fetch all books and filter by this author on client side
-        // Since API doesn't support author parameter, we fetch all and filter
         try {
           const booksRes = await axios.get(
-            `${process.env.REACT_APP_API_URL}/product/fetch`
+            `${process.env.REACT_APP_API_URL}/product/fetch?authors=${foundAuthor.id}&limit=100`
           );
-          
-          // Filter books by author ID
-          const allBooks = booksRes.data.data || [];
-          const authorBooks = allBooks.filter(book => {
-            // Check if book.author matches (could be ObjectId or populated object)
-            if (typeof book.author === 'object' && book.author !== null) {
-              return book.author.id === foundAuthor.id;
-            }
-            return book.author === foundAuthor.id;
-          });
-          
-          setBooks(authorBooks);
+          setBooks(booksRes.data.data || []);
         } catch (bookError) {
           console.error('Error fetching books:', bookError);
           // Still show author page even if books fetch fails
@@ -109,8 +76,13 @@ const AuthorDetail = () => {
     ? `${author.picture}`
     : 'https://via.placeholder.com/400x400?text=Author';
 
+  const authorName = `${author.firstName || author.first_name || ''} ${author.lastName || author.last_name || ''}`.trim();
   return (
     <div className="min-h-screen bg-cream">
+      <Helmet>
+        <title>{authorName ? `${authorName} — Bagchee` : 'Author — Bagchee'}</title>
+        <meta name="description" content={`Books by ${authorName} available at Bagchee. Browse and buy with free delivery across India.`} />
+      </Helmet>
       {/* Breadcrumb */}
       <div className="bg-cream-100 border-b">
         <div className="container mx-auto px-4 py-3">

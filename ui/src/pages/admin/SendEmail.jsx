@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Send, Users, Mail, Loader2, ArrowLeft, FileText, FlaskConical, Clock, Trash2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import JoditEditor from 'jodit-react';
+import { Send, Users, Mail, Loader2, ArrowLeft, FileText, FlaskConical, Clock, Trash2, Package, X, PlusCircle } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import JoditEditor from '../../components/admin/LazyJoditEditor';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
+import { getProductImageUrl } from '../../utils/imageUrl';
 
 // ─── Pre-built Email Templates ───
 const EMAIL_TEMPLATES = [
@@ -107,16 +108,19 @@ const AUDIENCE_OPTIONS = [
   { key: 'members', label: 'All members' },
   { key: 'purchasers', label: 'All with purchase' },
   { key: 'categories', label: 'Categories subscribers' },
+  { key: 'specific', label: 'Selected subscribers' },
 ];
 
 const SendEmail = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const editor = useRef(null);
+  const preselectedEmails = location.state?.selectedEmails || [];
 
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState('Blank');
-  const [audience, setAudience] = useState(['subscribers']);
+  const [audience, setAudience] = useState(preselectedEmails.length > 0 ? ['specific'] : ['subscribers']);
   const [recipientCount, setRecipientCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [testLoading, setTestLoading] = useState(false);
@@ -125,6 +129,11 @@ const SendEmail = () => {
   const [sendAt, setSendAt] = useState('');
   const [scheduledEmails, setScheduledEmails] = useState([]);
   const [scheduledLoading, setScheduledLoading] = useState(false);
+
+  // Product picker
+  const [productIdsInput, setProductIdsInput] = useState('');
+  const [pickedProducts, setPickedProducts] = useState([]);
+  const [productFetchLoading, setProductFetchLoading] = useState(false);
 
   const API_BASE_URL = process.env.REACT_APP_API_URL;
 
@@ -258,7 +267,8 @@ const SendEmail = () => {
           subject: subject.trim(),
           body,
           audience,
-          sendAt: sendAtDate.toISOString()
+          sendAt: sendAtDate.toISOString(),
+          ...(audience.includes('specific') && { specificEmails: preselectedEmails })
         });
 
         if (res.data.status) {
@@ -293,7 +303,8 @@ const SendEmail = () => {
       const res = await axios.post(`${API_BASE_URL}/email-campaign/send`, {
         subject: subject.trim(),
         body,
-        audience
+        audience,
+        ...(audience.includes('specific') && { specificEmails: preselectedEmails })
       });
 
       if (res.data.status) {
@@ -323,6 +334,64 @@ const SendEmail = () => {
     } catch (error) {
       toast.error(error.response?.data?.msg || 'Failed to cancel');
     }
+  };
+
+  // Product picker handlers
+  const handleFetchProducts = async () => {
+    const raw = productIdsInput.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+    if (raw.length === 0) return toast.error('Paste at least one product ID.');
+    setProductFetchLoading(true);
+    try {
+      const res = await axios.post(`${API_BASE_URL}/email-campaign/products-preview`, { ids: raw });
+      if (res.data.status) {
+        const found = res.data.data;
+        if (found.length === 0) return toast.error('No products found for those IDs.');
+        // merge, avoid duplicates
+        setPickedProducts(prev => {
+          const existingIds = new Set(prev.map(p => p.id));
+          return [...prev, ...found.filter(p => !existingIds.has(p.id))];
+        });
+        const notFound = raw.filter(id =>
+          !found.some(p => p.bagcheeId === id || p.isbn13 === id || p.isbn10 === id)
+        );
+        if (notFound.length > 0) toast(`${found.length} found, ${notFound.length} not found: ${notFound.join(', ')}`, { icon: '⚠️' });
+        else toast.success(`${found.length} product(s) loaded.`);
+        setProductIdsInput('');
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.msg || 'Failed to fetch products.');
+    } finally {
+      setProductFetchLoading(false);
+    }
+  };
+
+  const handleRemovePickedProduct = (id) => {
+    setPickedProducts(prev => prev.filter(p => p.id !== id));
+  };
+
+  const handleInsertProductCards = () => {
+    if (pickedProducts.length === 0) return toast.error('No products to insert.');
+    const cards = pickedProducts.map(p => {
+      const imgSrc = getProductImageUrl(p);
+      const price = p.inrPrice ? `₹${p.inrPrice}` : (p.price ? `$${p.price}` : '');
+      return `
+<table cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:540px;margin:0 auto 20px;border:1px solid #e6decd;border-radius:8px;overflow:hidden;font-family:Inter,Helvetica,Arial,sans-serif;">
+  <tr>
+    ${imgSrc ? `<td style="width:90px;vertical-align:top;padding:12px;">
+      <img src="${imgSrc}" alt="${p.title}" width="80" style="display:block;border-radius:4px;object-fit:cover;" />
+    </td>` : ''}
+    <td style="vertical-align:top;padding:12px;">
+      <p style="margin:0 0 6px;font-size:15px;font-weight:700;color:#0B2F3A;">${p.title}</p>
+      <p style="margin:0 0 8px;font-size:12px;color:#4A6fa5;">ID: ${p.bagcheeId}</p>
+      ${price ? `<p style="margin:0 0 10px;font-size:14px;font-weight:700;color:#008DDA;">${price}</p>` : ''}
+      <a href="${process.env.REACT_APP_FRONTEND_URL || '#'}/books/${p.bagcheeId}" style="display:inline-block;background:#008DDA;color:#fff;text-decoration:none;padding:8px 18px;font-size:13px;font-weight:bold;border-radius:6px;">View Book</a>
+    </td>
+  </tr>
+</table>`;
+    }).join('\n');
+
+    setBody(prev => (prev && prev !== '<p><br></p>' ? prev + '\n' + cards : cards));
+    toast.success(`${pickedProducts.length} product card(s) inserted into email.`);
   };
 
   // Get min datetime for the picker (now + 5 min)
@@ -385,6 +454,71 @@ const SendEmail = () => {
           </div>
         </div>
 
+        {/* Product Picker */}
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5 mb-4">
+          <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1 block">
+            <Package size={13} className="inline mr-1 -mt-0.5" /> Product Picker
+          </label>
+          <p className="text-[11px] text-gray-400 mb-3 font-montserrat">Paste product IDs (Bagchee ID or ISBN), one per line or comma-separated. Fetched products will be inserted as cards into the email body.</p>
+
+          <div className="flex gap-3 mb-3">
+            <textarea
+              value={productIdsInput}
+              onChange={(e) => setProductIdsInput(e.target.value)}
+              placeholder={"BB1234\nBB5678\n9780123456789"}
+              rows={3}
+              className="flex-1 border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-mono resize-none"
+            />
+            <button
+              onClick={handleFetchProducts}
+              disabled={productFetchLoading}
+              className="self-start bg-primary hover:bg-primary-hover text-white px-5 py-3 rounded-lg font-montserrat font-bold text-sm flex items-center gap-2 transition-all disabled:opacity-50 active:scale-95 shadow-sm whitespace-nowrap"
+            >
+              {productFetchLoading ? <Loader2 size={14} className="animate-spin" /> : <Package size={14} />}
+              Fetch
+            </button>
+          </div>
+
+          {pickedProducts.length > 0 && (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                {pickedProducts.map(p => (
+                  <div key={p.id} className="flex items-center gap-3 p-2 bg-cream-50 border border-cream-200 rounded-lg">
+                    {getProductImageUrl(p) && (
+                      <img
+                        src={getProductImageUrl(p)}
+                        alt={p.title}
+                        className="w-10 h-14 object-cover rounded shrink-0"
+                        onError={(e) => { e.target.style.display = 'none'; }}
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-text-main truncate">{p.title}</p>
+                      <p className="text-[10px] text-primary font-mono">{p.bagcheeId}</p>
+                      {(p.inrPrice || p.price) && (
+                        <p className="text-[10px] font-bold text-gray-500">{p.inrPrice ? `₹${p.inrPrice}` : `$${p.price}`}</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => handleRemovePickedProduct(p.id)}
+                      className="text-red-400 hover:text-red-600 p-1 rounded transition-colors shrink-0"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                onClick={handleInsertProductCards}
+                className="w-full bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg font-montserrat font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm"
+              >
+                <PlusCircle size={15} /> Insert {pickedProducts.length} Product Card{pickedProducts.length > 1 ? 's' : ''} into Email
+              </button>
+            </>
+          )}
+        </div>
+
         {/* Audience Selector — Checkboxes */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-5 mb-4">
           <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-3 block">
@@ -418,6 +552,14 @@ const SendEmail = () => {
               );
             })}
           </div>
+
+          {/* Selected subscribers info */}
+          {audience.includes('specific') && preselectedEmails.length > 0 && (
+            <div className="mt-3 p-3 bg-primary/5 border border-primary/20 rounded-lg">
+              <p className="text-xs font-bold text-primary font-montserrat mb-1">{preselectedEmails.length} subscriber(s) selected from list:</p>
+              <p className="text-[11px] text-gray-500 font-mono break-all">{preselectedEmails.slice(0, 5).join(', ')}{preselectedEmails.length > 5 ? ` +${preselectedEmails.length - 5} more` : ''}</p>
+            </div>
+          )}
 
           {/* Recipient Count Badge */}
           <div className="mt-3 flex items-center gap-2">

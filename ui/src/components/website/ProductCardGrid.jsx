@@ -81,7 +81,7 @@ const ProductCardGrid = ({ data }) => {
         wishlistMutation.mutate(data); 
     }, [data, toggleWishlist, wishlistMutation]);
 
-    const imageUrl = useMemo(() => getProductImageUrl(data), [data]);
+    const imageUrl = useMemo(() => getProductImageUrl(data, { width: 400 }), [data]);
 
     return (
         <div className="group bg-white rounded-lg border border-cream-200 overflow-hidden hover:shadow-xl transition-all duration-300 relative font-body flex flex-col h-full translate-z-0">
@@ -99,6 +99,8 @@ const ProductCardGrid = ({ data }) => {
                     <img
                         src={imageUrl}
                         alt={data.title}
+                        width={300}
+                        height={400}
                         loading="lazy"
                         decoding="async"
                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"

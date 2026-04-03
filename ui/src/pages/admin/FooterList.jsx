@@ -7,7 +7,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
-import * as XLSX from 'xlsx';
+import { exportToExcel } from '../../utils/exportExcel';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL;
 
@@ -82,10 +82,7 @@ const FooterList = () => {
       const allData = await fetchFooterData(true);
       if (!allData || allData.length === 0) return toast.error("No data", { id: toastId });
 
-      const worksheet = XLSX.utils.json_to_sheet(allData);
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "FooterColumns");
-      XLSX.writeFile(workbook, `Footer_Report_${Date.now()}.xlsx`);
+      await exportToExcel(allData, "FooterColumns", "Footer_Report");
       toast.success("Excel downloaded!", { id: toastId });
     } catch (error) { toast.error("Export failed", { id: toastId }); }
   };

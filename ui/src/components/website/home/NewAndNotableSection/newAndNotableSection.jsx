@@ -115,6 +115,7 @@ const NewAndNotable = () => {
                     <button
                         onClick={handlePrev}
                         disabled={page === 1}
+                        aria-label="Previous new and notable"
                         className={`absolute top-1/2 -left-2 md:-left-5 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 bg-cream-100 border border-cream-200 rounded-full flex items-center justify-center text-text-muted shadow-lg z-20 transition-all duration-300 ${page === 1 ? 'opacity-30 cursor-not-allowed' : 'hover:text-primary hover:border-primary hover:scale-110'}`}
                     >
                         <ChevronLeft size={20} />
@@ -134,7 +135,7 @@ const NewAndNotable = () => {
                                 const rPrice = Number(book.realPrice || book.real_price || 0);  // USD Final
                                 const iPrice = Number(book.inrPrice || book.inr_price || 0);   // Flat INR
 
-                                const imageUrl = getProductImageUrl(book);
+                                const imageUrl = getProductImageUrl(book, { width: 300 });
                                 const authorName = book.authors?.[0]?.author?.fullName
                                     || `${book.authors?.[0]?.author?.firstName || ''} ${book.authors?.[0]?.author?.lastName || ''}`.trim()
                                     || (typeof book.author === 'object' ? (book.author?.name || book.author?.firstName || '') : (book.author || ''));
@@ -192,12 +193,14 @@ const NewAndNotable = () => {
 
                                                 <div className="flex items-center gap-1">
                                                     <button
+                                                        aria-label={isInWishlist(book.id) ? "Remove from wishlist" : "Add to wishlist"}
                                                         className={`p-1 md:p-1.5 rounded-full transition-all ${isInWishlist(book.id) ? 'text-red-500 bg-red-50' : 'text-text-muted hover:text-red-500 hover:bg-red-50'}`}
                                                         onClick={(e) => handleWishlist(e, book)}
                                                     >
                                                         <Heart size={16} fill={isInWishlist(book.id) ? "currentColor" : "none"} className="md:w-[18px] md:h-[18px]" />
                                                     </button>
                                                     <button
+                                                        aria-label="Add to cart"
                                                         className="text-text-muted hover:text-primary hover:bg-primary/10 p-1 md:p-1.5 rounded-full transition-all"
                                                         onClick={(e) => handleAddToCart(e, book)}
                                                     >
@@ -216,6 +219,7 @@ const NewAndNotable = () => {
                     <button
                         onClick={handleNext}
                         disabled={page >= totalPages}
+                        aria-label="Next new and notable"
                         className={`absolute top-1/2 -right-2 md:-right-5 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 bg-cream-100 border border-cream-200 rounded-full flex items-center justify-center text-text-muted shadow-lg z-20 transition-all duration-300 ${page >= totalPages ? 'opacity-30 cursor-not-allowed' : 'hover:text-primary hover:border-primary hover:scale-110'}`}
                     >
                         <ChevronRight size={20} />

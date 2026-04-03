@@ -7,7 +7,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
-import * as XLSX from 'xlsx';
+import { exportToExcel } from '../../utils/exportExcel';
 
 const NewsletterSubscribers = () => {
   const navigate = useNavigate();
@@ -71,10 +71,7 @@ const NewsletterSubscribers = () => {
         "Subscribed Date": new Date(item.createdAt).toLocaleDateString('en-GB')
       }));
 
-      const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Subscribers");
-      XLSX.writeFile(workbook, `Newsletter_Subscribers_${Date.now()}.xlsx`);
+      await exportToExcel(dataToExport, "Subscribers", "Newsletter_Subscribers");
       toast.success("Excel exported successfully! 📊", { id: toastId });
     } catch (error) { toast.error("Export failed", { id: toastId }); }
   };
@@ -128,6 +125,42 @@ const NewsletterSubscribers = () => {
     }
   };
 
+  // Selection state
+  const [selectedIds, setSelectedIds] = useState(new Set());
+
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (filteredSubscribers.every(s => selectedIds.has(s.id))) {
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        filteredSubscribers.forEach(s => next.delete(s.id));
+        return next;
+      });
+    } else {
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        filteredSubscribers.forEach(s => next.add(s.id));
+        return next;
+      });
+    }
+  };
+
+  const allOnPageSelected = filteredSubscribers.length > 0 && filteredSubscribers.every(s => selectedIds.has(s.id));
+
+  const handleSendToSelected = () => {
+    const selectedEmails = subscribers
+      .filter(s => selectedIds.has(s.id))
+      .map(s => s.email);
+    navigate('/admin/send-email', { state: { selectedEmails } });
+  };
+
   const filterInputClass = "w-full rounded-[4px] px-2 py-1.5 text-xs outline-none text-gray-700 font-montserrat shadow-inner focus:ring-2 focus:ring-blue-300";
 
   return (
@@ -146,10 +179,11 @@ const NewsletterSubscribers = () => {
           </button>
 
           <button
-            onClick={() => navigate('/admin/send-email')}
-            className="bg-[#e9ecef] border border-gray-300 text-gray-700 hover:bg-white px-4 py-2 rounded shadow-sm flex items-center justify-center gap-2 font-montserrat font-bold text-xs uppercase transition-all active:scale-95"
+            onClick={selectedIds.size > 0 ? handleSendToSelected : () => navigate('/admin/send-email')}
+            className={`border px-4 py-2 rounded shadow-sm flex items-center justify-center gap-2 font-montserrat font-bold text-xs uppercase transition-all active:scale-95 ${selectedIds.size > 0 ? 'bg-primary border-primary text-white hover:bg-primary-hover' : 'bg-[#e9ecef] border-gray-300 text-gray-700 hover:bg-white'}`}
           >
-            <Mail size={14} className="text-gray-600" /> Send Newsletters
+            <Mail size={14} />
+            {selectedIds.size > 0 ? `Send to ${selectedIds.size} Selected` : 'Send Newsletters'}
           </button>
         </div>
 
@@ -190,7 +224,7 @@ const NewsletterSubscribers = () => {
               <tr className="bg-primary border-b border-gray-200">
                 <td className="p-2 border-r border-white/20">
                   <div className="flex items-center gap-2">
-                    <input type="checkbox" className="h-4 w-4 rounded accent-white cursor-pointer shrink-0 opacity-50" />
+                    <input type="checkbox" checked={allOnPageSelected} onChange={toggleSelectAll} className="h-4 w-4 rounded accent-white cursor-pointer shrink-0" />
                     <input name="id" value={filters.id} onChange={handleFilterChange} type="text" className={filterInputClass} />
                   </div>
                 </td>
@@ -223,8 +257,7 @@ const NewsletterSubscribers = () => {
 
                     <td className="p-3 border-r border-gray-100">
                       <div className="flex items-center gap-4">
-                        <input type="checkbox" className="h-4 w-4 rounded accent-primary cursor-pointer shrink-0 border-gray-300" />
-                        {/* Display simple Index + 1 for clean look, or item.id */}
+                        <input type="checkbox" checked={selectedIds.has(item.id)} onChange={() => toggleSelect(item.id)} className="h-4 w-4 rounded accent-primary cursor-pointer shrink-0 border-gray-300" />
                         <span className="text-gray-500 text-xs font-mono">{index + 1}</span>
                       </div>
                     </td>

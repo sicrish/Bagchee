@@ -7,7 +7,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
-import * as XLSX from 'xlsx';
+import { exportToExcel } from '../../utils/exportExcel';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // 🟢 React Query added
 
 const FormatsList = () => {
@@ -89,10 +89,7 @@ const FormatsList = () => {
         "Display Order": f.order || 0
       }));
 
-      const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Formats");
-      XLSX.writeFile(workbook, `Formats_Report_${Date.now()}.xlsx`);
+      await exportToExcel(dataToExport, "Formats", "Formats_Report");
       toast.success("Excel downloaded! 📊", { id: toastId });
     } catch (error) { 
       toast.error("Export failed", { id: toastId }); 
@@ -109,7 +106,7 @@ const FormatsList = () => {
       
       const matchesId = displayId.includes(filters.id);
       const matchesTitle = (format.title || "").toLowerCase().includes(filters.title.toLowerCase());
-      const matchesStatus = (format.active || "active").toLowerCase().includes(filters.status.toLowerCase());
+      const matchesStatus = (format.active ? "active" : "inactive").includes(filters.status.toLowerCase());
       const matchesCategory = (format.category_name || "N/A").toLowerCase().includes(filters.category.toLowerCase());
       const matchesOrder = (format.order || "0").toString().includes(filters.order);
 

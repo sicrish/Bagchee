@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Check, RotateCcw, X, Loader2, Plus, Trash2, Printer, Mail, Search } from 'lucide-react';
-import JoditEditor from 'jodit-react';
+import JoditEditor from '../../components/admin/LazyJoditEditor';
 import axios from '../../utils/axiosConfig.js';
 import toast from 'react-hot-toast';
 

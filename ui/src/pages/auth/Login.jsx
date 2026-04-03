@@ -14,9 +14,9 @@
     const returnTo = location.state?.returnTo;
 
     // 1. States
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
     const [rememberMe, setRememberMe] = useState(false);
+    const emailRef = React.useRef(null);
+    const passwordRef = React.useRef(null);
 
     // 🟢 2. React Query Mutation Setup
     const loginMutation = useMutation({
@@ -55,13 +55,9 @@
     // 3. Handle Submit Function
     const handleSubmit = (e) => {
       e.preventDefault();
-      
-      // Mutation Trigger (Data yahan se normal jayega, mutationFn ke andar encrypt hoga)
-      loginMutation.mutate({
-        email,
-        password,
-        rememberMe
-      });
+      const emailVal = emailRef.current?.value;
+      const passwordVal = passwordRef.current?.value;
+      loginMutation.mutate({ email: emailVal, password: passwordVal, rememberMe });
     };
 
     return (
@@ -88,10 +84,12 @@
             {/* Email */}
             <div>
               <input
+                ref={emailRef}
                 type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                name="email"
+                defaultValue=""
                 placeholder="Email Address"
+                autoComplete="email"
                 required
                 className="w-full bg-gray-100 border border-gray-200 text-text-main text-sm font-medium rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary block px-4 py-4 outline-none transition-all placeholder-gray-500"
               />
@@ -100,10 +98,12 @@
             {/* Password */}
             <div>
               <input
+                ref={passwordRef}
                 type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                name="password"
+                defaultValue=""
                 placeholder="Password"
+                autoComplete="current-password"
                 required
                 className="w-full bg-gray-100 border border-gray-200 text-text-main text-sm font-medium rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary block px-4 py-4 outline-none transition-all placeholder-gray-500"
               />

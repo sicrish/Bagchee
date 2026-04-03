@@ -1,4 +1,4 @@
-import React, { memo, useMemo, useCallback,useContext } from 'react';
+import React, { memo, useMemo, useCallback, useContext, useState, useEffect } from 'react';
 import { X, ShoppingCart, Heart } from 'lucide-react';
 import { Dialog, Transition, TransitionChild, DialogPanel } from '@headlessui/react';
 import { Link } from 'react-router-dom';
@@ -6,7 +6,7 @@ import { useCart } from '../../context/CartContext.jsx';
 import { createSafeHtml } from '../../utils/sanitize';
 import { CurrencyContext } from '../../context/CurrencyContext.jsx';
 import toast from 'react-hot-toast';
-import { useMutation, useQueryClient } from '@tanstack/react-query'; // 🟢 Mutations use karenge
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from '../../utils/axiosConfig.js';
 import { getProductImageUrl } from '../../utils/imageUrl.js';
 
@@ -27,7 +27,7 @@ const ProductModal = ({ product, isOpen, onClose }) => {
 
     const previewImage = useMemo(() => {
         if (!product) return "";
-        return getProductImageUrl(product) || "https://placehold.co/500x700?text=No+Cover";
+        return getProductImageUrl(product, { width: 500 }) || "https://placehold.co/500x700?text=No+Cover";
     }, [product]);
 
     const handleClose = useCallback(() => {
@@ -48,6 +48,19 @@ const ProductModal = ({ product, isOpen, onClose }) => {
             wishlistMutation.mutate(product.id); // Server sync
         }
     };
+
+    // Fetch full product details (synopsis, authors) when modal opens
+    const [detail, setDetail] = useState(null);
+    useEffect(() => {
+        if (isOpen && product) {
+            setDetail(null);
+            axios.get(`/product/get/${product.bagcheeId || product.id}`)
+                .then(res => { if (res.data?.data) setDetail(res.data.data); })
+                .catch(() => {});
+        }
+    }, [isOpen, product?.id]);
+
+    const merged = detail || product;
 
     if (!product) return null;
 
@@ -79,8 +92,9 @@ const ProductModal = ({ product, isOpen, onClose }) => {
                         >
                             <DialogPanel className="w-full max-w-4xl transform overflow-hidden rounded-xl bg-white text-left align-middle shadow-2xl transition-all font-body relative flex flex-col md:flex-row max-h-[95vh] md:h-[600px]">
                                 
-                                <button 
+                                <button
                                     onClick={handleClose}
+                                    aria-label="Close product preview"
                                     className="absolute top-3 right-3 z-[70] p-2 bg-white/80 backdrop-blur-md rounded-full hover:bg-gray-200 text-text-main shadow-md transition-all active:scale-90"
                                 >
                                     <X size={20} />
@@ -103,7 +117,12 @@ const ProductModal = ({ product, isOpen, onClose }) => {
                                             {product.title}
                                         </h2>
                                         <p className="text-sm font-semibold text-primary mb-4 italic">
-                                            By {product.author?.firstName || product.author?.first_name} {product.author?.lastName || product.author?.last_name || product.author?.name}
+                                            By {Array.isArray(merged.authors) && merged.authors.length > 0
+                                                ? merged.authors.map(pa => {
+                                                    const a = pa.author || pa;
+                                                    return a.fullName || a.full_name || `${a.firstName || a.first_name || ''} ${a.lastName || a.last_name || ''}`.trim();
+                                                  }).filter(Boolean).join(', ')
+                                                : 'Unknown Author'}
                                         </p>
 
                                         <div className="text-2xl sm:text-3xl font-bold text-text-main font-montserrat mb-6">
@@ -119,16 +138,16 @@ const ProductModal = ({ product, isOpen, onClose }) => {
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6 bg-cream-50 p-4 rounded-lg border border-cream-200">
                                             <div className="flex flex-col">
                                                 <span className="text-[10px] uppercase tracking-wider text-text-muted font-bold font-montserrat">ISBN</span>
-                                                <span className="font-bold text-text-main text-xs sm:text-sm">{product.isbn13 || product.isbn || 'N/A'}</span>
+                                                <span className="font-bold text-text-main text-xs sm:text-sm">{merged.isbn13 || merged.isbn || 'N/A'}</span>
                                             </div>
                                             <div className="flex flex-col">
                                                 <span className="text-[10px] uppercase tracking-wider text-text-muted font-bold font-montserrat">Format</span>
-                                                <span className="font-bold text-text-main text-xs sm:text-sm capitalize">{product.binding || 'Paperback'}</span>
+                                                <span className="font-bold text-text-main text-xs sm:text-sm capitalize">{merged.binding || 'Paperback'}</span>
                                             </div>
                                         </div>
 
                                         <div className="text-sm text-text-muted leading-relaxed mb-4">
-                                            <div dangerouslySetInnerHTML={createSafeHtml(product.synopsis || "No description available.")} />
+                                            <div dangerouslySetInnerHTML={createSafeHtml(merged.synopsis || "No description available.")} />
                                         </div>
                                     </div>
 
@@ -148,9 +167,10 @@ const ProductModal = ({ product, isOpen, onClose }) => {
                                             >
                                                 View Full Details
                                             </Link>
-                                            <button 
+                                            <button
                                                 onClick={handleWishlist}
                                                 disabled={wishlistMutation.isPending}
+                                                aria-label={isInWishlist(product.id) ? "Remove from wishlist" : "Add to wishlist"}
                                                 className={`px-4 rounded-lg transition-colors ${
                                                     isInWishlist(product.id) 
                                                     ? 'bg-red-50 text-red-600 border border-red-100' 

@@ -5,7 +5,8 @@ import {
     getRecipientsCount,
     scheduleCampaignEmail,
     getScheduledEmails,
-    cancelScheduledEmail
+    cancelScheduledEmail,
+    fetchProductsForEmail
 } from '../controller/emailCampaignController.js';
 import adminAuth from '../middleware/adminAuth.middleware.js';
 
@@ -28,5 +29,8 @@ router.post('/send-test', adminAuth, sendTestEmail);
 
 // ADMIN ONLY — get recipient count for preview
 router.get('/recipients-count', adminAuth, getRecipientsCount);
+
+// ADMIN ONLY — fetch product details by IDs for email product picker
+router.post('/products-preview', adminAuth, fetchProductsForEmail);
 
 export default router;

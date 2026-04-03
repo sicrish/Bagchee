@@ -14,5 +14,7 @@ router.get("/get/:id",     authMiddleware, OrderController.getOrderById); // own
 router.get("/list",         adminAuth, OrderController.getAllOrders);
 router.patch("/update/:id", adminAuth, OrderController.updateOrder);
 router.delete("/delete/:id",adminAuth, OrderController.deleteOrder);
+router.post("/:id/send-shipped-email", adminAuth, OrderController.sendShippedEmail);
+router.post("/:id/send-status-email",  adminAuth, OrderController.sendStatusEmail);
 
 export default router;

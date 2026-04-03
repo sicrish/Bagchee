@@ -67,10 +67,10 @@ const SidebarFilter = ({
   };
 
   // 🟢 Category Navigation Handler
-  const handleCategoryClick = (catId) => {
-    // Abhi page nahi bana hai, isliye console log aur temporary path rakha hai
-    navigate(`/category/${catId}`); // Jab route ban jaye tab ye chalega
-    if (onClose) onClose(); // Mobile drawer band karne ke liye
+  const handleCategoryClick = (catSlug) => {
+    const slug = catSlug ? catSlug.split('/').pop() : null;
+    if (slug) navigate(`/books/${slug}`);
+    if (onClose) onClose();
   };
 
   // Reusable Section Header for Desktop
@@ -107,7 +107,7 @@ const SidebarFilter = ({
         <div className="flex items-center justify-between group py-1.5">
           {/* Checkbox hata diya, ab ye div clickable hai */}
           <div
-            onClick={() => handleCategoryClick(cat.id)}
+            onClick={() => handleCategoryClick(cat.slug)}
             className="flex items-center space-x-3 cursor-pointer flex-1 hover:text-primary transition-colors"
           >
             <span

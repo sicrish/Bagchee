@@ -83,7 +83,7 @@ const ProductCardList = ({ data }) => {
         wishlistMutation.mutate(data);
     }, [data, toggleWishlist, wishlistMutation]);
 
-    const imageUrl = useMemo(() => getProductImageUrl(data), [data]);
+    const imageUrl = useMemo(() => getProductImageUrl(data, { width: 300 }), [data]);
 
     return (
         <div className="bg-white rounded-lg border border-cream-200 p-3 md:p-6 flex flex-col md:flex-row gap-4 md:gap-6 shadow-sm hover:shadow-md transition-all duration-300 font-body">

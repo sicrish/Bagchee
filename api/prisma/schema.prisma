@@ -252,6 +252,14 @@ model Product {
   @@index([productType])
   @@index([isFeatured])
   @@index([isExclusive])
+  @@index([isbn13])
+  @@index([isbn10])
+  // Compound indexes for common query patterns
+  @@index([isActive, createdAt])
+  @@index([isActive, soldCount])
+  @@index([isActive, discount])
+  @@index([isActive, leadingCategoryId])
+  @@index([isNewRelease, newReleaseUntil])
   @@map("products")
 }
 
@@ -478,6 +486,7 @@ model OrderItem {
   orderId       Int     @map("order_id")
   productId     Int     @map("product_id")
   name          String                           // snapshot of product title at time of order
+  image         String  @default("")              // snapshot of product image at time of order
   price         Float   @default(0)
   quantity      Int     @default(1)
   status        String  @default("") @map("product_status")
@@ -560,6 +569,7 @@ model Publisher {
   products    Product[]
 
   @@index([title])
+  @@index([slug])
   @@map("publishers")
 }
 
@@ -776,6 +786,7 @@ model NewsletterSubscriber {
   firstName  String   @default("") @map("first_name")
   lastName   String   @default("") @map("last_name")
   categories String[] @default([])
+  isActive   Boolean  @default(true) @map("is_active")
   createdAt  DateTime @default(now()) @map("created_at")
 
   @@map("newsletter_subscribers")
@@ -792,6 +803,7 @@ model ScheduledEmail {
   sent       Int      @default(0)
   failed     Int      @default(0)
   createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
   @@index([status, sendAt])
   @@map("scheduled_emails")
@@ -1153,4 +1165,16 @@ model Testimonial {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("testemonials")
+}
+
+// Page-level SEO meta tags
+model MetaTag {
+  id           Int    @id @default(autoincrement())
+  pageUrl      String @map("page_url")
+  title        String @default("")
+  metaTitle    String @default("") @map("meta_title")
+  metaDesc     String @default("") @map("meta_desc")
+  metaKeywords String @default("") @map("meta_keywords")
+
+  @@map("meta_tags")
 }
