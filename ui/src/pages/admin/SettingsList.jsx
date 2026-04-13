@@ -7,7 +7,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
-import { exportToExcel } from '../../utils/exportExcel';
+import { exportToExcel } from '../../utils/exportExcel.js';
 
 const SettingsList = () => {
   const navigate = useNavigate();
@@ -67,12 +67,13 @@ const SettingsList = () => {
 
       const dataToExport = allData.map((item, i) => ({
         "Sr No": i + 1,
-        "Sale Threshold (%)": item.sale_threshold,
-        "Bestseller Threshold": item.bestseller_threshold,
-        "Membership Cost": item.membership_cost,
-        "New Arrival Time (Days)": item.new_arrival_time,
-        "Free Shipping Over": item.free_shipping_over,
-        "Topbar Promotion": item.topbar_promotion
+        "Sale Threshold (%)": item.saleThreshold ?? item.sale_threshold,
+        "Bestseller Threshold": item.bestSellerThreshold ?? item.bestseller_threshold,
+        "Membership Cost (USD)": item.membershipCartPrice ?? item.membership_cost,
+        "Membership Cost (INR)": item.membershipCartPriceInr ?? item.membership_cart_price,
+        "Free Shipping Over (USD)": item.freeShippingOver ?? item.free_shipping_over,
+        "Free Shipping Over (INR)": item.freeShippingOverInr ?? item.free_shipping_over_inr,
+        "Topbar Promotion": item.topbarPromotion ? 'Yes' : 'No',
       }));
 
       await exportToExcel(dataToExport, "Settings", "Settings_Report");
@@ -103,12 +104,17 @@ const SettingsList = () => {
   // 🟢 2. Filtering Logic
   const filteredSettings = useMemo(() => {
     return settings.filter((item) => {
+      const saleT = (item.saleThreshold ?? item.sale_threshold ?? '').toString();
+      const bestT = (item.bestSellerThreshold ?? item.bestseller_threshold ?? '').toString();
+      const memC  = (item.membershipCartPrice ?? item.membership_cost ?? '').toString();
+      const freeS = (item.freeShippingOver ?? item.free_shipping_over ?? '').toString();
+      const topbar = item.topbarPromotion ? 'Yes' : 'No';
       return (
-        (item.saleThreshold ?? item.sale_threshold ?? '').toString().includes(filters.sale_threshold) &&
-        (item.bestSellerThreshold ?? item.bestseller_threshold ?? '').toString().includes(filters.bestseller_threshold) &&
-        (item.membershipCartPrice ?? item.membership_cost ?? '').toString().includes(filters.membership_cost) &&
-        (item.freeShippingOver ?? item.free_shipping_over ?? '').toString().includes(filters.free_shipping_over) &&
-        (item.topbarPromotion ?? item.topbar_promotion ? 'yes' : 'no').includes(filters.topbar_promotion.toLowerCase())
+        saleT.includes(filters.sale_threshold) &&
+        bestT.includes(filters.bestseller_threshold) &&
+        memC.includes(filters.membership_cost) &&
+        freeS.includes(filters.free_shipping_over) &&
+        topbar.toLowerCase().includes(filters.topbar_promotion.toLowerCase())
       );
     });
   }, [settings, filters]);
@@ -200,12 +206,14 @@ const SettingsList = () => {
                     <td className="p-4 border-r border-cream-50 font-bold text-primary">{item.saleThreshold ?? item.sale_threshold}%</td>
                     <td className="p-4 border-r border-cream-50">{item.bestSellerThreshold ?? item.bestseller_threshold} Orders</td>
                     <td className="p-4 border-r border-cream-50 font-medium">${item.membershipCartPrice ?? item.membership_cost}</td>
-                    <td className="p-4 border-r border-cream-50">{item.freeShippingOver ?? item.free_shipping_over}</td>
-                    <td className="p-4 border-r border-cream-50 font-medium">${item.memberDiscount ?? item.member_discount}</td>
+                    <td className="p-4 border-r border-cream-50">{item.freeShippingOverInr ?? item.free_shipping_over_inr ?? '—'}</td>
+                    <td className="p-4 border-r border-cream-50 font-medium">${item.freeShippingOver ?? item.free_shipping_over}</td>
                     <td className="p-4 border-r border-cream-50">
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter ${(item.topbarPromotion ?? item.topbar_promotion) ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
-                        {(item.topbarPromotion ?? item.topbar_promotion) ? 'Yes' : 'No'}
-                      </span>
+                      {(() => { const on = item.topbarPromotion === true || item.topbar_promotion === 'Yes'; return (
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter ${on ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                          {on ? 'Yes' : 'No'}
+                        </span>
+                      ); })()}
                     </td>
                     <td className="p-4">
                       <div className="flex justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">

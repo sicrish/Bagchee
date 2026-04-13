@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom'; // Added useParams
 import { Check, RotateCcw, X, Upload, Loader2, ArrowLeft } from 'lucide-react';
-import JoditEditor from '../../components/admin/LazyJoditEditor';
+import JoditEditor from 'jodit-react';
 import axios from '../../utils/axiosConfig';
 
 import toast from 'react-hot-toast';
@@ -37,8 +37,8 @@ const EditArtist = () => {
         if (res.data.status) {
           const data = res.data.data;
           setFormData({
-            first_name: data.firstName || '',
-            last_name: data.lastName || '',
+            first_name: data.first_name || '',
+            last_name: data.last_name || '',
             role: data.role || '',
             origin: data.origin || '',
           });

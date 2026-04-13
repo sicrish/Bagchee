@@ -1,13 +1,13 @@
 import React, { useState, useContext, memo, useMemo, useCallback } from 'react';
+import { createSafeHtml } from '../../utils/sanitize';
 import { Heart, ShoppingCart, Globe, Truck } from 'lucide-react';
 import { useCart } from '../../context/CartContext.jsx';
 import { CurrencyContext } from '../../context/CurrencyContext.jsx';
 import { Link } from 'react-router-dom';
-import { createSafeHtml } from '../../utils/sanitize';
+import { getProductImageUrl } from '../../utils/imageUrl';
 import toast from 'react-hot-toast';
 import { useMutation, useQueryClient } from '@tanstack/react-query'; // 🟢 React Query
 import axios from '../../utils/axiosConfig.js';
-import { getProductImageUrl } from '../../utils/imageUrl.js';
 
 const ProductCardList = ({ data }) => {
     const [isExpanded, setIsExpanded] = useState(false);
@@ -17,15 +17,16 @@ const ProductCardList = ({ data }) => {
 
     // 🟢 Optimization 1: Memoize Product URL (Slug Logic)
     const productUrl = useMemo(() => {
-        if (!data.title) return `/books/${data.bagcheeId || data.id}/product`;
+        const id = data.bagcheeId || data.bagchee_id || data._id || data.id;
+        if (!data.title) return `/books/${id}/product`;
         const slug = data.title
             .toLowerCase()
             .trim()
             .replace(/[^a-z0-9\s-]/g, '')
             .replace(/\s+/g, '-')
             .replace(/-+/g, '-');
-        return `/books/${data.bagcheeId || data.id}/${slug}`;
-    }, [data.title, data.bagcheeId, data.id]);
+        return `/books/${id}/${slug}`;
+    }, [data.title, data.bagcheeId, data.bagchee_id, data._id, data.id]);
 
     // 🟢 Optimization 2: Memoize Synopsis Calculation
     const synopsisData = useMemo(() => {
@@ -39,11 +40,10 @@ const ProductCardList = ({ data }) => {
 
     // 🟢 Optimization: MNC Standard Pricing Logic
     const priceData = useMemo(() => {
-        const mPrice = Number(data.price || 0);                               // USD MRP (Base)
-        const rPrice = Number(data.realPrice || data.real_price || 0);       // USD Discounted (Final)
-        const iPrice = Number(data.inrPrice || data.inr_price || 0);         // Flat INR price
+        const mPrice = Number(data.price || 0);
+        const rPrice = Number(data.realPrice ?? data.real_price ?? 0);
+        const iPrice = Number(data.inrPrice ?? data.inr_price ?? 0);
 
-        // Logic: Discount tabhi hai jab MRP (mPrice) Selling Price (rPrice) se badi ho
         const hasDiscount = mPrice > rPrice && rPrice > 0;
 
         return { mPrice, rPrice, iPrice, hasDiscount };
@@ -52,7 +52,7 @@ const ProductCardList = ({ data }) => {
     // 🟢 React Query Mutation for Wishlist
     const wishlistMutation = useMutation({
         mutationFn: async (product) => {
-            return await axios.post('/user/wishlist/toggle', { productId: product.id });
+            return await axios.post('/user/wishlist/toggle', { productId: product._id });
         },
         onSuccess: () => {
             queryClient.invalidateQueries(['wishlist']);
@@ -83,7 +83,10 @@ const ProductCardList = ({ data }) => {
         wishlistMutation.mutate(data);
     }, [data, toggleWishlist, wishlistMutation]);
 
-    const imageUrl = useMemo(() => getProductImageUrl(data, { width: 300 }), [data]);
+    // 🟢 Optimization 4: Smart Image URL
+    const imageUrl = useMemo(() => {
+        return getProductImageUrl(data) || "https://placehold.co/300x400?text=No+Image";
+    }, [data]);
 
     return (
         <div className="bg-white rounded-lg border border-cream-200 p-3 md:p-6 flex flex-col md:flex-row gap-4 md:gap-6 shadow-sm hover:shadow-md transition-all duration-300 font-body">
@@ -97,7 +100,7 @@ const ProductCardList = ({ data }) => {
                         loading="lazy"
                         decoding="async"
                         className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-500"
-                        onError={(e) => { e.target.src = "https://placehold.co/300x400/f9f5ef/1a3c5e?text=No+Cover" }}
+                        onError={(e) => { e.target.src = "https://via.placeholder.com/300x400?text=No+Image" }}
                     />
                 </Link>
             </div>
@@ -115,7 +118,7 @@ const ProductCardList = ({ data }) => {
 
                 <p className="text-xs md:text-sm font-bold text-text-main mb-1 font-montserrat">
                     By <span className="text-primary hover:underline cursor-pointer">
-                        {data.author?.firstName || data.author?.first_name || 'Author'} {data.author?.lastName || data.author?.last_name || ''}
+                        {data.authors?.[0]?.author?.fullName || (data.author?.first_name ? `${data.author.first_name} ${data.author.last_name || ''}` : 'Unknown Author')}
                     </span>
                 </p>
 
@@ -179,17 +182,17 @@ const ProductCardList = ({ data }) => {
                     <button
                         onClick={handleWishlist}
                         disabled={wishlistMutation.isPending}
-                        className={`w-full border-2 py-2 md:py-2.5 rounded-xl font-bold text-xs md:text-sm transition-all uppercase font-montserrat flex items-center justify-center gap-2 active:scale-95 group/wish ${isInWishlist(data.id)
+                        className={`w-full border-2 py-2 md:py-2.5 rounded-xl font-bold text-xs md:text-sm transition-all uppercase font-montserrat flex items-center justify-center gap-2 active:scale-95 group/wish ${isInWishlist(data._id)
                             ? 'border-red-500 bg-red-50 text-red-600'
                             : 'border-secondary text-text-main hover:bg-secondary hover:text-white'
                             } ${wishlistMutation.isPending ? 'opacity-70' : ''}`}
                     >
                         <Heart
                             size={18}
-                            fill={isInWishlist(data.id) ? "currentColor" : "none"}
-                            className={isInWishlist(data.id) ? "text-red-600" : "text-secondary group-hover/wish:text-white transition-colors"}
+                            fill={isInWishlist(data._id) ? "currentColor" : "none"}
+                            className={isInWishlist(data._id) ? "text-red-600" : "text-secondary group-hover/wish:text-white transition-colors"}
                         />
-                        {wishlistMutation.isPending ? 'Updating...' : (isInWishlist(data.id) ? 'In Wishlist' : 'Add to Wishlist')}
+                        {wishlistMutation.isPending ? 'Updating...' : (isInWishlist(data._id) ? 'In Wishlist' : 'Add to Wishlist')}
                     </button>
                 </div>
 

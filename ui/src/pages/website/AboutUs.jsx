@@ -1,113 +1,116 @@
-import React, { useState, useEffect } from "react";
-import { Helmet } from 'react-helmet-async';
-import { Link } from "react-router-dom";
-import axios from "../../utils/axiosConfig";
+import React from "react";
 import { createSafeHtml } from '../../utils/sanitize';
+import { Link } from 'react-router-dom';
+import {ChevronRight} from 'lucide-react'
+import { useQuery } from "@tanstack/react-query";
+import axiosInstance from "../../utils/axiosConfig";
 import UsefulLinks from "../../components/website/UsefulLinks";
 
+// Fetch Function
+const fetchAboutData = async () => {
+  const { data } = await axiosInstance.get("/about-us/get");
+  return data.data; // Backend structure ke hisab se data.data nikalna
+};
+
 const AboutUs = () => {
-  const [pageData, setPageData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // React Query Hook
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["aboutUs"],
+    queryFn: fetchAboutData,
+    staleTime: 1000 * 60 * 10, // 10 minutes tak data fresh rahega
+  });
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const res = await axios.get(`${process.env.REACT_APP_API_URL}/about-us/get`);
-        if (res.data.status && res.data.data) {
-          setPageData(res.data.data);
-        }
-      } catch (error) {
-        console.error("Failed to load About Us data");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-cream flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
-  const hasContent = pageData && (pageData.pageContent || pageData.page_content);
-  const content = pageData?.pageContent || pageData?.page_content || '';
-  const title = pageData?.title || 'About Us';
+  if (isError) {
+    return (
+      <div className="min-h-screen bg-cream flex items-center justify-center">
+        <p className="text-red-500 font-bold">Failed to load About Us content.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-cream">
-      <Helmet>
-        <title>{title} — Bagchee</title>
-        <meta name="description" content="Learn about Bagchee — India's favourite online bookstore, our story, mission and values." />
-      </Helmet>
+
+<div className="bg-cream-100 border-b border-gray-200">
+                <div className="container mx-auto px-4 py-2">
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <Link to="/" className="hover:text-primary transition-colors">Home</Link>
+                        <ChevronRight className="w-4 h-4" />
+                        <span className="text-gray-900 font-medium">{data?.title || 'Terms & Conditions'}</span>
+                    </div>
+                </div>
+            </div>
+      {/* Main Content */}
       <div className="container mx-auto px-4 py-8 md:py-12 lg:py-16">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 lg:gap-8">
+          
+          {/* Useful Links Sidebar */}
           <div className="md:col-span-1">
             <UsefulLinks />
           </div>
 
+          {/* Main Content Area */}
           <div className="md:col-span-3">
+            {/* Dynamic Page Title */}
             <div className="text-center mb-8 md:mb-12">
-              <h1 className="text-3xl md:text-4xl lg:text-5xl font-display text-text-main mb-4">
-                {title}
+              <h1 className="text-3xl md:text-4xl lg:text-5xl font-display  text-text-main uppercase tracking-tight">
+                {data?.title || "About Us"}
               </h1>
             </div>
 
-            {loading ? (
-              <div className="flex justify-center py-12">
-                <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-              </div>
-            ) : hasContent ? (
-              <div className="bg-cream-100 rounded-xl border border-gray-200 p-6 md:p-8 lg:p-10 shadow-sm">
-                <div
-                  className="prose prose-lg max-w-none font-body text-gray-700 leading-relaxed"
-                  dangerouslySetInnerHTML={createSafeHtml(content)}
+            {/* Dynamic Content Section */}
+            <section className="mb-10 md:mb-12">
+              <div className="bg-white rounded-2xl border border-gray-200 p-6 md:p-10 shadow-sm overflow-hidden relative">
+                {/* Subtle Background Accent */}
+                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-bl-full pointer-events-none"></div>
+
+                {/* HTML content from Admin with Tailwind Typography look */}
+                <div 
+                  className="dynamic-content font-body text-gray-700 leading-relaxed text-lg"
+                  dangerouslySetInnerHTML={createSafeHtml(data?.page_content)} 
                 />
               </div>
-            ) : (
-              <>
-                {/* Fallback hardcoded content when DB is empty */}
-                <section className="mb-10 md:mb-12">
-                  <div className="bg-cream-100 rounded-xl border border-gray-200 p-6 md:p-8 lg:p-10 shadow-sm">
-                    <h2 className="text-2xl md:text-3xl font-display font-bold text-text-main mb-4">Who We Are</h2>
-                    <div className="space-y-4 text-gray-700 leading-relaxed font-body">
-                      <p>Founded in 1990 as a mail order book company in New Delhi, India, Bagchee (Bagchee.com) has grown to become leading international book retailer with a unique offer -- over 200,000 printed books and free delivery worldwide (with $50 spend).</p>
-                      <p>We ship thousands of books every day from our fulfillment centre in New Delhi, India, to more than 100 countries across the world -- displaying prices in USD and Euro.</p>
-                      <p><strong>BAGCHEE.COM</strong>, the company's e-commerce website, was successfully launched in 1998. The site is open 24/7, inviting and focused on the product. Since the site's launch, we have continued to enhance its design, product offerings, editorial content and customer service attributes, as well as maintain our position as a value leader in book e-tailing. Through Bagchee.com and our expansive online community, we reach readers around the world, people who are as excited about books as we are. We look forward to a future filled with many new opportunities, new innovations, and, of course, new books!</p>
-                    </div>
-                  </div>
-                </section>
-
-                <section className="mb-10 md:mb-12">
-                  <div className="bg-cream-100 rounded-xl border border-gray-200 p-6 md:p-8 lg:p-10 shadow-sm">
-                    <h2 className="text-2xl md:text-3xl font-display font-bold text-text-main mb-4">Our Mission</h2>
-                    <p className="text-gray-700 leading-relaxed font-body text-lg">Our mission is to be the world's best destination for readers, a place that fosters a culture of reading and connects people with the books they'll love.</p>
-                  </div>
-                </section>
-
-                <section>
-                  <div className="bg-cream-100 rounded-xl border border-gray-200 p-6 md:p-8 lg:p-10 shadow-sm">
-                    <h2 className="text-2xl md:text-3xl font-display font-bold text-text-main mb-6">Our Values</h2>
-                    <div className="space-y-6">
-                      <div className="border-l-4 border-primary pl-4 md:pl-6">
-                        <h3 className="text-lg md:text-xl font-bold text-text-main mb-2 font-display">We love everything about books</h3>
-                        <p className="text-gray-700 leading-relaxed font-body">As entertainment, as tools of discovery, and as timeless works of art, we believe books have the unique ability to transport us and transform our world view.</p>
-                      </div>
-                      <div className="border-l-4 border-primary pl-4 md:pl-6">
-                        <h3 className="text-lg md:text-xl font-bold text-text-main mb-2 font-display">We're nothing without our customers</h3>
-                        <p className="text-gray-700 leading-relaxed font-body">Bagchee would not be the destination it is now without its loyal customers.</p>
-                      </div>
-                      <div className="border-l-4 border-primary pl-4 md:pl-6">
-                        <h3 className="text-lg md:text-xl font-bold text-text-main mb-2 font-display">We recognize that every reader is different</h3>
-                        <p className="text-gray-700 leading-relaxed font-body">We know readers are as unique and complex as the books we sell. We, in turn, make every effort to engage with our customers, respond to their needs, and learn from their feedback.</p>
-                      </div>
-                      <div className="border-l-4 border-primary pl-4 md:pl-6">
-                        <h3 className="text-lg md:text-xl font-bold text-text-main mb-2 font-display">We're creative and resourceful</h3>
-                        <p className="text-gray-700 leading-relaxed font-body">We built our name on innovative bookselling, and we continue to evolve by remaining curious and inventive.</p>
-                      </div>
-                    </div>
-                  </div>
-                </section>
-              </>
-            )}
+            </section>
           </div>
         </div>
       </div>
+
+      {/* Internal CSS for Handling Admin HTML Tags */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        .dynamic-content h2 { 
+          font-family: 'Outfit', sans-serif;
+          font-size: 1.875rem; 
+          font-weight: 700; 
+          color: #0B2F3A; 
+          margin-top: 2.5rem; 
+          margin-bottom: 1.25rem;
+          text-transform: uppercase;
+        }
+        .dynamic-content h3 { 
+          font-family: 'Outfit', sans-serif;
+          font-size: 1.5rem; 
+          font-weight: 600; 
+          color: #008DDA; 
+          margin-top: 1.5rem; 
+          border-left: 4px solid #008DDA;
+          padding-left: 1rem;
+        }
+        .dynamic-content p { 
+          margin-bottom: 1.25rem; 
+        }
+        .dynamic-content strong { 
+          color: #008DDA; 
+          font-weight: 700;
+        }
+      `}} />
     </div>
   );
 };

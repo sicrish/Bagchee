@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Check, RotateCcw, X, Loader2 } from 'lucide-react';
-import JoditEditor from '../../components/admin/LazyJoditEditor';
+import JoditEditor from 'jodit-react';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // 🟢 Added React Query
@@ -18,29 +18,34 @@ const EditSettings = () => {
 
     // 🟢 State for all fields from Image 1 & 2
     const [formData, setFormData] = useState({
-        sale_threshold: '',           //
-        bestseller_threshold: '',     //
-        member_discount: '',          //
-        membership_cost: '',          //
-        membership_cost_eur: '',      //
-        membership_cart_price: '',    //
-        new_arrival_time: '',         //
-        free_shipping_over: '',       //
-        order_accepted_promo: '',     //
-        show_promo_over_usd: '',      //
-        show_promo_over_eur: '',      //
-        show_promo_over_inr: '',      //
-        topbar_promotion: 'Yes',      //
-        account_number: '',           //
-        swift_code: '',               //
-        beneficiary_name: '',         //
-        bank_name: '',                //
-        emails_copy: ''               //
+        sale_threshold: '',
+        bestseller_threshold: '',
+        member_discount: '',
+        membership_cost: '',
+        membership_cost_eur: '',
+        membership_cart_price: '',
+        new_arrival_time: '',
+        free_shipping_over: '',
+        order_accepted_promo: '',
+        show_promo_over_usd: '',
+        show_promo_over_eur: '',
+        show_promo_over_inr: '',
+        topbar_promotion: 'Yes',
+        account_number: '',
+        swift_code: '',
+        beneficiary_name: '',
+        bank_name: '',
+        emails_copy: '',
+        // Payment gateway mode
+        payment_gateway_mode: 'deferred',
+        // Per-currency wire transfer bank details
+        bank_name_usd: '', bank_iban_usd: '', bank_bic_usd: '', bank_owner_usd: '',
+        bank_name_eur: '', bank_iban_eur: '', bank_bic_eur: '', bank_owner_eur: '',
+        bank_name_gbp: '', bank_iban_gbp: '', bank_bic_gbp: '', bank_owner_gbp: '',
     });
 
     const [topbarPromoText, setTopbarPromoText] = useState('');
-    const [specialTopicsText, setSpecialTopicsText] = useState(''); // 🟢 Field for Special Topics
-
+    
     // 🚀 OPTIMIZATION 1: Fetch Existing Data with useQuery
     const { data: settingsData, isLoading: fetching } = useQuery({
         queryKey: ['settingsDetails', id],
@@ -63,27 +68,40 @@ const EditSettings = () => {
     useEffect(() => {
         if (isEdit && settingsData && !isDataInitialized) {
             setFormData({
-                sale_threshold: settingsData.sale_threshold || '',
-                bestseller_threshold: settingsData.bestseller_threshold || '',
-                member_discount: settingsData.member_discount || '',
-                membership_cost: settingsData.membership_cost || '',
-                membership_cost_eur: settingsData.membership_cost_eur || '',
-                membership_cart_price: settingsData.membership_cart_price || '',
+                sale_threshold: settingsData.saleThreshold ?? settingsData.sale_threshold ?? '',
+                bestseller_threshold: settingsData.bestSellerThreshold ?? settingsData.bestseller_threshold ?? '',
+                member_discount: settingsData.memberDiscount ?? settingsData.member_discount ?? '',
+                membership_cost: settingsData.membershipCartPrice ?? settingsData.membership_cost ?? '',
+                membership_cost_eur: settingsData.membershipCartPriceEur ?? settingsData.membership_cost_eur ?? '',
+                membership_cart_price: settingsData.membershipCartPriceInr ?? settingsData.membership_cart_price ?? '',
                 new_arrival_time: settingsData.new_arrival_time || '',
-                free_shipping_over: settingsData.free_shipping_over || '',
+                free_shipping_over: settingsData.freeShippingOver ?? settingsData.free_shipping_over ?? '',
                 order_accepted_promo: settingsData.order_accepted_promo || '',
                 show_promo_over_usd: settingsData.show_promo_over_usd || '',
                 show_promo_over_eur: settingsData.show_promo_over_eur || '',
                 show_promo_over_inr: settingsData.show_promo_over_inr || '',
-                topbar_promotion: settingsData.topbar_promotion || 'Yes',
-                account_number: settingsData.account_number || '',
-                swift_code: settingsData.swift_code || '',
-                beneficiary_name: settingsData.beneficiary_name || '',
-                bank_name: settingsData.bank_name || '',
-                emails_copy: settingsData.emails_copy || ''
+                topbar_promotion: (settingsData.topbarPromotion === true || settingsData.topbar_promotion === 'Yes') ? 'Yes' : 'No',
+                account_number: settingsData.account_number || settingsData.bankIban || '',
+                swift_code: settingsData.swift_code || settingsData.bankBic || '',
+                beneficiary_name: settingsData.beneficiary_name || settingsData.bankOwner || '',
+                bank_name: settingsData.bank_name || settingsData.bankName || '',
+                emails_copy: settingsData.emails_copy || settingsData.emailsCopy || '',
+                payment_gateway_mode: settingsData.paymentGatewayMode || settingsData.payment_gateway_mode || 'deferred',
+                bank_name_usd: settingsData.bankNameUsd || '',
+                bank_iban_usd: settingsData.bankIbanUsd || '',
+                bank_bic_usd: settingsData.bankBicUsd || '',
+                bank_owner_usd: settingsData.bankOwnerUsd || '',
+                bank_name_eur: settingsData.bankNameEur || '',
+                bank_iban_eur: settingsData.bankIbanEur || '',
+                bank_bic_eur: settingsData.bankBicEur || '',
+                bank_owner_eur: settingsData.bankOwnerEur || '',
+                bank_name_gbp: settingsData.bankNameGbp || '',
+                bank_iban_gbp: settingsData.bankIbanGbp || '',
+                bank_bic_gbp: settingsData.bankBicGbp || '',
+                bank_owner_gbp: settingsData.bankOwnerGbp || '',
             });
-            setTopbarPromoText(settingsData.topbar_promotion_text || '');
-            setSpecialTopicsText(settingsData.special_topics || '');
+            setTopbarPromoText(settingsData.topbar_promotion_text || settingsData.topbarPromotionText || '');
+           
             
             setIsDataInitialized(true); // Lock it!
         }
@@ -117,7 +135,7 @@ const EditSettings = () => {
         const payload = { 
             ...formData, 
             topbar_promotion_text: topbarPromoText,
-            special_topics: specialTopicsText // 🟢 Include Special Topics
+           
         };
 
         saveSettingsMutation.mutate(payload, {
@@ -295,23 +313,7 @@ const EditSettings = () => {
                             </div>
                         </div>
 
-                        {/* 🟢 Special Topics Rich Text Editor */}
-                        <div className="grid grid-cols-12 gap-4 items-start border-b border-gray-50 pb-6">
-                            <label className={labelClass}>Special Topics</label>
-                            <div className="col-span-12 md:col-span-9 border rounded-md overflow-hidden shadow-sm">
-                                <JoditEditor
-                                    value={specialTopicsText}
-                                    config={{
-                                        ...config,
-                                        placeholder: 'Enter special topics content for categories page...'
-                                    }}
-                                    onBlur={c => setSpecialTopicsText(c)}
-                                />
-                                <p className="text-[10px] text-blue-500 mt-2 px-2 font-bold uppercase">
-                                    This content will be displayed on the "Browse All Categories" page
-                                </p>
-                            </div>
-                        </div>
+                       
 
                         {/* Fields from Image 2 */}
                         <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4">
@@ -349,6 +351,71 @@ const EditSettings = () => {
                                 <p className="text-[10px] text-red-500 mt-1 font-bold  uppercase ">Separate the emails with comma</p>
                             </div>
                         </div>
+
+                        {/* ── Payment Gateway Mode ── */}
+                        <div className="col-span-12 pt-6 pb-2">
+                            <h3 className="text-[11px] font-black text-text-muted uppercase tracking-widest font-montserrat border-b border-gray-100 pb-2">
+                                Credit Card / PayPal — Payment Mode
+                            </h3>
+                        </div>
+                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4">
+                            <label className={labelClass}>Payment gateway mode</label>
+                            <div className="col-span-12 md:col-span-9 space-y-1">
+                                <select name="payment_gateway_mode" value={formData.payment_gateway_mode} onChange={handleChange} className={inputClass}>
+                                    <option value="deferred">Deferred Payment (admin reviews first, then sends payment link)</option>
+                                    <option value="direct">Direct to Gateway (customer pays immediately)</option>
+                                </select>
+                                <p className="text-[10px] text-gray-400 font-semibold">
+                                    Individual users can override this via the "Direct Payment Gateway" checkbox on their profile.
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* ── Wire Transfer Bank Details ── */}
+                        <div className="col-span-12 pt-6 pb-2">
+                            <h3 className="text-[11px] font-black text-text-muted uppercase tracking-widest font-montserrat border-b border-gray-100 pb-2">
+                                Wire Transfer Bank Details
+                            </h3>
+                        </div>
+
+                        {/* USD */}
+                        <div className="col-span-12 pb-1">
+                            <p className="text-[10px] font-black text-primary uppercase tracking-widest">USD (US Dollar)</p>
+                        </div>
+                        {[['bank_name_usd','Bank name'],['bank_iban_usd','Account / IBAN'],['bank_bic_usd','Swift / BIC'],['bank_owner_usd','Beneficiary name']].map(([name, label]) => (
+                            <div key={name} className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4">
+                                <label className={labelClass}>{label}</label>
+                                <div className="col-span-12 md:col-span-9">
+                                    <input name={name} value={formData[name]} onChange={handleChange} className={inputClass} />
+                                </div>
+                            </div>
+                        ))}
+
+                        {/* EUR */}
+                        <div className="col-span-12 pb-1 pt-4">
+                            <p className="text-[10px] font-black text-primary uppercase tracking-widest">EUR (Euro)</p>
+                        </div>
+                        {[['bank_name_eur','Bank name'],['bank_iban_eur','Account / IBAN'],['bank_bic_eur','Swift / BIC'],['bank_owner_eur','Beneficiary name']].map(([name, label]) => (
+                            <div key={name} className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4">
+                                <label className={labelClass}>{label}</label>
+                                <div className="col-span-12 md:col-span-9">
+                                    <input name={name} value={formData[name]} onChange={handleChange} className={inputClass} />
+                                </div>
+                            </div>
+                        ))}
+
+                        {/* GBP */}
+                        <div className="col-span-12 pb-1 pt-4">
+                            <p className="text-[10px] font-black text-primary uppercase tracking-widest">GBP (British Pound)</p>
+                        </div>
+                        {[['bank_name_gbp','Bank name'],['bank_iban_gbp','Account / IBAN'],['bank_bic_gbp','Swift / BIC'],['bank_owner_gbp','Beneficiary name']].map(([name, label]) => (
+                            <div key={name} className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4">
+                                <label className={labelClass}>{label}</label>
+                                <div className="col-span-12 md:col-span-9">
+                                    <input name={name} value={formData[name]} onChange={handleChange} className={inputClass} />
+                                </div>
+                            </div>
+                        ))}
 
                         {/* --- ACTION BUTTONS --- */}
                         <div className="flex flex-wrap justify-center items-center gap-4 pt-8 border-t mt-10">

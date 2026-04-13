@@ -1,11 +1,13 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom'
+import { Eye, EyeOff, Check } from 'lucide-react'; // Check ko bhi add kar lein checkbox ke liye agar aage kaam aaye;
 import axios from '../../utils/axiosConfig.js';
 import toast from 'react-hot-toast';
 import Logo from '../../components/common/Logo.jsx';
 import { useMutation } from '@tanstack/react-query'; // 🟢 React Query Mutation
+import { encryptData } from '../../utils/encryption.js'; // 🔒 Encryption Utility
 
 const Register = () => {
     const navigate = useNavigate();
@@ -19,6 +21,11 @@ const Register = () => {
         repeatPassword: ""
     });
 
+
+    const [showPassword, setShowPassword] = useState(false);
+    const [showRepeatPassword, setShowRepeatPassword] = useState(false);
+
+
     // 2. Handle Input Change
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -29,8 +36,11 @@ const Register = () => {
         mutationFn: async (registerData) => {
             const url = `${process.env.REACT_APP_API_URL}/user/register`;
 
-            // axiosConfig handles encryption globally — just send plain data
-            const response = await axios.post(url, registerData);
+            // 🔒 Step: Data ko encrypt karke bhej rahe hain (MNC Standard)
+            const encryptedPayload = encryptData(registerData);
+
+            // Backend middleware 'payload' key dhundega
+            const response = await axios.post(url, { payload: encryptedPayload });
             return response.data;
         },
         onSuccess: (data) => {
@@ -62,21 +72,25 @@ const Register = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 ">
+        <div className="min-h-screen bg-cream-50 flex flex-col items-center justify-center p-4 overflow-x-hidden w-full ">
 
             {/* --- PAGE TITLE --- */}
-            <h2 className="text-3xl text-text-main mb-8 uppercase tracking-wide font-display">
+            <h2 className="text-2xl md:text-3xl text-text-main mb-6 md:mb-8 uppercase tracking-slick font-display animate-fadeInLeft text-center">
                 REGISTER
             </h2>
 
             {/* --- CARD --- */}
-            <div className="max-w-xl w-full bg-white p-10 rounded-xl shadow-xl border border-gray-100">
+            <div className="max-w-xl w-full bg-white p-6 md:p-10 rounded-2xl shadow-2xl border border-cream-200 animate-fadeInRight mx-auto">
 
                 {/* LOGO SECTION */}
                 <div className="flex justify-center mb-8">
-                    <div className="bg-gradient-to-r from-primary to-primary-dark p-4 rounded-xl shadow-md">
+                    {/* 🟢 Added Link to wrap the logo for home redirection */}
+                    <Link
+                        to="/"
+                        className="bg-gradient-to-r from-primary to-primary-dark p-4 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105 active:scale-95 block cursor-pointer"
+                    >
                         <Logo className="h-12 w-auto text-white" />
-                    </div>
+                    </Link>
                 </div>
 
                 {/* Form */}
@@ -92,7 +106,7 @@ const Register = () => {
                                 onChange={handleChange}
                                 placeholder="First name."
                                 required
-                                className="w-full bg-gray-100 border border-gray-200 text-text-main text-sm font-medium rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary block px-4 py-3.5 outline-none transition-all placeholder-gray-500"
+                                className="w-full bg-white border border-cream-200 text-text-main text-sm font-body rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary block px-4 py-3 md:py-3.5 outline-none transition-all placeholder-text-muted/50 shadow-sm"
                             />
                         </div>
                         <div className="w-full">
@@ -103,7 +117,7 @@ const Register = () => {
                                 onChange={handleChange}
                                 placeholder="Last name."
                                 required
-                                className="w-full bg-gray-100 border border-gray-200 text-text-main text-sm font-medium rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary block px-4 py-3.5 outline-none transition-all placeholder-gray-500"
+                                className="w-full bg-white border border-cream-200 text-text-main text-sm font-body rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary block px-4 py-3 md:py-3.5 outline-none transition-all placeholder-text-muted/50 shadow-sm"
                             />
                         </div>
                     </div>
@@ -117,33 +131,47 @@ const Register = () => {
                             onChange={handleChange}
                             placeholder="Email"
                             required
-                            className="w-full bg-gray-100 border border-gray-200 text-text-main text-sm font-medium rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary block px-4 py-3.5 outline-none transition-all placeholder-gray-500"
+                            className="w-full bg-white border border-cream-200 text-text-main text-sm font-body rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary block px-4 py-3 md:py-3.5 outline-none transition-all placeholder-text-muted/50 shadow-sm"
                         />
                     </div>
 
                     {/* Row 3: Passwords */}
                     <div className="flex flex-col md:flex-row gap-4">
-                        <div className="w-full">
+                        <div className="relative group w-full">
                             <input
-                                type="password"
+                                type={showPassword ? "text" : "password"}
                                 name="password"
                                 value={formData.password}
                                 onChange={handleChange}
                                 placeholder="Password"
                                 required
-                                className="w-full bg-gray-100 border border-gray-200 text-text-main text-sm font-medium rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary block px-4 py-3.5 outline-none transition-all placeholder-gray-500"
+                                className="w-full bg-white border border-cream-200 text-text-main text-sm font-body rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary block px-4 py-3 md:py-3.5 outline-none transition-all placeholder-text-muted/50 shadow-sm"
                             />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary transition-colors"
+                            >
+                                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                            </button>
                         </div>
-                        <div className="w-full">
+                        <div className=" relative group w-full">
                             <input
-                                type="password"
+                                type={showRepeatPassword ? "text" : "password"}
                                 name="repeatPassword"
                                 value={formData.repeatPassword}
                                 onChange={handleChange}
                                 placeholder="Repeat password"
                                 required
-                                className="w-full bg-gray-100 border border-gray-200 text-text-main text-sm font-medium rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary block px-4 py-3.5 outline-none transition-all placeholder-gray-500"
+                                className="w-full bg-white border border-cream-200 text-text-main text-sm font-body rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary block px-4 py-3 md:py-3.5 outline-none transition-all placeholder-text-muted/50 shadow-sm"
                             />
+                            <button
+                                type="button"
+                                onClick={() => setShowRepeatPassword(!showRepeatPassword)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary transition-colors"
+                            >
+                                {showRepeatPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                            </button>
                         </div>
                     </div>
 
@@ -152,7 +180,7 @@ const Register = () => {
                         <button
                             type="submit"
                             disabled={registerMutation.isPending}
-                            className={`px-10 py-3.5 bg-gradient-to-r from-primary to-primary-dark text-white font-bold rounded-lg text-sm uppercase tracking-wider shadow-lg shadow-primary/30 hover:shadow-primary/50 transform hover:-translate-y-0.5 transition-all duration-300 font-montserrat ${registerMutation.isPending ? 'opacity-70 cursor-not-allowed' : ''}`}
+                            className={`w-full md:w-auto px-10 py-3.5 md:py-4 bg-primary hover:bg-primary-hover text-white font-bold rounded-xl text-sm uppercase tracking-slick shadow-lg shadow-primary/30 transform hover:-translate-y-1 transition-all duration-300 font-montserrat ${registerMutation.isPending ? 'opacity-70 cursor-not-allowed' : ''}`}
                         >
                             {registerMutation.isPending ? 'Creating Account...' : 'CREATE ACCOUNT'}
                         </button>
@@ -162,7 +190,7 @@ const Register = () => {
                     <div className="text-center mt-6 text-sm text-text-muted">
                         <p>
                             Already have an account?{' '}
-                            <Link to="/login" className="font-bold text-primary hover:text-primary-dark hover:underline ml-1 font-montserrat">
+                            <Link to="/login" className="font-bold text-primary hover:text-primary-hover hover:underline ml-1 font-montserrat transition-all">
                                 Sign in NOW
                             </Link>
                         </p>

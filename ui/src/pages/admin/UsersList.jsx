@@ -7,7 +7,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
-import { exportToExcel } from '../../utils/exportExcel';
+import { exportToExcel } from '../../utils/exportExcel.js';
 
 
 const UsersList = () => {
@@ -218,17 +218,17 @@ const UsersList = () => {
                 filteredUsers.map((item, index) => {
                   let firstName = "-";
                   let lastName = "-";
-                  if (item.firstName || item.lastName) {
-                    firstName = item.firstName || "-";
-                    lastName = item.lastName || "-";
-                  } else if (item.name) {
+                  if (item.name) {
                     const nameParts = item.name.split(' ');
                     firstName = nameParts[0] || "-";
                     lastName = nameParts.slice(1).join(' ') || "-";
+                  } else {
+                    firstName = item.firstname || "-";
+                    lastName = item.lastname || "-";
                   }
 
                   return (
-                    <tr key={item.id} className="hover:bg-primary-50 transition-colors text-[13px]">
+                    <tr key={item._id} className="hover:bg-primary-50 transition-colors text-[13px]">
                       <td className="p-3 border-r border-cream-50 text-center">
                         <div className="flex items-center gap-2 px-1 justify-center">
                           <input type="checkbox" className="h-4 w-4 rounded accent-primary cursor-pointer" />
@@ -249,10 +249,10 @@ const UsersList = () => {
                       </td>
                       <td className="p-3">
                         <div className="flex justify-center gap-2">
-                          <button onClick={() => navigate(`/admin/edit-user/${item.id}`)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm active:scale-95">
+                          <button onClick={() => navigate(`/admin/edit-user/${item._id}`)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm active:scale-95">
                             <Edit size={14} />
                           </button>
-                          <button onClick={() => handleDelete(item.id)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 hover:border-red-600 transition-all shadow-sm active:scale-95">
+                          <button onClick={() => handleDelete(item._id)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 hover:border-red-600 transition-all shadow-sm active:scale-95">
                             <Trash2 size={14} />
                           </button>
                         </div>

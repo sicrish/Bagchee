@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Plus, Download, Printer, Search, RotateCw,
   Edit, Trash2, ChevronLeft, ChevronRight,
@@ -9,7 +9,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
-import { exportToExcel } from '../../utils/exportExcel';
+import { exportToExcel } from '../../utils/exportExcel.js';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:3001";
 
@@ -25,21 +25,20 @@ const AuthorsList = () => {
   // 🔍 Filter States for Live Search
   const [searchFirstName, setSearchFirstName] = useState("");
   const [searchLastName, setSearchLastName] = useState("");
-
+  const searchDebounceRef = useRef(null);
 
   // 🟢 2. Working Fetch Function
-  const fetchAuthors = async (isExport = false) => {
+  const fetchAuthors = async (isExport = false, firstNameOverride, lastNameOverride) => {
     if (!isExport) setLoading(true);
     try {
       const params = new URLSearchParams();
-      // Pagination logic
       params.append("page", isExport ? 1 : currentPage);
       params.append("limit", isExport ? 100000 : itemsPerPage);
 
-      // Search Logic
-      if (searchFirstName || searchLastName) {
-        params.append("q", `${searchFirstName} ${searchLastName}`.trim());
-      }
+      const fn = firstNameOverride !== undefined ? firstNameOverride : searchFirstName;
+      const ln = lastNameOverride !== undefined ? lastNameOverride : searchLastName;
+      const q = `${fn} ${ln}`.trim();
+      if (q) params.append("q", q);
 
       const res = await axios.get(`${API_BASE_URL}/authors/list?${params.toString()}`);
       if (res.data.status) {
@@ -64,6 +63,24 @@ const AuthorsList = () => {
     fetchAuthors();
   }, []);
 
+  const handleFirstNameChange = (val) => {
+    setSearchFirstName(val);
+    clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      setCurrentPage(1);
+      fetchAuthors(false, val, searchLastName);
+    }, 400);
+  };
+
+  const handleLastNameChange = (val) => {
+    setSearchLastName(val);
+    clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      setCurrentPage(1);
+      fetchAuthors(false, searchFirstName, val);
+    }, 400);
+  };
+
 
   // 🟢 3. Excel Export Logic
   const handleExport = async () => {
@@ -74,10 +91,10 @@ const AuthorsList = () => {
 
       const dataToExport = allData.map((a, i) => ({
         "Sr No": i + 1,
-        "First Name": a.firstName,
-        "Last Name": a.lastName,
+        "First Name": a.firstName || a.first_name,
+        "Last Name": a.lastName || a.last_name,
         "Origin": a.origin || "-",
-        "Profile Bio": a.profile?.replace(/<[^>]*>?/gm, '') || "-" // HTML tags remove
+        "Profile Bio": a.profile?.replace(/<[^>]*>?/gm, '') || "-"
       }));
 
       await exportToExcel(dataToExport, "Authors", "Authors_Report");
@@ -106,13 +123,8 @@ const AuthorsList = () => {
     }
   };
 
-  // 🔍 3. Live Filtering Logic (MNC Level Optimization)
-  const filteredAuthors = useMemo(() => {
-    return authors.filter(author =>
-      author.firstName?.toLowerCase().includes(searchFirstName.toLowerCase()) &&
-      author.lastName?.toLowerCase().includes(searchLastName.toLowerCase())
-    );
-  }, [authors, searchFirstName, searchLastName]);
+  // Server handles filtering via `q` param — no client-side filter needed
+  const filteredAuthors = authors;
 
   const filterInputClass = "w-full rounded p-1 text-[11px] outline-none bg-white/90 focus:bg-white text-text-main font-semibold shadow-inner border-none placeholder:text-gray-400";
 
@@ -139,7 +151,7 @@ const AuthorsList = () => {
             <Printer size={14} className="text-green-600" /> Print
           </button>
           <button
-            onClick={() => { setSearchFirstName(""); setSearchLastName(""); fetchAuthors(); }}
+            onClick={() => { setSearchFirstName(""); setSearchLastName(""); fetchAuthors(false, "", ""); }}
             className="bg-white border border-cream-300 text-gray-500 px-4 py-2 rounded-lg text-xs font-black uppercase tracking-tighter hover:text-red-500 transition-all"
           >
             Reset Filters
@@ -173,7 +185,7 @@ const AuthorsList = () => {
                     className={filterInputClass}
                     placeholder="Search first name..."
                     value={searchFirstName}
-                    onChange={(e) => setSearchFirstName(e.target.value)}
+                    onChange={(e) => handleFirstNameChange(e.target.value)}
                   />
                 </td>
                 <td className="p-2 border-r border-white/10">
@@ -182,7 +194,7 @@ const AuthorsList = () => {
                     className={filterInputClass}
                     placeholder="Search last name..."
                     value={searchLastName}
-                    onChange={(e) => setSearchLastName(e.target.value)}
+                    onChange={(e) => handleLastNameChange(e.target.value)}
                   />
                 </td>
                 <td className="p-2 text-center text-white/50">
@@ -208,10 +220,10 @@ const AuthorsList = () => {
                       {index + 1}
                     </td>
                     <td className="p-4 border-r border-gray-50 text-text-main font-bold tracking-tight uppercase">
-                      {author.firstName}
+                      {author.firstName || author.first_name}
                     </td>
                     <td className="p-4 border-r border-gray-50 text-text-main font-bold tracking-tight uppercase">
-                      {author.lastName}
+                      {author.lastName || author.last_name}
                     </td>
                     <td className="p-4">
                       <div className="flex justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">

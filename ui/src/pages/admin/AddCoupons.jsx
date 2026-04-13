@@ -1,264 +1,294 @@
 import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, RotateCcw, X, Loader2 } from 'lucide-react';
+import { Check, RotateCcw, X, Loader2, Percent, DollarSign, Layers, GitMerge, Gift, UserCheck, Crown } from 'lucide-react';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
-import { useQuery, useMutation } from '@tanstack/react-query'; // 🟢 React Query Import kiya
+import { useMutation } from '@tanstack/react-query';
+
+// ── Coupon types ──────────────────────────────────────────────────────────────
+const COUPON_TYPES = [
+  { value: 'percent_order',        label: '% Off Entire Order',  desc: 'e.g. 10% off everything',          icon: Percent   },
+  { value: 'percent_section',      label: '% Off Section',       desc: 'e.g. 20% off New Arrivals only',   icon: Layers    },
+  { value: 'flat_amount',          label: 'Flat Amount Off',     desc: 'e.g. $5 or $10 off',               icon: DollarSign},
+  { value: 'tiered',               label: 'Tiered by Order Size',desc: 'e.g. $5 up to $100, $10 above $100', icon: GitMerge },
+  { value: 'buy3get1',             label: 'Buy 3 Get 1 Free',    desc: 'Least expensive item is free',     icon: Gift      },
+  { value: 'new_customer_percent', label: 'New Customer %',      desc: 'First-order % discount',           icon: UserCheck },
+  { value: 'member_percent',       label: 'Members Only %',      desc: 'Exclusive % for members',          icon: Crown     },
+];
+
+const SECTIONS = [
+  { key: 'new_arrivals_only',   label: 'New Arrivals'    },
+  { key: 'bestseller_only',     label: 'Bestsellers'     },
+  { key: 'books_of_month_only', label: 'Books of Month'  },
+  { key: 'recommended_only',    label: 'Recommended'     },
+];
+
+const defaultForm = () => ({
+  code: '', title: '', coupon_type: 'percent_order',
+  valid_from: '', valid_to: '', active: 'active',
+  amount: '', flat_deduction: '', minimum_buy: '',
+  tier2_min_order: '', tier2_amount: '',
+  new_customer_only: false, members_only: false,
+  new_arrivals_only: false, bestseller_only: false,
+  books_of_month_only: false, recommended_only: false,
+});
 
 const AddCoupons = () => {
   const navigate = useNavigate();
+  const [form, setForm] = useState(defaultForm());
 
-  const [formData, setFormData] = useState({
-    code: '',
-    valid_from: '',
-    valid_to: '',
-    active: 'inactive',
-    fix_amount: 'inactive',
-    amount: '',
-    minimum_buy: '',
-    title: '',
-    price_over_only: '',
-    new_customer_only: 'inactive',
-    members_only: 'inactive',
-    next_order_only: 'inactive',
-    bestseller_only: 'inactive',
-    recommended_only: 'inactive',
-    new_arrivals_only: 'inactive',
-    get_third_free: 'inactive',
-    categories: ''
-  });
+  const set = useCallback((k, v) => setForm(p => ({ ...p, [k]: v })), []);
+  const handleInput = useCallback((e) => {
+    const { name, value, type, checked } = e.target;
+    set(name, type === 'checkbox' ? checked : value);
+  }, [set]);
 
-  // 🚀 OPTIMIZATION 1: Fetch Categories with React Query for Caching & Speed
-  const { data: categoryList = [], isLoading: isCategoriesLoading } = useQuery({
-    queryKey: ['categoriesListDropdown'],
-    queryFn: async () => {
-      const API_URL = process.env.REACT_APP_API_URL;
-      const res = await axios.get(`${API_URL}/category/fetch`);
-      if (res.data.status) {
-        return res.data.data || [];
-      }
-      return [];
-    },
-    staleTime: 1000 * 60 * 10, // Cache for 10 minutes (Speed Boost)
-    onError: (error) => {
-      console.error("Category Fetch Error:", error);
-      toast.error("Failed to load categories");
-    }
-  });
-
-  // 🚀 OPTIMIZATION 2: Save Coupon with React Query Mutation
-  const saveCouponMutation = useMutation({
-    mutationFn: async (submitData) => {
-      const API_URL = process.env.REACT_APP_API_URL;
-      const res = await axios.post(`${API_URL}/coupons/save`, submitData);
+  const saveMutation = useMutation({
+    mutationFn: async (data) => {
+      const res = await axios.post(`${process.env.REACT_APP_API_URL}/coupons/save`, data);
       return res.data;
-    }
+    },
   });
 
-  // useCallback taaki inputs type karte waqt lag na ho
-  const handleChange = useCallback((e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  }, []);
-
-  const handleSubmit = (e, actionType) => {
+  const handleSubmit = (e, goBack) => {
     e.preventDefault();
-    if (!formData.code || !formData.title) return toast.error("Code and Title are required!");
-
-    const toastId = toast.loading("Saving coupon...");
-
-    const parseBoolStr = (val) => val === 'active';
-    const payload = {
-      code: formData.code,
-      title: formData.title,
-      validFrom: formData.valid_from,
-      validTo: formData.valid_to,
-      active: parseBoolStr(formData.active),
-      fixAmount: parseBoolStr(formData.fix_amount),
-      amount: formData.amount,
-      minimumBuy: formData.minimum_buy,
-      priceOverOnly: formData.price_over_only,
-      newCustomerOnly: parseBoolStr(formData.new_customer_only),
-      membersOnly: parseBoolStr(formData.members_only),
-      nextOrderOnly: parseBoolStr(formData.next_order_only),
-      bestsellerOnly: parseBoolStr(formData.bestseller_only),
-      recommendedOnly: parseBoolStr(formData.recommended_only),
-      newArrivalsOnly: parseBoolStr(formData.new_arrivals_only),
-      getThirdFree: parseBoolStr(formData.get_third_free),
-      categories: formData.categories
-    };
-
-    saveCouponMutation.mutate(payload, {
-      onSuccess: (resData) => {
-        if (resData.status) {
-          toast.success("Coupon added successfully! 🎫", { id: toastId });
-          if (actionType === 'back') {
-            navigate('/admin/coupons');
-          } else {
-            // Reset form completely if staying on page
-            setFormData({
-              code: '', valid_from: '', valid_to: '', active: 'inactive',
-              fix_amount: 'inactive', amount: '', minimum_buy: '', title: '',
-              price_over_only: '', new_customer_only: 'inactive', members_only: 'inactive',
-              next_order_only: 'inactive', bestseller_only: 'inactive', recommended_only: 'inactive',
-              new_arrivals_only: 'inactive', get_third_free: 'inactive', categories: ''
-            });
-          }
-        } else {
-          toast.error(resData.msg || "Failed to save", { id: toastId });
-        }
-      },
-      onError: (error) => {
-        toast.error(error.response?.data?.msg || "Failed to save", { id: toastId });
+    if (!form.code || !form.title) return toast.error('Code and Title are required');
+    if (!form.valid_from || !form.valid_to) return toast.error('Valid From and Valid To are required');
+    const toastId = toast.loading('Saving coupon...');
+    saveMutation.mutate(
+      { ...form, couponType: form.coupon_type, validFrom: form.valid_from, validTo: form.valid_to, active: form.active === 'active' },
+      {
+        onSuccess: (res) => {
+          if (res.status) {
+            toast.success('Coupon created!', { id: toastId });
+            if (goBack) navigate('/admin/coupons');
+            else setForm(defaultForm());
+          } else { toast.error(res.msg || 'Failed', { id: toastId }); }
+        },
+        onError: (err) => toast.error(err.response?.data?.msg || 'Failed', { id: toastId }),
       }
-    });
+    );
   };
+
+  const type = form.coupon_type;
 
   return (
     <div className="bg-cream-50 min-h-screen font-body text-text-main pb-10">
-      
-      {/* 🔵 Header Bar */}
-      <div className="bg-primary px-6 py-3 shadow-md flex items-center justify-between">
-        <h1 className="text-lg font-bold text-white uppercase tracking-slick font-display">
-          Add Coupons
-        </h1>
+      <div className="bg-primary px-6 py-3 shadow-md">
+        <h1 className="text-lg font-bold text-white uppercase tracking-slick font-display">Add Coupon</h1>
       </div>
 
-      <div className="max-w-6xl mx-auto p-6 mt-4">
-        <form className="bg-white rounded border border-cream-200 shadow-sm overflow-hidden">
-          
-          <div className="bg-cream-100 px-6 py-3 border-b border-cream-200">
-             <h2 className="text-[11px] font-bold text-text-muted uppercase tracking-wider font-montserrat">Coupon Configuration</h2>
+      <div className="max-w-4xl mx-auto p-6 mt-4">
+        <form className="bg-white rounded-xl border border-cream-200 shadow-sm overflow-hidden">
+
+          {/* ── COUPON TYPE SELECTOR ── */}
+          <div className="p-6 border-b border-cream-100">
+            <h2 className="text-[10px] font-black text-text-muted uppercase tracking-widest mb-4 font-montserrat">Discount Type</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              {COUPON_TYPES.map(({ value, label, desc, icon: Icon }) => (
+                <button
+                  key={value} type="button"
+                  onClick={() => set('coupon_type', value)}
+                  className={`flex flex-col items-start gap-1.5 p-3.5 rounded-xl border-2 text-left transition-all ${
+                    type === value
+                      ? 'border-primary bg-primary/5 shadow-md'
+                      : 'border-cream-200 bg-white hover:border-primary/40 hover:bg-cream-50'
+                  }`}
+                >
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${type === value ? 'bg-primary text-white' : 'bg-cream-100 text-text-muted'}`}>
+                    <Icon size={16} />
+                  </div>
+                  <p className={`text-xs font-black leading-tight ${type === value ? 'text-primary' : 'text-text-main'}`}>{label}</p>
+                  <p className="text-[10px] text-gray-400 leading-snug">{desc}</p>
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className="p-8 space-y-5">
-            {/* Code */}
-            <div className="grid grid-cols-12 gap-4 items-center border-b border-cream-50 pb-4">
-              <label className="col-span-3 text-right text-[11px] font-bold text-text-muted uppercase font-montserrat">Code*</label>
+          <div className="p-6 space-y-4">
+
+            {/* ── COMMON FIELDS ── */}
+            <div className="grid grid-cols-12 gap-4 items-center">
+              <label className={lbl}>Code *</label>
               <div className="col-span-9">
-                <input name="code" value={formData.code} onChange={handleChange} className="theme-input w-full uppercase" placeholder="e.g. SAVE50" />
+                <input name="code" value={form.code} onChange={handleInput} className={inp} placeholder="e.g. SAVE10" style={{ textTransform: 'uppercase' }} />
+              </div>
+            </div>
+            <div className="grid grid-cols-12 gap-4 items-center border-b border-cream-50 pb-4">
+              <label className={lbl}>Title *</label>
+              <div className="col-span-9">
+                <input name="title" value={form.title} onChange={handleInput} className={inp} placeholder="Coupon description" />
               </div>
             </div>
 
-            {/* Valid From */}
-            <div className="grid grid-cols-12 gap-4 items-center border-b border-cream-50 pb-4">
-              <label className="col-span-3 text-right text-[11px] font-bold text-text-muted uppercase font-montserrat">Valid from</label>
-              <div className="col-span-9">
-                <input type="date" name="valid_from" value={formData.valid_from} onChange={handleChange} className="theme-input w-full" />
-                <button type="button" onClick={() => setFormData({...formData, valid_from: ''})} className="text-[10px] text-primary mt-1 font-bold">Clear (mm-dd-yyyy)</button>
-              </div>
-            </div>
-
-            {/* Valid To */}
-            <div className="grid grid-cols-12 gap-4 items-center border-b border-cream-50 pb-4">
-              <label className="col-span-3 text-right text-[11px] font-bold text-text-muted uppercase font-montserrat">Valid to</label>
-              <div className="col-span-9">
-                <input type="date" name="valid_to" value={formData.valid_to} onChange={handleChange} className="theme-input w-full" />
-                <button type="button" onClick={() => setFormData({...formData, valid_to: ''})} className="text-[10px] text-primary mt-1 font-bold">Clear (mm-dd-yyyy)</button>
-              </div>
-            </div>
-
-            {/* 🟢 TOP RADIO BUTTONS (Fixed Bug) */}
-            {[
-              { label: "Active", name: "active" },
-              { label: "Fix amount", name: "fix_amount" }
-            ].map((field) => (
-              <div key={field.name} className="grid grid-cols-12 gap-4 items-center border-b border-cream-50 pb-4">
-                <label className="col-span-3 text-right text-[11px] font-bold text-text-muted uppercase font-montserrat">{field.label}</label>
-                <div className="col-span-9 flex gap-6">
-                  <label className="flex items-center gap-2 text-sm cursor-pointer">
-                    <input type="radio" name={field.name} value="active" checked={formData[field.name] === "active"} onChange={handleChange} className="accent-primary w-4 h-4" /> active
-                  </label>
-                  <label className="flex items-center gap-2 text-sm cursor-pointer">
-                    <input type="radio" name={field.name} value="inactive" checked={formData[field.name] === "inactive"} onChange={handleChange} className="accent-primary w-4 h-4" /> inactive
-                  </label>
+            {/* Validity */}
+            <div className="grid grid-cols-12 gap-4 items-start border-b border-cream-50 pb-4">
+              <label className={lbl + ' mt-2'}>Validity</label>
+              <div className="col-span-9 grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">From</label>
+                  <input type="date" name="valid_from" value={form.valid_from} onChange={handleInput} className={inp} />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">To</label>
+                  <input type="date" name="valid_to" value={form.valid_to} onChange={handleInput} className={inp} />
                 </div>
               </div>
-            ))}
-
-            {/* Amount */}
-            <div className="grid grid-cols-12 gap-4 items-center border-b border-cream-50 pb-4">
-              <label className="col-span-3 text-right text-[11px] font-bold text-text-muted uppercase font-montserrat">Amount</label>
-              <div className="col-span-9">
-                <input type="number" name="amount" value={formData.amount} onChange={handleChange} className="theme-input w-full" placeholder="0.00" />
-              </div>
             </div>
 
-            {/* Minimum Buy */}
             <div className="grid grid-cols-12 gap-4 items-center border-b border-cream-50 pb-4">
-              <label className="col-span-3 text-right text-[11px] font-bold text-text-muted uppercase font-montserrat">Minimum buy</label>
-              <div className="col-span-9">
-                <input type="number" name="minimum_buy" value={formData.minimum_buy} onChange={handleChange} className="theme-input w-full" />
-              </div>
-            </div>
-
-            {/* Title */}
-            <div className="grid grid-cols-12 gap-4 items-center border-b border-cream-50 pb-4">
-              <label className="col-span-3 text-right text-[11px] font-bold text-text-muted uppercase font-montserrat">Title*</label>
-              <div className="col-span-9">
-                <input name="title" value={formData.title} onChange={handleChange} className="theme-input w-full" />
-              </div>
-            </div>
-
-            {/* Price Over Only */}
-            <div className="grid grid-cols-12 gap-4 items-center border-b border-cream-50 pb-4">
-              <label className="col-span-3 text-right text-[11px] font-bold text-text-muted uppercase font-montserrat">Price over only</label>
-              <div className="col-span-9">
-                <input type="number" name="price_over_only" value={formData.price_over_only} onChange={handleChange} className="theme-input w-full" />
-              </div>
-            </div>
-
-            {/* 🟢 BOTTOM RADIO BUTTONS (Fixed Bug) */}
-            {[
-              { label: "New customer only", name: "new_customer_only" },
-              { label: "Members only", name: "members_only" },
-              { label: "Next order only", name: "next_order_only" },
-              { label: "Bestseller only", name: "bestseller_only" },
-              { label: "Recommended only", name: "recommended_only" },
-              { label: "New arrivals only", name: "new_arrivals_only" },
-              { label: "Get third free", name: "get_third_free" }
-            ].map((field) => (
-              <div key={field.name} className="grid grid-cols-12 gap-4 items-center border-b border-cream-50 pb-4">
-                <label className="col-span-3 text-right text-[11px] font-bold text-text-muted uppercase font-montserrat">{field.label}</label>
-                <div className="col-span-9 flex gap-6">
-                  <label className="flex items-center gap-2 text-sm cursor-pointer">
-                    <input type="radio" name={field.name} value="active" checked={formData[field.name] === "active"} onChange={handleChange} className="accent-primary w-4 h-4" /> active
+              <label className={lbl}>Active</label>
+              <div className="col-span-9 flex gap-4">
+                {['active','inactive'].map(v => (
+                  <label key={v} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input type="radio" name="active" value={v} checked={form.active === v} onChange={handleInput} className="accent-primary w-4 h-4" />
+                    {v}
                   </label>
-                  <label className="flex items-center gap-2 text-sm cursor-pointer">
-                    <input type="radio" name={field.name} value="inactive" checked={formData[field.name] === "inactive"} onChange={handleChange} className="accent-primary w-4 h-4" /> inactive
-                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* ── TYPE-SPECIFIC FIELDS ── */}
+
+            {/* Percentage field (for % types) */}
+            {['percent_order','percent_section','new_customer_percent','member_percent'].includes(type) && (
+              <div className="grid grid-cols-12 gap-4 items-center border-b border-cream-50 pb-4">
+                <label className={lbl}>Discount %</label>
+                <div className="col-span-9 flex items-center gap-2">
+                  <input type="number" name="amount" value={form.amount} onChange={handleInput} className={inp + ' w-32'} placeholder="e.g. 10" min="0" max="100" />
+                  <span className="text-text-muted font-bold text-sm">%</span>
                 </div>
               </div>
-            ))}
+            )}
 
-           {/* 🟢 DYNAMIC CATEGORY DROPDOWN */}
-           <div className="grid grid-cols-12 gap-4 items-center border-b border-cream-50 pb-4">
-              <label className="col-span-3 text-right text-[11px] font-bold text-text-muted uppercase font-montserrat">Categories</label>
-              <div className="col-span-9">
-                <select name="categories" value={formData.categories} onChange={handleChange} className="theme-input w-full" disabled={isCategoriesLoading}>
-                  <option value="">{isCategoriesLoading ? "Loading Categories..." : "Select Categories"}</option>
-                  {categoryList.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.title || cat.categorytitle} {/* Show Title, Value is ID */}
-                    </option>
+            {/* Section selector (percent_section) */}
+            {type === 'percent_section' && (
+              <div className="grid grid-cols-12 gap-4 items-start border-b border-cream-50 pb-4">
+                <label className={lbl + ' mt-1'}>Sections</label>
+                <div className="col-span-9 grid grid-cols-2 gap-3">
+                  {SECTIONS.map(({ key, label }) => (
+                    <label key={key} className="flex items-center gap-2 text-sm cursor-pointer p-2.5 rounded-lg border border-cream-200 hover:border-primary/50">
+                      <input type="checkbox" name={key} checked={form[key]} onChange={handleInput} className="accent-primary w-4 h-4" />
+                      <span className="font-medium">{label}</span>
+                    </label>
                   ))}
-                </select>
+                </div>
+                <div className="col-span-12 col-start-4 text-[10px] text-gray-400 italic ml-0 pl-3">
+                  Discount applies to the entire order when it contains items from the selected sections.
+                </div>
+              </div>
+            )}
+
+            {/* Flat amount (flat_amount) */}
+            {type === 'flat_amount' && (
+              <div className="grid grid-cols-12 gap-4 items-center border-b border-cream-50 pb-4">
+                <label className={lbl}>Flat Amount</label>
+                <div className="col-span-9 flex items-center gap-2">
+                  <span className="text-text-muted font-bold text-sm">$</span>
+                  <input type="number" name="flat_deduction" value={form.flat_deduction} onChange={handleInput} className={inp + ' w-32'} placeholder="e.g. 10" min="0" />
+                  <span className="text-[10px] text-gray-400">Fixed amount directly deducted</span>
+                </div>
+              </div>
+            )}
+
+            {/* Tiered */}
+            {type === 'tiered' && (
+              <div className="grid grid-cols-12 gap-4 items-start border-b border-cream-50 pb-4">
+                <label className={lbl + ' mt-1'}>Tiers</label>
+                <div className="col-span-9 space-y-3">
+                  <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 space-y-3">
+                    <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Tier 1 — Lower orders</p>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <span className="text-sm text-text-muted">Discount</span>
+                      <span className="font-bold">$</span>
+                      <input type="number" name="amount" value={form.amount} onChange={handleInput} className={inp + ' w-24'} placeholder="5" min="0" />
+                      <span className="text-sm text-text-muted">for orders up to</span>
+                      <span className="font-bold">$</span>
+                      <input type="number" name="tier2_min_order" value={form.tier2_min_order} onChange={handleInput} className={inp + ' w-28'} placeholder="100" min="0" />
+                    </div>
+                  </div>
+                  <div className="p-4 bg-green-50 rounded-xl border border-green-100 space-y-3">
+                    <p className="text-[10px] font-black text-green-600 uppercase tracking-widest">Tier 2 — Larger orders</p>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <span className="text-sm text-text-muted">Discount</span>
+                      <span className="font-bold">$</span>
+                      <input type="number" name="tier2_amount" value={form.tier2_amount} onChange={handleInput} className={inp + ' w-24'} placeholder="10" min="0" />
+                      <span className="text-sm text-text-muted">for orders above</span>
+                      <span className="font-bold">$</span>
+                      <span className="font-bold text-green-700">{form.tier2_min_order || '...'}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Buy 3 Get 1 Free */}
+            {type === 'buy3get1' && (
+              <div className="grid grid-cols-12 gap-4 items-center border-b border-cream-50 pb-4">
+                <label className={lbl}>Rule</label>
+                <div className="col-span-9">
+                  <div className="flex items-center gap-3 p-4 bg-amber-50 rounded-xl border border-amber-100">
+                    <Gift size={20} className="text-amber-500 shrink-0" />
+                    <p className="text-sm text-amber-700 font-medium">
+                      When the customer buys <strong>3 or more items</strong>, the <strong>least expensive item</strong> is automatically made free.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── COMMON RESTRICTIONS ── */}
+            <div className="grid grid-cols-12 gap-4 items-center border-b border-cream-50 pb-4">
+              <label className={lbl}>Min. Order</label>
+              <div className="col-span-9 flex items-center gap-2">
+                <span className="font-bold text-sm">$</span>
+                <input type="number" name="minimum_buy" value={form.minimum_buy} onChange={handleInput} className={inp + ' w-32'} placeholder="0" min="0" />
+                <span className="text-[10px] text-gray-400">Minimum cart value required</span>
               </div>
             </div>
 
-            {/* --- ACTION BUTTONS --- */}
-            {/* 🟢 Buttons are disabled dynamically if saving is in progress */}
-            <div className="flex justify-center items-center gap-4 pt-8 border-t mt-4 font-montserrat">
-              <button type="button" onClick={(e) => handleSubmit(e, 'stay')} disabled={saveCouponMutation.isPending} className="bg-primary text-white px-8 py-2.5 rounded font-bold text-[10px] uppercase shadow-md active:scale-95 hover:brightness-110 transition-all flex items-center gap-2 disabled:opacity-70">
-                {saveCouponMutation.isPending ? <Loader2 size={14} className="animate-spin"/> : <Check size={14}/>} Save
-              </button>
-              
-              <button type="button" onClick={(e) => handleSubmit(e, 'back')} disabled={saveCouponMutation.isPending} className="bg-text-main text-white px-8 py-2.5 rounded font-bold text-[10px] uppercase shadow-md active:scale-95 hover:opacity-90 transition-all flex items-center gap-2 disabled:opacity-70">
-                <RotateCcw size={14}/> Save and go back to list
-              </button>
+            {/* Restrictions — new customer / members only */}
+            {(type !== 'new_customer_percent' && type !== 'member_percent') && (
+              <div className="grid grid-cols-12 gap-4 items-center border-b border-cream-50 pb-4">
+                <label className={lbl}>Restrictions</label>
+                <div className="col-span-9 flex flex-wrap gap-4">
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input type="checkbox" name="new_customer_only" checked={form.new_customer_only} onChange={handleInput} className="accent-primary w-4 h-4" />
+                    New Customers Only
+                  </label>
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input type="checkbox" name="members_only" checked={form.members_only} onChange={handleInput} className="accent-primary w-4 h-4" />
+                    Members Only
+                  </label>
+                </div>
+              </div>
+            )}
 
-              <button type="button" onClick={() => navigate('/admin/coupons')} disabled={saveCouponMutation.isPending} className="bg-white border border-cream-200 text-text-main px-8 py-2.5 rounded font-bold text-[10px] uppercase shadow-sm hover:bg-cream-50 active:scale-95 transition-all flex items-center gap-2 disabled:opacity-70">
-                <X size={14} className="text-red-600" /> Cancel
+            {/* Auto-set restriction hint for new_customer / member types */}
+            {type === 'new_customer_percent' && (
+              <div className="col-span-12 px-3 py-2 bg-blue-50 rounded-lg border border-blue-100 text-xs text-blue-600 font-medium flex items-center gap-2">
+                <UserCheck size={14} /> This coupon will automatically be restricted to new customers only.
+              </div>
+            )}
+            {type === 'member_percent' && (
+              <div className="col-span-12 px-3 py-2 bg-purple-50 rounded-lg border border-purple-100 text-xs text-purple-600 font-medium flex items-center gap-2">
+                <Crown size={14} /> This coupon will automatically be restricted to members only.
+              </div>
+            )}
+
+            {/* ── ACTIONS ── */}
+            <div className="flex justify-center items-center gap-4 pt-6 border-t mt-2 font-montserrat">
+              <button type="button" onClick={(e) => handleSubmit(e, false)} disabled={saveMutation.isPending}
+                className="bg-primary text-white px-8 py-2.5 rounded font-bold text-[10px] uppercase shadow-md hover:brightness-110 transition-all flex items-center gap-2 disabled:opacity-70">
+                {saveMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Save
+              </button>
+              <button type="button" onClick={(e) => handleSubmit(e, true)} disabled={saveMutation.isPending}
+                className="bg-text-main text-white px-8 py-2.5 rounded font-bold text-[10px] uppercase shadow-md hover:opacity-90 transition-all flex items-center gap-2 disabled:opacity-70">
+                <RotateCcw size={14} /> Save & Back to List
+              </button>
+              <button type="button" onClick={() => navigate('/admin/coupons')} disabled={saveMutation.isPending}
+                className="bg-white border border-cream-200 text-text-main px-8 py-2.5 rounded font-bold text-[10px] uppercase shadow-sm hover:bg-cream-50 transition-all flex items-center gap-2 disabled:opacity-70">
+                <X size={14} className="text-red-500" /> Cancel
               </button>
             </div>
           </div>
@@ -266,24 +296,14 @@ const AddCoupons = () => {
       </div>
 
       <style>{`
-        .theme-input { 
-          border: 1px solid #e6decd; 
-          border-radius: 4px; 
-          padding: 8px 14px; 
-          font-size: 13px; 
-          outline: none; 
-          transition: all 0.2s ease-in-out; 
-          background: #fffdf5;
-          font-family: 'Roboto', sans-serif;
-        }
-        .theme-input:focus { 
-          border-color: #008DDA; 
-          box-shadow: 0 0 0 3px rgba(0, 141, 218, 0.15); 
-          background: white;
-        }
+        .theme-inp { border:1px solid #e6decd; border-radius:4px; padding:8px 14px; font-size:13px; outline:none; background:#fffdf5; transition:all .2s; }
+        .theme-inp:focus { border-color:#008DDA; box-shadow:0 0 0 3px rgba(0,141,218,.15); background:white; }
       `}</style>
     </div>
   );
 };
+
+const lbl = 'col-span-3 text-right text-[11px] font-bold text-text-muted uppercase font-montserrat';
+const inp = 'theme-inp';
 
 export default AddCoupons;

@@ -67,10 +67,10 @@ const SidebarFilter = ({
   };
 
   // 🟢 Category Navigation Handler
-  const handleCategoryClick = (catSlug) => {
-    const slug = catSlug ? catSlug.split('/').pop() : null;
-    if (slug) navigate(`/books/${slug}`);
-    if (onClose) onClose();
+  const handleCategoryClick = (catId) => {
+    // Abhi page nahi bana hai, isliye console log aur temporary path rakha hai
+    navigate(`/category/${catId}`); // Jab route ban jaye tab ye chalega
+    if (onClose) onClose(); // Mobile drawer band karne ke liye
   };
 
   // Reusable Section Header for Desktop
@@ -98,7 +98,7 @@ const SidebarFilter = ({
   // 🟢 Recursive Category Node (Updated: Checkbox Removed, Clickable Text)
   const CategoryNode = ({ cat, level }) => {
     const hasChildren = cat.children && cat.children.length > 0;
-    const isExpanded = expandedCats[cat.id];
+    const isExpanded = expandedCats[cat._id];
 
     return (
       <div
@@ -107,7 +107,7 @@ const SidebarFilter = ({
         <div className="flex items-center justify-between group py-1.5">
           {/* Checkbox hata diya, ab ye div clickable hai */}
           <div
-            onClick={() => handleCategoryClick(cat.slug)}
+            onClick={() => handleCategoryClick(cat._id)}
             className="flex items-center space-x-3 cursor-pointer flex-1 hover:text-primary transition-colors"
           >
             <span
@@ -122,7 +122,7 @@ const SidebarFilter = ({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                toggleCat(cat.id);
+                toggleCat(cat._id);
               }}
               className="p-1 text-cream-200 hover:text-primary transition-colors"
             >
@@ -133,7 +133,7 @@ const SidebarFilter = ({
         {hasChildren && isExpanded && (
           <div className="mt-1">
             {cat.children.map((child) => (
-              <CategoryNode key={child.id} cat={child} level={level + 1} />
+              <CategoryNode key={child._id} cat={child} level={level + 1} />
             ))}
           </div>
         )}
@@ -214,7 +214,7 @@ const SidebarFilter = ({
                 (subcategories && subcategories.length > 0
                   ? subcategories.map((subcat) => (
                       <div
-                        key={subcat.id}
+                        key={subcat._id}
                         onClick={() => {
                           navigate(`/books/${subcat.slug.split('/').pop()}`);
                           if (onClose) onClose();
@@ -222,7 +222,7 @@ const SidebarFilter = ({
                         className="flex items-center justify-between py-3 border-b border-cream-50 cursor-pointer hover:bg-gray-50"
                       >
                         <span className="text-sm text-text-main">
-                          {subcat.title || subcat.categorytitle}
+                          {subcat.categorytitle}
                         </span>
                         <ChevronRight size={16} className="text-gray-400" />
                       </div>
@@ -238,18 +238,18 @@ const SidebarFilter = ({
               {activeTab === "authors" &&
                 authors?.map((auth) => (
                   <label
-                    key={auth.id}
+                    key={auth._id}
                     className="flex items-center justify-between py-3 border-b border-cream-50"
                   >
                     <span
-                      className={`text-sm ${filters.authors?.includes(auth.id) ? "text-primary font-bold" : "text-text-main"}`}
+                      className={`text-sm ${filters.authors?.includes(auth._id) ? "text-primary font-bold" : "text-text-main"}`}
                     >
-                      {auth.firstName || auth.first_name} {auth.lastName || auth.last_name}
+                      {auth.first_name} {auth.last_name}
                     </span>
                     <input
                       type="checkbox"
-                      checked={filters.authors?.includes(auth.id)}
-                      onChange={() => handleFilterChange("authors", auth.id)}
+                      checked={filters.authors?.includes(auth._id)}
+                      onChange={() => handleFilterChange("authors", auth._id)}
                       className="w-5 h-5 rounded border-cream-200 text-primary accent-primary"
                     />
                   </label>
@@ -259,18 +259,18 @@ const SidebarFilter = ({
               {activeTab === "publishers" &&
                 publishers?.map((pub) => (
                   <label
-                    key={pub.id}
+                    key={pub._id}
                     className="flex items-center justify-between py-3 border-b border-cream-50"
                   >
                     <span
-                      className={`text-sm ${filters.publishers?.includes(pub.id) ? "text-primary font-bold" : "text-text-main"}`}
+                      className={`text-sm ${filters.publishers?.includes(pub._id) ? "text-primary font-bold" : "text-text-main"}`}
                     >
                       {pub.name || pub.title}
                     </span>
                     <input
                       type="checkbox"
-                      checked={filters.publishers?.includes(pub.id)}
-                      onChange={() => handleFilterChange("publishers", pub.id)}
+                      checked={filters.publishers?.includes(pub._id)}
+                      onChange={() => handleFilterChange("publishers", pub._id)}
                       className="w-5 h-5 rounded border-cream-200 text-primary accent-primary"
                     />
                   </label>
@@ -280,18 +280,18 @@ const SidebarFilter = ({
               {activeTab === "series" &&
                 series?.map((ser) => (
                   <label
-                    key={ser.id}
+                    key={ser._id}
                     className="flex items-center justify-between py-3 border-b border-cream-50"
                   >
                     <span
-                      className={`text-sm ${filters.series?.includes(ser.id) ? "text-primary font-bold" : "text-text-main"}`}
+                      className={`text-sm ${filters.series?.includes(ser._id) ? "text-primary font-bold" : "text-text-main"}`}
                     >
                       {ser.title}
                     </span>
                     <input
                       type="checkbox"
-                      checked={filters.series?.includes(ser.id)}
-                      onChange={() => handleFilterChange("series", ser.id)}
+                      checked={filters.series?.includes(ser._id)}
+                      onChange={() => handleFilterChange("series", ser._id)}
                       className="w-5 h-5 rounded border-cream-200 text-primary accent-primary"
                     />
                   </label>
@@ -425,7 +425,7 @@ const SidebarFilter = ({
       </div>
 
       {/* --- DESKTOP SIDEBAR (ACCORDION STYLE) --- */}
-      <div className="hidden md:flex flex-col w-full bg-white rounded-xl border border-cream-200 shadow-sm  font-body h-fit sticky top-32">
+      <div className="hidden md:flex flex-col w-full bg-white rounded-xl border border-cream-200 shadow-sm font-body sticky top-32 max-h-[calc(100vh-9rem)] overflow-hidden">
         <div className="flex items-center justify-between p-5 border-b border-cream-100 bg-cream-50/30">
           <h2 className="text-sm font-bold text-text-main uppercase tracking-widest font-montserrat">
             Filters
@@ -438,7 +438,7 @@ const SidebarFilter = ({
           </button>
         </div>
 
-        <div className="p-4 space-y-2  custom-scrollbar">
+        <div className="p-4 space-y-2 overflow-y-auto custom-scrollbar flex-1">
           {/* 1. Sub Categories */}
           <div>
             <FilterHeader title={subcategoriesLabel} section="categories" />
@@ -451,7 +451,7 @@ const SidebarFilter = ({
                       : subcategories.slice(0, 15)
                     ).map((subcat) => (
                       <div
-                        key={subcat.id}
+                        key={subcat._id}
                         onClick={() => {
                           navigate(`/books/${subcat.slug.split('/').pop()}`);
                           if (onClose) onClose();
@@ -459,7 +459,7 @@ const SidebarFilter = ({
                         className="flex items-center space-x-3 cursor-pointer group py-1.5 hover:text-primary transition-colors select-none"
                       >
                         <span className="text-sm font-body text-text-main group-hover:text-primary">
-                          {subcat.title || subcat.categorytitle}
+                          {subcat.categorytitle}
                         </span>
                       </div>
                     ))}
@@ -541,19 +541,19 @@ const SidebarFilter = ({
                       : authors.slice(0, 15)
                     ).map((auth) => (
                       <label
-                        key={auth.id}
+                        key={auth._id}
                         className="flex items-center space-x-3 cursor-pointer group"
                       >
                         <input
                           type="checkbox"
-                          checked={filters.authors?.includes(auth.id)}
+                          checked={filters.authors?.includes(auth._id)}
                           onChange={() =>
-                            handleFilterChange("authors", auth.id)
+                            handleFilterChange("authors", auth._id)
                           }
                           className="w-4 h-4 rounded border-cream-200 text-primary focus:ring-primary accent-primary"
                         />
                         <span className="text-sm text-text-muted group-hover:text-primary font-body">
-                          {auth.firstName || auth.first_name} {auth.lastName || auth.last_name}
+                          {auth.first_name} {auth.last_name}
                         </span>
                       </label>
                     ))}
@@ -600,14 +600,14 @@ const SidebarFilter = ({
                       : publishers.slice(0, 15)
                     ).map((pub) => (
                       <label
-                        key={pub.id}
+                        key={pub._id}
                         className="flex items-center space-x-3 cursor-pointer group"
                       >
                         <input
                           type="checkbox"
-                          checked={filters.publishers?.includes(pub.id)}
+                          checked={filters.publishers?.includes(pub._id)}
                           onChange={() =>
-                            handleFilterChange("publishers", pub.id)
+                            handleFilterChange("publishers", pub._id)
                           }
                           className="w-4 h-4 rounded border-cream-200 text-primary focus:ring-primary accent-primary"
                         />
@@ -657,14 +657,14 @@ const SidebarFilter = ({
                     {(showAllStates.series ? series : series.slice(0, 15)).map(
                       (ser) => (
                         <label
-                          key={ser.id}
+                          key={ser._id}
                           className="flex items-center space-x-3 cursor-pointer group"
                         >
                           <input
                             type="checkbox"
-                            checked={filters.series?.includes(ser.id)}
+                            checked={filters.series?.includes(ser._id)}
                             onChange={() =>
-                              handleFilterChange("series", ser.id)
+                              handleFilterChange("series", ser._id)
                             }
                             className="w-4 h-4 rounded border-cream-200 text-primary focus:ring-primary accent-primary"
                           />

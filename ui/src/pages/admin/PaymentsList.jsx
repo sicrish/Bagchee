@@ -7,7 +7,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
-import { exportToExcel } from '../../utils/exportExcel';
+import { exportToExcel } from '../../utils/exportExcel.js';
 
 
 const PaymentsList = () => {
@@ -67,8 +67,8 @@ const PaymentsList = () => {
       const dataToExport = allData.map((item, i) => ({
         "Sr No": i + 1,
         "Method Title": item.title,
-        "Status": item.active ? "Active" : "Inactive",
-        "Display Order": item.ord || 0,
+        "Status": item.isActive ? "Active" : "Inactive",
+        "Display Order": item.order || 0,
         "Created Date": new Date(item.createdAt).toLocaleDateString('en-GB')
       }));
 
@@ -83,13 +83,13 @@ const PaymentsList = () => {
   const filteredPayments = useMemo(() => {
     return payments.filter((item, index) => {
       const displayId = (index + 1).toString();
-      const statusText = item.active ? "active" : "inactive";
+      const statusText = item.isActive ? "active" : "inactive";
 
       return (
         displayId.includes(filters.id) &&
         (item.title || "").toLowerCase().includes(filters.title.toLowerCase()) &&
         statusText.includes(filters.status.toLowerCase()) &&
-        (item.ord || "0").toString().includes(filters.order)
+        (item.order || "0").toString().includes(filters.order)
       );
     });
   }, [payments, filters]);
@@ -202,7 +202,7 @@ const PaymentsList = () => {
                 </tr>
               ) : filteredPayments.length > 0 ? (
                 filteredPayments.map((item, index) => (
-                  <tr key={item.id} className="hover:bg-primary-50 transition-colors text-[13px]">
+                  <tr key={item._id} className="hover:bg-primary-50 transition-colors text-[13px]">
                     <td className="p-3 border-r border-cream-50">
                       <div className="flex items-center gap-5 px-1">
                         <input type="checkbox" className="h-4 w-4 rounded accent-primary cursor-pointer shrink-0" />
@@ -211,15 +211,15 @@ const PaymentsList = () => {
                     </td>
                     <td className="p-3 border-r border-cream-50 text-text-main font-medium">{item.title}</td>
                     <td className="p-3 border-r border-cream-50 text-center">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${item.active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                        {item.active ? 'active' : 'inactive'}
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${item.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                        {item.isActive ? 'active' : 'inactive'}
                       </span>
                     </td>
-                    <td className="p-3 border-r border-cream-50 text-text-main text-center font-bold">{item.ord || 0}</td>
+                    <td className="p-3 border-r border-cream-50 text-text-main text-center font-bold">{item.order || 0}</td>
                     <td className="p-3">
                       <div className="flex justify-center gap-2">
-                        <button onClick={() => navigate(`/admin/edit-payments/${item.id}`)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm active:scale-95"><Edit size={14} /></button>
-                        <button onClick={() => handleDelete(item.id)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 hover:border-red-600 transition-all shadow-sm active:scale-95"><Trash2 size={14} /></button>
+                        <button onClick={() => navigate(`/admin/edit-payments/${item._id}`)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm active:scale-95"><Edit size={14} /></button>
+                        <button onClick={() => handleDelete(item._id)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 hover:border-red-600 transition-all shadow-sm active:scale-95"><Trash2 size={14} /></button>
                       </div>
                     </td>
                   </tr>

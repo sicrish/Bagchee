@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Check, RotateCcw, X, Loader2, Plus, Trash2, Printer, Mail, Search } from 'lucide-react';
-import JoditEditor from '../../components/admin/LazyJoditEditor';
+import JoditEditor from 'jodit-react';
 import axios from '../../utils/axiosConfig.js';
 import toast from 'react-hot-toast';
 
@@ -123,6 +123,10 @@ const AddOrders = () => {
           axios.get(`${API_URL}/couriers/list`),
           axios.get(`${API_URL}/order-status/list`)
         ]);
+        // 🔍 DEBUGGING CONSOLE LOGS
+        // console.log("Customers:", custRes.data);
+        // console.log("Payments:", payRes.data);
+
         if (custRes.data.status) setCustomers(custRes.data.data);
         if (prodRes.data.status) setProductsList(prodRes.data.data);
         if (coupRes.data.status) setCoupons(coupRes.data.data);
@@ -140,35 +144,22 @@ const AddOrders = () => {
 
 
 
-// 🟢 Ye function har change par total calculate karega
-const calculateGrandTotal = (products, shipping) => {
-  const subtotal = products.reduce((acc, item) => {
-    const p = Number(item.price) || 0;
-    const q = Number(item.quantity) || 0;
-    return acc + (p * q);
-  }, 0);
-
-  const shipCost = Number(shipping) || 0;
-  const finalTotal = subtotal + shipCost;
-
-  // Form state mein total update karein
-  setFormData(prev => ({ 
-    ...prev, 
-    total: finalTotal.toFixed(2) 
-  }));
-};
 
 
   const handleSelectProduct = (product) => {
     const newRow = {
+      product_id: product._id,
       name: product.title,
       price: product.price || 0,
+      inr_price: product.inr_price || 0,
+      real_price:product.real_price||0,
       quantity: 1,
       status: 'Pending', // Default Status
       courier: '',
       tracking_id: '',
       return_note: '',
-      cancel_note: ''
+      cancel_note: '',
+      image: product.default_image || ''
     };
     setOrderProducts(prev => {
       let updatedList;
@@ -181,8 +172,6 @@ const calculateGrandTotal = (products, shipping) => {
         updatedList = [...prev, newRow];
       }
 
-      // 3. 🟢 Calculation trigger karein (Calculation function ko call karein)
-      calculateGrandTotal(updatedList, formData.shipping_cost);
       
       return updatedList;
     });
@@ -197,11 +186,6 @@ const calculateGrandTotal = (products, shipping) => {
     setFormData(prev => {
       const updatedData = { ...prev, [name]: value };
 
-      // 2. 🟢 Logic: Agar shipping_cost badli hai, toh Total recalculate karo
-      if (name === 'shipping_cost') {
-        // Hum yahan orderProducts aur nayi shipping value bhej rahe hain
-        calculateGrandTotal(orderProducts, value);
-      }
 
       return updatedData;
     });
@@ -210,7 +194,7 @@ const calculateGrandTotal = (products, shipping) => {
   // --- Product Table Logic ---
   const addProductRow = () => {
     // Logic to find product by ID if entered, else empty row
-    const foundProd = productsList.find(p => p.id === addProductIdInput || p.bagcheeId === addProductIdInput || p.sku === addProductIdInput);
+    const foundProd = productsList.find(p => p._id === addProductIdInput || p.sku === addProductIdInput);
 
     const newRow = {
       name: foundProd ? foundProd.title : '',
@@ -237,10 +221,7 @@ const calculateGrandTotal = (products, shipping) => {
     const list = [...orderProducts];
     list[index][field] = value;
     setOrderProducts(list);
-    // 🟢 Agar price ya quantity badli hai, toh total naya banao
-    if (field === 'price' || field === 'quantity') {
-      calculateGrandTotal(list, formData.shipping_cost);
-    }
+   
   };
 
   // --- Submit Logic ---
@@ -363,7 +344,7 @@ const calculateGrandTotal = (products, shipping) => {
               <div className="col-span-9">
                 <select name="customer_id" value={formData.customer_id} onChange={handleChange} className={dropdownClass}>
                   <option value="">Select Customer</option>
-                  {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {customers.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
                 </select>
               </div>
             </div>
@@ -376,7 +357,7 @@ const calculateGrandTotal = (products, shipping) => {
                   <option value="">Select Payment type</option>
                   {/* 🟢 Dynamic Payment Options */}
                   {paymentMethods.map((pm) => (
-                    <option key={pm.id} value={pm.title}>
+                    <option key={pm._id} value={pm.title}>
                       {pm.title}
                     </option>
                   ))}
@@ -398,7 +379,7 @@ const calculateGrandTotal = (products, shipping) => {
                   {/* 🟢 DYNAMIC SHIPPING OPTIONS */}
                   {shippingOptions.length > 0 ? (
                     shippingOptions.map((opt) => (
-                      <option key={opt.id} value={opt.title}>
+                      <option key={opt._id} value={opt.title}>
                         {opt.title}
                       </option>
                     ))
@@ -445,7 +426,7 @@ const calculateGrandTotal = (products, shipping) => {
                               <option value="">Select Status</option>
                               {/* 🟢 Dynamic Row Status Options */}
                               {orderStatuses.map((st) => (
-                                <option key={st.id} value={st.name}>
+                                <option key={st._id} value={st.name}>
                                   {st.name}
                                 </option>
                               ))}
@@ -459,7 +440,7 @@ const calculateGrandTotal = (products, shipping) => {
                             >
                               <option value="">Select Courier</option>
                               {courierList.map((c) => (
-                                <option key={c.id} value={c.title}>
+                                <option key={c._id} value={c.title}>
                                   {c.title}
                                 </option>
                               ))}
@@ -505,13 +486,13 @@ const calculateGrandTotal = (products, shipping) => {
                         </div>
                         {searchResults.map((prod) => (
                           <div
-                            key={prod.id}
+                            key={prod._id}
                             onClick={() => handleSelectProduct(prod)}
                             className="px-4 py-2.5 hover:bg-primary-50 cursor-pointer border-b border-gray-100 flex flex-col group transition-colors"
                           >
                             <p className="text-[11px] font-bold text-gray-800 group-hover:text-primary line-clamp-2 uppercase">{prod.title}</p>
                             <div className="flex justify-between items-center mt-1">
-                              <span className="text-[10px] text-primary bg-primary/10 px-1.5 rounded font-mono font-bold">{prod.bagcheeId}</span>
+                              <span className="text-[10px] text-primary bg-primary/10 px-1.5 rounded font-mono font-bold">{prod.bagchee_id}</span>
 
                             </div>
                           </div>
@@ -551,7 +532,7 @@ const calculateGrandTotal = (products, shipping) => {
                   {/* 🟢 DYNAMIC STATUS OPTIONS FROM BACKEND */}
                   {orderStatuses.length > 0 ? (
                     orderStatuses.map((st) => (
-                      <option key={st.id} value={st.name}>
+                      <option key={st._id} value={st.name}>
                         {st.name}
                       </option>
                     ))
@@ -579,7 +560,7 @@ const calculateGrandTotal = (products, shipping) => {
               <div className="col-span-9">
                 <select name="coupon_id" value={formData.coupon_id} onChange={handleChange} className={dropdownClass}>
                   <option value="">Select Coupon id</option>
-                  {coupons.map(c => <option key={c.id} value={c.id}>{c.code}</option>)}
+                  {coupons.map(c => <option key={c._id} value={c._id}>{c.code}</option>)}
                 </select>
               </div>
             </div>

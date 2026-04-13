@@ -5,7 +5,6 @@ import { useCart } from '../../context/CartContext';
 import { CurrencyContext } from '../../context/CurrencyContext';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
-import { getProductImageUrl } from '../../utils/imageUrl.js';
 
 const Cart = () => {
   const navigate = useNavigate();
@@ -57,8 +56,8 @@ const Cart = () => {
         setLoadingShipping(true);
         const [shippingRes, settingsRes, couponsRes] = await Promise.all([
           axios.get(`${API_BASE_URL}/shipping-options/list`),
-          axios.get(`${API_BASE_URL}/settings/list`),
-          axios.get(`${API_BASE_URL}/coupons/list`),
+          axios.get(`${API_BASE_URL}/settings/public`),
+          axios.get(`${API_BASE_URL}/coupons/active`),
         ]);
 
         // Shipping options
@@ -71,14 +70,14 @@ const Cart = () => {
           }
         }
 
-        // Settings (take latest record)
-        if (settingsRes.data.status && settingsRes.data.data.length > 0) {
-          setSettings(settingsRes.data.data[0]);
+        // Settings — public returns a single object (not array)
+        if (settingsRes.data.status && settingsRes.data.data) {
+          setSettings(settingsRes.data.data);
         }
 
-        // Active coupons — filter client-side (active endpoint omits required fields)
+        // Active coupons
         if (couponsRes.data.status) {
-          setActiveCoupons(couponsRes.data.data.filter(c => c.active === 'active'));
+          setActiveCoupons(couponsRes.data.data);
         }
       } catch (error) {
         console.error('Cart fetch error:', error);
@@ -114,19 +113,21 @@ const Cart = () => {
   };
 
   const freeShippingOver = settings ? (
-    currency === 'INR' ? settings.free_shipping_over : 0
+    currency === 'INR' ? (settings.freeShippingOverInr || settings.free_shipping_over_inr || 0)
+    : currency === 'EUR' ? (settings.freeShippingOverEur || 0)
+    : (settings.freeShippingOver || settings.free_shipping_over || 0)
   ) : 0;
 
   // ─── 🟢 STEP 1: MNC DISCOUNT-SAFE CALCULATIONS (REPLACE LINE 114-124) ───
 
   // 1. Original Base Totals (MNC logic ke liye zaroori hai)
   const originalBaseUSD = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-  const originalBaseINR = cart.reduce((acc, item) => acc + ((item.inrPrice || item.inr_price || 0) * item.quantity), 0);
+  const originalBaseINR = cart.reduce((acc, item) => acc + ((item.inrPrice ?? item.inr_price ?? 0) * item.quantity), 0);
 
   // 2. Har item ka Discounted Price (Jo aapne pehle banaya tha)
   const subtotalAfterItemDiscount = cart.reduce((acc, item) => {
-    const realPrice = item.realPrice || item.real_price;
-    const priceToUse = (realPrice && realPrice > 0) ? realPrice : (item.price || 0);
+    const itemRealPrice = item.realPrice ?? item.real_price ?? 0;
+    const priceToUse = (itemRealPrice > 0) ? itemRealPrice : (item.price || 0);
     return acc + (Number(priceToUse) * item.quantity);
   }, 0);
 
@@ -150,30 +151,13 @@ const Cart = () => {
   // Yahan null ki jagah original totals bhejna zaroori hai
   const subtotalDisplayUI = formatPrice(originalBaseUSD, originalBaseINR, subtotalAfterItemDiscount);
 
-  // Coupon discount calculation
-  const couponDiscountUSD = appliedCoupon
-    ? appliedCoupon.discountType === 'fixed'
-      ? Number(appliedCoupon.discount)
-      : (subtotalAfterItemDiscount * Number(appliedCoupon.discount)) / 100
-    : 0;
-  const couponDiscountINR = appliedCoupon
-    ? appliedCoupon.discountType === 'fixed'
-      ? Number(appliedCoupon.discount)
-      : (originalBaseINR * Number(appliedCoupon.discount)) / 100
-    : 0;
-
-  const shippingRaw = getSelectedShippingRawPrice();
-  const membershipRaw = membershipAdded ? getMembershipData().usd : 0;
-
-  const finalUSD = Math.max(0, subtotalAfterItemDiscount - couponDiscountUSD + shippingRaw + membershipRaw);
-  const finalINR = Math.max(0, originalBaseINR - couponDiscountINR + (appliedShipping?.priceInr || 0) + (membershipAdded ? getMembershipData().inr : 0));
-
-  // Final Total
-  const finalTotalUI = formatPrice(finalUSD, finalINR, finalUSD);
+  // Final Total (Abhi ke liye subtotal hi hai, jab tak tax/shipping adds na ho)
+  const finalTotalUI = subtotalDisplayUI
 
   // 3. Membership Data (Sirf display ke liye)
   const mData = getMembershipData();
   const membershipPriceUI = membershipAdded ? formatPrice(mData.usd, mData.inr, mData.usd) : null;
+  const couponDiscountUSD = 0;
 
   // --- Handlers ---
   const handleRemoveItem = (productId) => {
@@ -182,7 +166,7 @@ const Cart = () => {
   };
 
   const handleQuantityChange = (productId, newQty) => {
-    const item = cart.find(i => i.id === productId);
+    const item = cart.find(i => i._id === productId);
     if (!item) return;
     const diff = newQty - item.quantity;
     if (diff > 0) {
@@ -239,7 +223,7 @@ const Cart = () => {
         code: found.code,
         discount: found.amount,
         discountType,
-        couponId: found.id,
+        couponId: found._id,
       });
       toast.success('Coupon applied successfully!');
     } catch (error) {
@@ -267,6 +251,11 @@ const Cart = () => {
 
   const handleCheckout = () => {
     navigate('/checkout');
+  };
+
+  const getImageUrl = (image) => {
+    if (!image) return 'https://placehold.co/80x110?text=No+Image';
+    return image.startsWith('http') ? image : `${API_BASE_URL}${image}`;
   };
 
   // Render star rating
@@ -315,18 +304,6 @@ const Cart = () => {
   return (
     <div className="min-h-screen bg-cream-50">
 
-{/* ─── FREE SHIPPING PROGRESS BAR ─── */}
-{freeShippingOver > 0 && subtotal < freeShippingOver && (
-        <div className="bg-[#b94040] text-white py-2 px-4 mb-4">
-          <div className="max-w-7xl mx-auto flex items-center gap-2 text-sm font-medium">
-            <Truck size={18} className="shrink-0" />
-            <span>
-              ADD {formatPrice(freeShippingOver - subtotal)} OF ELIGIBLE ITEMS
-              TO QUALIFY FOR FREE SHIPPING
-            </span>
-          </div>
-        </div>
-      )}
 
       <div className="max-w-full mx-auto px-4 pb-6">
         <div className="grid lg:grid-cols-3 gap-6 pt-5">
@@ -341,15 +318,17 @@ const Cart = () => {
 
               <div className="divide-y divide-gray-100">
                 {cart.map((item) => (
-                  <div key={item.id} className="p-5">
+                  <div key={item._id} className="p-5">
                     <div className="flex gap-4">
                       {/* Book cover */}
                       <Link
-                        to={`/books/${item.bagcheeId || item.id}/${item.slug || "book"}`}
+                        to={`/books/${item.bagcheeId || item._id}/${item.slug || "book"}`}
                         className="shrink-0"
                       >
                         <img
-                          src={getProductImageUrl(item)}
+                          src={getImageUrl(
+                            item.defaultImage || item.default_image || item.related_images?.[0],
+                          )}
                           alt={item.name || item.title}
                           className="w-20 h-28 object-cover border border-gray-200"
                           onError={(e) => {
@@ -364,7 +343,7 @@ const Cart = () => {
                         <div className="flex justify-between gap-2 mb-1">
                           <div className="flex-1">
                             <Link
-                              to={`/books/${item.bagcheeId || item.id}/${item.slug || "book"}`}
+                              to={`/books/${item.bagcheeId || item._id}/${item.slug || "book"}`}
                               className="font-semibold text-text-main hover:text-primary transition-colors leading-snug block"
                             >
                               {item.name || item.title}
@@ -383,8 +362,8 @@ const Cart = () => {
                             <p className="text-xl font-bold text-text-main">
                               {formatPrice(
                                 (item.price || 0) * item.quantity,
-                                ((item.inrPrice || item.inr_price || 0)) * item.quantity,
-                                (((item.realPrice || item.real_price) && (item.realPrice || item.real_price) > 0) ? (item.realPrice || item.real_price) : (item.price || 0)) * item.quantity
+                                (item.inrPrice ?? item.inr_price ?? 0) * item.quantity,
+                                ((item.realPrice ?? item.real_price ?? 0) > 0 ? (item.realPrice ?? item.real_price) : (item.price || 0)) * item.quantity
                               )}
                             </p>
                           </div>
@@ -402,7 +381,7 @@ const Cart = () => {
                             value={item.quantity}
                             onChange={(e) =>
                               handleQuantityChange(
-                                item.id,
+                                item._id,
                                 parseInt(e.target.value, 10),
                               )
                             }
@@ -420,7 +399,7 @@ const Cart = () => {
 
                           {/* Action buttons */}
                           <button
-                            onClick={() => handleRemoveItem(item.id)}
+                            onClick={() => handleRemoveItem(item._id)}
                             className="flex items-center gap-1 border border-gray-400 text-gray-700 text-xs font-bold uppercase px-4 py-1.5 hover:bg-gray-100 transition-colors font-montserrat"
                           >
                             <X size={12} />
@@ -498,53 +477,55 @@ const Cart = () => {
 
             <div className="bg-cream-100 border border-gray-200 shadow-sm">
               <div className="p-5 space-y-5">
+
+                {/* ─── FREE SHIPPING PROGRESS BAR ─── */}
+                {freeShippingOver > 0 && (() => {
+                  const progress = Math.min(100, (subtotal / freeShippingOver) * 100);
+                  const remaining = Math.max(0, freeShippingOver - subtotal);
+                  const unlocked = subtotal >= freeShippingOver;
+                  return (
+                    <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-2.5">
+                      <p className="text-xs font-bold text-center text-gray-600">
+                        Free delivery on orders over{' '}
+                        <span className="text-primary font-black">{formatPrice(freeShippingOver)}</span>
+                      </p>
+                      {/* Progress bar */}
+                      <div className="relative h-3 bg-gray-100 rounded-full overflow-hidden">
+                        <div
+                          className="absolute inset-y-0 left-0 rounded-full transition-all duration-500"
+                          style={{
+                            width: `${progress}%`,
+                            background: unlocked
+                              ? 'linear-gradient(90deg, #22c55e, #16a34a)'
+                              : 'linear-gradient(90deg, #a78bfa, #7c3aed)',
+                          }}
+                        />
+                      </div>
+                      {/* Message */}
+                      <p className="text-[11px] text-center text-gray-500">
+                        {unlocked ? (
+                          <span className="text-green-600 font-black">🎉 You've unlocked free shipping!</span>
+                        ) : (
+                          <>
+                            Add at least{' '}
+                            <span className="text-primary font-black">{formatPrice(remaining)}</span>
+                            {' '}more to get free shipping!
+                          </>
+                        )}
+                      </p>
+                    </div>
+                  );
+                })()}
+
                 {/* Cart total line */}
                 <div className="flex justify-between items-baseline">
                   <span className="text-sm text-gray-600">
                     Cart total {cart.length}
                   </span>
                   <span className="text-xl font-bold text-text-main">
+                    {/* Aapka naya variable 'subtotalAfterItemDiscount' use kar rahe hain */}
                     {subtotalDisplayUI}
                   </span>
-                </div>
-
-                {/* ─── BOOK THUMBNAILS ─── */}
-                <div className="border-t border-gray-200 pt-3 space-y-3">
-                  {cart.map((item) => (
-                    <div key={item.id} className="flex items-center gap-3">
-                      <Link
-                        to={`/books/${item.bagcheeId || item.id}/${item.slug || "book"}`}
-                        className="shrink-0"
-                      >
-                        <img
-                          src={getProductImageUrl(item)}
-                          alt={item.name || item.title}
-                          className="w-12 h-16 object-cover border border-gray-200 rounded-sm"
-                          onError={(e) => {
-                            e.target.src = "https://placehold.co/48x64?text=No+Image";
-                          }}
-                        />
-                      </Link>
-                      <div className="flex-1 min-w-0">
-                        <Link
-                          to={`/books/${item.bagcheeId || item.id}/${item.slug || "book"}`}
-                          className="text-xs font-semibold text-text-main hover:text-primary transition-colors line-clamp-2 leading-tight"
-                        >
-                          {item.name || item.title}
-                        </Link>
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          Qty: {item.quantity}
-                        </p>
-                      </div>
-                      <span className="text-sm font-bold text-text-main shrink-0">
-                        {formatPrice(
-                          (item.price || 0) * item.quantity,
-                          ((item.inrPrice || item.inr_price || 0)) * item.quantity,
-                          (((item.realPrice || item.real_price) && (item.realPrice || item.real_price) > 0) ? (item.realPrice || item.real_price) : (item.price || 0)) * item.quantity
-                        )}
-                      </span>
-                    </div>
-                  ))}
                 </div>
 
                 {/* ─── PROMOTION CODE ─── */}
@@ -596,12 +577,12 @@ const Cart = () => {
 {/* ─── SHIPPING OPTIONS SECTION ─── */}
 <div className="space-y-2">
   {shippingOptions.map((option) => (
-    <label key={option.id} className={`flex items-center justify-between p-2 cursor-pointer rounded ${appliedShipping?.id === option.id ? 'bg-primary/5' : ''}`}>
+    <label key={option._id} className={`flex items-center justify-between p-2 cursor-pointer rounded ${appliedShipping?._id === option._id ? 'bg-primary/5' : ''}`}>
       <div className="flex items-center gap-2">
         <input 
           type="radio" 
           name="shipping"
-          checked={appliedShipping?.id === option.id} 
+          checked={appliedShipping?._id === option._id} 
           onChange={() => setAppliedShipping(option)} 
           className="w-4 h-4 text-primary"
         />
@@ -641,7 +622,7 @@ const Cart = () => {
                         Discount ({appliedCoupon.code})
                       </span>
                       <span className="font-medium text-green-600">
-                        -{formatPrice(couponDiscountUSD, couponDiscountINR, couponDiscountUSD)}
+                        -{formatPrice(couponDiscountUSD, null, couponDiscountUSD)}
                       </span>
                     </div>
                   )}

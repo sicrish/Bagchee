@@ -157,7 +157,7 @@ const AddFormats = () => {
                 >
                   <option value="">{isCategoriesLoading ? 'Loading...' : 'Select Category'}</option>
                   {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>{cat.title}</option>
+                    <option key={cat._id} value={cat._id}>{cat.categorytitle}</option>
                   ))}
                 </select>
               </div>

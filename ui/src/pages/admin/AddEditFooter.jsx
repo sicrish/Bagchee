@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Check, RotateCcw, X, Loader2, LayoutPanelTop, TriangleAlert, Plus,Edit } from 'lucide-react';
-import JoditEditor from '../../components/admin/LazyJoditEditor';
+import JoditEditor from 'jodit-react';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
 
@@ -155,8 +155,8 @@ const AddEditFooter = () => {
                   name="name"
                   value={formData.name} 
                   onChange={handleChange}
-                  disabled={isEditMode} // Edit mode mein reference change nahi karne dena chahiye
-                  className={`theme-input w-full ${isEditMode ? 'bg-gray-50 text-gray-400 cursor-not-allowed border-dashed' : 'bg-white'}`} 
+                  
+                  className={`theme-input w-full ${isEditMode ? 'bg-gray-50 text-gray-400  border-dashed' : 'bg-white'}`} 
                   placeholder="e.g. Column 5"
                 />
                 {!isEditMode && <p className="text-[10px] text-gray-400 mt-1 italic">Use a unique name like 'Column 5' or 'Contact Column'</p>}

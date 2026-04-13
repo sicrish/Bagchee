@@ -60,9 +60,9 @@ const EditFormats = () => {
     if (formatData && !isDataInitialized) {
       setFormData({
         title: formatData.title || '',
-        status: formatData.active ? 'active' : 'inactive',
-        category_id: formatData.categoryId || '',
-        order: formatData.ord || ''
+        status: formatData.active || 'active', // Adjusted based on schema field name
+        category_id: formatData.category || '', // Adjusted based on schema reference
+        order: formatData.order || ''
       });
       setIsDataInitialized(true); // Lock it!
     }
@@ -90,11 +90,11 @@ const EditFormats = () => {
 
     const toastId = toast.loading("Updating format...");
 
-    // Formatting payload based on Prisma schema
+    // Formatting payload based on mongoose schema matching
     const payload = {
        title: formData.title,
-       active: formData.status,
-       category_id: formData.category_id,
+       active: formData.status, // status dropdown mapping to 'active' field in schema
+       category: formData.category_id, // dropdown mapping to 'category' field
        order: formData.order
     };
 
@@ -210,7 +210,7 @@ const EditFormats = () => {
                 >
                   <option value="">{isCategoriesLoading ? 'Loading...' : 'Select Category'}</option>
                   {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>{cat.title}</option>
+                    <option key={cat._id} value={cat._id}>{cat.categorytitle}</option>
                   ))}
                 </select>
               </div>

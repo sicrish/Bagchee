@@ -69,6 +69,10 @@ model User {
   // Guest account flag
   isGuest         Boolean   @default(false) @map("is_guest")
 
+  // Payment gateway override — if true, this user always goes to direct gateway
+  // regardless of the global paymentGatewayMode setting in Settings
+  forceDirectPayment Boolean @default(false) @map("force_direct_payment")
+
   // Password reset
   resetToken        String?   @map("reset_token")
   resetTokenExpiry  DateTime? @map("reset_token_expiry")
@@ -431,6 +435,9 @@ model Order {
   status              String    @default("pending")
   paymentStatus       String    @default("pending") @map("payment_status")
   transactionId       String    @default("") @map("transaction_id")
+  paymentLink         String    @default("") @map("payment_link")
+  paymentToken        String    @default("") @map("payment_token")
+  purchaseOrderNumber String    @default("") @map("purchase_order_number")
 
   // Membership & Coupons
   membership          String    @default("No")          // "Yes" | "No"
@@ -464,6 +471,9 @@ model Order {
   billingCity         String    @default("") @map("billing_city")
   billingPostcode     String    @default("") @map("billing_post_code")
   billingPhone        String    @default("") @map("billing_phone")
+
+  shippedAt           DateTime? @map("shipped_at")           // set when status changes to 'shipped'
+  estimatedDelivery   DateTime? @map("estimated_delivery")    // admin sets expected delivery date
 
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
@@ -701,16 +711,30 @@ model Coupon {
   validFrom       DateTime @map("valid_from")
   validTo         DateTime @map("valid_to")
   active          Boolean  @default(false)
-  fixAmount       Boolean  @default(false) @map("fix_amount") // true=fixed amount off, false=percentage off
-  amount          Float    @default(0)
-  minimumBuy      Float    @default(0) @map("minimum_buy")   // min cart value to apply coupon
+  // Coupon type — determines how the discount is applied
+  // percent_order | percent_section | flat_amount | tiered | buy3get1 | new_customer_percent | member_percent
+  couponType      String   @default("percent_order") @map("coupon_type")
+
+  fixAmount       Boolean  @default(false) @map("fix_amount") // legacy: true=fixed amount off, false=percentage off
+  amount          Float    @default(0)                        // % or flat amount (depends on couponType)
+  flatDeduction   Float    @default(0) @map("flat_deduction") // always-on flat deduction (flat_amount type)
+  minimumBuy      Float    @default(0) @map("minimum_buy")   // min cart value required
   priceOverOnly   Float    @default(0) @map("price_over_only")
+
+  // Tiered discount (tiered type): tier1=amount up to tier2MinOrder, tier2=tier2Amount above that
+  tier2MinOrder   Float    @default(0) @map("tier2_min_order")
+  tier2Amount     Float    @default(0) @map("tier2_amount")
+
+  // Restrictions
   newCustomerOnly Boolean  @default(false) @map("new_customer_only")
   membersOnly     Boolean  @default(false) @map("members_only")
   nextOrderOnly   Boolean  @default(false) @map("next_order_only")
+
+  // Section restrictions (percent_section type)
   bestsellerOnly  Boolean  @default(false) @map("bestseller_only")
   recommendedOnly Boolean  @default(false) @map("recommended_only")
   newArrivalsOnly Boolean  @default(false) @map("new_arrivals_only")
+  booksOfMonthOnly Boolean @default(false) @map("books_of_month_only")
   getThirdFree    Boolean  @default(false) @map("get_third_free")
 
   orders          Order[]
@@ -1097,11 +1121,33 @@ model Settings {
   mailReplyTo            String  @default("") @map("mail_reply_to")
   topbarPromotion        Boolean @default(false) @map("topbar_promotion")
   topbarPromotionText    String  @default("") @map("topbar_promotion_text")
+  // Legacy single-set bank details (kept for backwards compat)
   bankIban               String  @default("") @map("bank_iban")
   bankBic                String  @default("") @map("bank_bic")
   bankOwner              String  @default("") @map("bank_owner")
   bankName               String  @default("") @map("bank_name")
   emailsCopy             String  @default("") @map("emails_copy")
+
+  // Payment gateway mode for Credit Card / PayPal
+  // "deferred" = admin reviews first, then sends payment link
+  // "direct"   = customer goes straight to payment gateway
+  paymentGatewayMode     String  @default("deferred") @map("payment_gateway_mode")
+
+  // Per-currency wire transfer bank details
+  bankNameUsd            String  @default("") @map("bank_name_usd")
+  bankIbanUsd            String  @default("") @map("bank_iban_usd")
+  bankBicUsd             String  @default("") @map("bank_bic_usd")
+  bankOwnerUsd           String  @default("") @map("bank_owner_usd")
+
+  bankNameEur            String  @default("") @map("bank_name_eur")
+  bankIbanEur            String  @default("") @map("bank_iban_eur")
+  bankBicEur             String  @default("") @map("bank_bic_eur")
+  bankOwnerEur           String  @default("") @map("bank_owner_eur")
+
+  bankNameGbp            String  @default("") @map("bank_name_gbp")
+  bankIbanGbp            String  @default("") @map("bank_iban_gbp")
+  bankBicGbp             String  @default("") @map("bank_bic_gbp")
+  bankOwnerGbp           String  @default("") @map("bank_owner_gbp")
 
   @@map("settings")
 }

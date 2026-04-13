@@ -7,7 +7,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
-import { exportToExcel } from '../../utils/exportExcel';
+import { exportToExcel } from '../../utils/exportExcel.js';
 
 
 const ReviewsList = () => {
@@ -68,11 +68,11 @@ const ReviewsList = () => {
 
             const dataToExport = allData.map((item, i) => ({
                 "Sr No": i + 1,
-                "Product": item.product?.title || "N/A",
+                "Product": item.itemId?.title || "N/A",
                 "User Name": item.name,
                 "Rating": `${item.rating} Stars`,
                 "Review": item.review?.replace(/<[^>]*>?/gm, '') || "-", // HTML tags remove
-                "Status": item.active ? "Active" : "Inactive",
+                "Status": item.isActive ? "Active" : "Inactive",
                 "Date": new Date(item.createdAt).toLocaleDateString('en-GB')
             }));
 
@@ -87,8 +87,8 @@ const ReviewsList = () => {
     const filteredReviews = useMemo(() => {
         return reviews.filter((item, index) => {
             const displayId = (index + 1).toString();
-            const itemIdStr = item.product?.title || "";
-            const statusText = item.active ? "active" : "inactive";
+            const itemIdStr = item.itemId?._id || "";
+            const statusText = item.isActive ? "active" : "inactive";
             const dateStr = item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-GB') : "";
 
             return (
@@ -139,14 +139,17 @@ const ReviewsList = () => {
     };
 
     const renderItemInfo = (review) => {
-        const itemData = review.product;
+        const itemData = review.itemId;
         if (itemData && itemData.title) {
             return (
                 <div className="flex flex-col">
                     <span className="font-bold text-primary text-[12px]">{itemData.title}</span>
-                    <span className="text-[10px] text-gray-400 font-mono truncate w-20">{itemData.bagcheeId}</span>
+                    <span className="text-[10px] text-gray-400 font-mono truncate w-20">{itemData._id}</span>
                 </div>
             );
+        }
+        if (itemData && itemData._id) {
+            return <span className="font-mono text-[10px]">{itemData._id}</span>;
         }
         return <span className="text-gray-400 italic">-</span>;
     };
@@ -247,7 +250,7 @@ const ReviewsList = () => {
                                 </tr>
                             ) : filteredReviews.length > 0 ? (
                                 filteredReviews.map((item, index) => (
-                                    <tr key={item.id} className="hover:bg-primary-50 transition-colors text-[13px]">
+                                    <tr key={item._id} className="hover:bg-primary-50 transition-colors text-[13px]">
                                         <td className="p-3 border-r border-cream-50">
                                             <div className="flex items-center gap-3 px-1">
                                                 <input type="checkbox" className="h-4 w-4 rounded accent-primary cursor-pointer shrink-0" />
@@ -266,9 +269,9 @@ const ReviewsList = () => {
                                         </td>
                                         <td className="p-3 border-r border-cream-50 text-center">
                                             <span
-                                                className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${item.active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}
+                                                className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${item.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}
                                             >
-                                                {item.active ? 'Active' : 'Inactive'}
+                                                {item.isActive ? 'Active' : 'Inactive'}
                                             </span>
                                         </td>
                                         <td className="p-3 border-r border-cream-50 text-text-main">
@@ -277,13 +280,13 @@ const ReviewsList = () => {
                                         <td className="p-3 text-center">
                                             <div className="flex justify-center gap-2">
                                                 <button
-                                                    onClick={() => navigate(`/admin/edit-reviews/${item.id}`)}
+                                                    onClick={() => navigate(`/admin/edit-reviews/${item._id}`)}
                                                     className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm active:scale-95"
                                                 >
                                                     <Edit size={14} />
                                                 </button>
                                                 <button
-                                                    onClick={() => handleDelete(item.id)}
+                                                    onClick={() => handleDelete(item._id)}
                                                     className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 hover:border-red-600 transition-all shadow-sm active:scale-95"
                                                 >
                                                     <Trash2 size={14} />

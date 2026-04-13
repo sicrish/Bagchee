@@ -112,7 +112,7 @@ const GiftCardDetail = () => {
             <div className="space-y-6">
               {/* Amount Input */}
               <div className="space-y-2">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 font-montserrat">Amount (USD) *</label>
+                <label className="text-[10px]  uppercase tracking-widest text-gray-400 font-montserrat">Amount (USD) *</label>
                 <input 
                   name="amount"
                   type="number" 
@@ -154,7 +154,7 @@ const GiftCardDetail = () => {
                     name="toName"
                     type="text" 
                     placeholder="RECIPIENT NAME"
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-5 py-4 focus:ring-2 focus:ring-primary focus:bg-white outline-none transition-all text-sm font-medium"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-5 py-4 focus:ring-2 focus:ring-primary focus:bg-white outline-none transition-all text-sm "
                     onChange={handleInputChange}
                   />
                 </div>
@@ -164,7 +164,7 @@ const GiftCardDetail = () => {
                     name="fromName"
                     type="text" 
                     placeholder="YOUR NAME"
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-5 py-4 focus:ring-2 focus:ring-primary focus:bg-white outline-none transition-all text-sm font-medium"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-5 py-4 focus:ring-2 focus:ring-primary focus:bg-white outline-none transition-all text-sm"
                     onChange={handleInputChange}
                   />
                 </div>
@@ -200,24 +200,16 @@ const GiftCardDetail = () => {
       </div>
 
       <style jsx>{`
-        input::placeholder, textarea::placeholder {
-          font-family: 'Montserrat', sans-serif;
-          letter-spacing: 0.15em;
-          font-size: 9px;
-          color: #9CA3AF;
-        }
-        /* Chrome, Safari, Edge, Opera ke liye arrows hide karein */
-        input[type="number"]::-webkit-outer-spin-button,
-        input[type="number"]::-webkit-inner-spin-button {
-          -webkit-appearance: none;
-          margin: 0;
-        }
-
-        /* Firefox ke liye arrows hide karein */
-        input[type="number"] {
-          -moz-appearance: textfield;
-        }
-      `}</style>
+  /* Sirf arrows hide karne wala code rakhein */
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+`}</style>
     </div>
   );
 };

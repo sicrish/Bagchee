@@ -7,8 +7,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
-import { exportToExcel } from '../../utils/exportExcel';
-
+import { exportToExcel } from '../../utils/exportExcel.js';
 const MetaTagsList = () => {
   const navigate = useNavigate();
   

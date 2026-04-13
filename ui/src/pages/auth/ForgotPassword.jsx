@@ -1,121 +1,112 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import axios from '../../utils/axiosConfig.js';
 import toast from 'react-hot-toast';
-import Logo from '../../components/common/Logo.jsx';
 import { useMutation } from '@tanstack/react-query';
+import { encryptData } from '../../utils/encryption.js';
+
+// 🟢 STEP 1: Logo component ko import kiya gaya hai
+import Logo from '../../components/common/Logo.jsx';
 
 const ForgotPassword = () => {
-  const [email, setEmail] = useState('');
-  const [sent, setSent] = useState(false);
+  const navigate = useNavigate();
+  const [email, setEmail] = useState("");
 
-  const forgotMutation = useMutation({
-    mutationFn: async (data) => {
-      const res = await axios.post(`${process.env.REACT_APP_API_URL}/user/forgot-password`, data);
+  const forgotPasswordMutation = useMutation({
+    mutationFn: async (emailData) => {
+      const url = `${process.env.REACT_APP_API_URL}/user/forgot-password`; 
+      const encryptedPayload = encryptData(emailData);
+      const res = await axios.post(url, { data: encryptedPayload });
       return res.data;
     },
     onSuccess: (data) => {
       if (data.status) {
-        toast.success('Reset link sent! Check your email.');
-        setSent(true);
+        toast.success(data.msg || "Reset link sent to your email!");
+        navigate('/login'); 
       } else {
-        toast.error(data.msg);
+        toast.error(data.msg || "Something went wrong.");
       }
     },
     onError: (error) => {
-      toast.error(error.response?.data?.msg || 'Something went wrong. Please try again.');
+      console.log(error);
+      const errorMsg = error.response?.data?.msg || "Failed to send reset link. Please try again.";
+      toast.error(errorMsg);
     }
   });
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!email) return toast.error('Please enter your email.');
-    forgotMutation.mutate({ email });
+    if (!email) {
+      toast.error("Please enter your email address.");
+      return;
+    }
+    forgotPasswordMutation.mutate({ email });
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-cream-50 flex flex-col items-center justify-center p-4 overflow-x-hidden w-full">
 
-      <h2 className="text-3xl text-text-main mb-8 uppercase tracking-wide font-display">
+      {/* --- PAGE TITLE --- */}
+      <h2 className="text-3xl text-text-main mb-8 uppercase tracking-slick font-display animate-fadeInLeft">
         FORGOT PASSWORD
       </h2>
 
-      <div className="max-w-xl w-full bg-white p-10 rounded-xl shadow-xl border border-gray-100">
+      {/* --- CARD --- */}
+      <div className="max-w-[98%] sm:max-w-xl w-full bg-white p-6 sm:p-8 md:p-10 rounded-2xl shadow-2xl border border-cream-200 animate-fadeInRight">
 
-        {/* Logo */}
+        {/* 🟢 STEP 2: EXACTLY LOGIN JAISA LOGO SECTION ADD KIYA GAYA HAI */}
         <div className="flex justify-center mb-8">
-          <div className="bg-gradient-to-r from-primary to-primary-dark p-4 rounded-xl shadow-md">
+          <Link
+            to="/"
+            className="bg-gradient-to-r from-primary to-primary-dark p-4 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105 active:scale-95 block cursor-pointer"
+          >
             <Logo className="h-12 w-auto text-white" />
-          </div>
+          </Link>
         </div>
 
-        {sent ? (
-          <div className="text-center space-y-4">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-bold text-text-main font-display">Check Your Email</h3>
-            <p className="text-sm text-text-muted leading-relaxed">
-              We've sent a password reset link to <strong className="text-text-main">{email}</strong>.
-              <br />Please check your inbox and spam folder.
-            </p>
-            <p className="text-xs text-text-muted mt-4">The link will expire in 15 minutes.</p>
+        {/* Text Instructions */}
+        <p className="text-sm md:text-base font-body text-text-muted mb-6 text-center">
+          Please enter your Email so we can send you a link to reset your password.
+        </p>
 
-            <button
-              onClick={() => { setSent(false); forgotMutation.reset(); }}
-              className="mt-4 text-sm font-bold text-primary hover:text-primary-dark transition-colors font-montserrat"
-            >
-              Didn't receive it? Try again
-            </button>
-
-            <div className="pt-4">
-              <Link to="/login" className="text-sm font-bold text-primary hover:text-primary-dark hover:underline font-montserrat">
-                Back to Sign In
-              </Link>
-            </div>
+        <form className="space-y-6" onSubmit={handleSubmit}>
+          
+          {/* Email Input */}
+          <div>
+            <label className="block text-sm font-bold text-text-main mb-2 font-montserrat">
+              Email Address
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              placeholder="Enter your registered email"
+              className="w-full bg-cream-100/30 border border-cream-200 text-text-main text-sm font-body rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary block px-4 py-4 outline-none transition-all placeholder-text-muted/50"
+            />
           </div>
-        ) : (
-          <form className="space-y-6" onSubmit={handleSubmit}>
 
-            <p className="text-sm text-text-muted text-center leading-relaxed">
-              Enter your email address and we'll send you a link to reset your password.
-            </p>
+          {/* Centered Submit Button */}
+          <div className="pt-2 flex justify-center">
+            <button
+              type="submit"
+              disabled={forgotPasswordMutation.isPending}
+              className={`px-12 py-3.5 bg-gradient-to-r from-primary to-primary-dark text-white font-bold rounded-lg text-sm uppercase tracking-wider shadow-lg shadow-primary/30 hover:shadow-primary/50 transform hover:-translate-y-0.5 transition-all duration-300 font-montserrat ${forgotPasswordMutation.isPending ? 'opacity-70 cursor-not-allowed' : ''}`}
+            >
+              {forgotPasswordMutation.isPending ? 'SENDING LINK...' : 'SEND RESET LINK'}
+            </button>
+          </div>
 
-            <div>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Email Address"
-                required
-                className="w-full bg-gray-100 border border-gray-200 text-text-main text-sm font-medium rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary block px-4 py-4 outline-none transition-all placeholder-gray-500"
-              />
-            </div>
+          {/* Back to Login Link */}
+          <div className="text-center mt-6 text-sm text-text-muted border-t border-cream-100 pt-6">
+            <Link to="/login" className="font-bold text-primary hover:text-primary-dark hover:underline font-montserrat flex items-center justify-center gap-1">
+              &larr; Back to Login
+            </Link>
+          </div>
 
-            <div className="pt-2 flex justify-center">
-              <button
-                type="submit"
-                disabled={forgotMutation.isPending}
-                className={`px-12 py-3.5 bg-gradient-to-r from-primary to-primary-dark text-white font-bold rounded-lg text-sm uppercase tracking-wider shadow-lg shadow-primary/30 hover:shadow-primary/50 transform hover:-translate-y-0.5 transition-all duration-300 font-montserrat ${forgotMutation.isPending ? 'opacity-70 cursor-not-allowed' : ''}`}
-              >
-                {forgotMutation.isPending ? 'SENDING...' : 'SEND RESET LINK'}
-              </button>
-            </div>
-
-            <div className="text-center mt-6 text-sm text-text-muted">
-              <p>
-                Remember your password?{' '}
-                <Link to="/login" className="font-bold text-primary hover:text-primary-dark hover:underline ml-1 font-montserrat">
-                  Sign In
-                </Link>
-              </p>
-            </div>
-          </form>
-        )}
+        </form>
       </div>
     </div>
   );

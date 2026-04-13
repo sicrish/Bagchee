@@ -1,11 +1,11 @@
 import React, { lazy, Suspense } from 'react';
+import { HelmetProvider } from 'react-helmet-async';
 import ErrorBoundary from './components/common/ErrorBoundary.jsx';
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 
 // 🟢 Import Hash Navigation Hook
 import useScrollToHash from './hooks/useScrollToHash';
@@ -57,6 +57,8 @@ const Cart = lazy(() => import('./pages/website/Cart.jsx'));
 
 const Checkout = lazy(() => import('./pages/website/Checkout.jsx'));
 // import Checkout from './pages/website/Checkout.jsx';
+
+const PaymentPage = lazy(() => import('./pages/website/PaymentPage.jsx'));
 
 // Company Pages
 
@@ -138,6 +140,7 @@ const ContactUs = lazy(() => import('./pages/website/ContactUs.jsx'));
 
 
 const TraceOrder = lazy(() => import('./pages/website/TraceOrder.jsx'));
+const OrderReceipt = lazy(() => import('./pages/website/OrderReceipt.jsx'));
 const NotFound = lazy(() => import('./pages/website/NotFound.jsx'));
 const UnderMaintenance = lazy(() => import('./pages/website/UnderMaintenance.jsx'));
 
@@ -154,6 +157,8 @@ const Wishlist = lazy(() => import('./pages/website/Account/Wishlist.jsx'));
 
 // import Orders from './pages/website/Account/Orders.jsx';
 const Orders = lazy(() => import('./pages/website/Account/Orders.jsx'));
+
+const OrderStatus = lazy(() => import('./pages/website/Account/OrderStatus.jsx'));
 
 const GiftCardDetail = lazy(() => import('./pages/website/GiftCardDetail.jsx'));
 
@@ -534,6 +539,8 @@ const EditAboutUs = lazy(() => import('./pages/admin/EditAboutUs.jsx'));
 
 // import EditTestimonials from './pages/admin/EditTestimonials.jsx';
 const EditTestimonials = lazy(() => import('./pages/admin/EditTestimonials.jsx'));
+// import EditDisclaimer from './pages/admin/EditDisclaimer.jsx';
+const EditDisclaimer = lazy(() => import('./pages/admin/EditDisclaimer.jsx'));
 
 // import EditAuthorsPublishers from './pages/admin/EditAuthorsPublishers.jsx';
 const EditAuthorsPublishers = lazy(() => import('./pages/admin/EditAuthorsPublishers.jsx'));
@@ -584,6 +591,7 @@ const ScrollToHashHandler = () => {
 
 function App() {
   return (
+    <HelmetProvider>
     <QueryClientProvider client={queryClient}>
     <CurrencyProvider>
       <CartProvider>
@@ -642,6 +650,7 @@ function App() {
                 <Route path="account/profile" element={<Profile />} />
                 <Route path="account/address" element={<Address />} />
                 <Route path="account/orders" element={<Orders />} />
+                <Route path="account/order-status/:orderId" element={<OrderStatus />} />
                 <Route path="account/wishlist" element={<Wishlist />} />
               </Route>
 
@@ -679,7 +688,9 @@ function App() {
               <Route path="help/8" element={<HelpLibraryServices />} />
               <Route path="help/9" element={<HelpSecureShopping />} /> */}
               {/* <Route path="help/10" element={<HelpPrivacySecurity />} /> */}
-              <Route path="trace-order" element={<TraceOrder />} />
+              {/* trace-order moved outside WebsiteLayout (no header, like login page) */}
+              <Route path="order-receipt" element={<OrderReceipt />} />
+              <Route path="pay/:orderId/:token" element={<PaymentPage />} />
               <Route path="manage-account" element={<Profile />} />
               {/* <Route path="payment-options" element={<PaymentOptions />} /> */}
               {/* <Route path="shipping-info" element={<ShippingInfo />} />
@@ -691,9 +702,10 @@ function App() {
 
             </Route>
 
-            {/* --- SECTION 2: AUTH --- */}
+            {/* --- SECTION 2: AUTH + HEADERLESS PAGES --- */}
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/trace-order" element={<TraceOrder />} />
 
 
             <Route element={<ProtectedRoute allowedRole="admin" />}>
@@ -873,6 +885,7 @@ function App() {
                 <Route path="services/edit/:id" element={<AddEditServices />} />
                 <Route path="about-us" element={<EditAboutUs />} />
                 <Route path="testimonials" element={<EditTestimonials />} />
+                <Route path="disclaimer" element={<EditDisclaimer />} />
                 <Route path="authors-publishers" element={<EditAuthorsPublishers />} />
                 <Route path="privacy" element={<EditPrivacy />} />
                 <Route path="terms-of-use" element={<EditTerms />} />
@@ -906,6 +919,7 @@ function App() {
       </CartProvider>
     </CurrencyProvider>
     </QueryClientProvider>
+    </HelmetProvider>
   );
 }
 

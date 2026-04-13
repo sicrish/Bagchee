@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { normalizeProduct } from '../../utils/normalizeProduct';
 import { 
   Star, ShoppingCart, ChevronRight, SlidersHorizontal, X, Check, ChevronDown, ChevronUp
 } from 'lucide-react';
@@ -61,22 +62,22 @@ const Sale = () => {
           
           // If categoryId doesn't exist, try to get it from category object
           if (!categoryId && product.category) {
-            if (typeof product.category === 'object' && product.category.id) {
-              categoryId = product.category.id;
+            if (typeof product.category === 'object' && product.category._id) {
+              categoryId = product.category._id;
             } else if (typeof product.category === 'string') {
               categoryId = product.category;
             }
           }
           
-          return {
+          return normalizeProduct({
             ...product,
             categoryId: categoryId, // Explicitly set categoryId
             saleOrder: item.order,
             isActive: item.isActive
-          };
+          });
         });
-        
-        
+
+
         setProducts(productsData);
         setFilteredProducts(productsData);
       } else {
@@ -132,8 +133,8 @@ const Sale = () => {
         
         // Fallback to category object if categoryId doesn't exist
         if (!productCategoryId && p.category) {
-          if (typeof p.category === 'object' && p.category.id) {
-            productCategoryId = p.category.id;
+          if (typeof p.category === 'object' && p.category._id) {
+            productCategoryId = p.category._id;
           } else if (typeof p.category === 'string') {
             productCategoryId = p.category;
           }
@@ -238,7 +239,7 @@ const Sale = () => {
         // Helper function to find category in hierarchical tree
         const findCategory = (cats, id) => {
           for (const cat of cats) {
-            if (cat.id === id) return cat;
+            if (cat._id === id) return cat;
             if (cat.children && cat.children.length > 0) {
               const found = findCategory(cat.children, id);
               if (found) return found;
@@ -274,14 +275,14 @@ const Sale = () => {
   const getAuthorName = (author) => {
     if (!author) return 'Unknown';
     if (typeof author === 'object') {
-      return `${author.firstName || author.first_name || ''} ${author.lastName || author.last_name || ''}`.trim() || 'Unknown';
+      return (author.fullName || `${author.firstName || author.first_name || ''} ${author.lastName || author.last_name || ''}`.trim()) || 'Unknown';
     }
     return author;
   };
 
   const getProductUrl = (product) => {
     const slug = product.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-    return `/books/${product.bagcheeId || product.id}/${slug}`;
+    return `/books/${product.bagcheeId || product.bagchee_id || product.id || product._id}/${slug}`;
   };
 
   // Filter Section Component
@@ -338,7 +339,7 @@ const Sale = () => {
 
   // Recursive Category Checkbox Component (like ProductListing)
   const CategoryCheckbox = ({ cat, level = 0 }) => {
-    const isChecked = filters.categories.includes(cat.id);
+    const isChecked = filters.categories.includes(cat._id);
     const hasChildren = cat.children && cat.children.length > 0;
     const [isExpanded, setIsExpanded] = useState(false);
 
@@ -348,9 +349,9 @@ const Sale = () => {
           <FilterOption
             type="checkbox"
             name="categories"
-            value={cat.id}
+            value={cat._id}
             checked={isChecked}
-            onChange={() => handleFilterChange('categories', cat.id)}
+            onChange={() => handleFilterChange('categories', cat._id)}
             label={cat.categorytitle || cat.title}
           />
           {hasChildren && (
@@ -365,7 +366,7 @@ const Sale = () => {
         {hasChildren && isExpanded && (
           <div className="mt-1">
             {cat.children.map(child => (
-              <CategoryCheckbox key={child.id} cat={child} level={level + 1} />
+              <CategoryCheckbox key={child._id} cat={child} level={level + 1} />
             ))}
           </div>
         )}
@@ -412,7 +413,7 @@ const Sale = () => {
         <FilterSection title="Category" sectionKey="category">
           {categories?.length > 0 ? (
             categories.map((cat) => (
-              <CategoryCheckbox key={cat.id} cat={cat} />
+              <CategoryCheckbox key={cat._id} cat={cat} />
             ))
           ) : (
             <p className="text-xs text-gray-500 italic">Loading...</p>
@@ -545,7 +546,7 @@ const Sale = () => {
           <FilterSection title="Category" sectionKey="category">
             {categories?.length > 0 ? (
               categories.map((cat) => (
-                <CategoryCheckbox key={cat.id} cat={cat} />
+                <CategoryCheckbox key={cat._id} cat={cat} />
               ))
             ) : (
               <p className="text-xs text-gray-500 italic">Loading...</p>
@@ -635,7 +636,7 @@ const Sale = () => {
   // Custom Category Dropdown
   const CategoryDropdown = () => {
     const [showDropdown, setShowDropdown] = useState(false);
-    const selectedCategory = categories.find(cat => filters.categories.includes(cat.id));
+    const selectedCategory = categories.find(cat => filters.categories.includes(cat._id));
     
     // Flatten categories for dropdown
     const flattenCategories = (cats, level = 0) => {
@@ -689,20 +690,20 @@ const Sale = () => {
               </button>
               {flatCategories.map((cat) => (
                 <button
-                  key={cat.id}
+                  key={cat._id}
                   onClick={() => {
-                    handleFilterChange('categories', cat.id);
+                    handleFilterChange('categories', cat._id);
                     setShowDropdown(false);
                   }}
                   className={`w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center justify-between ${
-                    filters.categories.includes(cat.id)
+                    filters.categories.includes(cat._id)
                       ? 'bg-primary text-white font-medium'
                       : 'text-gray-700 hover:bg-cream-50'
                   }`}
                   style={{ paddingLeft: `${16 + cat.level * 16}px` }}
                 >
                   <span>{cat.categorytitle || cat.title}</span>
-                  {filters.categories.includes(cat.id) && (
+                  {filters.categories.includes(cat._id) && (
                     <Check className="w-4 h-4" />
                   )}
                 </button>
@@ -853,7 +854,7 @@ const Sale = () => {
             {filteredProducts.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-3 xl:grid-cols-4 gap-4">
                 {filteredProducts.map((product) => (
-                  <ProductCardGrid key={product.id} data={product} />
+                  <ProductCardGrid key={product._id} data={product} />
                 ))}
               </div>
             ) : (
@@ -889,11 +890,11 @@ const Sale = () => {
 const buildCategoryTree = (categories) => {
   const map = {};
   const tree = [];
-  categories.forEach((c) => (map[c.id] = { ...c, children: [] }));
+  categories.forEach((c) => (map[c._id] = { ...c, children: [] }));
   categories.forEach((c) => {
     if (c.parentid && map[c.parentid])
-      map[c.parentid].children.push(map[c.id]);
-    else tree.push(map[c.id]);
+      map[c.parentid].children.push(map[c._id]);
+    else tree.push(map[c._id]);
   });
   return tree;
 };

@@ -54,7 +54,7 @@ const Categories = () => {
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {categories.length > 0 ? (
           categories.map((cat) => (
-            <CategoryItem key={cat.id} category={cat} level={0} />
+            <CategoryItem key={cat._id} category={cat} level={0} />
           ))
         ) : (
           <p className="text-center col-span-full text-text-muted font-bold">No categories found.</p>
@@ -73,7 +73,7 @@ const Categories = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {tags.map((tag) => (
               <div
-                key={tag.id}
+                key={tag._id}
                 className="flex items-center justify-center h-full"
               >
                 <div className="flex flex-row items-center gap-2 px-4 py-3 bg-primary text-white rounded-md font-bold text-sm uppercase tracking-wide shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 cursor-pointer select-none w-full border-primary"
@@ -175,7 +175,7 @@ const CategoryItem = ({ category, level }) => {
 
           {/* Children List */}
           {hasChildren && category.children.map((child) => (
-            <CategoryItem key={child.id} category={child} level={level + 1} />
+            <CategoryItem key={child._id} category={child} level={level + 1} />
           ))}
         </div>
       </div>
@@ -189,13 +189,13 @@ const buildCategoryTree = (categories) => {
   const categoryMap = {};
   const tree = [];
   categories.forEach(cat => {
-    categoryMap[cat.id] = { ...cat, children: [] };
+    categoryMap[cat._id] = { ...cat, children: [] };
   });
   categories.forEach(cat => {
     if (cat.parentid && categoryMap[cat.parentid]) {
-      categoryMap[cat.parentid].children.push(categoryMap[cat.id]);
+      categoryMap[cat.parentid].children.push(categoryMap[cat._id]);
     } else {
-      tree.push(categoryMap[cat.id]);
+      tree.push(categoryMap[cat._id]);
     }
   });
   return tree;

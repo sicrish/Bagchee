@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Check, RotateCcw, X, Loader2 } from 'lucide-react';
-import JoditEditor from '../../components/admin/LazyJoditEditor';
+import JoditEditor from 'jodit-react';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
 
@@ -33,12 +33,12 @@ const EditHelpPages = () => {
           const data = res.data.data;
           setFormData({
             title: data.title || '',
-            meta_title: data.metaTitle || '',
-            meta_description: data.metaDesc || '',
-            meta_keywords: data.metaKeywords || '',
+            meta_title: data.meta_title || '',
+            meta_description: data.meta_description || '',
+            meta_keywords: data.meta_keywords || '',
           });
           // Content ko alag state mein set karein Jodit ke liye
-          setPageContent(data.pageContent || '');
+          setPageContent(data.content || '');
         }
       } catch (error) {
         console.error("Fetch error:", error);

@@ -10,7 +10,7 @@ const Logo = () => {
         alt="Bagchee Icon" 
         className="h-10 md:h-12 w-auto object-contain" 
         // 🚀 OPTIMIZATION: Loading Speed Boosters
-        fetchpriority="high" // Browser ko signal deta hai ki ye LCP (main image) hai, isey sabse pehle load karo
+        fetchPriority="high" // Browser ko signal deta hai ki ye LCP (main image) hai, isey sabse pehle load karo
         decoding="async"     // Image process hote waqt website ki baaki cheezein block nahi hongi
       />
 

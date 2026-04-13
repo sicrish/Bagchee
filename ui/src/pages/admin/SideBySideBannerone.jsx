@@ -7,9 +7,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
-import { exportToExcel } from '../../utils/exportExcel';
-import { getImageUrl } from '../../utils/imageUrl.js';
-
+import { exportToExcel } from '../../utils/exportExcel.js';
 const SideBySideBannerone = () => {
     const navigate = useNavigate();
     const [banners, setBanners] = useState([]);
@@ -101,7 +99,7 @@ const SideBySideBannerone = () => {
             if (res.data.status && res.data.data.length > 0) {
                 // 🟢 Updated Export Columns for 2 Images & 2 Links
                 const exportData = res.data.data.map(item => ({
-                    "ID": item.id,
+                    "ID": item._id,
                     "Image 1": item.image1 || 'N/A',
                     "Link 1": item.link1 || 'N/A',
                     "Image 2": item.image2 || 'N/A',
@@ -111,7 +109,7 @@ const SideBySideBannerone = () => {
                     "Created At": new Date(item.createdAt).toLocaleDateString()
                 }));
 
-                await exportToExcel(exportData, "Side Banners", "side_banners");
+                await exportToExcel(exportData, "Banners", "side_banners");
                 toast.success("Export complete!", { id: toastId });
             } else {
                 toast.error("No data to export", { id: toastId });
@@ -143,6 +141,15 @@ const SideBySideBannerone = () => {
         document.body.innerHTML = originalBody;
         printContent.style.overflow = originalStyle;
         window.location.reload();
+    };
+
+    // Helper
+    const getImageUrl = (imgName) => {
+        if (!imgName) return "https://placehold.co/150x80?text=No+Img";
+        if (imgName.startsWith("http")) return imgName;
+
+        const API_BASE = process.env.REACT_APP_API_URL;
+        return `${API_BASE}/${imgName.replace(/^\//, '')}`;
     };
 
     return (
@@ -239,7 +246,7 @@ const SideBySideBannerone = () => {
                             ) : banners.length > 0 ? (
                                 banners.map((item, index) => (
 
-                                    <tr key={item.id} className="hover:bg-primary-50 transition-colors">
+                                    <tr key={item._id} className="hover:bg-primary-50 transition-colors">
                                         <td className="p-3 border-r border-cream-50 text-center hide-on-print"><input type="checkbox" className="h-4 w-4 accent-primary" /></td>
                                         <td className="p-3 border-r border-cream-50 text-text-main">{index + 1}</td>
 
@@ -276,8 +283,8 @@ const SideBySideBannerone = () => {
 
                                         <td className="p-3 text-center hide-on-print">
                                             <div className="flex justify-center gap-2">
-                                                <button onClick={() => navigate(`/admin/edit-side-banner-one/${item.id}`)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm"><Edit size={14} /></button>
-                                                <button onClick={() => handleDelete(item.id)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 hover:border-red-600 transition-all shadow-sm"><Trash2 size={14} /></button>
+                                                <button onClick={() => navigate(`/admin/edit-side-banner-one/${item._id}`)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm"><Edit size={14} /></button>
+                                                <button onClick={() => handleDelete(item._id)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 hover:border-red-600 transition-all shadow-sm"><Trash2 size={14} /></button>
                                             </div>
                                         </td>
                                     </tr>

@@ -1,9 +1,16 @@
 import React, { useState, useEffect, memo, useCallback, useMemo } from 'react';
 import { ArrowLeft, ArrowRight, Pause, Play } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
-import { useQuery } from '@tanstack/react-query';
-import { getImageUrl } from '../../../../utils/imageUrl.js';
+import axios from 'axios'; 
+import { useQuery } from '@tanstack/react-query'; // 🟢 React Query Import
+
+// 🟢 Optimized: Moved outside to maintain referential identity
+const getImageUrl = (imgName) => {
+  if (!imgName) return "";
+  if (imgName.startsWith("http")) return imgName;
+  const API_BASE = process.env.REACT_APP_API_URL?.replace('/api', '');
+  return `${API_BASE}/${imgName.replace(/^\//, '')}`;
+};
 
 const HeroSlider = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -65,7 +72,7 @@ const HeroSlider = () => {
       
       return (
         <div 
-          key={banner.id || index}
+          key={banner._id || index}
           className={`absolute inset-0 w-full h-full transition-opacity duration-1000 ease-in-out ${isActive ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
           style={{ willChange: 'opacity' }} // GPU optimization
         >
@@ -83,7 +90,7 @@ const HeroSlider = () => {
                         loading={index === 0 ? "eager" : "lazy"}
                         {...(index === 0 ? { fetchpriority: "high" } : {})}
                         alt={banner.title || `Banner ${index}`} 
-                        className="w-full h-full object-contain md:object-fill"
+                        className="w-full h-full object-cover object-center"
                         draggable="false"
                     />
                 </picture>
@@ -95,7 +102,7 @@ const HeroSlider = () => {
 
   if (isLoading) {
     return (
-      <div className="w-full h-[400px] md:h-[350px] lg:h-[400px] bg-cream-100 animate-pulse flex items-center justify-center">
+      <div className="w-full aspect-[4/3] md:aspect-auto md:h-[350px] lg:h-[400px] bg-cream-100 animate-pulse flex items-center justify-center">
          <span className="text-text-muted font-montserrat font-bold uppercase tracking-widest text-xs">Loading Banners...</span>
       </div>
     );
@@ -106,7 +113,7 @@ const HeroSlider = () => {
   return (
     <div className="w-full relative group overflow-hidden">
       
-      <div className="w-full relative bg-cream-100 transition-all duration-500 h-[400px] md:h-[350px] lg:h-[400px]">
+      <div className="w-full relative bg-cream-100 transition-all duration-500 aspect-[4/3] md:aspect-auto md:h-[350px] lg:h-[400px] overflow-hidden">
         {renderedSlides}
       </div>
 

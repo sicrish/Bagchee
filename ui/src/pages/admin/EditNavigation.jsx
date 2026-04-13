@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Check, RotateCcw, X, Loader2 } from 'lucide-react';
-import JoditEditor from '../../components/admin/LazyJoditEditor';
+import JoditEditor from 'jodit-react';
 import axios from '../../utils/axiosConfig';
 
 import toast from 'react-hot-toast';
@@ -34,12 +34,12 @@ const EditNavigation = () => {
           const nav = res.data.data;
           setFormData({
             item: nav.item || '',
-            link: nav.itemLink || '',
-            dropdown: nav.hasDropdown ? 'active' : 'inactive',
-            active: nav.active ? 'active' : 'inactive',
-            order: nav.ord || ''
+            link: nav.link || '',
+            dropdown: nav.dropdown || 'inactive',
+            active: nav.active || 'active',
+            order: nav.order || ''
           });
-          setDropdownContent(nav.dropdownContent || '');
+          setDropdownContent(nav.dropdown_content || '');
         }
       } catch (error) {
         console.error(error);

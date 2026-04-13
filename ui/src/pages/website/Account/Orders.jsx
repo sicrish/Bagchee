@@ -1,22 +1,26 @@
 import React, { useEffect, useState, useContext,useMemo } from 'react';
-import { Link } from 'react-router-dom';
-import { Package, Loader2, Eye, ShoppingBag, Clock, CheckCircle, Truck, XCircle, RefreshCw, X, ExternalLink, Wallet, Calendar, Boxes } from 'lucide-react';
+import { Package, Loader2, Eye, ShoppingBag, Clock, CheckCircle, Truck, XCircle, RefreshCw, X, ExternalLink, Wallet, Calendar, Boxes,ChevronLeft,ChevronRight } from 'lucide-react';
+
 import { Dialog, Transition, TransitionChild, DialogPanel } from '@headlessui/react';
 import { Fragment } from 'react';
 import axios from '../../../utils/axiosConfig';
 import AccountLayout from '../../../layouts/AccountLayout';
 import { CurrencyContext } from '../../../context/CurrencyContext';
 import { useQuery } from '@tanstack/react-query';
+import { Link, useNavigate } from 'react-router-dom'; // useNavigate add kiya
 
 const Orders = () => {
 
-  const [selectedOrder, setSelectedOrder] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+const navigate = useNavigate();
+
+  // const [selectedOrder, setSelectedOrder] = useState(null);
+  // const [isModalOpen, setIsModalOpen] = useState(false);
   const [productDetails, setProductDetails] = useState({}); // Cache for product details
   const { formatPrice } = useContext(CurrencyContext);
 
 
-
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
 
 
@@ -25,7 +29,7 @@ const Orders = () => {
     const authData = localStorage.getItem('auth');
     if (!authData) return null;
     const parsedData = JSON.parse(authData);
-    return parsedData.userDetails?.id;
+    return parsedData.userDetails?.id || parsedData.userDetails?._id;
   }, []);
 
   // 🟢 2. REACT QUERY: Ye akela hook loading aur data dono handle kar lega
@@ -36,21 +40,7 @@ const Orders = () => {
       const res = await axios.get('/orders/my-orders', {
         params: { customer_id: userId }
       });
-      const rawOrders = res.data.status ? (res.data.data || []) : [];
-      // Map Prisma `items` → legacy `products` shape the UI expects
-      return rawOrders.map(order => ({
-        ...order,
-        products: (order.items || order.products || []).map(item => ({
-          product_id: item.productId || item.product_id,
-          name: item.product?.title || item.name,
-          price: item.price,
-          quantity: item.quantity,
-          status: item.status,
-          default_image: item.product?.defaultImage || null,
-          bagchee_id: item.product?.bagcheeId || null,
-        })),
-      }));
-
+      return res.data.status ? (res.data.data || []) : [];
     },
     enabled: !!userId, // Sirf tabhi chalega jab userId milegi
   });
@@ -80,35 +70,27 @@ const Orders = () => {
   }, [orders]);
 
   const getProductInfo = (product) => {
-    // First check if we already have inline data from the API mapping
-    let imageUrl = product.default_image;
-    let bagcheeId = product.bagchee_id;
-    let title = product.title || product.name;
-
-    // Override with fetched details if available
     const details = productDetails[product.product_id];
     if (details) {
-      imageUrl = details.defaultImage || details.default_image || imageUrl;
-      bagcheeId = details.bagcheeId || details.bagchee_id || bagcheeId;
-      title = details.title || title;
-    }
+      // Ensure default_image has full URL
+      let imageUrl = details.default_image;
+      if (imageUrl && !imageUrl.startsWith('http')) {
+        imageUrl = `${process.env.REACT_APP_API_URL}${imageUrl}`;
+      }
 
-    // Ensure full URL
-    if (imageUrl && !imageUrl.startsWith('http')) {
-      imageUrl = `${process.env.REACT_APP_API_URL}${imageUrl}`;
+      return {
+        ...product,
+        title: details.title || product.name,
+        default_image: imageUrl,
+        bagchee_id: details.bagchee_id
+      };
     }
-
-    return {
-      ...product,
-      title,
-      default_image: imageUrl,
-      bagchee_id: bagcheeId
-    };
+    return product;
   };
 
   // Generate book detail link in correct format: /books/:bagcheeId/:slug
   const getBookDetailLink = (productInfo) => {
-    const bagcheeId = productInfo.bagcheeId || productInfo.bagchee_id;
+    const bagcheeId = productInfo.bagchee_id;
     if (!bagcheeId) return null;
     const title = productInfo.title || productInfo.name || 'book';
     const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -123,7 +105,7 @@ const Orders = () => {
         return <Truck className="w-4 h-4" />;
       case 'payment pending':
         return <Clock className="w-4 h-4" />;
-      case 'processing':
+      case 'IN PROGRESS':
         return <RefreshCw className="w-4 h-4" />;
       case 'cancelled':
         return <XCircle className="w-4 h-4" />;
@@ -188,21 +170,20 @@ const Orders = () => {
     return formatPrice(numericAmount);
   };
 
-  const totalSpent = orders.reduce((sum, order) => sum + getOrderTotal(order), 0);
   const activeOrders = orders.filter((order) => {
     const status = (order.status || '').toLowerCase();
     return status === 'processing' || status === 'payment pending' || status === 'not yet ordered';
   }).length;
 
-  const openOrderDetails = (order) => {
-    setSelectedOrder(order);
-    setIsModalOpen(true);
+  // 🟢 FRONTEND PAGINATION LOGIC
+  const totalPages = Math.ceil(orders.length / itemsPerPage) || 1;
+  const displayedOrders = orders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const closeOrderDetails = () => {
-    setSelectedOrder(null);
-    setIsModalOpen(false);
-  };
 
   if (loading) {
     return (
@@ -226,7 +207,7 @@ const Orders = () => {
         </div>
 
         {orders.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
             <div className="bg-cream-100 border border-gray-200 rounded-lg p-4">
               <p className="text-xs text-text-muted mb-1">Total Orders</p>
               <div className="flex items-center justify-between">
@@ -245,24 +226,16 @@ const Orders = () => {
                 <Package className="text-primary" size={20} />
               </div>
             </div>
-            <div className="bg-cream-100 border border-gray-200 rounded-lg p-4">
-              <p className="text-xs text-text-muted mb-1">Total Spent</p>
-              <div className="flex items-center justify-between">
-                <p className="text-xl font-bold text-text-main">
-                  {formatPrice(totalSpent)}
-                </p>
-                <Wallet className="text-primary" size={20} />
-              </div>
-            </div>
+
           </div>
         )}
 
         {/* Orders List */}
         <div className="space-y-4">
           {orders.length > 0 ? (
-            orders.map((order) => (
+            displayedOrders.map((order) => (
               <div
-                key={order.id}
+                key={order._id}
                 className="bg-cream-100 border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden"
               >
                 {/* Order Header */}
@@ -273,8 +246,7 @@ const Orders = () => {
                         <h2 className="text-lg font-display font-bold text-text-main">
                           Order #
                           {order.order_number ||
-                            order.orderNumber ||
-                            String(order.id)}
+                            order._id.slice(-8).toUpperCase()}
                         </h2>
                         <div
                           className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(order.status)}`}
@@ -293,7 +265,7 @@ const Orders = () => {
                     {/* Header Actions */}
                     <div className="flex items-center gap-3">
                       <button
-                        onClick={() => openOrderDetails(order)}
+                       onClick={() => navigate(`/account/order-status/${order._id}`, { state: { orderData: order } })}
                         className="flex items-center gap-2 px-3 py-2 text-sm text-primary hover:text-primary-dark hover:bg-primary/5 rounded-lg transition-colors"
                       >
                         <Eye size={16} />
@@ -371,7 +343,7 @@ const Orders = () => {
                           {order.products?.length || 0}{" "}
                           {order.products?.length === 1 ? "item" : "items"}
                         </p>
-                        <p className="text-sm text-text-muted">
+                        {/* <p className="text-sm text-text-muted">
                           {order.products && order.products.length > 0
                             ? order.products
                                 .slice(0, 2)
@@ -382,12 +354,12 @@ const Orders = () => {
                                 .join(", ") +
                               (order.products.length > 2 ? "..." : "")
                             : "No products"}
-                        </p>
+                        </p> */}
                       </div>
                     </div>
 
                     {/* Quick View Book Details Links */}
-                    {order.products && order.products.length > 0 && (
+                    {/* {order.products && order.products.length > 0 && (
                       <div className="hidden md:flex items-center gap-2">
                         {order.products.slice(0, 2).map((product, idx) => {
                           const productInfo = getProductInfo(product);
@@ -415,7 +387,7 @@ const Orders = () => {
                           </span>
                         )}
                       </div>
-                    )}
+                    )} */}
                   </div>
                 </div>
               </div>
@@ -442,354 +414,97 @@ const Orders = () => {
             </div>
           )}
         </div>
+
+
+        {/* 🟢 PAGINATION BUTTONS (Product Listing Jaisi Same UI) */}
+        {!loading && totalPages > 1 && (
+          <div className="flex justify-center items-center mt-10 mb-10 gap-3 font-montserrat">
+            {/* FIRST PAGE BUTTON */}
+            <button
+              disabled={currentPage === 1}
+              onClick={() => handlePageChange(1)}
+              className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all ${
+                currentPage === 1
+                  ? 'text-cream-200 border-cream-100 cursor-not-allowed'
+                  : 'text-primary border-primary hover:bg-primary hover:text-white shadow-sm active:scale-95'
+              }`}
+              title="First Page"
+            >
+              <ChevronLeft size={18} strokeWidth={3} className="-mr-2" />
+              <ChevronLeft size={18} strokeWidth={3} />
+            </button>
+
+            {/* PREV BUTTON */}
+            <button
+              disabled={currentPage === 1}
+              onClick={() => handlePageChange(currentPage - 1)}
+              className={`flex items-center gap-1 px-5 py-2.5 rounded-full border-2 font-bold text-[11px] uppercase tracking-widest transition-all ${
+                currentPage === 1
+                  ? 'text-cream-200 border-cream-100 cursor-not-allowed'
+                  : 'text-primary border-primary hover:bg-primary hover:text-white shadow-md active:scale-95'
+              }`}
+            >
+              <ChevronLeft size={16} strokeWidth={3} /> PREV
+            </button>
+
+            {/* PAGE NUMBERS */}
+            <div className="flex items-center gap-2">
+              {[...Array(totalPages)].map((_, index) => {
+                const pageNum = index + 1;
+                if (pageNum === 1 || pageNum === totalPages || (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)) {
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => handlePageChange(pageNum)}
+                      className={`w-11 h-11 rounded-full font-display font-bold text-sm transition-all border-2 ${
+                        currentPage === pageNum
+                          ? 'bg-primary text-white border-primary shadow-lg scale-110 z-10'
+                          : 'bg-white text-text-main border-cream-200 hover:border-primary hover:text-primary'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                }
+                if (pageNum === currentPage - 2 || pageNum === currentPage + 2) {
+                  return <span key={pageNum} className="text-cream-200 px-1 font-black">...</span>;
+                }
+                return null;
+              })}
+            </div>
+
+            {/* NEXT BUTTON */}
+            <button
+              disabled={currentPage === totalPages}
+              onClick={() => handlePageChange(currentPage + 1)}
+              className={`flex items-center gap-1 px-5 py-2.5 rounded-full border-2 font-bold text-[11px] uppercase tracking-widest transition-all ${
+                currentPage === totalPages
+                  ? 'text-cream-200 border-cream-100 cursor-not-allowed'
+                  : 'text-primary border-primary hover:bg-primary hover:text-white shadow-md active:scale-95'
+              }`}
+            >
+              NEXT <ChevronRight size={16} strokeWidth={3} />
+            </button>
+
+            {/* LAST PAGE BUTTON */}
+            <button
+              disabled={currentPage === totalPages}
+              onClick={() => handlePageChange(totalPages)}
+              className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all ${
+                currentPage === totalPages
+                  ? 'text-cream-200 border-cream-100 cursor-not-allowed'
+                  : 'text-primary border-primary hover:bg-primary hover:text-white shadow-sm active:scale-95'
+              }`}
+              title="Last Page"
+            >
+              <ChevronRight size={18} strokeWidth={3} />
+              <ChevronRight size={18} strokeWidth={3} className="-ml-2" />
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Order Details Modal */}
-      <Transition show={isModalOpen} as={Fragment}>
-        <Dialog as="div" className="relative z-50" onClose={closeOrderDetails}>
-          <TransitionChild
-            as={Fragment}
-            enter="ease-out duration-300"
-            enterFrom="opacity-0"
-            enterTo="opacity-100"
-            leave="ease-in duration-200"
-            leaveFrom="opacity-100"
-            leaveTo="opacity-0"
-          >
-            <div className="fixed inset-0 bg-black bg-opacity-25" />
-          </TransitionChild>
 
-          <div className="fixed inset-0 z-50 overflow-y-auto">
-            <div className="flex min-h-full items-center justify-center p-4">
-              <TransitionChild
-                as={Fragment}
-                enter="ease-out duration-300"
-                enterFrom="opacity-0 scale-95"
-                enterTo="opacity-100 scale-100"
-                leave="ease-in duration-200"
-                leaveFrom="opacity-100 scale-100"
-                leaveTo="opacity-0 scale-95"
-              >
-                <DialogPanel className="w-full max-w-4xl transform overflow-hidden rounded-xl bg-cream-100 shadow-xl transition-all">
-                  {selectedOrder && (
-                    <>
-                      {/* Modal Header */}
-                      <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <h2 className="text-2xl font-display font-bold text-text-main">
-                              Order #
-                              {selectedOrder.order_number ||
-                                selectedOrder.orderNumber ||
-                                String(selectedOrder.id)}
-                            </h2>
-                            <p className="text-sm text-text-muted mt-1">
-                              Placed on{" "}
-                              {new Date(
-                                selectedOrder.createdAt ||
-                                  selectedOrder.created_at,
-                              ).toLocaleDateString("en-US", {
-                                year: "numeric",
-                                month: "long",
-                                day: "numeric",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
-                            </p>
-                          </div>
-                          <button
-                            onClick={closeOrderDetails}
-                            className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
-                          >
-                            <X size={20} />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Modal Body */}
-                      <div className="p-6 max-h-[70vh] overflow-y-auto">
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                          {/* Products Section */}
-                          <div className="lg:col-span-2 space-y-4">
-                            <h3 className="font-semibold text-text-main mb-3">
-                              {selectedOrder.products?.length || 0}{" "}
-                              {selectedOrder.products?.length === 1
-                                ? "Item"
-                                : "Items"}{" "}
-                              Ordered
-                            </h3>
-
-                            <div className="space-y-4">
-                              {selectedOrder.products &&
-                              selectedOrder.products.length > 0 ? (
-                                selectedOrder.products.map((product, idx) => {
-                                  const productInfo = getProductInfo(product);
-                                  const bookLink =
-                                    getBookDetailLink(productInfo);
-
-                                  return (
-                                    <div
-                                      key={idx}
-                                      className="flex gap-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                                    >
-                                      {/* Product Image */}
-                                      <Link
-                                        to={bookLink || "#"}
-                                        className="w-20 h-20 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden hover:opacity-80 transition-opacity"
-                                      >
-                                        {productInfo.default_image ? (
-                                          <img
-                                            src={productInfo.default_image}
-                                            alt={productInfo.title || "Product"}
-                                            className="w-full h-full object-cover"
-                                            onError={(e) => {
-                                              e.target.style.display = "none";
-                                              e.target.nextSibling.style.display =
-                                                "block";
-                                            }}
-                                          />
-                                        ) : null}
-                                        <ShoppingBag
-                                          className="w-8 h-8 text-gray-400"
-                                          style={{
-                                            display: productInfo.default_image
-                                              ? "none"
-                                              : "block",
-                                          }}
-                                        />
-                                      </Link>
-
-                                      {/* Product Details */}
-                                      <div className="flex-1 min-w-0">
-                                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
-                                          <div className="flex-1">
-                                            <Link
-                                              to={bookLink || "#"}
-                                              className="hover:text-primary transition-colors"
-                                            >
-                                              <h4 className="font-medium text-text-main truncate">
-                                                {productInfo.title ||
-                                                  productInfo.name ||
-                                                  "Book"}
-                                              </h4>
-                                            </Link>
-                                            <div className="flex items-center gap-4 mt-1 text-sm text-text-muted">
-                                              <span>
-                                                Qty: {product.quantity}
-                                              </span>
-                                              <span className="font-medium text-primary">
-                                                {formatAmount(
-                                                  product.price,
-                                                  selectedOrder.currency,
-                                                )}
-                                              </span>
-                                              {product.status && (
-                                                <span
-                                                  className={`px-2 py-0.5 rounded text-xs ${getStatusColor(product.status)}`}
-                                                >
-                                                  {formatStatusLabel(
-                                                    product.status,
-                                                  )}
-                                                </span>
-                                              )}
-                                            </div>
-                                            {product.tracking_id && (
-                                              <p className="text-xs text-text-muted mt-1">
-                                                Tracking: {product.tracking_id}
-                                              </p>
-                                            )}
-                                          </div>
-
-                                          {/* Product Actions */}
-                                          <div className="flex gap-2">
-                                            {bookLink ? (
-                                              <Link
-                                                to={bookLink}
-                                                className="px-3 py-1.5 text-xs bg-primary text-white rounded hover:bg-primary-dark transition-colors"
-                                              >
-                                                View Book Details
-                                              </Link>
-                                            ) : (
-                                              <span className="px-3 py-1.5 text-xs bg-gray-200 text-gray-500 rounded cursor-not-allowed">
-                                                Product Unavailable
-                                              </span>
-                                            )}
-                                          </div>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  );
-                                })
-                              ) : (
-                                <div className="text-center py-8">
-                                  <ShoppingBag className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                                  <p className="text-text-muted">
-                                    No products found for this order
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Order Summary */}
-                          <div className="space-y-4">
-                            {/* Price Breakdown */}
-                            <div className="bg-gray-50 rounded-lg p-4">
-                              <h4 className="font-semibold text-text-main mb-3">
-                                Order Summary
-                              </h4>
-                              <div className="space-y-2 text-sm">
-                                <div className="flex justify-between">
-                                  <span className="text-text-muted">
-                                    Subtotal:
-                                  </span>
-                                  <span className="font-medium text-text-main">
-                                    {formatAmount(
-                                      selectedOrder.total || 0,
-                                      selectedOrder.currency,
-                                    )}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-text-muted">
-                                    Shipping:
-                                  </span>
-                                  <span className="font-medium text-text-main">
-                                    {formatAmount(
-                                      selectedOrder.shipping_cost || 0,
-                                      selectedOrder.currency,
-                                    )}
-                                  </span>
-                                </div>
-                                {selectedOrder.membership_discount > 0 && (
-                                  <div className="flex justify-between">
-                                    <span className="text-text-muted">
-                                      Membership Discount:
-                                    </span>
-                                    <span className="font-medium text-green-600">
-                                      -
-                                      {formatAmount(
-                                        selectedOrder.membership_discount,
-                                        selectedOrder.currency,
-                                      )}
-                                    </span>
-                                  </div>
-                                )}
-                                <div className="border-t border-gray-200 pt-2 mt-2">
-                                  <div className="flex justify-between text-lg font-bold">
-                                    <span className="text-text-main">
-                                      Total:
-                                    </span>
-                                    <span className="text-primary">
-                                      {formatAmount(
-                                        getOrderTotal(selectedOrder),
-                                        selectedOrder.currency,
-                                      )}
-                                    </span>
-                                  </div>
-                                  <p className="text-xs text-text-muted mt-1">
-                                    Order currency:{" "}
-                                    {selectedOrder.currency || "INR"}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Order Status */}
-                            <div className="bg-gray-50 rounded-lg p-4">
-                              <h4 className="font-semibold text-text-main mb-3">
-                                Order Status
-                              </h4>
-                              <div
-                                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${getStatusColor(selectedOrder.status)}`}
-                              >
-                                {getStatusIcon(selectedOrder.status)}
-                                {formatStatusLabel(selectedOrder.status)}
-                              </div>
-                            </div>
-
-                            {/* Payment Info */}
-                            <div className="bg-gray-50 rounded-lg p-4">
-                              <h4 className="font-semibold text-text-main mb-3">
-                                Payment Details
-                              </h4>
-                              <div className="space-y-2 text-sm">
-                                <div className="flex justify-between">
-                                  <span className="text-text-muted">
-                                    Method:
-                                  </span>
-                                  <span className="font-medium text-text-main">
-                                    {selectedOrder.payment_type ||
-                                      "Not specified"}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-text-muted">
-                                    Status:
-                                  </span>
-                                  <span
-                                    className={`font-medium ${selectedOrder.payment_status === "Paid" ? "text-green-600" : "text-yellow-600"}`}
-                                  >
-                                    {selectedOrder.payment_status || "Pending"}
-                                  </span>
-                                </div>
-                                {selectedOrder.transaction_id && (
-                                  <div className="flex justify-between">
-                                    <span className="text-text-muted">
-                                      Transaction ID:
-                                    </span>
-                                    <span className="font-mono text-xs text-text-main">
-                                      {selectedOrder.transaction_id}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Shipping Address */}
-                            {(selectedOrder.shippingFirstName || selectedOrder.shipping_details) && (
-                              <div className="bg-gray-50 rounded-lg p-4">
-                                <h4 className="font-semibold text-text-main mb-3">
-                                  Shipping Address
-                                </h4>
-                                <div className="text-sm text-text-muted space-y-1">
-                                  <p className="font-medium text-text-main">
-                                    {selectedOrder.shippingFirstName || selectedOrder.shipping_details?.first_name}{" "}
-                                    {selectedOrder.shippingLastName || selectedOrder.shipping_details?.last_name}
-                                  </p>
-                                  <p>
-                                    {selectedOrder.shippingAddress1 || selectedOrder.shipping_details?.address_1}
-                                  </p>
-                                  {(selectedOrder.shippingAddress2 || selectedOrder.shipping_details?.address_2) && (
-                                    <p>
-                                      {selectedOrder.shippingAddress2 || selectedOrder.shipping_details?.address_2}
-                                    </p>
-                                  )}
-                                  <p>
-                                    {selectedOrder.shippingCity || selectedOrder.shipping_details?.city},{" "}
-                                    {selectedOrder.shippingState || selectedOrder.shipping_details?.state_region}{" "}
-                                    {selectedOrder.shippingPostcode || selectedOrder.shipping_details?.postcode}
-                                  </p>
-                                  <p>
-                                    {selectedOrder.shippingCountry || selectedOrder.shipping_details?.country}
-                                  </p>
-                                  <p className="text-primary">
-                                    📞 {selectedOrder.shippingPhone || selectedOrder.shipping_details?.phone}
-                                  </p>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </DialogPanel>
-              </TransitionChild>
-            </div>
-          </div>
-        </Dialog>
-      </Transition>
     </AccountLayout>
   );
 }

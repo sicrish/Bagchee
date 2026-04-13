@@ -43,9 +43,9 @@ useEffect(() => {
           price_inr: data.priceInr || '',
           
           // Boolean to String conversion for Select Dropdown
-          active: data.active ? 'yes' : 'no',
-
-          order: data.ord !== undefined ? data.ord : ''
+          active: data.isActive ? 'yes' : 'no', 
+          
+          order: data.order !== undefined ? data.order : ''
         });
       }
     } catch (error) {

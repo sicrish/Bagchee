@@ -16,6 +16,7 @@ const PagesDashboard = () => {
     { title: "AUTHORS & PUBLISHERS", icon: ListIcon, link: "/admin/authors-publishers" },
     { title: "PRIVACY", icon: ListIcon, link: "/admin/privacy" },
     { title: "TERMS OF USE", icon: ListIcon, link: "/admin/terms-of-use" },
+    { title: "DISCLAIMER", icon: ListIcon, link: "/admin/disclaimer" },
   ];
 
   return (

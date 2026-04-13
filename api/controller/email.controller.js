@@ -324,3 +324,64 @@ export const sendOrderStatusEmail = async (email, order) => {
         throw error;
     }
 };
+
+// Payment link email — sent to customer when admin approves a deferred CC/PayPal order
+export const sendPaymentLinkEmail = async (email, order, paymentLink) => {
+    try {
+        const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+        });
+
+        const firstName = escapeHtml(order.shippingFirstName || order.customer?.name?.split(' ')[0] || 'Valued Customer');
+        const orderNum  = escapeHtml(order.orderNumber || `#${order.id}`);
+        const safeLink  = paymentLink; // URL — not user-supplied, safe to embed
+
+        const template = `
+            <div style="font-family:'Inter',Helvetica,Arial,sans-serif;background-color:${theme.cream};padding:40px 0;">
+              <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 15px rgba(0,0,0,.1);border:1px solid #e6decd;">
+                <div style="background:${theme.primary};padding:35px;text-align:center;">
+                  <h1 style="color:#fff;margin:0;font-size:26px;font-weight:700;">Bagchee</h1>
+                  <p style="color:#fff;margin-top:5px;opacity:.9;font-size:14px;">Your Favorite Bookstore</p>
+                </div>
+                <div style="padding:40px 30px;">
+                  <h2 style="color:${theme.textMain};font-size:22px;margin-bottom:8px;font-weight:700;">Your Order Has Been Approved!</h2>
+                  <p style="color:${theme.textMain};font-size:15px;line-height:1.7;margin-bottom:6px;">Hi <strong>${firstName}</strong>,</p>
+                  <p style="color:${theme.textMain};font-size:15px;line-height:1.7;margin-bottom:24px;">
+                    Great news! Your order <strong>${orderNum}</strong> has been reviewed and approved by our team.
+                    Please click the button below to complete your payment securely.
+                  </p>
+                  <div style="text-align:center;margin:32px 0;">
+                    <a href="${safeLink}" style="display:inline-block;background:${theme.primary};color:#fff;text-decoration:none;padding:16px 40px;font-size:16px;font-weight:700;border-radius:8px;letter-spacing:.5px;">
+                      Complete Payment →
+                    </a>
+                  </div>
+                  <p style="font-size:13px;color:${theme.textMuted};margin-top:20px;">
+                    If the button doesn't work, copy and paste this link into your browser:<br>
+                    <a href="${safeLink}" style="color:${theme.primary};word-break:break-all;">${safeLink}</a>
+                  </p>
+                  <div style="margin-top:24px;padding:16px;background:#f0f9ff;border-radius:8px;border:1px solid #bae6fd;">
+                    <p style="font-size:13px;color:#0369a1;margin:0;">
+                      This payment link is unique to your order and expires once used.
+                      If you have any questions, please reply to this email.
+                    </p>
+                  </div>
+                </div>
+                <div style="background:#fffdf5;padding:20px;text-align:center;border-top:1px solid #e6decd;">
+                  <p style="font-size:12px;color:${theme.textMuted};margin:0;">&copy; ${new Date().getFullYear()} Bagchee. All rights reserved.</p>
+                </div>
+              </div>
+            </div>
+        `;
+
+        await transporter.sendMail({
+            from: `"Bagchee Team" <${process.env.EMAIL_USER}>`,
+            to: email,
+            subject: `Action Required: Complete Payment for Order ${orderNum}`,
+            html: template
+        });
+    } catch (error) {
+        console.error('Payment link email failed:', error.message);
+        throw error;
+    }
+};

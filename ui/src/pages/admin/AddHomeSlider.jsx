@@ -35,7 +35,7 @@ const AddHomeSlider = () => {
   const getFullImageUrl = (path) => {
       if (!path) return null;
       if (path.startsWith('http')) return path;
-      const API_BASE = process.env.REACT_APP_API_URL?.replace('/api', '') || "http://localhost:3001";
+      const API_BASE = process.env.REACT_APP_API_URL?.replace('/api', '') || "http://localhost:5000";
       return `${API_BASE}/${path.replace(/^\//, '')}`;
   };
 

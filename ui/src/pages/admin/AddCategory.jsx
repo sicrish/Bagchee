@@ -5,8 +5,8 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import axios from '../../utils/axiosConfig';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { validateImageFiles } from '../../utils/fileValidator';
+import { useQuery, useMutation } from '@tanstack/react-query'; // 🟢 React Query added
+import { validateImageFiles } from '../../utils/fileValidator'; // 🟢 Image Validator added
 
 const AddCategory = () => {
   const navigate = useNavigate();
@@ -16,7 +16,7 @@ const AddCategory = () => {
 
   const [formData, setFormData] = useState({
     slug: '',
-    parentSlug: '',
+    parentsSlug: '',
     mainModule: '',
     oldId: '',
     parentId: '',
@@ -28,11 +28,12 @@ const AddCategory = () => {
     metaTitle: '',
     metaKeywords: '',
     metaDescription: '',
-    newsletterCategory: 'no',
-    newsletterOrder: '',
     productType: '',
+    newsletter: 'no',
+    newsletterCategoryOrder: ''
   });
 
+  // 🟢 React Query: Fetch Parent Categories (Fast & Cached)
   const { data: parentCategories = [] } = useQuery({
     queryKey: ['parentCategories'],
     queryFn: async () => {
@@ -42,9 +43,10 @@ const AddCategory = () => {
       }
       return [];
     },
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
   });
 
+  // 🟢 React Query: Mutation for submitting form
   const saveCategoryMutation = useMutation({
     mutationFn: async (submitData) => {
       const response = await axios.post(`${process.env.REACT_APP_API_URL}/category/save`, submitData, {
@@ -54,6 +56,7 @@ const AddCategory = () => {
     }
   });
 
+  // Preview Generation & Memory Cleanup
   useEffect(() => {
     if (!image) {
       setPreview(null);
@@ -61,9 +64,11 @@ const AddCategory = () => {
     }
     const objectUrl = URL.createObjectURL(image);
     setPreview(objectUrl);
+
     return () => URL.revokeObjectURL(objectUrl);
   }, [image]);
 
+  // Remove Image Logic
   const removeImage = useCallback(() => {
     setImage(null);
     setPreview(null);
@@ -71,30 +76,66 @@ const AddCategory = () => {
     if (fileInput) fileInput.value = "";
   }, []);
 
+  // 🟢 Image Handler with Validation
   const handleImageChange = useCallback((e) => {
     const file = e.target.files[0];
     if (!file) return;
+
     if (validateImageFiles(file)) {
       setImage(file);
     } else {
-      e.target.value = "";
+      e.target.value = ""; // Clear input if validation fails
       setPreview(null);
     }
   }, []);
 
   const handleChange = useCallback((e) => {
     const { name, value } = e.target;
+
     setFormData((prev) => {
       let updatedData = { ...prev, [name]: value };
+
       if (name === 'categoryTitle') {
         const newSlug = value.toLowerCase().replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-');
         updatedData.slug = newSlug;
         if (!prev.metaTitle) updatedData.metaTitle = value;
+
+        if (prev.parentId) {
+          const parent = parentCategories.find(cat => cat._id === prev.parentId);
+          if (parent) {
+            const parentFullRoute = parent.parentslug || parent.parentsSlug;
+            const basePath = (parentFullRoute && parentFullRoute !== 'root-category')
+              ? parentFullRoute
+              : parent.slug;
+            updatedData.parentsSlug = `${basePath}/${newSlug}`;
+          }
+        }
+      }
+
+      if (name === 'parentId') {
+        const selectedParent = parentCategories.find(cat => cat._id === value);
+        if (selectedParent) {
+          updatedData.level = (Number(selectedParent.level) || 0) + 1;
+          const currentSlug = updatedData.slug || prev.slug || '';
+
+          const parentFullRoute = selectedParent.parentslug || selectedParent.parentsSlug;
+          const basePath = (parentFullRoute && parentFullRoute !== 'root-category')
+            ? parentFullRoute
+            : selectedParent.slug;
+
+          updatedData.parentsSlug = currentSlug
+            ? `${basePath}/${currentSlug}`
+            : basePath;
+        } else {
+          updatedData.parentsSlug = 'root-category';
+          updatedData.level = 0;
+        }
       }
       return updatedData;
     });
-  }, []);
+  }, [parentCategories]);
 
+  // 🟢 Form Submission using useMutation
   const handleSubmit = (e, actionType) => {
     e.preventDefault();
 
@@ -102,7 +143,7 @@ const AddCategory = () => {
       return toast.error("Category Title and Slug are required!");
     }
 
-    const toastId = toast.loading("Saving category...");
+    const toastId = toast.loading("Saving category to Cloudinary...");
 
     const data = new FormData();
     Object.keys(formData).forEach(key => {
@@ -116,20 +157,20 @@ const AddCategory = () => {
       onSuccess: (resData) => {
         if (resData.status) {
           toast.success(resData.msg || "Category Saved Successfully!", { id: toastId });
+
           if (actionType === 'back') {
             navigate('/admin/categories');
           } else {
             setFormData({
-              slug: '', parentSlug: '', mainModule: '', oldId: '',
-              parentId: '', categoryTitle: '', active: 'inactive',
-              lft: '', rght: '', level: '',
-              metaTitle: '', metaKeywords: '', metaDescription: '',
-              newsletterCategory: 'no', newsletterOrder: '', productType: '',
+              slug: '', parentsSlug: '', mainModule: '', oldId: '', parentId: '',
+              categoryTitle: '', active: 'inactive', lft: '', rght: '', level: '',
+              metaTitle: '', metaKeywords: '', metaDescription: '', productType: '',
+              newsletter: 'no', newsletterCategoryOrder: ''
             });
             removeImage();
           }
         } else {
-          toast.error(resData.msg || "Failed to save category", { id: toastId });
+           toast.error(resData.msg || "Failed to save category", { id: toastId });
         }
       },
       onError: (error) => {
@@ -151,19 +192,19 @@ const AddCategory = () => {
             <input type="text" name="slug" value={formData.slug} onChange={handleChange} className="theme-input" placeholder="e.g., book-category-slug" />
           </FormRow>
 
-          <FormRow label="Parents Slug">
-            <input type="text" name="parentSlug" value={formData.parentSlug} onChange={handleChange} className="theme-input" />
+          <FormRow label="Parents slug">
+            <input type="text" name="parentsSlug" value={formData.parentsSlug} onChange={handleChange} className="theme-input" />
           </FormRow>
 
-          <FormRow label="Main Module">
+          <FormRow label="Main module">
             <input type="text" name="mainModule" value={formData.mainModule} onChange={handleChange} className="theme-input" />
           </FormRow>
 
-          <FormRow label="Old ID">
+          <FormRow label="Old id">
             <input type="text" name="oldId" value={formData.oldId} onChange={handleChange} className="theme-input" />
           </FormRow>
 
-          <FormRow label="Parent ID">
+          <FormRow label="Parent id">
             <div className="relative">
               <select
                 name="parentId"
@@ -174,8 +215,8 @@ const AddCategory = () => {
                 <option value="">Select Parent id</option>
                 {parentCategories && parentCategories.length > 0 ? (
                   parentCategories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.title || "Unnamed Category"}
+                    <option key={category._id} value={category._id}>
+                      {category.categorytitle || category.categoryTitle || category.title || "Unnamed Category"}
                     </option>
                   ))
                 ) : (
@@ -228,7 +269,9 @@ const AddCategory = () => {
             <input type="text" name="metaDescription" value={formData.metaDescription} onChange={handleChange} className="theme-input" />
           </FormRow>
 
-          {/* Category Image */}
+         
+
+          {/* 🟢 Category Image with Validation and Preview */}
           <FormRow label="Category Image">
             <div className="flex items-start gap-4">
               <div className="flex flex-col gap-2 justify-center h-16">
@@ -243,11 +286,15 @@ const AddCategory = () => {
                       accept="image/*"
                     />
                   </label>
-
+                  
                   {preview && (
                     <div className="relative group shrink-0">
                       <div className="w-16 h-16 rounded-lg border border-gray-200 overflow-hidden shadow-sm bg-white p-0.5">
-                        <img src={preview} alt="Preview" className="w-full h-full object-cover rounded-md" />
+                        <img
+                          src={preview}
+                          alt="Preview"
+                          className="w-full h-full object-cover rounded-md"
+                        />
                       </div>
                       <button
                         type="button"
@@ -270,22 +317,22 @@ const AddCategory = () => {
             </div>
           </FormRow>
 
-          <FormRow label="Newsletter Category">
+          <FormRow label="Newsletter category">
             <div className="flex flex-col gap-3 pt-2">
-              {[{ value: 'yes', label: 'Yes' }, { value: 'no', label: 'No' }].map((opt) => (
-                <label key={opt.value} className="flex items-center gap-3 text-sm text-text-main font-medium cursor-pointer group font-montserrat">
-                  <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${formData.newsletterCategory === opt.value ? 'border-primary' : 'border-gray-400'}`}>
-                    {formData.newsletterCategory === opt.value && <div className="w-2 h-2 bg-primary rounded-full"></div>}
+              {['yes', 'no'].map((opt) => (
+                <label key={opt} className="flex items-center gap-3 text-sm text-text-main font-medium cursor-pointer group uppercase font-montserrat">
+                  <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${formData.newsletter === opt ? 'border-primary' : 'border-gray-400'}`}>
+                    {formData.newsletter === opt && <div className="w-2 h-2 bg-primary rounded-full"></div>}
                   </div>
-                  <input type="radio" name="newsletterCategory" value={opt.value} checked={formData.newsletterCategory === opt.value} onChange={handleChange} className="hidden" />
-                  <span className="group-hover:text-primary transition-colors">{opt.label}</span>
+                  <input type="radio" name="newsletter" value={opt} checked={formData.newsletter === opt} onChange={handleChange} className="hidden" />
+                  <span className="group-hover:text-primary transition-colors">{opt}</span>
                 </label>
               ))}
             </div>
           </FormRow>
 
-          <FormRow label="Newsletter Category Order">
-            <input type="text" name="newsletterOrder" value={formData.newsletterOrder} onChange={handleChange} className="theme-input" />
+          <FormRow label="Newsletter category order">
+            <input type="text" name="newsletterCategoryOrder" value={formData.newsletterCategoryOrder} onChange={handleChange} className="theme-input" />
           </FormRow>
 
           <div className="pt-8 flex flex-wrap justify-center gap-4 border-t border-gray-100 mt-8 font-montserrat">
@@ -324,7 +371,7 @@ const AddCategory = () => {
           font-family: 'Roboto', sans-serif;
         }
         .theme-input:focus {
-          border-color: #008DDA;
+          border-color: #008DDA; 
           box-shadow: 0 0 0 3px rgba(0, 141, 218, 0.1);
           outline: none;
         }

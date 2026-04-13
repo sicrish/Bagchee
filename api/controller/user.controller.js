@@ -113,7 +113,8 @@ export const login = async (req, res) => {
             userDetails: {
                 id: user.id, name: user.name, email: user.email,
                 phone: user.phone, profileImage: user.profileImage,
-                role: user.role, membership: user.membership
+                role: user.role, membership: user.membership,
+                forceDirectPayment: user.forceDirectPayment
             }
         });
     } catch (error) {
@@ -162,7 +163,8 @@ export const fetchUserById = async (req, res) => {
             select: { id: true, name: true, firstName: true, lastName: true, email: true,
                 username: true, phone: true, role: true, status: true, profileImage: true,
                 membership: true, membershipStart: true, membershipEnd: true, company: true,
-                gender: true, city: true, state: true, pincode: true, country: true, createdAt: true }
+                gender: true, city: true, state: true, pincode: true, country: true, createdAt: true,
+                forceDirectPayment: true }
         });
         if (!user) return res.status(404).json({ status: false, msg: 'User not found' });
         res.status(200).json({ status: true, data: user });
@@ -229,6 +231,10 @@ export const update = async (req, res) => {
         if (state !== undefined) updateData.state = state;
         if (pincode !== undefined) updateData.pincode = pincode;
         if (country !== undefined) updateData.country = country;
+        // Admin-only: override payment gateway behaviour for this user
+        if (req.body.forceDirectPayment !== undefined && isAdmin) {
+            updateData.forceDirectPayment = req.body.forceDirectPayment === true || req.body.forceDirectPayment === 'true';
+        }
 
         const user = await prisma.user.update({ where: { id: userId }, data: updateData });
         res.status(200).json({ status: true, msg: 'Profile Updated Successfully', data: user });

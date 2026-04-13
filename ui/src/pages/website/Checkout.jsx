@@ -149,6 +149,7 @@ const Checkout = () => {
   const [loading, setLoading] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [placedOrderDetails, setPlacedOrderDetails] = useState(null);
+  const [purchaseOrderNumber, setPurchaseOrderNumber] = useState('');
 
   const [membershipPrice, setMembershipPrice] = useState(0);
 
@@ -336,8 +337,8 @@ const Checkout = () => {
 
   let couponDiscount = 0;
   if (appliedCoupon) {
-    const afterMember = (subtotal + currentMembershipCost) - memberDiscount;
-    couponDiscount = appliedCoupon.discountType === "fixed" ? Number(appliedCoupon.discount) : (afterMember * Number(appliedCoupon.discount) / 100);
+    // discount is always a pre-calculated dollar amount from the server
+    couponDiscount = Number(appliedCoupon.discount) || 0;
   }
 
   // 🏆 8. GRAND TOTAL
@@ -541,43 +542,36 @@ const Checkout = () => {
     setApplyingCoupon(true);
     try {
       const code = promoInput.trim().toUpperCase();
-      const found = activeCoupons.find((c) => c.code.toUpperCase() === code);
-      if (!found) {
-        toast.error("Invalid or inactive promo code");
+      const cartItems = cart.map((i) => ({
+        price: Number(i.price) || 0,
+        quantity: Number(i.quantity) || 1,
+      }));
+      const res = await axios.post(`${API_BASE_URL}/coupons/apply`, {
+        code,
+        cartTotal: subtotal,
+        cartItems,
+      });
+      if (!res.data?.status) {
+        toast.error(res.data?.msg || "Invalid promo code");
         return;
       }
-      if (
-        found.members_only === "active" &&
-        (!user || user.membership !== "active")
-      ) {
+      const data = res.data.data;
+      // Members-only gate (server already checks, but surface friendly message)
+      if (data.membersOnly && (!user || user.membership !== "active")) {
         toast.error("This coupon is for members only");
         return;
       }
-      if (found.minimum_buy && subtotal < found.minimum_buy) {
-        toast.error(
-          `Minimum order of ${formatPrice(found.minimum_buy)} required`,
-        );
-        return;
-      }
-      const now = new Date();
-      if (found.valid_from && new Date(found.valid_from) > now) {
-        toast.error("Coupon not yet valid");
-        return;
-      }
-      if (found.valid_to && new Date(found.valid_to) < now) {
-        toast.error("Coupon has expired");
-        return;
-      }
-      const discountType = found.fix_amount === "active" ? "fixed" : "pct";
       setAppliedCoupon({
-        code: found.code,
-        discount: found.amount,
-        discountType,
-        couponId: found.id,
+        code: data.code,
+        discount: data.discount,   // pre-calculated dollar amount
+        discountType: "fixed",     // always use pre-calculated value
+        couponId: data.couponId,
+        couponType: data.couponType,
       });
       toast.success("Promo code applied!");
     } catch (err) {
-      toast.error("Failed to validate promo code");
+      const msg = err.response?.data?.msg || "Failed to validate promo code";
+      toast.error(msg);
     } finally {
       setApplyingCoupon(false);
     }
@@ -589,9 +583,33 @@ const Checkout = () => {
     toast.success("Promo code removed");
   };
 
-  // ─── Credit card helpers ───
+  // ─── Payment method type helpers ───
   const isCreditCardMethod = (method) =>
     method?.title?.toLowerCase().includes("credit card");
+
+  const isWireTransferMethod = (method) => {
+    const t = (method?.title || '').toLowerCase();
+    return t.includes('wire') || t.includes('bank transfer');
+  };
+
+  const isPurchaseOrderMethod = (method) => {
+    const t = (method?.title || '').toLowerCase();
+    return t.includes('purchase order');
+  };
+
+  const isCardOrPayPalMethod = (method) => {
+    const t = (method?.title || '').toLowerCase();
+    return t.includes('credit card') || t.includes('paypal') || t.includes('debit card') || t.includes('debit');
+  };
+
+  // Is this a deferred flow (no immediate gateway) for the current user?
+  const isDeferredFlow = () => {
+    if (!isCardOrPayPalMethod(selectedPayment)) return false;
+    const mode = settings?.paymentGatewayMode || settings?.payment_gateway_mode || 'deferred';
+    const auth = (() => { try { return JSON.parse(localStorage.getItem('auth') || '{}'); } catch { return {}; } })();
+    const forcesDirect = auth?.userDetails?.forceDirectPayment === true;
+    return mode === 'deferred' && !forcesDirect;
+  };
 
 
   // ─── Place order ───
@@ -627,6 +645,14 @@ const Checkout = () => {
         !phone
       ) {
         toast.error("Please fill all required delivery fields");
+        return;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        toast.error("Please enter a valid email address");
+        return;
+      }
+      if (!/^\+?[\d\s\-()]{7,20}$/.test(phone)) {
+        toast.error("Please enter a valid phone number");
         return;
       }
     }
@@ -762,7 +788,6 @@ const Checkout = () => {
         currency: currency,
         payment_type: paymentTitle,
         shipping_type: appliedShipping?.title || "Standard Shipping",
-        status: "Processing",
         payment_status: "Pending",
         transaction_id: "",
         membership: isLoggedInMember ? "Yes" : "No",
@@ -771,6 +796,7 @@ const Checkout = () => {
         shipping_details: shippingDetails,
         billing_details: billingDetails,
         comment: "",
+        ...(isPurchaseOrderMethod(selectedPayment) && { purchaseOrderNumber }),
       };
 
       const res = await axios.post(`${API_BASE_URL}/orders/save`, orderData);
@@ -783,17 +809,46 @@ const Checkout = () => {
 
       const savedOrder = res.data.data;
 
+      // Build bank details to pass to receipt for wire transfer
+      const bankDetails = settings?.bankDetails || null;
+
       // ─── COD: no payment gateway needed ───
       if (isCOD(selectedPayment)) {
-        setPlacedOrderDetails(savedOrder);
-        setOrderPlaced(true);
         toast.success("Order placed successfully!");
         clearCart();
         setLoading(false);
+        navigate("/order-receipt", { state: { orderDetails: savedOrder, bankDetails }, replace: true });
         return;
       }
 
-      // ─── Online payment: Razorpay ───
+      // ─── Wire Transfer: show bank details on receipt ───
+      if (isWireTransferMethod(selectedPayment)) {
+        toast.success("Order placed! Please transfer funds using the bank details shown.");
+        clearCart();
+        setLoading(false);
+        navigate("/order-receipt", { state: { orderDetails: savedOrder, bankDetails }, replace: true });
+        return;
+      }
+
+      // ─── Purchase Order: straight to receipt ───
+      if (isPurchaseOrderMethod(selectedPayment)) {
+        toast.success("Order placed successfully!");
+        clearCart();
+        setLoading(false);
+        navigate("/order-receipt", { state: { orderDetails: savedOrder, bankDetails }, replace: true });
+        return;
+      }
+
+      // ─── CC/PayPal Deferred: admin reviews first, no gateway now ───
+      if (isDeferredFlow()) {
+        toast.success("Order received! Our team will review it shortly.");
+        clearCart();
+        setLoading(false);
+        navigate("/order-receipt", { state: { orderDetails: savedOrder, bankDetails }, replace: true });
+        return;
+      }
+
+      // ─── CC/PayPal Direct: Razorpay ───
       const rzpRes = await axios.post(`${API_BASE_URL}/razorpay/create-order`, {
         orderId: savedOrder.id,
       });
@@ -830,10 +885,9 @@ const Checkout = () => {
               orderId: savedOrder.id,
             });
             if (verifyRes.data?.status) {
-              setPlacedOrderDetails(savedOrder);
-              setOrderPlaced(true);
               toast.success("Payment successful!");
               clearCart();
+              navigate("/order-receipt", { state: { orderDetails: savedOrder }, replace: true });
             } else {
               toast.error("Payment verification failed. Please contact support.");
             }
@@ -1974,6 +2028,30 @@ const Checkout = () => {
                 )}
               </div>
             </div>
+
+            {/* ─── Purchase Order Number (shown only when PO payment selected) ─── */}
+            {isPurchaseOrderMethod(selectedPayment) && (
+              <div className="bg-cream-100 border border-primary/30 shadow-sm rounded-lg overflow-hidden">
+                <div className="px-5 py-4 border-b border-primary/20 bg-primary/5">
+                  <h2 className="text-sm font-display font-bold text-primary uppercase tracking-wide">
+                    Purchase Order Details
+                  </h2>
+                </div>
+                <div className="p-5">
+                  <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">
+                    Purchase Order Number
+                  </label>
+                  <input
+                    type="text"
+                    value={purchaseOrderNumber}
+                    onChange={(e) => setPurchaseOrderNumber(e.target.value)}
+                    placeholder="Enter your PO number"
+                    className="w-full border border-gray-300 rounded px-4 py-2.5 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 bg-white font-body"
+                  />
+                  <p className="text-[10px] text-gray-400 mt-1">Your order will be processed immediately upon submission.</p>
+                </div>
+              </div>
+            )}
 
             {/* ─── 3b. BILLING ADDRESS ─── */}
             <div className="bg-cream-100 border border-gray-200 shadow-sm">

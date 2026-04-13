@@ -9,7 +9,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
-import { exportToExcel } from '../../utils/exportExcel';
+import { exportToExcel } from '../../utils/exportExcel.js';
 
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:3001";
@@ -75,14 +75,15 @@ const CouponsList = () => {
         "Sr No": i + 1,
         "Coupon Title": c.title || "N/A",
         "Code": c.code,
-        "Discount Type": (c.fixAmount || c.fix_amount) ? "Fixed Amount" : "Percentage",
-        "Discount Value": c.amount || 0,
-        "Min. Purchase": c.minimumBuy || c.minimum_buy || 0,
-        "Valid From": formatDate(c.validFrom || c.valid_from),
-        "Expiry Date": formatDate(c.validTo || c.valid_to),
-        "Status": c.active ? "Active" : "Inactive"
+        "Discount Type": c.fix_amount === 'active' ? "Fixed Amount" : "Percentage", // Model logic
+        "Discount Value": c.amount || 0, // Model mein 'amount' field hai
+        "Min. Purchase": c.minimum_buy || 0,
+        "Valid From": formatDate(c.valid_from),
+        "Expiry Date": formatDate(c.valid_to),
+        "Status": c.active === 'active' ? "Active" : "Inactive"
       }));
 
+      // 3. Create Workbook
       await exportToExcel(dataToExport, "Coupons", "Coupons_Report");
       toast.success("Excel exported successfully! 📊", { id: toastId });
     } catch (error) {
@@ -304,10 +305,10 @@ const CouponsList = () => {
                 </tr>
               ) : filteredCoupons.length > 0 ? (
                 filteredCoupons.map((coupon, index) => {
-                  const isExpired = (coupon.validTo || coupon.valid_to) && new Date(coupon.validTo || coupon.valid_to) < new Date();
+                  const isExpired = coupon.valid_to && new Date(coupon.valid_to) < new Date();
 
                   return (
-                    <tr key={coupon.id} className="hover:bg-primary/5 transition-colors group">
+                    <tr key={coupon._id} className="hover:bg-primary/5 transition-colors group">
                       <td className="p-4 border-r border-gray-50 text-center font-mono text-xs text-gray-400">
                         {index + 1}
                       </td>
@@ -326,19 +327,19 @@ const CouponsList = () => {
                           <Copy size={10} className="opacity-40 group-hover/btn:opacity-100" />
                         </button>
                       </td>
-                      <td className="p-4 border-r border-gray-50 text-gray-600 font-medium text-xs italic">{formatDate(coupon.validFrom || coupon.valid_from)}</td>
-                      <td className="p-4 border-r border-gray-50 text-gray-600 font-medium text-xs italic">{formatDate(coupon.validTo || coupon.valid_to)}</td>
+                      <td className="p-4 border-r border-gray-50 text-gray-600 font-medium text-xs italic">{formatDate(coupon.valid_from)}</td>
+                      <td className="p-4 border-r border-gray-50 text-gray-600 font-medium text-xs italic">{formatDate(coupon.valid_to)}</td>
                       <td className="p-4">
                         <div className="flex justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
-                            onClick={() => navigate(`/admin/edit-coupons/${coupon.id}`)}
+                            onClick={() => navigate(`/admin/edit-coupons/${coupon._id}`)}
                             className="p-2 bg-white border border-gray-200 rounded-lg text-primary hover:bg-primary hover:text-white transition-all shadow-sm"
                             title="Edit"
                           >
                             <Edit size={14} />
                           </button>
                           <button
-                            onClick={() => handleDelete(coupon.id)}
+                            onClick={() => handleDelete(coupon._id)}
                             className="p-2 bg-white border border-gray-200 rounded-lg text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-sm"
                             title="Delete"
                           >

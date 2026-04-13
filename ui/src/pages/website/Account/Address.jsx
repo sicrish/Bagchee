@@ -106,7 +106,7 @@ const Address = () => {
   const handleEdit = (addr) => {
     setFormData(addr);
     setIsEditing(true);
-    setCurrentAddressId(addr.id);
+    setCurrentAddressId(addr._id);
     setShowModal(true);
   };
 
@@ -169,7 +169,7 @@ const Address = () => {
 
           {addresses.map((addr) => (
             <div
-              key={addr.id}
+              key={addr._id}
               className="bg-cream-100 border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 flex flex-col overflow-hidden"
             >
               <div className="bg-cream-200/40 px-6 py-4 border-b border-gray-200 flex justify-between items-center">
@@ -229,7 +229,7 @@ const Address = () => {
                   <Edit size={16} /> Edit
                 </button>
                 <button
-                  onClick={() => handleDelete(addr.id)}
+                  onClick={() => handleDelete(addr._id)}
                   disabled={deleteMutation.isPending}
                   className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all duration-300 disabled:opacity-50"
                 >

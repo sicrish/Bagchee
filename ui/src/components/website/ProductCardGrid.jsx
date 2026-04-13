@@ -3,10 +3,10 @@ import { CurrencyContext } from '../../context/CurrencyContext.jsx';
 import { useCart } from '../../context/CartContext.jsx';
 import { Heart, ShoppingCart } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { getProductImageUrl } from '../../utils/imageUrl';
 import toast from 'react-hot-toast';
 import { useMutation, useQueryClient } from '@tanstack/react-query'; 
 import axios from '../../utils/axiosConfig.js';
-import { getProductImageUrl } from '../../utils/imageUrl.js';
 
 const ProductCardGrid = ({ data }) => {
     const { formatPrice } = useContext(CurrencyContext);
@@ -15,21 +15,22 @@ const ProductCardGrid = ({ data }) => {
 
     // 🟢 Optimization 1: Memoize Slug Creation
     const productUrl = useMemo(() => {
-        if (!data.title) return `/books/${data.bagcheeId || data.id}/product`;
+        const id = data.bagcheeId || data.bagchee_id || data._id || data.id;
+        if (!data.title) return `/books/${id}/product`;
         const slug = data.title
             .toLowerCase()
             .trim()
             .replace(/[^a-z0-9\s-]/g, '')
             .replace(/\s+/g, '-')
             .replace(/-+/g, '-');
-        return `/books/${data.bagcheeId || data.id}/${slug}`;
-    }, [data.title, data.bagcheeId, data.id]);
+        return `/books/${id}/${slug}`;
+    }, [data.title, data.bagcheeId, data.bagchee_id, data._id, data.id]);
 
     // 🟢 Optimization 2: Memoize Pricing Logic
     const priceData = useMemo(() => {
-        const mPrice = Number(data.price || 0);                               // USD Original (MRP)
-        const rPrice = Number(data.realPrice || data.real_price || 0);       // USD Final (Discounted)
-        const iPrice = Number(data.inrPrice || data.inr_price || 0);         // Backend Fixed INR Price
+        const mPrice = Number(data.price || 0);
+        const rPrice = Number(data.realPrice ?? data.real_price ?? 0);
+        const iPrice = Number(data.inrPrice ?? data.inr_price ?? 0);
 
         // Logic: Discount tabhi hai jab MRP Final price se bada ho
         const showDiscount = mPrice > rPrice && rPrice > 0;
@@ -51,7 +52,7 @@ const ProductCardGrid = ({ data }) => {
     // 🟢 React Query Mutation for Wishlist
     const wishlistMutation = useMutation({
         mutationFn: async (product) => {
-            const response = await axios.post('/user/wishlist/toggle', { productId: product.id });
+            const response = await axios.post('/user/wishlist/toggle', { productId: product._id });
             return response.data;
         },
         onSuccess: () => {
@@ -81,7 +82,10 @@ const ProductCardGrid = ({ data }) => {
         wishlistMutation.mutate(data); 
     }, [data, toggleWishlist, wishlistMutation]);
 
-    const imageUrl = useMemo(() => getProductImageUrl(data, { width: 400 }), [data]);
+    // 🟢 Optimization 4: Smart Image URL
+    const imageUrl = useMemo(() => {
+        return getProductImageUrl(data) || "https://placehold.co/300x400?text=No+Image";
+    }, [data]);
 
     return (
         <div className="group bg-white rounded-lg border border-cream-200 overflow-hidden hover:shadow-xl transition-all duration-300 relative font-body flex flex-col h-full translate-z-0">
@@ -99,13 +103,11 @@ const ProductCardGrid = ({ data }) => {
                     <img
                         src={imageUrl}
                         alt={data.title}
-                        width={300}
-                        height={400}
                         loading="lazy"
                         decoding="async"
                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                         style={{ willChange: 'transform' }}
-                        onError={(e) => { e.target.src = "https://placehold.co/300x400/f9f5ef/1a3c5e?text=No+Cover" }}
+                        onError={(e) => { e.target.src = "https://placehold.co/300x400?text=Error" }}
                     />
                 </Link>
             </div>
@@ -121,12 +123,7 @@ const ProductCardGrid = ({ data }) => {
 
                 {/* Author */}
                 <p className="text-[11px] md:text-xs text-text-muted mb-3 line-clamp-1 font-medium italic opacity-80">
-                    {Array.isArray(data.authors) && data.authors.length > 0
-                      ? data.authors.map(pa => {
-                          const a = pa.author || pa;
-                          return a.fullName || a.full_name || `${a.firstName || a.first_name || ''} ${a.lastName || a.last_name || ''}`.trim();
-                        }).filter(Boolean).join(', ') || 'Unknown Author'
-                      : data.author?.fullName || data.author?.name || (data.author?.firstName || data.author?.first_name ? `${data.author.firstName || data.author.first_name} ${data.author.lastName || data.author.last_name || ''}` : 'Unknown Author')}
+                    {data.authors?.[0]?.author?.fullName || data.author?.name || (data.author?.first_name ? `${data.author.first_name} ${data.author.last_name || ''}` : 'Unknown Author')}
                 </p>
 
                 {/* BOTTOM ROW */}
@@ -148,12 +145,12 @@ const ProductCardGrid = ({ data }) => {
                             disabled={wishlistMutation.isPending} 
                             aria-label="Toggle Wishlist"
                             className={`p-2 rounded-full border transition-all duration-300 active:scale-75 ${
-                                isInWishlist(data.id)
+                                isInWishlist(data._id)
                                 ? 'bg-red-50 text-red-600 border-red-200'
                                 : 'bg-cream-50 text-text-muted border-cream-200 hover:bg-red-50 hover:text-red-600'
                             } ${wishlistMutation.isPending ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
-                            <Heart size={16} fill={isInWishlist(data.id) ? "currentColor" : "none"} className="md:w-[18px] md:h-[18px]" />
+                            <Heart size={16} fill={isInWishlist(data._id) ? "currentColor" : "none"} className="md:w-[18px] md:h-[18px]" />
                         </button>
                         <button
                             onClick={handleAddToCart}

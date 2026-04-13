@@ -58,20 +58,19 @@ const AddSocial = () => {
         title: d.title || '',
         link: d.link || '',
         order: d.order || '',
-        isActive: d.active ? 'true' : 'false',
-        isShareActive: d.share ? 'true' : 'false',
+        isActive: d.isActive ? 'true' : 'false',
+        isShareActive: d.isShareActive ? 'true' : 'false',
         showInFooter: d.showInFooter ? 'true' : 'false',
         showInProduct: d.showInProduct ? 'true' : 'false',
         showInCategory: d.showInCategory ? 'true' : 'false',
-        icon_image: null
+        icon_image: null 
       });
 
       // Set Preview from Server
-      const iconImg = d.image || d.icon_image;
-      if (iconImg) {
-          const imgUrl = iconImg.startsWith('http')
-              ? iconImg
-              : `${process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:3001'}${iconImg}`;
+      if (d.icon_image) {
+          const imgUrl = d.icon_image.startsWith('http') 
+              ? d.icon_image 
+              : `${process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5000'}${d.icon_image}`;
           setImagePreview(imgUrl);
       }
       
@@ -120,8 +119,7 @@ const AddSocial = () => {
   const handleSubmit = (e, actionType) => {
     e.preventDefault();
     if (!formData.title || !formData.link) return toast.error("Title and Link are required!");
-    // Edit mode mein image optional hai, Add mein required
-    if (!isEdit && !formData.icon_image && !imagePreview) return toast.error("Icon image is required!");
+
 
     const toastId = toast.loading(isEdit ? "Updating..." : "Saving...");
 

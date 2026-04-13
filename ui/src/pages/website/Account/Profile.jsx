@@ -11,7 +11,7 @@ const API_BASE_URL = process.env.REACT_APP_API_URL;
 
 // Profile Row Component (No Changes)
 const ProfileRow = ({ label, value, isInput = false, name, type = "text", onChange, icon: Icon, readOnly = false, onClick }) => (
-  <div 
+  <div
     onClick={onClick}
     className={`group flex flex-col md:flex-row items-start md:items-center justify-between py-5 border-b border-gray-100 last:border-0 px-2 transition-all gap-3 md:gap-0 ${!readOnly ? 'hover:bg-gray-50 rounded-lg cursor-pointer' : ''}`}
   >
@@ -24,7 +24,7 @@ const ProfileRow = ({ label, value, isInput = false, name, type = "text", onChan
     <div className="w-full md:w-2/3 flex items-center justify-between gap-4">
       <div className="flex-grow">
         {isInput ? (
-          <input 
+          <input
             type={type}
             name={name}
             value={value}
@@ -40,7 +40,7 @@ const ProfileRow = ({ label, value, isInput = false, name, type = "text", onChan
 
       {Icon && !readOnly && (
         <div className="text-gray-400 group-hover:text-primary transition-colors p-2 bg-gray-100 rounded-full group-hover:bg-primary-50 shrink-0">
-           <Icon size={16} />
+          <Icon size={16} />
         </div>
       )}
     </div>
@@ -118,7 +118,7 @@ const Profile = () => {
   const queryClient = useQueryClient();
   const [imagePreview, setImagePreview] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
-  const [showPasswordModal, setShowPasswordModal] = useState(false); 
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
 
   const [userData, setUserData] = useState({
     firstName: '',
@@ -131,6 +131,7 @@ const Profile = () => {
   // Load User Data (No changes)
   useEffect(() => {
     const auth = JSON.parse(localStorage.getItem("auth"));
+
     if (auth && auth.userDetails) {
       const nameParts = auth.userDetails.name ? auth.userDetails.name.split(" ") : ["", ""];
       setUserData({
@@ -141,11 +142,27 @@ const Profile = () => {
         userId: auth.userDetails.id
       });
 
-      if (auth.userDetails.profileImage && auth.userDetails.profileImage !== "") {
-        const imgPath = auth.userDetails.profileImage;
-        const finalUrl = imgPath.startsWith('http') ? imgPath : `${API_BASE_URL}${imgPath}`;
-        setImagePreview(finalUrl);
+
+      if (auth.userDetails.profileImage) {
+        let imgPath = auth.userDetails.profileImage;
+
+        if (imgPath.startsWith('http')) {
+          setImagePreview(imgPath);
+        } else {
+          // 1. Base URL nikalein (e.g., http://localhost:5000)
+          const API_ROOT = process.env.REACT_APP_API_URL?.replace('/api', '').replace(/\/$/, '');
+
+          // 2. Path ko clean karein (backslashes hatayein aur shuru ka slash fix karein)
+          const cleanPath = imgPath.replace(/\\/g, '/');
+          const formattedPath = cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;
+
+          // 3. Final URL construct karein
+          const finalUrl = `${API_ROOT}${formattedPath}`;
+
+          setImagePreview(finalUrl);
+        }
       }
+
     }
   }, []);
 
@@ -155,9 +172,9 @@ const Profile = () => {
       const authData = JSON.parse(localStorage.getItem("auth"));
       const url = `${API_BASE_URL}/user/update`;
       const res = await axios.patch(url, formData, {
-        headers: { 
+        headers: {
           'Content-Type': 'multipart/form-data',
-          'Authorization': `Bearer ${authData?.token}` 
+          'Authorization': `Bearer ${authData?.token}`
         }
       });
       return res.data;
@@ -165,16 +182,16 @@ const Profile = () => {
     onSuccess: (data) => {
       if (data.status) {
         toast.success("Profile Updated Successfully!");
-        
+
         // LocalStorage update
         const oldAuth = JSON.parse(localStorage.getItem("auth"));
-        if(oldAuth) {
-            oldAuth.userDetails = { ...oldAuth.userDetails, ...data.user };
-            localStorage.setItem("auth", JSON.stringify(oldAuth));
+        if (oldAuth) {
+          oldAuth.userDetails = { ...oldAuth.userDetails, ...data.user };
+          localStorage.setItem("auth", JSON.stringify(oldAuth));
         }
 
         // Global Cache refresh karein taaki Header me naya naam/photo dikhe
-        queryClient.invalidateQueries(['user-profile']); 
+        queryClient.invalidateQueries(['user-profile']);
       } else {
         toast.error(data.msg);
       }

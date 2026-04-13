@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Plus, Download, Printer, Search, RotateCw,
   Edit, Trash2, ChevronLeft, ChevronRight,
@@ -7,7 +7,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
-import { exportToExcel } from '../../utils/exportExcel';
+import { exportToExcel } from '../../utils/exportExcel.js';
 
 
 const OrdersList = () => {
@@ -19,8 +19,9 @@ const OrdersList = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10); // Default 10 entries
 
-  // --- 1. Global Search State (Ise States wale section mein add karein) ---
   const [globalSearch, setGlobalSearch] = useState("");
+  const [totalOrders, setTotalOrders] = useState(0);
+  const searchDebounceRef = useRef(null);
 
   // 🟢 1. Filtering States
   const [filters, setFilters] = useState({
@@ -33,20 +34,23 @@ const OrdersList = () => {
     payment_status: ""
   });
 
-  const fetchOrders = async (exportMode = false) => {
+  const fetchOrders = async (exportMode = false, searchOverride = undefined) => {
     if (!exportMode) setLoading(true);
     try {
       const API_URL = process.env.REACT_APP_API_URL;
-      // 🟢 limit mein itemsPerPage bhej rahe hain
+      const searchTerm = searchOverride !== undefined ? searchOverride : globalSearch;
+      const searchParam = searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : '';
+
       const url = exportMode
-        ? `${API_URL}/orders/list?limit=100000`
-        : `${API_URL}/orders/list?page=${currentPage}&limit=${itemsPerPage}`;
+        ? `${API_URL}/orders/list?limit=100000${searchParam}`
+        : `${API_URL}/orders/list?page=${currentPage}&limit=${itemsPerPage}${searchParam}`;
 
       const res = await axios.get(url);
       if (res.data.status) {
         if (exportMode) return res.data.data;
         setOrders(res.data.data);
         setTotalPages(res.data.totalPages || 1);
+        setTotalOrders(res.data.total || 0);
       }
     } catch (error) {
       console.error("Fetch Error:", error);
@@ -56,10 +60,21 @@ const OrdersList = () => {
     }
   };
 
-  // Jab bhi page ya items per page badle, data fetch ho
+  // Refetch when page or items-per-page changes
   useEffect(() => {
     fetchOrders();
   }, [currentPage, itemsPerPage]);
+
+  // Debounced search — fires 400ms after user stops typing
+  const handleSearchChange = (e) => {
+    const val = e.target.value;
+    setGlobalSearch(val);
+    setCurrentPage(1);
+    clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      fetchOrders(false, val);
+    }, 400);
+  };
 
   // Jab entries change hon, toh wapas page 1 par chale jayein
   const handleEntriesChange = (e) => {
@@ -67,35 +82,24 @@ const OrdersList = () => {
     setCurrentPage(1);
   };
 
-  // 🟢 Optimized Filtering Logic (Main Search + Column Filters)
+  // Column-level filters applied client-side on the server-returned page
   const filteredOrders = useMemo(() => {
     return orders.filter((order, index) => {
-      // Data preparation
-      const orderNum = (order.orderNumber || order.order_number || "").toString().toLowerCase();
+      const orderNum  = (order.orderNumber || order.order_number || "").toString().toLowerCase();
       const displayId = (order.id || index + 1).toString().toLowerCase();
-      const custName = (order.customer?.name || "").toLowerCase();
-      const custEmail = (order.shippingEmail || "").toLowerCase();
-      const searchLower = globalSearch.toLowerCase();
+      const custName  = (order.customer?.name || order.customer_id?.name || "").toLowerCase();
 
-      // 1. Top Main Search Logic (Customer Name, Order#, or Email)
-      const matchesGlobal = globalSearch === "" ||
-        custName.includes(searchLower) ||
-        orderNum.includes(searchLower) ||
-        custEmail.includes(searchLower);
-
-      // 2. Column-wise Filter Logic
-      const matchesFilters =
+      return (
         displayId.includes(filters.id.toLowerCase()) &&
         (order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-GB').includes(filters.date) : true) &&
         (order.paymentType || order.payment_type || "").toLowerCase().includes(filters.type.toLowerCase()) &&
         custName.includes(filters.customer.toLowerCase()) &&
         (order.total || 0).toString().includes(filters.total) &&
         (order.status || "").toLowerCase().includes(filters.status.toLowerCase()) &&
-        (order.paymentStatus || order.payment_status || "").toLowerCase().includes(filters.payment_status.toLowerCase());
-
-      return matchesGlobal && matchesFilters;
+        (order.paymentStatus || order.payment_status || "").toLowerCase().includes(filters.payment_status.toLowerCase())
+      );
     });
-  }, [orders, filters, globalSearch]); // 🟢 globalSearch dependency add kar di hai
+  }, [orders, filters]);
 
 
   const handleFilterChange = (e) => {
@@ -104,7 +108,9 @@ const OrdersList = () => {
 
   const clearFilters = () => {
     setFilters({ id: "", date: "", type: "", customer: "", total: "", status: "", payment_status: "" });
-    fetchOrders();
+    setGlobalSearch("");
+    setCurrentPage(1);
+    fetchOrders(false, "");
   };
 
   const handleDelete = async (id) => {
@@ -143,61 +149,64 @@ const handleExport = async () => {
       // 2. Mapping logic strictly matched with your Order Schema
       const dataToExport = allOrders.map((order, index) => {
         // Products array ko map karke ek lambi string banao
-        const productDetails = order.items?.map(p =>
+        const productDetails = order.products?.map(p => 
           `${p.name} (Price: ${p.price}, Qty: ${p.quantity}, Status: ${p.status || 'N/A'})`
         ).join(" | ") || "-";
 
         return {
           "Sr No": index + 1,
-          "Order Number": order.orderNumber || order.order_number || "-",
+          "Order Number": order.order_number || "-",
           "Order Date": formatDate(order.createdAt),
           "Order Status": order.status || "pending",
 
           // --- Financials ---
           "Currency": order.currency || "USD",
           "Total Amount": Number(order.total || 0).toFixed(2),
-          "Shipping Cost": Number(order.shippingCost || order.shipping_cost || 0).toFixed(2),
+          "Shipping Cost": Number(order.shipping_cost || 0).toFixed(2),
+          "Membership": order.membership || "No",
+          "Membership Discount": Number(order.membership_discount || 0).toFixed(2),
 
           // --- Payment Info ---
-          "Payment Type": order.paymentType || order.payment_type || "-",
-          "Payment Status": order.paymentStatus || order.payment_status || "pending",
-          "Transaction ID": order.transactionId || order.transaction_id || "-",
+          "Payment Type": order.payment_type || "-",
+          "Payment Status": order.payment_status || "pending",
+          "Transaction ID": order.transaction_id || "-",
 
           // --- Customer Info ---
-          "Customer Name": order.customer?.name || "Unknown",
-          "Customer Email": order.customer?.email || "-",
+          "Customer Name": order.customer_id?.name || "Unknown",
+          "Customer Email": order.customer_id?.email || "-",
 
-          // --- Shipping Details ---
-          "Ship Email": order.shippingEmail || "-",
-          "Ship First Name": order.shippingFirstName || "-",
-          "Ship Last Name": order.shippingLastName || "-",
-          "Ship Address 1": order.shippingAddress1 || "-",
-          "Ship Address 2": order.shippingAddress2 || "-",
-          "Ship Company": order.shippingCompany || "-",
-          "Ship Country": order.shippingCountry || "-",
-          "Ship State/Region": order.shippingState || "-",
-          "Ship City": order.shippingCity || "-",
-          "Ship Postcode": order.shippingPostcode || "-",
-          "Ship Phone": order.shippingPhone || "-",
+          // --- Shipping Details (Matches Schema shipping_details object) ---
+          "Ship Email": order.shipping_details?.email || "-",
+          "Ship First Name": order.shipping_details?.first_name || "-",
+          "Ship Last Name": order.shipping_details?.last_name || "-",
+          "Ship Address 1": order.shipping_details?.address_1 || "-",
+          "Ship Address 2": order.shipping_details?.address_2 || "-",
+          "Ship Company": order.shipping_details?.company || "-",
+          "Ship Country": order.shipping_details?.country || "-",
+          "Ship State/Region": order.shipping_details?.state_region || "-",
+          "Ship City": order.shipping_details?.city || "-",
+          "Ship Postcode": order.shipping_details?.postcode || "-",
+          "Ship Phone": order.shipping_details?.phone || "-",
 
-          // --- Billing Details ---
-          "Bill First Name": order.billingFirstName || "-",
-          "Bill Last Name": order.billingLastName || "-",
-          "Bill Address 1": order.billingAddress1 || "-",
-          "Bill Address 2": order.billingAddress2 || "-",
-          "Bill Company": order.billingCompany || "-",
-          "Bill Country": order.billingCountry || "-",
-          "Bill State/Region": order.billingState || "-",
-          "Bill City": order.billingCity || "-",
-          "Bill Postcode": order.billingPostcode || "-",
-          "Bill Phone": order.billingPhone || "-",
+          // --- Billing Details (Matches Schema billing_details object) ---
+          "Bill First Name": order.billing_details?.first_name || "-",
+          "Bill Last Name": order.billing_details?.last_name || "-",
+          "Bill Address 1": order.billing_details?.address_1 || "-",
+          "Bill Address 2": order.billing_details?.address_2 || "-",
+          "Bill Company": order.billing_details?.company || "-",
+          "Bill Country": order.billing_details?.country || "-",
+          "Bill State/Region": order.billing_details?.state_region || "-",
+          "Bill City": order.billing_details?.city || "-",
+          "Bill Postcode": order.billing_details?.postcode || "-",
+          "Bill Phone": order.billing_details?.phone || "-",
 
           // --- Products & Comments ---
           "Products Detail (Name, Price, Qty)": productDetails,
-          "Admin Comment": order.comment?.replace(/<[^>]*>?/gm, '') || "-"
+          "Admin Comment": order.comment?.replace(/<[^>]*>?/gm, '') || "-" // HTML tags hatane ke liye
         };
       });
 
+      // 3. XLSX Workbook Creation
       await exportToExcel(dataToExport, "Detailed Orders", "Detailed_Orders_Export");
       
       toast.success("Detailed export successful! 📊", { id: toastId });
@@ -241,9 +250,8 @@ const handleExport = async () => {
           <input
             type="text"
             value={globalSearch}
-            onChange={(e) => setGlobalSearch(e.target.value)}
-            placeholder="Search Customer, Email..."
-            // 🟢 Body font (Roboto), Text Main color, aur Focus par Primary blue border
+            onChange={handleSearchChange}
+            placeholder="Search by book name, keyword, order#, customer, email..."
             className="w-full bg-white border border-cream-200 rounded-md pl-10 pr-10 py-2 text-xs outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 shadow-sm font-body text-text-main transition-all placeholder:text-text-muted/50"
           />
 
@@ -257,7 +265,7 @@ const handleExport = async () => {
           {globalSearch && (
             <button
               type="button"
-              onClick={() => setGlobalSearch("")}
+              onClick={() => { setGlobalSearch(""); setCurrentPage(1); fetchOrders(false, ""); }}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-red-600 transition-colors p-0.5 rounded-full hover:bg-red-50"
             >
               <X size={14} />
@@ -330,32 +338,55 @@ const handleExport = async () => {
                   </td>
                 </tr>
               ) : filteredOrders.length > 0 ? (
-                filteredOrders.map((order, index) => (
-                  <tr key={order.id} className="hover:bg-primary-50 transition-colors text-[13px]">
+                filteredOrders.map((order, index) => {
+                  const orderId   = order.id || order._id;
+                  const orderNum  = order.orderNumber || order.order_number || orderId;
+                  const custName  = order.customer?.name || order.customer_id?.name || "Unknown Customer";
+                  const payType   = order.paymentType || order.payment_type || '-';
+                  const payStatus = order.paymentStatus || order.payment_status || 'Pending';
+                  const statusVal = order.status || 'Pending';
+                  // Highlight matching items when searching by product
+                  const matchedItems = globalSearch
+                    ? (order.items || []).filter(i => i.name?.toLowerCase().includes(globalSearch.toLowerCase()))
+                    : [];
+                  return (
+                  <tr key={orderId} className="hover:bg-primary-50 transition-colors text-[13px]">
                     <td className="p-3 border-r border-cream-50">
                       <div className="flex items-center gap-5 px-1">
                         <input type="checkbox" className="h-4 w-4 rounded accent-primary cursor-pointer shrink-0" />
-                        <span className="text-text-muted text-[10px] font-bold w-full text-center">{order.id || index + 1}</span>
+                        <span className="text-text-muted text-[10px] font-bold w-full text-center">{orderNum}</span>
                       </div>
                     </td>
                     <td className="p-3 border-r border-cream-50 text-text-main font-medium">{formatDate(order.createdAt)}</td>
-                    <td className="p-3 border-r border-cream-50 text-text-main uppercase text-[11px]">{order.paymentType || order.payment_type || 'Paypal'}</td>
-                    <td className="p-3 border-r border-cream-50 text-text-main font-bold">{order.customer?.name || "Unknown Customer"}</td>
+                    <td className="p-3 border-r border-cream-50 text-text-main uppercase text-[11px]">{payType}</td>
+                    <td className="p-3 border-r border-cream-50 text-text-main font-bold">
+                      <div>{custName}</div>
+                      {matchedItems.length > 0 && (
+                        <div className="mt-1 space-y-0.5">
+                          {matchedItems.map((item, i) => (
+                            <span key={i} className="inline-block bg-yellow-100 text-yellow-800 text-[9px] font-bold px-1.5 py-0.5 rounded mr-1">
+                              {item.name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </td>
                     <td className="p-3 border-r border-cream-50 text-text-main font-bold">{Number(order.total || 0).toFixed(2)}</td>
                     <td className="p-3 border-r border-cream-50 text-text-main">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${order.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
-                        {order.status || 'Pending'}
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${statusVal.toLowerCase() === 'completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                        {statusVal}
                       </span>
                     </td>
-                    <td className="p-3 border-r border-cream-50 text-text-main font-medium">{order.paymentStatus || order.payment_status || "Pending"}</td>
+                    <td className="p-3 border-r border-cream-50 text-text-main font-medium">{payStatus}</td>
                     <td className="p-3 text-center">
                       <div className="flex justify-center gap-2">
-                        <button onClick={() => navigate(`/admin/edit-orders/${order.id}`)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm active:scale-95"><Edit size={14} /></button>
-                        <button onClick={() => handleDelete(order.id)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 hover:border-red-600 transition-all shadow-sm active:scale-95"><Trash2 size={14} /></button>
+                        <button onClick={() => navigate(`/admin/edit-orders/${orderId}`)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm active:scale-95"><Edit size={14} /></button>
+                        <button onClick={() => handleDelete(orderId)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 hover:border-red-600 transition-all shadow-sm active:scale-95"><Trash2 size={14} /></button>
                       </div>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               ) : (
                 <tr>
                   <td colSpan="8" className="p-10 text-center text-text-muted italic font-montserrat">No orders found matching your filters.</td>
@@ -386,7 +417,10 @@ const handleExport = async () => {
 
           {/* 🟢 CENTER: DISPLAY INFO */}
           <div className="text-[11px] font-bold text-text-muted uppercase tracking-tighter font-montserrat order-1 md:order-2">
-            Displaying {filteredOrders.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} to {Math.min(currentPage * itemsPerPage, orders.length)} of {orders.length} items
+            {globalSearch
+              ? `${totalOrders} result${totalOrders === 1 ? '' : 's'} for "${globalSearch}"`
+              : `Displaying ${filteredOrders.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} to ${Math.min(currentPage * itemsPerPage, totalOrders)} of ${totalOrders} items`
+            }
           </div>
 
           {/* 🟢 RIGHT: NAVIGATION CONTROLS */}

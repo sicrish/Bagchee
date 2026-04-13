@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
-import { exportToExcel } from '../../utils/exportExcel';
+import { exportToExcel } from '../../utils/exportExcel.js';
 
 const Categories = () => {
     const navigate = useNavigate();
@@ -27,8 +27,8 @@ const Categories = () => {
         parentSlug: "",
         metaTitle: "",
         productType: "",
-        newsletterCategory: "",
-        newsletterOrder: "",
+        newsletter: "",
+        order: ""
     });
 
     const API_BASE_URL = process.env.REACT_APP_API_URL;
@@ -46,7 +46,7 @@ const Categories = () => {
 
             const response = await axios.get(url);
             if (response.data.status) {
-                if (isExport) return response.data.data;
+                if (isExport) return response.data.data; // Export ke liye data return karo
                 setCategories(response.data.data);
                 setTotalPages(response.data.totalPages || 1);
                 setTotalItems(response.data.total || response.data.data.length);
@@ -73,16 +73,18 @@ const Categories = () => {
 
             const dataToExport = allData.map((cat, index) => ({
                 "Sr No": index + 1,
-                "Category ID": cat.id,
-                "Title": cat.title,
-                "Slug": cat.slug || "-",
-                "Parent ID": cat.parentId || "Root",
-                "Meta Title": cat.metaTitle || "-",
-                "Product Type": cat.productType || 0,
+                "Category ID": cat.oldid || cat._id,
+                "Title": cat.categorytitle,
+                "Slug": cat.slug,
+                "Parent Slug": cat.parentslug || "Root",
+                "Meta Title": cat.metatitle || "-",
+                "Product Type": cat.producttype || "Book",
+                "Newsletter": cat.newslettercategory || "No",
+                "Order": cat.newsletterorder || 0
             }));
 
             await exportToExcel(dataToExport, "Categories", "Categories_Report");
-            toast.success("Excel exported successfully!", { id: toastId });
+            toast.success("Excel exported successfully! 📊", { id: toastId });
         } catch (error) {
             toast.error("Export failed", { id: toastId });
         }
@@ -119,24 +121,25 @@ const Categories = () => {
     // 🔍 4. Filter Logic
     const filteredCategories = useMemo(() => {
         return categories.filter(item => {
-            const id = (item.id || "").toString();
-            const title = (item.title || "").toLowerCase();
+            // Safe check for null values before lowercase
+            const id = (item.id || item.categoryId || item._id || "").toString().toLowerCase();
+            const title = (item.categorytitle || item.title || "").toLowerCase();
             const slug = (item.slug || "").toLowerCase();
-            const parentSlug = (item.parentSlug || "").toLowerCase();
-            const meta = (item.metaTitle || "").toLowerCase();
-            const type = (item.productType || "").toString();
-            const newsletter = item.newsletterCategory ? "yes" : "no";
-            const newsletterOrd = (item.newsletterOrder || 0).toString();
+            const parent = (item.parentslug || "").toLowerCase();
+            const meta = (item.metatitle || "").toLowerCase();
+            const type = (item.producttype || "").toLowerCase();
+            const newsletter = (item.newslettercategory || "").toLowerCase();
+            const order = (item.newslettercategoryorder || item.order || "0").toString();
 
             return (
-                id.includes(filters.id) &&
+                id.includes(filters.id.toLowerCase()) &&
                 title.includes(filters.title.toLowerCase()) &&
                 slug.includes(filters.slug.toLowerCase()) &&
-                parentSlug.includes(filters.parentSlug.toLowerCase()) &&
+                parent.includes(filters.parentSlug.toLowerCase()) &&
                 meta.includes(filters.metaTitle.toLowerCase()) &&
-                type.includes(filters.productType) &&
-                newsletter.includes(filters.newsletterCategory.toLowerCase()) &&
-                newsletterOrd.includes(filters.newsletterOrder)
+                type.includes(filters.productType.toLowerCase()) &&
+                newsletter.includes(filters.newsletter.toLowerCase()) &&
+                order.includes(filters.order)
             );
         });
     }, [categories, filters]);
@@ -167,7 +170,9 @@ const Categories = () => {
                         <Printer size={14} className="text-green-600" /> Print
                     </button>
                     <button
-                        onClick={() => setFilters({ id: "", title: "", slug: "", parentSlug: "", metaTitle: "", productType: "", newsletterCategory: "", newsletterOrder: "" })}
+                        onClick={() => setFilters({
+                            id: "", title: "", slug: "", parentSlug: "", metaTitle: "", productType: "", newsletter: "", order: ""
+                        })}
                         className="bg-[#f8f9fa] border border-gray-300 text-gray-700 px-4 py-1.5 rounded shadow-sm hover:bg-white text-xs font-bold"
                     >
                         Clear filters
@@ -197,14 +202,14 @@ const Categories = () => {
                             <th className="p-3 text-center border-r border-white/20 w-10">
                                 <input type="checkbox" className="accent-white" />
                             </th>
-                            <th className="p-3 text-left border-r border-white/20">Category ID</th>
+                            <th className="p-3 text-left border-r border-white/20">Category id</th>
                             <th className="p-3 text-left border-r border-white/20">Category title</th>
                             <th className="p-3 text-left border-r border-white/20">Slug</th>
-                            <th className="p-3 text-left border-r border-white/20">Parents Slug</th>
+                            <th className="p-3 text-left border-r border-white/20">Parents slug</th>
                             <th className="p-3 text-left border-r border-white/20">Meta title</th>
                             <th className="p-3 text-left border-r border-white/20">Product type</th>
-                            <th className="p-3 text-left border-r border-white/20">Newsletter Category</th>
-                            <th className="p-3 text-left border-r border-white/20">Order</th>
+                            <th className="p-3 text-left border-r border-white/20">Newsletter category</th>
+                            <th className="p-3 text-left border-r border-white/20">Newsletter category order</th>
                             <th className="p-3 text-center">Actions</th>
                         </tr>
 
@@ -232,10 +237,10 @@ const Categories = () => {
                                 <input name="productType" value={filters.productType} onChange={handleFilterChange} className={filterInputClass} />
                             </td>
                             <td className="p-2 border-r border-gray-200">
-                                <input name="newsletterCategory" value={filters.newsletterCategory} onChange={handleFilterChange} className={filterInputClass} />
+                                <input name="newsletter" value={filters.newsletter} onChange={handleFilterChange} className={filterInputClass} />
                             </td>
                             <td className="p-2 border-r border-gray-200">
-                                <input name="newsletterOrder" value={filters.newsletterOrder} onChange={handleFilterChange} className={filterInputClass} />
+                                <input name="order" value={filters.order} onChange={handleFilterChange} className={filterInputClass} />
                             </td>
                             <td className="p-2 text-center bg-gray-50">
                                 <button onClick={fetchCategories} className="text-[#0096cc] hover:rotate-180 transition-transform duration-300">
@@ -257,50 +262,51 @@ const Categories = () => {
                             </tr>
                         ) : filteredCategories.length > 0 ? (
                             filteredCategories.map((item, index) => (
-                                <tr key={item.id} className="hover:bg-blue-50/30 transition-colors">
+                                <tr key={item._id} className="hover:bg-blue-50/30 transition-colors">
                                     <td className="p-3 border-r border-gray-200 text-center">
                                         <input type="checkbox" className="accent-[#0096cc]" />
                                     </td>
 
-                                    <td className="p-3 border-r border-gray-200">{item.id}</td>
+                                    {/* ID (Using Index + 1 or actual ID if short) */}
+                                    <td className="p-3 border-r border-gray-200">{index + 1}</td>
 
                                     <td className="p-3 border-r border-gray-200 font-medium">
-                                        {item.title}
+                                        {item.categorytitle || item.title}
                                     </td>
 
-                                    <td className="p-3 border-r border-gray-200">{item.slug || "-"}</td>
+                                    <td className="p-3 border-r border-gray-200">{item.slug}</td>
 
                                     <td className="p-3 border-r border-gray-200 text-gray-500">
-                                        {item.parentSlug || "root-category"}
+                                        {item.parentslug || "root-category"}
                                     </td>
 
                                     <td className="p-3 border-r border-gray-200 text-gray-500">
-                                        {item.metaTitle || "-"}
+                                        {item.metatitle || item.categorytitle}
                                     </td>
 
                                     <td className="p-3 border-r border-gray-200">
-                                        {item.productType || 0}
+                                        {item.producttype || "Books"}
                                     </td>
 
                                     <td className="p-3 border-r border-gray-200">
-                                        {item.newsletterCategory ? 'Yes' : 'No'}
+                                        {item.newslettercategory || "No"}
                                     </td>
 
                                     <td className="p-3 border-r border-gray-200">
-                                        {item.newsletterOrder || 0}
+                                        {item.newslettercategoryorder || "0"}
                                     </td>
 
                                     <td className="p-3 text-center">
                                         <div className="flex justify-center gap-2">
                                             <button
-                                                onClick={() => navigate(`/admin/edit-category/${item.id}`)}
+                                                onClick={() => navigate(`/admin/edit-category/${item._id}`)}
                                                 className="p-1.5 bg-gray-100 border border-gray-300 rounded text-gray-600 hover:bg-white hover:text-[#0096cc] transition-all shadow-sm"
                                                 title="Edit"
                                             >
                                                 <Edit size={14} />
                                             </button>
                                             <button
-                                                onClick={() => handleDelete(item.id)}
+                                                onClick={() => handleDelete(item._id)}
                                                 className="p-1.5 bg-gray-100 border border-gray-300 rounded text-red-500 hover:bg-white hover:border-red-200 transition-all shadow-sm"
                                                 title="Delete"
                                             >

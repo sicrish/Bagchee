@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Check, RotateCcw, X, Upload, Loader2, XCircle } from 'lucide-react'; // 🟢 XCircle import kiya
-import JoditEditor from '../../components/admin/LazyJoditEditor';
+import JoditEditor from 'jodit-react';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
 import { validateImageFiles } from '../../utils/fileValidator'; // 🟢 Validation Import kiya
@@ -37,8 +37,8 @@ const EditAuthors = () => {
         if (res.data.status) {
           const author = res.data.data;
           setFormData({
-            first_name: author.firstName || '',
-            last_name: author.lastName || '',
+            first_name: author.first_name || '',
+            last_name: author.last_name || '',
             origin: author.origin || '',
           });
           setProfile(author.profile || '');

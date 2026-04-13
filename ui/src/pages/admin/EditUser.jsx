@@ -15,19 +15,20 @@ const EditUser = () => {
 
   // 🟢 Main User Form State
   const [formData, setFormData] = useState({
-    registrationDate: '', 
+    registrationDate: '',
     username: '',
     email: '',
-    status: 1, 
-    firstname: '', 
-    lastname: '', 
+    status: 1,
+    firstname: '',
+    lastname: '',
     company: '',
     phone: '',
     membership: 'inactive',
     membershipStart: '',
     membershipEnd: '',
-    isGuest: 'inactive', 
-    image: null
+    isGuest: 'inactive',
+    image: null,
+    forceDirectPayment: false,
   });
 
   // 🟢 Address State Management
@@ -66,8 +67,8 @@ const EditUser = () => {
         if (res.data.status) {
           const data = res.data.data;
           
-          let fName = data.firstName || data.firstname || "";
-          let lName = data.lastName || data.lastname || "";
+          let fName = data.firstname || "";
+          let lName = data.lastname || "";
           if (!fName && data.name) {
              const parts = data.name.split(" ");
              fName = parts[0];
@@ -89,7 +90,8 @@ const EditUser = () => {
             membershipStart: formatDate(data.membershipStart),
             membershipEnd: formatDate(data.membershipEnd),
             isGuest: data.isGuest || "inactive",
-            image: null
+            image: null,
+            forceDirectPayment: data.forceDirectPayment || false,
           });
           
           if (data.profileImage) {
@@ -134,7 +136,7 @@ const EditUser = () => {
         country: addr.country || 'India',
         phone: addr.phone || ''
     });
-    setCurrentAddressId(addr.id);
+    setCurrentAddressId(addr._id);
     setIsEditingAddress(true);
     setShowAddressModal(true);
   };
@@ -159,7 +161,7 @@ const EditUser = () => {
         }
 
         // 2. Naya Add karo
-        const res = await axios.post(`${API_BASE_URL}/user/add-address`, {
+        const res = await axios.post('/user/add-address', {
             userId: id,
             ...addressForm
         });
@@ -241,6 +243,7 @@ const EditUser = () => {
       data.append('isGuest', formData.isGuest);
       if(formData.membershipStart) data.append('membershipStart', formData.membershipStart);
       if(formData.membershipEnd) data.append('membershipEnd', formData.membershipEnd);
+      data.append('forceDirectPayment', formData.forceDirectPayment);
 
       if (formData.image) data.append('profileImage', formData.image);
 
@@ -381,7 +384,7 @@ const EditUser = () => {
                           <button type="button" onClick={() => openEditModal(addr)} className="p-2 bg-white border border-gray-200 rounded text-blue-500 hover:bg-blue-50 hover:border-blue-200 transition-all" title="Edit Address">
                               <Edit size={14} />
                           </button>
-                          <button type="button" onClick={() => handleDeleteAddress(addr.id)} className="p-2 bg-white border border-gray-200 rounded text-red-500 hover:bg-red-50 hover:border-red-200 transition-all" title="Delete Address">
+                          <button type="button" onClick={() => handleDeleteAddress(addr._id)} className="p-2 bg-white border border-gray-200 rounded text-red-500 hover:bg-red-50 hover:border-red-200 transition-all" title="Delete Address">
                               <Trash2 size={14} />
                           </button>
                         </div>
@@ -431,6 +434,29 @@ const EditUser = () => {
               <div className={inputContainer}>
                 <input type="date" name="membershipEnd" value={formData.membershipEnd} onChange={handleChange} className={inputClass} />
                 <button type="button" onClick={() => clearDate('membershipEnd')} className="text-[11px] text-primary hover:underline mt-1 block">Clear</button>
+              </div>
+            </div>
+
+            {/* Direct Payment Gateway Override */}
+            <div className="grid grid-cols-12 gap-2 md:gap-4 items-center border border-primary/20 bg-primary/5 rounded-lg p-4">
+              <div className="col-span-12 md:col-span-3 text-left md:text-right">
+                <span className="text-[11px] font-bold text-text-muted uppercase font-montserrat">Payment gateway</span>
+              </div>
+              <div className="col-span-12 md:col-span-9">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.forceDirectPayment === true}
+                    onChange={(e) => setFormData({ ...formData, forceDirectPayment: e.target.checked })}
+                    className="accent-primary mt-0.5 w-4 h-4"
+                  />
+                  <div>
+                    <span className="text-sm font-bold text-text-main">Direct Payment Gateway Page</span>
+                    <p className="text-[11px] text-gray-500 mt-0.5 leading-relaxed">
+                      When checked, this customer will always be sent directly to the payment gateway — overriding the global "Deferred Payment" setting.
+                    </p>
+                  </div>
+                </label>
               </div>
             </div>
 

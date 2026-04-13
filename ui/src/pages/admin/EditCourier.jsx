@@ -45,7 +45,7 @@ const EditCourier = () => {
     if (courierData && !isDataInitialized) {
       setTitle(courierData.title || '');
       setTrackingPage(courierData.trackingPage || '');
-      setIsActive(courierData.active !== undefined ? courierData.active : courierData.isActive !== undefined ? courierData.isActive : true);
+      setIsActive(courierData.isActive);
       
       setIsDataInitialized(true); // Lock it
     }

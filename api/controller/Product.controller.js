@@ -781,11 +781,11 @@ export const getNewArrivals = async (req, res) => {
 
         const today = new Date();
 
-        // Auto-expire new releases whose date has passed
-        await prisma.product.updateMany({
+        // Auto-expire new releases whose date has passed (non-blocking — DB may be read-only)
+        prisma.product.updateMany({
             where: { isNewRelease: true, newReleaseUntil: { lt: today, not: null } },
             data:  { isNewRelease: false, newReleaseUntil: null }
-        });
+        }).catch(() => {});
 
         // Default to 30 days window (settings schema doesn't have newArrivalTime yet)
         const days     = 30;

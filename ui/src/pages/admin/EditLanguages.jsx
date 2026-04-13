@@ -28,7 +28,7 @@ const EditLanguages = () => {
           const lang = res.data.data;
           setFormData({
             title: lang.title || '',
-            order: lang.ord || '',
+            order: lang.order || '',
           });
         }
       } catch (error) {

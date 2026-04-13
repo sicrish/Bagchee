@@ -47,7 +47,7 @@ const HomeSectionTwoProducts = () => {
   const filteredData = useMemo(() => {
     return products.filter((item) => {
       // Safe check: agar productId object hai to ._id lo, nahi to direct string
-      const pId = item.productId;
+      const pId = typeof item.productId === 'object' ? item.productId?._id : item.productId;
 
       return (
         (pId || "").toString().includes(filters.productId) &&
@@ -166,14 +166,14 @@ const HomeSectionTwoProducts = () => {
                 </tr>
               ) : filteredData.length > 0 ? (
                 filteredData.map((item) => (
-                  <tr key={item.id} className="hover:bg-primary/5 transition-colors text-[13px]">
+                  <tr key={item._id} className="hover:bg-primary/5 transition-colors text-[13px]">
                     <td className="p-3 border-r border-cream-50 text-center">
                        <input type="checkbox" className="h-4 w-4 rounded accent-primary cursor-pointer shrink-0" />
                     </td>
                     
                     {/* 🟢 Fix: Handle Product ID safely (Object vs String) */}
                     <td className="p-3 border-r border-cream-50 text-text-main font-medium">
-                        {item.productId}
+                        {typeof item.productId === 'object' ? item.productId?._id : item.productId}
                     </td>
 
                     <td className="p-3 border-r border-cream-50 text-text-main font-medium">{item.title}</td>
@@ -183,13 +183,13 @@ const HomeSectionTwoProducts = () => {
                       <div className="flex justify-center gap-2">
                         <button 
                           // 🟢 Fix: Correct Edit Route
-                          onClick={() => navigate(`/admin/edit-home-section-1/${item.id}`)} 
+                          onClick={() => navigate(`/admin/edit-home-section-1/${item._id}`)} 
                           className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary transition-all shadow-sm"
                         >
                           <Edit size={14} />
                         </button>
                         <button 
-                          onClick={() => handleDelete(item.id)}
+                          onClick={() => handleDelete(item._id)}
                           className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 transition-all shadow-sm"
                         >
                           <Trash2 size={14} />

@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, memo } from 'react';
 import axios from 'axios';
 import { ChevronLeft, ChevronRight, ArrowRight, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { getImageUrl } from '../../../../utils/imageUrl.js';
 
 // 🟢 Skeleton Component: Keeps layout stable during transitions
 const CategorySkeleton = () => (
@@ -21,6 +20,15 @@ const ShopByCategory = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const itemsPerPage = 6; 
+
+  // 🛠️ Image Logic (Memoized to prevent jitter during re-renders)
+  const getImageUrl = useCallback((cat) => {
+    const imgRaw = cat.image || cat.categoryiconname;
+    if (!imgRaw) return "https://placehold.co/300x300?text=No+Img";
+
+    const API_BASE = process.env.REACT_APP_API_URL?.replace('/api', '') || "http://localhost:3001";
+    return imgRaw.startsWith('http') ? imgRaw : `${API_BASE}${imgRaw.startsWith('/') ? '' : '/'}${imgRaw}`;
+  }, []);
 
   // 🟢 FETCH FUNCTION
   const fetchData = useCallback(async (showLoading = true) => {
@@ -74,7 +82,7 @@ const ShopByCategory = () => {
 
   return (
     <section className="py-10 md:py-16 bg-cream-50 border-b border-cream-200 font-body overflow-hidden">
-      <div className="max-w-[1400px] mx-auto px-4 group/section">
+      <div className="w-full px-4 md:px-4 group/section">
         
         {/* --- Header --- */}
         <div className="flex flex-col md:flex-row justify-between items-center md:items-end mb-8 md:mb-10 text-center md:text-left transition-all duration-500">
@@ -111,23 +119,17 @@ const ShopByCategory = () => {
                 Array(itemsPerPage).fill(0).map((_, i) => <CategorySkeleton key={i} />)
             ) : (
                 categories.map((cat) => (
-                    <div key={cat.id} className="group cursor-pointer flex flex-col items-center text-center">
+                    <div key={cat.id || cat._id} className="group cursor-pointer flex flex-col items-center text-center">
                         <Link to={`/books/${cat.slug}`} className="contents">
-                            {/* Circle Container with GPU Acceleration */}
-                            <div className="relative w-28 h-28 md:w-32 md:h-32 lg:w-40 lg:h-40 rounded-full overflow-hidden border-4 border-cream-200 shadow-sm group-hover:border-secondary group-hover:shadow-2xl transition-all duration-500 transform group-hover:scale-105 bg-cream-200 flex items-center justify-center" style={{ willChange: 'transform, border-color' }}>
-                                {getImageUrl(cat) ? (
-                                    <img
-                                        src={getImageUrl(cat)}
-                                        alt={cat.title || cat.categorytitle}
-                                        loading="lazy"
-                                        decoding="async"
-                                        className="w-full h-full object-cover"
-                                        onError={(e) => { e.target.style.display='none'; e.target.nextSibling.style.display='flex'; }}
-                                    />
-                                ) : null}
-                                <span className={`${getImageUrl(cat) ? 'hidden' : 'flex'} absolute inset-0 items-center justify-center text-3xl md:text-4xl font-display font-bold text-primary/40 uppercase`}>
-                                    {(cat.title || cat.categorytitle || '?').charAt(0)}
-                                </span>
+                            <div className="relative w-28 h-28 md:w-32 md:h-32 lg:w-40 lg:h-40 rounded-full overflow-hidden border-4 border-cream-200 shadow-sm group-hover:border-secondary group-hover:shadow-2xl transition-all duration-500 transform group-hover:scale-105" style={{ willChange: 'transform, border-color' }}>
+                                <img
+                                    src={getImageUrl(cat)}
+                                    alt={cat.title || cat.categorytitle}
+                                    loading="lazy"
+                                    decoding="async"
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => { e.target.src = "https://placehold.co/300x300?text=Error"; }}
+                                />
                                 <div className="absolute inset-0 bg-secondary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                             </div>
                             <h3 className="mt-3 md:mt-4 text-sm md:text-base font-bold text-text-main group-hover:text-primary transition-colors font-display tracking-wide uppercase">

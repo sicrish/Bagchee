@@ -16,12 +16,8 @@ export const CurrencyProvider = ({ children }) => {
             if (!localStorage.getItem('bagchee_currency')) {
                 try {
                     const res = await axios.get('https://ipapi.co/json/');
-                    const detected = res.data?.currency;
-                    // Only accept currencies we support; default to INR for Indian IPs
-                    if (detected && ['INR', 'USD'].includes(detected)) {
-                        setCurrency(detected);
-                    } else {
-                        setCurrency('INR');
+                    if (res.data && res.data.currency) {
+                        setCurrency(res.data.currency);
                     }
                 } catch (err) {
                     console.error("IP Detection Failed:", err);
@@ -31,27 +27,15 @@ export const CurrencyProvider = ({ children }) => {
         detectCurrency();
     }, []);
 
-    // 2. Fetch Latest Rates — cached in localStorage for 24 hours to avoid 429
+    // 2. Fetch Latest Rates (Base USD rakhenge for better accuracy)
     useEffect(() => {
         const fetchRates = async () => {
             try {
-                const cached = localStorage.getItem('bagchee_exchange_rates');
-                if (cached) {
-                    const { rates, fetchedAt } = JSON.parse(cached);
-                    const ageMs = Date.now() - fetchedAt;
-                    if (ageMs < 24 * 60 * 60 * 1000) {
-                        setExchangeRates(rates);
-                        setLoading(false);
-                        return;
-                    }
-                }
                 const apiKey = process.env.REACT_APP_EXCHANGE_RATE_API_KEY;
                 if (!apiKey) return;
                 const response = await axios.get(`https://v6.exchangerate-api.com/v6/${apiKey}/latest/USD`);
                 if (response.data?.conversion_rates) {
-                    const rates = response.data.conversion_rates;
-                    setExchangeRates(rates);
-                    localStorage.setItem('bagchee_exchange_rates', JSON.stringify({ rates, fetchedAt: Date.now() }));
+                    setExchangeRates(response.data.conversion_rates);
                 }
             } catch (error) {
                 console.error("Rates Fetch Error:", error);

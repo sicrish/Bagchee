@@ -7,7 +7,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig'; 
 import toast from 'react-hot-toast';
-import { exportToExcel } from '../../utils/exportExcel';
+import { exportToExcel } from '../../utils/exportExcel.js';
 
 const HomeBestSeller = () => {
   const navigate = useNavigate();
@@ -101,8 +101,8 @@ const HomeBestSeller = () => {
 
       if (res.data.status && res.data.data.length > 0) {
         const exportData = res.data.data.map(item => ({
-          "Product ID": item.productId || 'N/A',
-          "Title": item.title || 'N/A',
+          "Product ID": item.product?.bagchee_id || item.productId || 'N/A',
+          "Title": item.product?.title || item.title || 'N/A',
           "Active": item.isActive ? "Yes" : "No",
           "Order": item.order || 0,
           "Created At": new Date(item.createdAt).toLocaleDateString()
@@ -206,8 +206,6 @@ const HomeBestSeller = () => {
                 </th>
                 <th className="p-3 text-left border-r border-white/20">Product Id</th>
                 <th className="p-3 text-left border-r border-white/20">Title</th>
-                <th className="p-3 text-left border-r border-white/20 w-24">Source</th>
-                <th className="p-3 text-left border-r border-white/20 w-24">Sold</th>
                 <th className="p-3 text-left border-r border-white/20 w-32">Active</th>
                 <th className="p-3 text-left border-r border-white/20 w-24">Order</th>
                 {/* 🟢 Hide on Print */}
@@ -218,27 +216,25 @@ const HomeBestSeller = () => {
               <tr className="bg-primary border-b border-cream-200 hide-on-print">
                 <td className="p-2 border-r border-white/20"></td>
                 <td className="p-2 border-r border-white/20">
-                    <input
+                    <input 
                       type="text" name="productId" value={filters.productId} onChange={handleFilterChange}
                       className="w-full rounded p-1 text-xs outline-none bg-white/90 focus:bg-white text-text-main" placeholder="Filter ID"
                     />
                 </td>
                 <td className="p-2 border-r border-white/20">
-                    <input
+                    <input 
                       type="text" name="title" value={filters.title} onChange={handleFilterChange}
                       className="w-full rounded p-1 text-xs outline-none bg-white/90 focus:bg-white text-text-main" placeholder="Filter Title"
                     />
                 </td>
-                <td className="p-2 border-r border-white/20"></td>
-                <td className="p-2 border-r border-white/20"></td>
                 <td className="p-2 border-r border-white/20">
-                    <input
+                    <input 
                       type="text" name="active" value={filters.active} onChange={handleFilterChange}
                       className="w-full rounded p-1 text-xs outline-none bg-white/90 focus:bg-white text-text-main" placeholder="Yes/No"
                     />
                 </td>
                 <td className="p-2 border-r border-white/20">
-                    <input
+                    <input 
                       type="text" name="order" value={filters.order} onChange={handleFilterChange}
                       className="w-full rounded p-1 text-xs outline-none bg-white/90 focus:bg-white text-text-main" placeholder="Order"
                     />
@@ -254,7 +250,7 @@ const HomeBestSeller = () => {
             <tbody className="divide-y divide-cream-50">
               {loading ? (
                 <tr>
-                  <td colSpan="8" className="p-10 text-center text-text-muted font-bold">
+                  <td colSpan="6" className="p-10 text-center text-text-muted font-bold">
                     <div className="flex justify-center items-center gap-2">
                         <Loader2 className="animate-spin text-primary" /> Loading Data...
                     </div>
@@ -262,29 +258,20 @@ const HomeBestSeller = () => {
                 </tr>
               ) : products.length > 0 ? (
                 products.map((item, index) => {
-                  const prodId = item.productId || 'N/A';
-                  const prodTitle = item.title || 'N/A';
-                  const isAuto = item.source === 'auto';
+                  const prodId = item.product?.bagchee_id || item.productId || 'N/A';
+                  const prodTitle = item.product?.title || item.title || 'N/A';
 
                   return (
-                    <tr key={item.id} className={`hover:bg-primary-50 transition-colors ${isAuto ? 'bg-blue-50/30' : ''}`}>
+                    <tr key={item._id} className="hover:bg-primary-50 transition-colors">
                       {/* 🟢 Hide on Print */}
                       <td className="p-3 border-r border-cream-50 text-center hide-on-print">
-                          {!isAuto && <input type="checkbox" className="h-4 w-4 rounded accent-primary cursor-pointer" />}
+                          <input type="checkbox" className="h-4 w-4 rounded accent-primary cursor-pointer" />
                       </td>
                       <td className="p-3 border-r border-cream-50 text-text-main font-medium">
                           {prodId}
                       </td>
                       <td className="p-3 border-r border-cream-50 text-text-main font-medium">
                           {prodTitle}
-                      </td>
-                      <td className="p-3 border-r border-cream-50 text-text-main">
-                          <span className={`px-2 py-1 rounded text-[10px] font-bold ${isAuto ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
-                              {isAuto ? "AUTO" : "MANUAL"}
-                          </span>
-                      </td>
-                      <td className="p-3 border-r border-cream-50 text-text-main font-medium">
-                          {item.soldCount || '—'}
                       </td>
                       <td className="p-3 border-r border-cream-50 text-text-main">
                           <span className={`px-2 py-1 rounded text-[10px] font-bold ${item.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
@@ -296,31 +283,27 @@ const HomeBestSeller = () => {
                       </td>
                       {/* 🟢 Hide on Print */}
                       <td className="p-3 text-center hide-on-print">
-                        {isAuto ? (
-                          <span className="text-[10px] text-text-muted italic">Auto-filled</span>
-                        ) : (
-                          <div className="flex justify-center gap-2">
-                            <button
-                              onClick={() => navigate(`/admin/edit-home-best-seller/${item.id}`)}
-                              className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm"
-                            >
-                              <Edit size={14} />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(item.id)}
-                              className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 hover:border-red-600 transition-all shadow-sm"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        )}
+                        <div className="flex justify-center gap-2">
+                          <button 
+                            onClick={() => navigate(`/admin/edit-home-best-seller/${item._id}`)} 
+                            className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm"
+                          >
+                            <Edit size={14} />
+                          </button>
+                          <button 
+                            onClick={() => handleDelete(item._id)}
+                            className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 hover:border-red-600 transition-all shadow-sm"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
                 })
               ) : (
                 <tr>
-                  <td colSpan="8" className="p-10 text-center text-text-muted italic">No Best Seller products found.</td>
+                  <td colSpan="6" className="p-10 text-center text-text-muted italic">No Best Seller products found.</td>
                 </tr>
               )}
             </tbody>

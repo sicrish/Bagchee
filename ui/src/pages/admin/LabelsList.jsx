@@ -48,8 +48,8 @@ const LabelsList = () => {
       return (
         displayId.includes(filters.id) &&
         (item.title || "").toLowerCase().includes(filters.title.toLowerCase()) &&
-        (item.active ? "active" : "inactive").includes(filters.status.toLowerCase()) &&
-        (item.ord || "0").toString().includes(filters.order)
+        (item.status || "active").toLowerCase().includes(filters.status.toLowerCase()) &&
+        (item.order || "0").toString().includes(filters.order)
       );
     });
   }, [labels, filters]);
@@ -162,7 +162,7 @@ const LabelsList = () => {
                 </tr>
               ) : filteredLabels.length > 0 ? (
                 filteredLabels.map((item, index) => (
-                  <tr key={item.id} className="hover:bg-primary-50 transition-colors text-[13px]">
+                  <tr key={item._id} className="hover:bg-primary-50 transition-colors text-[13px]">
                     <td className="p-3 border-r border-cream-50">
                         <div className="flex items-center gap-5 px-1">
                           <input type="checkbox" className="h-4 w-4 rounded accent-primary cursor-pointer shrink-0" />
@@ -171,15 +171,15 @@ const LabelsList = () => {
                     </td>
                     <td className="p-3 border-r border-cream-50 text-text-main font-medium">{item.title}</td>
                     <td className="p-3 border-r border-cream-50 text-text-main">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${item.active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                        {item.active ? 'active' : 'inactive'}
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${item.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                        {item.status || 'active'}
                       </span>
                     </td>
-                    <td className="p-3 border-r border-cream-50 text-text-main font-bold text-center">{item.ord || 0}</td>
+                    <td className="p-3 border-r border-cream-50 text-text-main font-bold text-center">{item.order || 0}</td>
                     <td className="p-3 text-center">
                       <div className="flex justify-center gap-2">
-                        <button onClick={() => navigate(`/admin/edit-labels/${item.id}`)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm active:scale-95"><Edit size={14} /></button>
-                        <button onClick={() => handleDelete(item.id)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 hover:border-red-600 transition-all shadow-sm active:scale-95"><Trash2 size={14} /></button>
+                        <button onClick={() => navigate(`/admin/edit-labels/${item._id}`)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm active:scale-95"><Edit size={14} /></button>
+                        <button onClick={() => handleDelete(item._id)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 hover:border-red-600 transition-all shadow-sm active:scale-95"><Trash2 size={14} /></button>
                       </div>
                     </td>
                   </tr>

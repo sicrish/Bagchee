@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Check, RotateCcw, X, Loader2, Trash2, Image as ImageIcon } from 'lucide-react';
-import JoditEditor from '../../components/admin/LazyJoditEditor';
+import JoditEditor from 'jodit-react';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
 
@@ -38,10 +38,10 @@ const EditPayments = () => {
           const data = res.data.data;
           setFormData({
             title: data.title || '',
-            status: data.active ? 'active' : 'inactive',
-            order: data.ord || '',
-            additional_text_status: data.additionalTextActive ? 'active' : 'inactive',
-            image: null
+            status: data.isActive ? 'active' : 'inactive', // Handle boolean/string mapping if needed
+            order: data.order || '',
+            additional_text_status: data.isAdditionalTextActive ? 'active' : 'inactive',
+            image: null 
           });
           setAdditionalText(data.additionalText || '');
           
@@ -203,7 +203,7 @@ const EditPayments = () => {
                   ref={editor} 
                   value={additionalText} 
                   config={config} 
-                  onBlur={newContent => setAdditionalText(newContent)} 
+                  onChange={newContent => setAdditionalText(newContent)} 
                 />
               </div>
             </div>

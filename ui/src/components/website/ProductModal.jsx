@@ -1,14 +1,14 @@
-import React, { memo, useMemo, useCallback, useContext, useState, useEffect } from 'react';
+import React, { memo, useMemo, useCallback,useContext } from 'react';
+import { createSafeHtml } from '../../utils/sanitize';
 import { X, ShoppingCart, Heart } from 'lucide-react';
 import { Dialog, Transition, TransitionChild, DialogPanel } from '@headlessui/react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../../context/CartContext.jsx';
-import { createSafeHtml } from '../../utils/sanitize';
+import { getProductImageUrl } from '../../utils/imageUrl';
 import { CurrencyContext } from '../../context/CurrencyContext.jsx';
 import toast from 'react-hot-toast';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query'; // 🟢 Mutations use karenge
 import axios from '../../utils/axiosConfig.js';
-import { getProductImageUrl } from '../../utils/imageUrl.js';
 
 const ProductModal = ({ product, isOpen, onClose }) => {
     const { addToCart, toggleWishlist, isInWishlist } = useCart();
@@ -27,7 +27,7 @@ const ProductModal = ({ product, isOpen, onClose }) => {
 
     const previewImage = useMemo(() => {
         if (!product) return "";
-        return getProductImageUrl(product, { width: 500 }) || "https://placehold.co/500x700?text=No+Cover";
+        return getProductImageUrl(product) || "https://placehold.co/500x700?text=No+Preview+Available";
     }, [product]);
 
     const handleClose = useCallback(() => {
@@ -45,22 +45,9 @@ const ProductModal = ({ product, isOpen, onClose }) => {
         e.preventDefault();
         if (product) {
             toggleWishlist(product); // Local state update (Instant UI change)
-            wishlistMutation.mutate(product.id); // Server sync
+            wishlistMutation.mutate(product._id); // Server sync
         }
     };
-
-    // Fetch full product details (synopsis, authors) when modal opens
-    const [detail, setDetail] = useState(null);
-    useEffect(() => {
-        if (isOpen && product) {
-            setDetail(null);
-            axios.get(`/product/get/${product.bagcheeId || product.id}`)
-                .then(res => { if (res.data?.data) setDetail(res.data.data); })
-                .catch(() => {});
-        }
-    }, [isOpen, product?.id]);
-
-    const merged = detail || product;
 
     if (!product) return null;
 
@@ -92,9 +79,8 @@ const ProductModal = ({ product, isOpen, onClose }) => {
                         >
                             <DialogPanel className="w-full max-w-4xl transform overflow-hidden rounded-xl bg-white text-left align-middle shadow-2xl transition-all font-body relative flex flex-col md:flex-row max-h-[95vh] md:h-[600px]">
                                 
-                                <button
+                                <button 
                                     onClick={handleClose}
-                                    aria-label="Close product preview"
                                     className="absolute top-3 right-3 z-[70] p-2 bg-white/80 backdrop-blur-md rounded-full hover:bg-gray-200 text-text-main shadow-md transition-all active:scale-90"
                                 >
                                     <X size={20} />
@@ -117,20 +103,14 @@ const ProductModal = ({ product, isOpen, onClose }) => {
                                             {product.title}
                                         </h2>
                                         <p className="text-sm font-semibold text-primary mb-4 italic">
-                                            By {Array.isArray(merged.authors) && merged.authors.length > 0
-                                                ? merged.authors.map(pa => {
-                                                    const a = pa.author || pa;
-                                                    return a.fullName || a.full_name || `${a.firstName || a.first_name || ''} ${a.lastName || a.last_name || ''}`.trim();
-                                                  }).filter(Boolean).join(', ')
-                                                : 'Unknown Author'}
+                                            By {product.authors?.[0]?.author?.fullName || (product.author?.first_name ? `${product.author.first_name} ${product.author.last_name || ''}` : (product.author?.name || ''))}
                                         </p>
 
                                         <div className="text-2xl sm:text-3xl font-bold text-text-main font-montserrat mb-6">
-                                        {formatPrice(product.price, product.inrPrice || product.inr_price, product.realPrice || product.real_price)}
-                                        {Number(product.price) > Number(product.realPrice || product.real_price) && (
+                                        {formatPrice(product.price, product.inrPrice ?? product.inr_price, product.realPrice ?? product.real_price)}
+                                        {Number(product.price) > Number(product.realPrice ?? product.real_price) && (
                                                 <span className="text-base sm:text-lg font-normal text-gray-400 line-through opacity-70">
-                                                    {/* Original MRP */}
-                                                    {formatPrice(product.price, product.inrPrice || product.inr_price, product.price)}
+                                                    {formatPrice(product.price, product.inrPrice ?? product.inr_price, product.price)}
                                                 </span>
                                             )}
                                         </div>
@@ -138,16 +118,16 @@ const ProductModal = ({ product, isOpen, onClose }) => {
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6 bg-cream-50 p-4 rounded-lg border border-cream-200">
                                             <div className="flex flex-col">
                                                 <span className="text-[10px] uppercase tracking-wider text-text-muted font-bold font-montserrat">ISBN</span>
-                                                <span className="font-bold text-text-main text-xs sm:text-sm">{merged.isbn13 || merged.isbn || 'N/A'}</span>
+                                                <span className="font-bold text-text-main text-xs sm:text-sm">{product.isbn13 || product.isbn || 'N/A'}</span>
                                             </div>
                                             <div className="flex flex-col">
                                                 <span className="text-[10px] uppercase tracking-wider text-text-muted font-bold font-montserrat">Format</span>
-                                                <span className="font-bold text-text-main text-xs sm:text-sm capitalize">{merged.binding || 'Paperback'}</span>
+                                                <span className="font-bold text-text-main text-xs sm:text-sm capitalize">{product.binding || 'Paperback'}</span>
                                             </div>
                                         </div>
 
                                         <div className="text-sm text-text-muted leading-relaxed mb-4">
-                                            <div dangerouslySetInnerHTML={createSafeHtml(merged.synopsis || "No description available.")} />
+                                            <div dangerouslySetInnerHTML={createSafeHtml(product.synopsis || "No description available.")} />
                                         </div>
                                     </div>
 
@@ -162,24 +142,23 @@ const ProductModal = ({ product, isOpen, onClose }) => {
                                         
                                         <div className="flex gap-3">
                                             <Link 
-                                                to={`/books/${product.bagcheeId || product.id}/${product.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
+                                                to={`/books/${product.bagcheeId || product.bagchee_id || product._id || product.id}/${product.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
                                                 className="flex-1 bg-gray-100 hover:bg-gray-200 text-text-main py-3 rounded-lg font-bold uppercase text-[11px] sm:text-xs tracking-wider transition-colors flex items-center justify-center font-montserrat"
                                             >
                                                 View Full Details
                                             </Link>
-                                            <button
+                                            <button 
                                                 onClick={handleWishlist}
                                                 disabled={wishlistMutation.isPending}
-                                                aria-label={isInWishlist(product.id) ? "Remove from wishlist" : "Add to wishlist"}
                                                 className={`px-4 rounded-lg transition-colors ${
-                                                    isInWishlist(product.id) 
+                                                    isInWishlist(product._id) 
                                                     ? 'bg-red-50 text-red-600 border border-red-100' 
                                                     : 'bg-gray-100 hover:bg-red-50 hover:text-red-500 border border-transparent'
                                                 }`}
                                             >
                                                 <Heart 
                                                     size={20} 
-                                                    fill={isInWishlist(product.id) ? "currentColor" : "none"}
+                                                    fill={isInWishlist(product._id) ? "currentColor" : "none"}
                                                     className={wishlistMutation.isPending ? "animate-pulse" : ""}
                                                 />
                                             </button>

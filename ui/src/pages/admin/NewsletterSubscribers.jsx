@@ -7,7 +7,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
-import { exportToExcel } from '../../utils/exportExcel';
+import { exportToExcel } from '../../utils/exportExcel.js';
 
 const NewsletterSubscribers = () => {
   const navigate = useNavigate();
@@ -81,7 +81,7 @@ const NewsletterSubscribers = () => {
   // 🟢 3. Filter Logic (Array Fix Included)
   const filteredSubscribers = useMemo(() => {
     return subscribers.filter((item) => {
-      const displayId = (item.id || item.id || "").toString();
+      const displayId = (item.id || item._id || "").toString();
       const email = (item.email || "").toLowerCase();
 
       // Fix for Categories Array
@@ -125,42 +125,6 @@ const NewsletterSubscribers = () => {
     }
   };
 
-  // Selection state
-  const [selectedIds, setSelectedIds] = useState(new Set());
-
-  const toggleSelect = (id) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  };
-
-  const toggleSelectAll = () => {
-    if (filteredSubscribers.every(s => selectedIds.has(s.id))) {
-      setSelectedIds(prev => {
-        const next = new Set(prev);
-        filteredSubscribers.forEach(s => next.delete(s.id));
-        return next;
-      });
-    } else {
-      setSelectedIds(prev => {
-        const next = new Set(prev);
-        filteredSubscribers.forEach(s => next.add(s.id));
-        return next;
-      });
-    }
-  };
-
-  const allOnPageSelected = filteredSubscribers.length > 0 && filteredSubscribers.every(s => selectedIds.has(s.id));
-
-  const handleSendToSelected = () => {
-    const selectedEmails = subscribers
-      .filter(s => selectedIds.has(s.id))
-      .map(s => s.email);
-    navigate('/admin/send-email', { state: { selectedEmails } });
-  };
-
   const filterInputClass = "w-full rounded-[4px] px-2 py-1.5 text-xs outline-none text-gray-700 font-montserrat shadow-inner focus:ring-2 focus:ring-blue-300";
 
   return (
@@ -179,11 +143,9 @@ const NewsletterSubscribers = () => {
           </button>
 
           <button
-            onClick={selectedIds.size > 0 ? handleSendToSelected : () => navigate('/admin/send-email')}
-            className={`border px-4 py-2 rounded shadow-sm flex items-center justify-center gap-2 font-montserrat font-bold text-xs uppercase transition-all active:scale-95 ${selectedIds.size > 0 ? 'bg-primary border-primary text-white hover:bg-primary-hover' : 'bg-[#e9ecef] border-gray-300 text-gray-700 hover:bg-white'}`}
+            className="bg-[#e9ecef] border border-gray-300 text-gray-700 hover:bg-white px-4 py-2 rounded shadow-sm flex items-center justify-center gap-2 font-montserrat font-bold text-xs uppercase transition-all active:scale-95"
           >
-            <Mail size={14} />
-            {selectedIds.size > 0 ? `Send to ${selectedIds.size} Selected` : 'Send Newsletters'}
+            <Mail size={14} className="text-gray-600" /> Send Newsletters
           </button>
         </div>
 
@@ -224,7 +186,7 @@ const NewsletterSubscribers = () => {
               <tr className="bg-primary border-b border-gray-200">
                 <td className="p-2 border-r border-white/20">
                   <div className="flex items-center gap-2">
-                    <input type="checkbox" checked={allOnPageSelected} onChange={toggleSelectAll} className="h-4 w-4 rounded accent-white cursor-pointer shrink-0" />
+                    <input type="checkbox" className="h-4 w-4 rounded accent-white cursor-pointer shrink-0 opacity-50" />
                     <input name="id" value={filters.id} onChange={handleFilterChange} type="text" className={filterInputClass} />
                   </div>
                 </td>
@@ -253,11 +215,12 @@ const NewsletterSubscribers = () => {
                 </tr>
               ) : filteredSubscribers.length > 0 ? (
                 filteredSubscribers.map((item, index) => (
-                  <tr key={item.id} className="hover:bg-blue-50/30 transition-colors text-[13px] group">
+                  <tr key={item._id} className="hover:bg-blue-50/30 transition-colors text-[13px] group">
 
                     <td className="p-3 border-r border-gray-100">
                       <div className="flex items-center gap-4">
-                        <input type="checkbox" checked={selectedIds.has(item.id)} onChange={() => toggleSelect(item.id)} className="h-4 w-4 rounded accent-primary cursor-pointer shrink-0 border-gray-300" />
+                        <input type="checkbox" className="h-4 w-4 rounded accent-primary cursor-pointer shrink-0 border-gray-300" />
+                        {/* Display simple Index + 1 for clean look, or item._id */}
                         <span className="text-gray-500 text-xs font-mono">{index + 1}</span>
                       </div>
                     </td>
@@ -273,14 +236,14 @@ const NewsletterSubscribers = () => {
                     <td className="p-3 text-center">
                       <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
-                          onClick={() => navigate(`/admin/edit-newsletter-subscriber/${item.id}`)}
+                          onClick={() => navigate(`/admin/edit-newsletter-subscriber/${item._id}`)}
                           className="p-1.5 bg-gray-50 border border-gray-200 rounded text-gray-500 hover:bg-white hover:text-primary hover:border-primary transition-all shadow-sm"
                           title="Edit"
                         >
                           <Edit size={14} />
                         </button>
                         <button
-                          onClick={() => handleDelete(item.id)}
+                          onClick={() => handleDelete(item._id)}
                           className="p-1.5 bg-gray-50 border border-gray-200 rounded text-gray-500 hover:bg-white hover:text-red-600 hover:border-red-600 transition-all shadow-sm"
                           title="Delete"
                         >

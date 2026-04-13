@@ -1,13 +1,30 @@
 import prisma from '../lib/prisma.js';
-import { sendOrderConfirmation, sendOrderShippedEmail, sendOrderStatusEmail } from './email.controller.js';
+import crypto from 'crypto';
+import { sendOrderConfirmation, sendOrderShippedEmail, sendOrderStatusEmail, sendPaymentLinkEmail } from './email.controller.js';
+import { calcDiscount } from './coupon.controller.js';
+
+// Payment type detection helpers
+const isWireTransfer = (title) => {
+    const t = (title || '').toLowerCase();
+    return t.includes('wire') || t.includes('bank transfer');
+};
+const isPurchaseOrder = (title) => {
+    const t = (title || '').toLowerCase();
+    return t.includes('purchase order');
+};
+const isCardOrPayPal = (title) => {
+    const t = (title || '').toLowerCase();
+    return t.includes('credit card') || t.includes('paypal') || t.includes('debit card') || t.includes('debit');
+};
 
 // What to include when returning a single order
 const ORDER_DETAIL_INCLUDE = {
     customer: { select: { id: true, name: true, email: true, phone: true } },
-    coupon:   { select: { id: true, code: true, amount: true, fixAmount: true } },
+    coupon:   { select: { id: true, code: true, amount: true, fixAmount: true, flatDeduction: true } },
     items: {
         include: {
-            product: { select: { id: true, title: true, defaultImage: true, bagcheeId: true, price: true } }
+            product: { select: { id: true, title: true, defaultImage: true, bagcheeId: true, price: true } },
+            courier: { select: { id: true, title: true, trackingPage: true } }
         }
     }
 };
@@ -96,7 +113,7 @@ export const saveOrder = async (req, res) => {
                 name:         p.name || p.title || dbProd.title || '',
                 image:        dbProd.defaultImage || '',
                 price:        dbPrice,
-                quantity:     Math.max(1, Number(p.quantity) || 1),
+                quantity:     Math.min(100, Math.max(1, Number(p.quantity) || 1)),
                 status:       p.status           || '',
                 trackingCode: p.trackingCode || p.tracking_code || '',
             };
@@ -113,17 +130,53 @@ export const saveOrder = async (req, res) => {
             const coupon = await prisma.coupon.findUnique({ where: { id: couponId } });
             if (coupon && coupon.active) {
                 const now = new Date();
-                if (now >= coupon.validFrom && now <= coupon.validTo && subtotal >= coupon.minimumBuy) {
-                    couponDiscount = coupon.fixAmount
-                        ? Math.min(coupon.amount, subtotal)
-                        : Math.round((subtotal * coupon.amount / 100) * 100) / 100;
+                if (now >= coupon.validFrom && now <= coupon.validTo && subtotal >= (coupon.minimumBuy || 0)) {
+                    const cartItems = itemsData.map(i => ({ price: i.price, quantity: i.quantity }));
+                    couponDiscount = calcDiscount(coupon, subtotal, cartItems);
                 }
             }
         }
 
-        const total = Math.max(0, Math.round((subtotal + shippingCost - couponDiscount) * 100) / 100);
+        // Validate membership discount server-side — never trust client-sent value
+        let serverMembershipDiscount = 0;
+        const clientRequestsMembership = req.body.membership === 'Yes' || req.body.membership === true;
+        if (clientRequestsMembership) {
+            const [dbUser, dbSettings] = await Promise.all([
+                prisma.user.findUnique({ where: { id: customerId }, select: { membership: true } }),
+                prisma.settings.findFirst({ orderBy: { id: 'desc' }, select: { memberDiscount: true } })
+            ]);
+            if (dbUser?.membership === true) {
+                const memberDiscountPct = Number(dbSettings?.memberDiscount) || 0;
+                serverMembershipDiscount = Math.round((subtotal * memberDiscountPct / 100) * 100) / 100;
+            }
+        }
+
+        const total = Math.max(0, Math.round((subtotal + shippingCost - couponDiscount - serverMembershipDiscount) * 100) / 100);
 
         const orderNumber = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+        const paymentTitle = req.body.payment_type || req.body.paymentType || '';
+
+        // Determine initial order status based on payment type + global settings + per-user override
+        let initialStatus = 'pending';
+        if (isWireTransfer(paymentTitle)) {
+            initialStatus = 'payment pending';
+        } else if (isPurchaseOrder(paymentTitle)) {
+            initialStatus = 'processing';
+        } else if (isCardOrPayPal(paymentTitle)) {
+            const [settings, customer] = await Promise.all([
+                prisma.settings.findFirst({ orderBy: { id: 'desc' }, select: { paymentGatewayMode: true } }),
+                prisma.user.findUnique({ where: { id: customerId }, select: { forceDirectPayment: true } })
+            ]);
+            const mode = settings?.paymentGatewayMode || 'deferred';
+            const forcesDirect = customer?.forceDirectPayment === true;
+            if (mode === 'deferred' && !forcesDirect) {
+                initialStatus = 'approval pending';
+            }
+        }
+
+        const purchaseOrderNumber = isPurchaseOrder(paymentTitle)
+            ? (req.body.purchaseOrderNumber || req.body.purchase_order_number || '')
+            : '';
 
         const order = await prisma.order.create({
             data: {
@@ -132,13 +185,14 @@ export const saveOrder = async (req, res) => {
                 total,
                 shippingCost,
                 currency,
-                paymentType:        req.body.payment_type || req.body.paymentType  || '',
+                paymentType:        paymentTitle,
                 shippingType:       req.body.shipping_type || req.body.shippingType || '',
-                status:             'pending',
+                status:             initialStatus,
                 paymentStatus:      'pending',
                 transactionId:      '',
+                purchaseOrderNumber,
                 membership:         req.body.membership                  || 'No',
-                membershipDiscount: Math.max(0, Number(req.body.membership_discount || req.body.membershipDiscount) || 0),
+                membershipDiscount: serverMembershipDiscount,
                 couponId:           couponId && !isNaN(couponId) ? couponId : null,
                 comment:            req.body.comment                     || '',
 
@@ -182,11 +236,20 @@ export const getAllOrders = async (req, res) => {
 
         if (status && status !== 'All') conditions.push({ status });
 
-        if (search) conditions.push({ OR: [
-            { orderNumber:    { contains: search, mode: 'insensitive' } },
-            { shippingEmail:  { contains: search, mode: 'insensitive' } },
-            { shippingPhone:  { contains: search, mode: 'insensitive' } },
-        ]});
+        if (search) {
+            const numericId = parseInt(search);
+            conditions.push({ OR: [
+                { orderNumber:   { contains: search, mode: 'insensitive' } },
+                { shippingEmail: { contains: search, mode: 'insensitive' } },
+                { shippingPhone: { contains: search, mode: 'insensitive' } },
+                // Search by customer name
+                { customer: { name: { contains: search, mode: 'insensitive' } } },
+                // Search by product/book name within order items
+                { items: { some: { name: { contains: search, mode: 'insensitive' } } } },
+                // Search by numeric order ID
+                ...(!isNaN(numericId) ? [{ id: numericId }] : []),
+            ]});
+        }
 
         const where = conditions.length ? { AND: conditions } : {};
 
@@ -228,6 +291,41 @@ export const getOrderById = async (req, res) => {
     }
 };
 
+// POST /orders/guest-track  (public — look up an order by order number + shipping email)
+export const guestTrackOrder = async (req, res) => {
+    try {
+        const { orderId, email } = req.body;
+        if (!orderId || !email) {
+            return res.status(400).json({ status: false, msg: 'Order number and shipping email are required.' });
+        }
+
+        const searchEmail = email.trim().toLowerCase();
+        const searchId    = String(orderId).trim();
+
+        // Try to match by numeric ID first, then by order number string
+        const numericId = parseInt(searchId);
+        const where = isNaN(numericId)
+            ? { orderNumber: searchId }
+            : { OR: [{ id: numericId }, { orderNumber: searchId }] };
+
+        const order = await prisma.order.findFirst({
+            where,
+            include: ORDER_DETAIL_INCLUDE
+        });
+
+        // Validate email match before confirming order exists (prevents email enumeration)
+        const orderEmail = order ? (order.shippingEmail || order.customer?.email || '').toLowerCase() : '';
+        if (!order || orderEmail !== searchEmail) {
+            return res.status(404).json({ status: false, msg: 'No order found matching that order number and email.' });
+        }
+
+        res.status(200).json({ status: true, data: order, orderId: order.id });
+    } catch (error) {
+        console.error('Guest Track Error:', error);
+        res.status(500).json({ status: false, msg: 'Server Error' });
+    }
+};
+
 // PUT /orders/:id   (admin — update order fields + optional item-level updates)
 export const updateOrder = async (req, res) => {
     try {
@@ -253,6 +351,20 @@ export const updateOrder = async (req, res) => {
         if (req.body.shipping_type  !== undefined) updateData.shippingType   = req.body.shipping_type;
         if (req.body.membership     !== undefined) updateData.membership     = req.body.membership;
         if (req.body.membershipDiscount !== undefined) updateData.membershipDiscount = Number(req.body.membershipDiscount);
+        if (req.body.paymentLink    !== undefined) updateData.paymentLink    = req.body.paymentLink;
+        if (req.body.payment_link   !== undefined) updateData.paymentLink    = req.body.payment_link;
+        if (req.body.purchaseOrderNumber !== undefined) updateData.purchaseOrderNumber = req.body.purchaseOrderNumber;
+        if (req.body.purchase_order_number !== undefined) updateData.purchaseOrderNumber = req.body.purchase_order_number;
+        if (req.body.estimatedDelivery !== undefined) updateData.estimatedDelivery = req.body.estimatedDelivery ? new Date(req.body.estimatedDelivery) : null;
+        if (req.body.estimated_delivery !== undefined) updateData.estimatedDelivery = req.body.estimated_delivery ? new Date(req.body.estimated_delivery) : null;
+        if (req.body.shippedAt !== undefined) updateData.shippedAt = req.body.shippedAt ? new Date(req.body.shippedAt) : null;
+
+        // Auto-set shippedAt when status changes to shipped
+        const newStatus = updateData.status || '';
+        if (['shipped', 'partially shipped', 'in transit'].includes(newStatus.toLowerCase())) {
+            const existing = await prisma.order.findUnique({ where: { id }, select: { shippedAt: true } });
+            if (!existing?.shippedAt) updateData.shippedAt = new Date();
+        }
 
         // Shipping / billing field updates
         const shippingFields = ['shippingEmail','shippingFirstName','shippingLastName','shippingAddress1',
@@ -289,6 +401,44 @@ export const updateOrder = async (req, res) => {
         console.error('Update Order Error:', error.message);
         if (error.code === 'P2025') return res.status(404).json({ status: false, msg: 'Order not found' });
         res.status(500).json({ status: false, msg: 'Update failed' });
+    }
+};
+
+// POST /orders/:id/approve  (admin — approve a deferred CC/PayPal order, send payment link email)
+export const approveOrder = async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) return res.status(400).json({ status: false, msg: 'Invalid ID' });
+
+        const order = await prisma.order.findUnique({ where: { id }, include: { customer: true } });
+        if (!order) return res.status(404).json({ status: false, msg: 'Order not found' });
+
+        if (order.status !== 'approval pending') {
+            return res.status(400).json({ status: false, msg: 'Order is not in approval pending state' });
+        }
+
+        // Generate a secure random token for the payment link
+        const token = crypto.randomBytes(32).toString('hex');
+        const frontendUrl = process.env.FRONTEND_URL || 'https://bagchee.com';
+        const paymentLink = `${frontendUrl}/pay/${order.id}/${token}`;
+
+        const updated = await prisma.order.update({
+            where: { id },
+            data: { status: 'payment pending', paymentToken: token, paymentLink },
+            include: ORDER_DETAIL_INCLUDE
+        });
+
+        // Send payment link email to customer
+        const email = order.shippingEmail || order.customer?.email;
+        if (email) {
+            sendPaymentLinkEmail(email, updated, paymentLink).catch(() => {});
+        }
+
+        res.json({ status: true, msg: 'Order approved and payment link sent', data: updated });
+    } catch (error) {
+        console.error('Approve Order Error:', error);
+        if (error.code === 'P2025') return res.status(404).json({ status: false, msg: 'Order not found' });
+        res.status(500).json({ status: false, msg: 'Approval failed' });
     }
 };
 
@@ -338,6 +488,37 @@ export const getUserOrders = async (req, res) => {
             status: true, data: orders, total,
             page, totalPages: Math.ceil(total / limit)
         });
+    } catch (error) {
+        res.status(500).json({ status: false, msg: 'Server Error' });
+    }
+};
+
+// GET /orders/pay/:orderId/:token  (public — validates token, returns order for payment page)
+export const getOrderForPayment = async (req, res) => {
+    try {
+        const id = parseInt(req.params.orderId);
+        if (isNaN(id)) return res.status(400).json({ status: false, msg: 'Invalid order ID' });
+
+        const order = await prisma.order.findUnique({
+            where: { id },
+            include: {
+                items: { select: { name: true, price: true, quantity: true, image: true } }
+            }
+        });
+        if (!order) return res.status(404).json({ status: false, msg: 'Order not found' });
+        if (!order.paymentToken || order.paymentToken !== req.params.token) {
+            return res.status(403).json({ status: false, msg: 'Invalid or expired payment link' });
+        }
+
+        // Return minimal order data — no sensitive customer info
+        res.json({ status: true, data: {
+            id: order.id,
+            orderNumber: order.orderNumber,
+            total: order.total,
+            currency: order.currency,
+            status: order.status,
+            items: order.items,
+        }});
     } catch (error) {
         res.status(500).json({ status: false, msg: 'Server Error' });
     }
@@ -397,5 +578,36 @@ export const sendStatusEmail = async (req, res) => {
     } catch (error) {
         console.error('Send status email error:', error);
         res.status(500).json({ status: false, msg: 'Failed to send email' });
+    }
+};
+
+// POST /orders/:id/cancel  (auth — customer cancels own order, blocked once shipped)
+export const cancelOrder = async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) return res.status(400).json({ status: false, msg: 'Invalid ID' });
+
+        const order = await prisma.order.findUnique({ where: { id }, select: { id: true, customerId: true, status: true } });
+        if (!order) return res.status(404).json({ status: false, msg: 'Order not found' });
+
+        // Only the order owner can cancel
+        if (order.customerId !== req.user.id) {
+            return res.status(403).json({ status: false, msg: 'Not authorized to cancel this order' });
+        }
+
+        const blocked = ['shipped', 'partially shipped', 'in transit', 'delivered', 'completed', 'cancelled'];
+        if (blocked.includes((order.status || '').toLowerCase())) {
+            return res.status(400).json({ status: false, msg: `Order cannot be cancelled — current status: ${order.status}` });
+        }
+
+        const updated = await prisma.order.update({
+            where: { id },
+            data: { status: 'cancelled' },
+            include: ORDER_DETAIL_INCLUDE
+        });
+        res.json({ status: true, msg: 'Order cancelled successfully.', data: updated });
+    } catch (error) {
+        console.error('Cancel order error:', error);
+        res.status(500).json({ status: false, msg: 'Failed to cancel order' });
     }
 };

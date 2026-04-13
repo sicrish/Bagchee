@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
 import { Helmet } from 'react-helmet-async';
+import { createSafeHtml } from '../../utils/sanitize';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
-import { createSafeHtml } from '../../utils/sanitize';
+import { normalizeProduct } from '../../utils/normalizeProduct';
 import {
   Heart, Star, Share2, ChevronLeft, ChevronRight,
   Truck, RotateCcw, CheckCircle2, AlertTriangle, ChevronDown,
@@ -12,7 +13,6 @@ import {
 import toast from 'react-hot-toast';
 import { useCart } from '../../context/CartContext';
 import { CurrencyContext } from '../../context/CurrencyContext';
-import { getProductImageUrl, getImageUrl } from '../../utils/imageUrl.js';
 
 const BookDetail = () => {
   const { bagcheeId, slug } = useParams();
@@ -68,12 +68,12 @@ const BookDetail = () => {
   // Walk up the category tree to find the root (level === 0) for a given categoryId
   const findRootCategoryId = (categoryId, categoryMap) => {
     if (!categoryId || !categoryMap) return null;
-    const id = typeof categoryId === 'object' ? categoryId?.id : categoryId;
+    const id = typeof categoryId === 'object' ? categoryId?._id : categoryId;
     let current = categoryMap[id] || categoryMap[String(id)];
     while (current && current.level > 0 && current.parentid) {
       current = categoryMap[current.parentid] || categoryMap[String(current.parentid)];
     }
-    return current ? (current.id || id) : id;
+    return current ? (current._id || id) : id;
   };
 
   useEffect(() => {
@@ -84,7 +84,7 @@ const BookDetail = () => {
         // Fetch categories and book in parallel
         const [catRes, settingsRes, bookRes, socialRes] = await Promise.allSettled([
           axios.get(`${process.env.REACT_APP_API_URL}/category/fetch`),
-          axios.get(`${process.env.REACT_APP_API_URL}/settings/list`),
+          axios.get(`${process.env.REACT_APP_API_URL}/settings/public`),
           (async () => {
             try {
               return await axios.get(`${process.env.REACT_APP_API_URL}/product/fetch?bagchee_id=${bagcheeId}`);
@@ -108,11 +108,10 @@ const BookDetail = () => {
         }
 
         if (settingsRes.status === 'fulfilled' && settingsRes.value.data.status) {
-          const settingsData = settingsRes.value.data.data[0]; // Latest setting
+          const settingsData = settingsRes.value.data.data; // public returns object not array
           setSettings(settingsData);
-          if (settingsData && settingsData.bestseller_threshold) {
-            setBestsellerThreshold(settingsData.bestseller_threshold);
-          }
+          const threshold = settingsData?.bestSellerThreshold || settingsData?.bestseller_threshold;
+          if (threshold) setBestsellerThreshold(threshold);
         }
 
         // Build category map
@@ -120,23 +119,24 @@ const BookDetail = () => {
         if (catRes.status === 'fulfilled' && catRes.value?.data?.status && Array.isArray(catRes.value.data.data)) {
           const cats = catRes.value.data.data;
           setAllCategories(cats);
-          cats.forEach(c => { categoryMap[c.id] = c; categoryMap[String(c.id)] = c; });
+          cats.forEach(c => { categoryMap[c._id] = c; categoryMap[String(c._id)] = c; });
         }
 
         if (bookRes.status !== 'fulfilled') {
           toast.error('Book not found');
-          navigate('/sale');
+          navigate(-1);
           return;
         }
 
         const response = bookRes.value;
         if (response.data.status && response.data.data) {
-          const bookData = Array.isArray(response.data.data) ? response.data.data[0] : response.data.data;
+          const rawBookData = Array.isArray(response.data.data) ? response.data.data[0] : response.data.data;
+          const bookData = normalizeProduct(rawBookData);
           setBook(bookData);
 
           // Find root category ID by walking up the parentid chain
           const leafCategoryId = typeof bookData.categoryId === 'object'
-            ? bookData.categoryId?.id
+            ? bookData.categoryId?._id
             : bookData.categoryId;
 
           const rootCategoryId = findRootCategoryId(leafCategoryId, categoryMap);
@@ -148,7 +148,7 @@ const BookDetail = () => {
                 `${process.env.REACT_APP_API_URL}/product/fetch?categories=${rootCategoryId}&sort=bestseller&limit=100`
               );
               if (relatedResponse.data.status && Array.isArray(relatedResponse.data.data)) {
-                const pool = relatedResponse.data.data.filter(b => b.id !== bookData.id);
+                const pool = relatedResponse.data.data.filter(b => b._id !== bookData._id);
                 const shuffled = pool.sort(() => Math.random() - 0.5);
                 setRelatedBooks(shuffled.slice(0, 15));
               }
@@ -157,12 +157,12 @@ const BookDetail = () => {
           }
         } else {
           toast.error('Book not found');
-          navigate('/sale');
+          navigate(-1);
         }
       } catch (error) {
         console.error('Error fetching book:', error);
         toast.error('Failed to load book details');
-        navigate('/sale');
+        navigate(-1);
       } finally {
         setLoading(false);
       }
@@ -186,7 +186,7 @@ const BookDetail = () => {
         if (res.data.status && Array.isArray(res.data.data)) {
           // Sirf is book ke active reviews ko filter karke state mein daalna
           const filteredReviews = res.data.data.filter(r =>
-            String(r.itemId?.id || r.itemId) === String(book.id) && r.isActive === true
+            String(r.itemId?._id || r.itemId) === String(book._id) && r.isActive === true
           );
           setReviews(filteredReviews);
         }
@@ -205,8 +205,8 @@ const BookDetail = () => {
     const parsedAuth = JSON.parse(authData);
     try {
       const res = await axios.post(`${process.env.REACT_APP_API_URL}/reviews/save`, {
-        item_id: book.id,
-        category_id: book.categoryId?.id || book.categoryId,
+        item_id: book._id,
+        category_id: book.categoryId?._id || book.categoryId,
         name: parsedAuth.userDetails.name,
         email: parsedAuth.userDetails.email,
         title: reviewData.title,
@@ -233,14 +233,14 @@ const BookDetail = () => {
 
 
       // Series Books
-      const seriesId = typeof book.series === 'object' ? book.series?.id : book.series;
+      const seriesId = typeof book.series === 'object' ? book.series?._id : book.series;
       if (seriesId) {
         try {
           const seriesRes = await axios.get(
             `${process.env.REACT_APP_API_URL}/product/fetch?series=${seriesId}&limit=20`
           );
           if (seriesRes.data.status && Array.isArray(seriesRes.data.data)) {
-            setSeriesBooks(seriesRes.data.data.filter(b => b.id !== book.id));
+            setSeriesBooks(seriesRes.data.data.filter(b => b._id !== book._id));
           }
         } catch {
           // silently fail
@@ -250,13 +250,13 @@ const BookDetail = () => {
       // Also Bought — proxy: same publisher, bestsellers
       // Uses 'publishers' (plural) param as required by the product fetch controller
       try {
-        const publisherId = typeof book.publisher === 'object' ? book.publisher?.id : book.publisher;
+        const publisherId = typeof book.publisher === 'object' ? book.publisher?._id : book.publisher;
         if (publisherId) {
           const abRes = await axios.get(
             `${process.env.REACT_APP_API_URL}/product/fetch?publishers=${publisherId}&sort=bestseller&limit=20`
           );
           if (abRes.data.status && Array.isArray(abRes.data.data)) {
-            setAlsoBoughtBooks(abRes.data.data.filter(b => b.id !== book.id).slice(0, 15));
+            setAlsoBoughtBooks(abRes.data.data.filter(b => b._id !== book._id).slice(0, 15));
           }
         }
       } catch {
@@ -267,31 +267,38 @@ const BookDetail = () => {
       try {
         let authorIds = [];
 
-        // 1. Agar book.authors array hai (multiple authors via join table), toh author IDs nikal lo
+        // 1. Agar book.authors array hai (multiple authors), toh sabki ID nikal lo
         if (Array.isArray(book.authors) && book.authors.length > 0) {
           authorIds = book.authors.map(a => {
-            // ProductAuthor join table object — get the actual author ID
-            if (a.authorId) return a.authorId;
-            if (a.author?.id) return a.author.id;
-            if (typeof a === 'object') return a.id;
+            if (typeof a === 'object') {
+              // Prisma join record: { author: { id, ... } }
+              return a.author?.id || a.author?._id || a._id || a.id;
+            }
             return a;
-          });
+          }).filter(Boolean);
         }
         // 2. Agar array nahi hai, par single book.author hai (purana data), toh uski ID nikal lo
         else if (book.author) {
-          authorIds = [typeof book.author === 'object' ? book.author.id : book.author];
+          const authorId = typeof book.author === 'object'
+            ? (book.author.id || book.author._id)
+            : book.author;
+          if (authorId) authorIds = [authorId];
         }
 
-        // Deduplicate author IDs
-        authorIds = [...new Set(authorIds)];
-
-        // 3. Batch fetch all authors in one call
+        // 3. Agar IDs mil gayi hain, toh API call karo
         if (authorIds.length > 0) {
-          const batchRes = await axios.get(
-            `${process.env.REACT_APP_API_URL}/authors/batch?ids=${authorIds.join(',')}`
+          // Ek saath sabhi authors ka data mangwane ke liye promises banayein
+          const authorPromises = authorIds.map(id =>
+            axios.get(`${process.env.REACT_APP_API_URL}/authors/get/${id}`)
           );
 
-          const fetchedAuthors = batchRes.data.status ? batchRes.data.data : [];
+          // Sabka result aane ka wait karein
+          const authorResponses = await Promise.allSettled(authorPromises);
+
+          // Jo response success huye hain, unka data filter karke array bana lein
+          const fetchedAuthors = authorResponses
+            .filter(res => res.status === 'fulfilled' && res.value.data.status)
+            .map(res => res.value.data.data);
 
           // Data ko state me save kar dein (Ab ye Array hoga)
           setAuthorData(fetchedAuthors);
@@ -306,13 +313,11 @@ const BookDetail = () => {
     fetchSecondaryData();
   }, [book]);
 
-  // SEO handled via Helmet below in JSX
-
   const getAuthorName = (author) => {
     if (!author) return 'Unknown Author';
     if (typeof author === 'object') {
-      // Prefer fullName (most reliable), then construct from first+last
-      if (author.fullName || author.full_name) return author.fullName || author.full_name;
+      const fullName = author.fullName || author.full_name || author.name;
+      if (fullName) return fullName;
       return `${author.firstName || author.first_name || ''} ${author.lastName || author.last_name || ''}`.trim() || 'Unknown Author';
     }
     return author;
@@ -321,7 +326,7 @@ const BookDetail = () => {
   const createAuthorSlug = (author) => {
     if (!author) return '';
     const name = typeof author === 'object'
-      ? `${author.firstName || author.first_name || ''} ${author.lastName || author.last_name || ''}`.trim()
+      ? (author.fullName || author.full_name || `${author.firstName || author.first_name || ''} ${author.lastName || author.last_name || ''}`.trim())
       : author;
     return name
       .toLowerCase()
@@ -347,7 +352,7 @@ const BookDetail = () => {
   const handleShare = () => {
     navigator.share?.({
       title: book?.title,
-      text: `Check out "${book?.title}" by ${Array.isArray(book?.authors) && book.authors.length > 0 ? getAuthorName(book.authors[0]?.author || book.authors[0]) : getAuthorName(book?.author)}`,
+      text: `Check out "${book?.title}" by ${getAuthorName(book?.author)}`,
       url: window.location.href
     }) || navigator.clipboard.writeText(window.location.href).then(() => {
       toast.success('Link copied to clipboard');
@@ -363,8 +368,7 @@ const BookDetail = () => {
       // 🟢 Backend controller ke 'saveSubscriber' route par data bhej rahe hain
       const res = await axios.post(`${process.env.REACT_APP_API_URL}/newsletter-subs/save`, {
         email: newsEmail,
-        interestedBookName: book.title, // 🟢 Automatic current book title
-        interestedBookId: book.bagcheeId || book.id, // 🟢 Automatic current book ID
+
         firstName: '', // Non-login user ke liye empty
         lastName: '',  // Non-login user ke liye empty
         categories: [] // Default khali array
@@ -397,38 +401,38 @@ const BookDetail = () => {
     }
   };
 
-  const faqs = [
-    {
-      id: 1,
-      question: "What is the delivery time for this book?",
-      answer: "We typically deliver within 3-5 business days. For orders above ₹500, delivery is free."
-    },
-    {
-      id: 2,
-      question: "Is this book available in different formats?",
-      answer: "Please check the specifications section for available formats. We offer various formats including paperback, hardcover, and digital editions where available."
-    },
-    {
-      id: 3,
-      question: "Can I return this book if I don't like it?",
-      answer: "Yes! We have a 7-day return policy. You can return the book within 7 days of delivery if you're not satisfied."
-    },
-    {
-      id: 4,
-      question: "Is the book in good condition?",
-      answer: "All our books are 100% genuine and in excellent condition. We ensure quality packaging to prevent any damage during shipping."
-    },
-    {
-      id: 5,
-      question: "Do you provide gift wrapping?",
-      answer: "Yes, we offer complimentary gift wrapping on request. Please mention it in the order notes during checkout."
-    },
-    {
-      id: 6,
-      question: "What are the payment options available?",
-      answer: "We accept all major credit/debit cards, UPI, net banking, and cash on delivery for eligible orders."
-    }
-  ];
+  // const faqs = [
+  //   {
+  //     id: 1,
+  //     question: "What is the delivery time for this book?",
+  //     answer: "We typically deliver within 3-5 business days. For orders above ₹500, delivery is free."
+  //   },
+  //   {
+  //     id: 2,
+  //     question: "Is this book available in different formats?",
+  //     answer: "Please check the specifications section for available formats. We offer various formats including paperback, hardcover, and digital editions where available."
+  //   },
+  //   {
+  //     id: 3,
+  //     question: "Can I return this book if I don't like it?",
+  //     answer: "Yes! We have a 7-day return policy. You can return the book within 7 days of delivery if you're not satisfied."
+  //   },
+  //   {
+  //     id: 4,
+  //     question: "Is the book in good condition?",
+  //     answer: "All our books are 100% genuine and in excellent condition. We ensure quality packaging to prevent any damage during shipping."
+  //   },
+  //   {
+  //     id: 5,
+  //     question: "Do you provide gift wrapping?",
+  //     answer: "Yes, we offer complimentary gift wrapping on request. Please mention it in the order notes during checkout."
+  //   },
+  //   {
+  //     id: 6,
+  //     question: "What are the payment options available?",
+  //     answer: "We accept all major credit/debit cards, UPI, net banking, and cash on delivery for eligible orders."
+  //   }
+  // ];
 
   if (loading) {
     return (
@@ -455,9 +459,9 @@ const BookDetail = () => {
 
   // ─── Derived values ───
   const discount = book.discount || 0;
-  const bookRealPrice = book.realPrice || book.real_price;
-  const bookInrPrice = book.inrPrice || book.inr_price;
-  const hasDiscount = bookRealPrice && bookRealPrice > book.price;
+  const realPrice = book.realPrice ?? book.real_price ?? 0;
+  const inrPrice = book.inrPrice ?? book.inr_price ?? 0;
+  const hasDiscount = realPrice > 0 && realPrice < Number(book.price);
   const rating = book.rating || 0;
 
   // Stock logic: stock field is 'active'/'inactive', availability is quantity
@@ -467,28 +471,36 @@ const BookDetail = () => {
 
   // ─── IMAGE URL LOGIC UPDATE ───
   // Backend URL ko env file se nikaalein taaki image paths complete ho sakein
-  // Resolve an image path to a full URL using shared utility
-  const getFullImageUrl = (path) => getImageUrl(path) || null;
+  const BASE_URL = process.env.REACT_APP_API_URL || '';
+
+  // Helper function taaki path ko URL mein convert kiya ja sake
+  const getFullImageUrl = (path) => {
+    if (!path) return null;
+    // Agar path pehle se hi 'http' se shuru ho raha hai toh as-is rakhein, varna prefix lagayein
+    return path.startsWith('http') ? path : `${BASE_URL}${path}`;
+  };
 
   const allImages = [];
 
-  // 1. Default Image — use product-aware resolver (ISBN fallback for numeric filenames)
-  const bookDefaultImage = getProductImageUrl(book);
-  if (bookDefaultImage) {
-    allImages.push(bookDefaultImage);
+  // 1. Default Image check
+  const defaultImage = book.defaultImage || book.default_image;
+  if (defaultImage) {
+    allImages.push(getFullImageUrl(defaultImage));
   }
 
   // 2. Sample Images check
-  if (book.sample_images && Array.isArray(book.sample_images)) {
-    book.sample_images.forEach(imgObj => {
-      if (imgObj.image) allImages.push(getFullImageUrl(imgObj.image));
+  const sampleImages = book.sampleImages || book.sample_images || [];
+  if (Array.isArray(sampleImages)) {
+    sampleImages.forEach(imgObj => {
+      if (imgObj?.image) allImages.push(getFullImageUrl(imgObj.image));
     });
   }
 
   // 3. TOC (Table of Contents) Images check
-  if (book.toc_images && Array.isArray(book.toc_images)) {
-    book.toc_images.forEach(imgObj => {
-      if (imgObj.image) allImages.push(getFullImageUrl(imgObj.image));
+  const tocImages = book.tocImages || book.toc_images || [];
+  if (Array.isArray(tocImages)) {
+    tocImages.forEach(imgObj => {
+      if (imgObj?.image) allImages.push(getFullImageUrl(imgObj.image));
     });
   }
 
@@ -500,18 +512,18 @@ const BookDetail = () => {
     ? { name: book.categoryId.categorytitle || book.categoryId.title || book.categoryId.name || '', slug: book.categoryId.slug || '' }
     : null;
   // Product categories — resolve ObjectIds via allCategories list, carry slug
-  const productCategories = Array.isArray(book.product_categories)
-    ? book.product_categories.map(cat => {
+  const productCategories = Array.isArray(book.productCategories || book.product_categories)
+    ? (book.productCategories || book.product_categories).map(cat => {
       if (typeof cat === 'object' && cat !== null) {
         return { name: cat.categorytitle || cat.title || cat.name || '', slug: cat.slug || '' };
       }
-      const found = allCategories.find(c => c.id === cat || c.id?.toString() === cat?.toString());
+      const found = allCategories.find(c => c._id === cat || c._id?.toString() === cat?.toString());
       return found ? { name: found.categorytitle || found.title || '', slug: found.slug || '' } : null;
     }).filter(Boolean).filter(c => c.name)
     : [];
 
   // Tags
-  const tags = Array.isArray(book.product_tags) ? book.product_tags.filter(Boolean) : [];
+  const tags = Array.isArray(book.productTags || book.product_tags) ? (book.productTags || book.product_tags).filter(Boolean) : [];
 
   // 🟢 Helper Function: HTML tags ko hatane ke liye
   const stripHtml = (htmlString) => {
@@ -528,18 +540,24 @@ const BookDetail = () => {
 
 
 
-  const seoTitle = book ? (book.metaTitle || book.meta_title || book.title) : 'Book Detail';
-  const seoDescription = book ? (book.metaDescription || book.meta_description || book.synopsis?.replace(/<[^>]*>/g, '').slice(0, 160)) : '';
-  const seoKeywords = book ? (book.metaKeywords || book.meta_keywords) : '';
+  const bookAuthorName = book.authors?.[0]?.author?.fullName
+    || (book.author?.first_name ? `${book.author.first_name} ${book.author.last_name || ''}`.trim() : '')
+    || book.author?.name || '';
+  const bookDescription = book.synopsis
+    ? book.synopsis.replace(/<[^>]+>/g, '').substring(0, 160)
+    : `${book.title}${bookAuthorName ? ` by ${bookAuthorName}` : ''} — available on Bagchee.`;
+  const bookImage = book.defaultImage || book.default_image || '';
 
   return (
     <div className="min-h-screen bg-cream">
       <Helmet>
-        <title>{seoTitle ? `${seoTitle} | Bagchee` : 'Bagchee'}</title>
-        {seoDescription && <meta name="description" content={seoDescription} />}
-        {seoKeywords && <meta name="keywords" content={seoKeywords} />}
-        {book?.defaultImage && <meta property="og:image" content={book.defaultImage} />}
-        <meta property="og:type" content="product" />
+        <title>{book.title}{bookAuthorName ? ` by ${bookAuthorName}` : ''} | Bagchee</title>
+        <meta name="description" content={bookDescription} />
+        <meta property="og:title" content={`${book.title} | Bagchee`} />
+        <meta property="og:description" content={bookDescription} />
+        {bookImage && <meta property="og:image" content={bookImage} />}
+        <meta property="og:type" content="book" />
+        {book.isbn13 && <meta property="books:isbn" content={book.isbn13} />}
       </Helmet>
       {/* Breadcrumb Navigation */}
       {/* <div className="bg-cream-100 border-b">
@@ -554,26 +572,26 @@ const BookDetail = () => {
         </div>
       </div> */}
 
-      <div className="max-w-380 mx-auto px-4 py-6">
+      <div className="mx-auto px-4 py-6">
         {/* ─── ROW 1: 3-column grid — Gallery | Book Info | Buy Box ─── */}
-        <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr_300px] gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr_280px] gap-8 items-start">
           {/* ══ COL 1: Image Gallery ══ */}
-          <div className="lg:sticky lg:top-6 lg:self-start">
+          <div className="lg:sticky lg:top-6 lg:self-start w-full max-w-[260px] sm:max-w-[300px] lg:max-w-none mx-auto">
             <div className="w-full">
               {/* Main Image Wrapper: Shadow aur Border image ke kinaro par rahegi */}
-              <div className="aspect-[3/4] bg-white rounded-lg overflow-hidden border border-gray-200 shadow-md flex items-center justify-center group">
+              <div className="w-fit mx-auto lg:mx-0 bg-white rounded-lg overflow-hidden border border-cream-200 shadow-md flex items-center justify-center group mb-2 p-2 sm:p-2">
                 <img
                   src={uniqueImages[selectedImage] || "https://placehold.co/400x600?text=No+Image"}
                   alt={book.title}
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  className="max-w-full max-h-[300px] sm:max-h-full object-contain transition-transform duration-500 group-hover:scale-105"
                 />
               </div>
 
               {/* Thumbnails Section */}
-              <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+              <div className="flex gap-1.5 sm:gap-2 overflow-x-auto scrollbar-hide">
                 {uniqueImages.map((img, i) => (
-                  <button key={i} onClick={() => setSelectedImage(i)} className={`w-14 h-16 flex-shrink-0 border-2 rounded overflow-hidden ${selectedImage === i ? 'border-primary' : 'border-gray-200'}`}>
-                    <img src={img} className="w-full h-full object-cover" alt="thumb" />
+                  <button key={i} onClick={() => setSelectedImage(i)} className={`w-14 h-16 flex-shrink-0 border-2 rounded overflow-hidden ${selectedImage === i ? 'border-primary' : 'border-cream-200'}`}>
+                    <img src={img} className="w-full h-full object-contain p-0.5" alt="thumb" />
                   </button>
                 ))}
               </div>
@@ -589,7 +607,7 @@ const BookDetail = () => {
                   {/* Dynamic Share Icons Loop */}
                   {socialShares.map((social) => (
                     <a
-                      key={social.id}
+                      key={social._id}
                       // URL Replacement Logic: Backend mein format aisa hona chahiye: `...php?u=[url]&t=[title]`
                       href={social.link
                         .replace('[url]', encodeURIComponent(window.location.href))
@@ -642,12 +660,12 @@ const BookDetail = () => {
                 )}
 
                 {/* 2. Recommended */}
-                {book.isRecommended === true && (
+                {/* {book.isRecommended === true && (
                   <div className="inline-flex items-center gap-1.5 bg-accent text-white text-[10px] font-bold px-3 py-1 rounded-full font-montserrat uppercase tracking-wide shadow-sm">
                     <ThumbsUp className="w-3 h-3 fill-white" />
                     Recommended
                   </div>
-                )}
+                )} */}
 
                 {/* 3. Exclusive */}
                 {book.isExclusive === true && (
@@ -666,48 +684,19 @@ const BookDetail = () => {
               </h1>
 
               {/* Edition if available */}
-              {book.edition && (
+              {/* {book.edition && (
                 <p className="text-sm text-gray-500 mb-1">{book.edition}</p>
-              )}
+              )} */}
 
-              {/* Author(s) */}
+              {/* Author */}
               <p className="text-base text-gray-700 mb-2">
                 by{" "}
-                {Array.isArray(book.authors) && book.authors.length > 0 ? (
-                  (() => {
-                    // Deduplicate by authorId
-                    const seen = new Set();
-                    const unique = book.authors.filter(pa => {
-                      const aid = pa.authorId || pa.author?.id || pa.id;
-                      if (seen.has(aid)) return false;
-                      seen.add(aid);
-                      return true;
-                    });
-                    return unique.map((pa, idx) => {
-                      const author = pa.author || pa;
-                      return (
-                        <span key={pa.authorId || pa.id || idx}>
-                          <Link
-                            to={`/author/${createAuthorSlug(author)}`}
-                            className="text-primary hover:underline font-medium"
-                          >
-                            {getAuthorName(author)}
-                          </Link>
-                          {idx < unique.length - 1 && ', '}
-                        </span>
-                      );
-                    });
-                  })()
-                ) : book.author ? (
-                  <Link
-                    to={`/author/${createAuthorSlug(book.author)}`}
-                    className="text-primary hover:underline font-medium"
-                  >
-                    {getAuthorName(book.author)}
-                  </Link>
-                ) : (
-                  <span className="text-gray-400">Unknown Author</span>
-                )}
+                <Link
+                  to={`/author/${createAuthorSlug(book.author)}`}
+                  className="text-primary hover:underline font-medium"
+                >
+                  {getAuthorName(book.author)}
+                </Link>
               </p>
 
               {/* 🟢 Series Display */}
@@ -750,9 +739,9 @@ const BookDetail = () => {
                       ({reviews.length > 0 ? reviews.length : (book?.rated_times || 0)} ratings)
                     </span>
                   </>
-                ) : (
-                  <span className="text-sm text-gray-500 italic">No ratings yet</span>
-                )}
+                ) : ""
+
+                }
 
                 {/* Write a Review Button (Scroll trigger ke sath) */}
                 <button
@@ -773,7 +762,7 @@ const BookDetail = () => {
 
 
                 {/* 4. Specs (Binding & Pages) - Minimal look */}
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 mt-1">
                   {/* Binding Pill */}
                   {book.binding && (
                     <span className="inline-flex items-center bg-gray-100 text-gray-600 text-[10px] font-bold px-3 py-1.5 rounded-full border border-gray-200 uppercase tracking-widest font-montserrat">
@@ -795,9 +784,9 @@ const BookDetail = () => {
                   )}
 
                   {/* 🟢 Publication Date Pill (Naya Addition) */}
-                  {(book.pubDate || book.pub_date) && (
+                  {book.pub_date && (
                     <span className="inline-flex items-center bg-gray-100 text-gray-600 text-[10px] font-bold px-3 py-1.5 rounded-full border border-gray-200 uppercase tracking-widest font-montserrat">
-                      {new Date(book.pubDate || book.pub_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                      {new Date(book.pub_date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
                     </span>
                   )}
                 </div>
@@ -845,7 +834,6 @@ const BookDetail = () => {
                 formatPrice={formatPrice}
                 isChecked={membershipAdded}
                 onToggle={() => setMembershipAdded(!membershipAdded)}
-                settingsData={settings}
               />
             )}
             <div className="bg-cream-100 border border-gray-200 rounded p-4 space-y-4 shadow-sm">
@@ -869,17 +857,17 @@ const BookDetail = () => {
                     <div className="flex items-baseline gap-2 flex-wrap">
                       {/* Final Display Price (Membership Added ? 10% Off : Normal) */}
                       <span className="text-3xl font-bold text-gray-900">
-                        {formatPrice(book.price, bookInrPrice, membershipAdded ? (book.price * 0.9) : book.price)}
+                        {formatPrice(book.price, inrPrice, membershipAdded ? (realPrice * 0.9) : realPrice)}
                       </span>
 
                       {/* MRP Display (Strikethrough) */}
-                      {Number(book.price) > Number(bookRealPrice) && (
+                      {Number(book.price) > realPrice && realPrice > 0 && (
                         <>
                           <span className="text-base text-gray-400 line-through">
-                            {formatPrice(book.price, bookInrPrice, bookRealPrice)}
+                            {formatPrice(book.price, inrPrice, book.price)}
                           </span>
                           <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-semibold">
-                            {Math.round(((book.price - bookRealPrice) / book.price) * 100)}% OFF
+                            {Math.round(((book.price - realPrice) / book.price) * 100)}% OFF
                           </span>
                         </>
                       )}
@@ -903,7 +891,7 @@ const BookDetail = () => {
                       </div>
                       <div className="flex items-center gap-2">
                         <Truck className="w-4 h-4 text-primary shrink-0" />
-                        <p className="text-xs text-gray-700">Ships in {book.ship_days} days from New Delhi</p>
+                        <p className="text-xs text-gray-700">Ships in {book.shipDays || book.ship_days || 1}-{book.deliverDays || book.deliver_days || 10} days from New Delhi</p>
                       </div>
                     </div>
                   )}
@@ -986,28 +974,44 @@ const BookDetail = () => {
             <div className="bg-gray-50/80 border-b border-gray-200">
               <div className="flex gap-0 overflow-x-auto scrollbar-hide">
                 {[
-                  { key: "details", label: "Product Details" },
-                  { key: "toc", label: "Table of Contents" },
-                  { key: "professional_review", label: "Professional Review" },
-
-                ].map((tab) => (
-                  <button
-                    key={tab.key}
-                    onClick={() => {
-                      if (tab.key === "toc") {
-                        // 🟢 Agar TOC par click ho, toh modal kholo aur content tab dikhao
-                        setPreviewTab('content');
-                        setPreviewOpen(true);
-                      } else {
-                        // Baki tabs ke liye normal behavior
-                        setActiveTab(tab.key);
-                      }
-                    }}
-                    className={`px-8 py-4 text-xs font-bold font-montserrat uppercase tracking-widest border-b-2 transition-all ${activeTab === tab.key ? "border-primary text-primary bg-white" : "border-transparent text-gray-400 hover:text-gray-600"}`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
+                  {
+                    key: "details",
+                    label: "Product Details",
+                    show: true // Hamesha dikhega
+                  },
+                  {
+                    key: "toc",
+                    label: "Table of Contents",
+                    show: tocImages.length > 0
+                  },
+                  {
+                    key: "professional_review",
+                    label: "Professional Review",
+                    show: (book.criticsNote || book.critics_note) && (book.criticsNote || book.critics_note).trim() !== ""
+                  },
+                ]
+                  .filter((tab) => tab.show) // Sirf data wale tabs ko render karega
+                  .map((tab) => (
+                    <button
+                      key={tab.key}
+                      onClick={() => {
+                        if (tab.key === "toc") {
+                          // 🟢 Agar TOC par click ho, toh modal kholo aur content tab dikhao
+                          setPreviewTab('content');
+                          setPreviewOpen(true);
+                        } else {
+                          // Baki tabs ke liye normal behavior
+                          setActiveTab(tab.key);
+                        }
+                      }}
+                      className={`px-8 py-4 text-xs font-bold font-montserrat uppercase tracking-widest border-b-2 transition-all ${activeTab === tab.key
+                        ? "border-primary text-primary bg-white"
+                        : "border-transparent text-gray-400 hover:text-gray-600"
+                        }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
               </div>
             </div>
 
@@ -1019,23 +1023,21 @@ const BookDetail = () => {
                   {/* 🟢 List Layout: Ek ke niche ek (Single Column) */}
                   <div className="space-y-4">
                     {[
-                      { label: "Publisher", value: getDisplayValue(book.publisher) },
                       {
                         label: "Series",
                         value: book.series
-                          ? (typeof book.series === 'object' ? book.series.title : book.series)
-                          : null
+                          ? typeof book.series === 'object' ? book.series.title : book.series
+                          : null,
                       },
-                      { label: "Series Number", value: (book.seriesNumber || book.series_number) ? `#${book.seriesNumber || book.series_number}` : null },
-                      { label: "Format", value: book.binding || (Array.isArray(book.formats) && book.formats.length > 0 ? book.formats.map(f => f.format?.title).filter(Boolean).join(', ') : null) },
-                      { label: "Language", value: book.language || (Array.isArray(book.languages) && book.languages.length > 0 ? book.languages.map(l => l.language?.title).filter(Boolean).join(', ') : null) },
-                      { label: "ISBN-10", value: book.isbn10 },
-                      { label: "ISBN-13", value: book.isbn13 },
-                      { label: "Release Date", value: book.pubDate || book.pub_date },
-                      { label: "Length", value: (book.pages || book.total_pages) ? `${book.pages || book.total_pages} Pages` : null },
+                      // 🟢 Series Number Logic
+                      { label: "Series Number", value: book.series_number ? `#${book.series_number}` : null },
+                      { label: "Format", value: book.binding },
+                      { label: "Language", value: getDisplayValue(book.language) },
+                      { label: "ISBN", value: book.isbn10 ? book.isbn10 : book.isbn13 },
+                      { label: "Release Date", value: book.pub_date },
+                      { label: "Publisher", value: getDisplayValue(book.publisher) },
+                      { label: "Length", value: book.total_pages || book.pages ? `${book.total_pages || book.pages} Pages` : null },
                       { label: "Weight", value: book.weight },
-                      { label: "Edition", value: book.edition },
-                      { label: "Volume", value: book.volume },
                     ]
                       .filter((row) => row.value)
                       .map((row) => (
@@ -1052,11 +1054,10 @@ const BookDetail = () => {
               {/* Tab: Professional Review */}
               {activeTab === "professional_review" && (
                 <div className="animate-fadeIn">
-
-                  {book.critics_note ? (
+                  {(book.criticsNote || book.critics_note) ? (
                     <div
                       className="rich-content text-sm text-gray-700 leading-relaxed"
-                      dangerouslySetInnerHTML={createSafeHtml(book.critics_note)}
+                      dangerouslySetInnerHTML={createSafeHtml(book.criticsNote || book.critics_note)}
                     />
                   ) : (
                     <p className="text-gray-400 text-sm italic py-4">No reviews available.</p>
@@ -1081,71 +1082,69 @@ const BookDetail = () => {
           </div>
         )} */}
 
-        {/* ─── ROW 3: Related Subjects + Tags — 2-col ─── */}
-        {(leadCategory || productCategories.length > 0 || tags.length > 0) && (
-          <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-            {/* Related Subjects */}
-            {leadCategory || productCategories.length > 0 ? (
-              <div className="bg-cream-100 border border-gray-200 rounded p-5">
-                <h3 className="font-bold text-text-main text-xs uppercase tracking-widest mb-3 pb-2 border-b border-gray-100">
-                  Related Subjects
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {leadCategory && (
-                    <Link
-                      to={
-                        leadCategory.slug
-                          ? `/books/${leadCategory.slug}`
-                          : `/sale?category=${encodeURIComponent(leadCategory.name)}`
-                      }
-                      className="px-3 py-1.5 bg-primary/10 text-primary text-xs font-medium rounded-full hover:bg-primary hover:text-white transition-colors"
-                    >
-                      {leadCategory.name}
-                    </Link>
-                  )}
-                  {productCategories.map((cat, idx) => (
-                    <Link
-                      key={idx}
-                      to={
-                        cat.slug
-                          ? `/books/${cat.slug}`
-                          : `/sale?category=${encodeURIComponent(cat.name)}`
-                      }
-                      className="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs font-medium rounded-full hover:bg-gray-200 transition-colors"
-                    >
-                      {cat.name}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div />
-            )}
+        {/* ─── ROW 3: Related Subjects + Tags ─── */}
+        {(() => {
+          // 1. Check kar rahe hain ki data exist karta hai ya nahi
+          const hasSubjects = leadCategory || productCategories.length > 0;
+          const hasTags = tags.length > 0;
 
-            {/* Tags */}
-            {tags.length > 0 ? (
-              <div className="bg-cream-100 border border-gray-200 rounded p-5">
-                <h3 className="font-bold text-text-main text-xs uppercase tracking-widest mb-3 pb-2 border-b border-gray-100 flex items-center gap-1.5">
-                  <Tag className="w-3.5 h-3.5 text-gray-400" />
-                  Tags
-                </h3>
-                <div className="flex flex-wrap gap-1.5">
-                  {tags.map((tag, idx) => (
-                    <Link
-                      key={idx}
-                      to={`/sale?tag=${encodeURIComponent(tag)}`}
-                      className="px-2.5 py-1 border border-gray-200 text-gray-600 text-xs rounded-full hover:border-primary hover:text-primary transition-colors"
-                    >
-                      {tag}
-                    </Link>
-                  ))}
+          // Agar dono hi nahi hain toh section render hi nahi hoga
+          if (!hasSubjects && !hasTags) return null;
+
+          return (
+            <div className={`mt-4 grid grid-cols-1 ${hasSubjects && hasTags ? 'lg:grid-cols-2' : 'grid-cols-1'} gap-4 items-start`}>
+
+              {/* Related Subjects Box: Tabhi dikhega jab data hoga */}
+              {hasSubjects && (
+                <div className="bg-cream-100 border border-gray-200 rounded p-5">
+                  <h3 className="font-bold text-text-main text-xs uppercase tracking-widest mb-3 pb-2 border-b border-gray-100">
+                    Related Subjects
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {leadCategory && (
+                      <Link
+                        to={leadCategory.slug ? `/books/${leadCategory.slug}` : `/sale?category=${encodeURIComponent(leadCategory.name)}`}
+                        className="px-3 py-1.5 bg-primary/10 text-primary text-xs font-medium rounded-full hover:bg-primary hover:text-white transition-colors"
+                      >
+                        {leadCategory.name}
+                      </Link>
+                    )}
+                    {productCategories.map((cat, idx) => (
+                      <Link
+                        key={idx}
+                        to={cat.slug ? `/books/${cat.slug}` : `/sale?category=${encodeURIComponent(cat.name)}`}
+                        className="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs font-medium rounded-full hover:bg-gray-200 transition-colors"
+                      >
+                        {cat.name}
+                      </Link>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div />
-            )}
-          </div>
-        )}
+              )}
+
+              {/* Tags Box: Hamesha dikhega agar data hai, aur Related Subjects na hone par Related Subjects ki jagah le lega */}
+              {hasTags && (
+                <div className="bg-cream-100 border border-gray-200 rounded p-5">
+                  <h3 className="font-bold text-text-main text-xs uppercase tracking-widest mb-3 pb-2 border-b border-gray-100 flex items-center gap-1.5">
+                    <Tag className="w-3.5 h-3.5 text-gray-400" />
+                    Tags
+                  </h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {tags.map((tag, idx) => (
+                      <Link
+                        key={idx}
+                        to={`/sale?tag=${encodeURIComponent(tag)}`}
+                        className="px-2.5 py-1 border border-gray-200 text-gray-600 text-xs rounded-full hover:border-primary hover:text-primary transition-colors"
+                      >
+                        {tag}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* ─── ROW 4: You May Also Like ─── */}
         {/* ─── ROW 4: You May Also Like ─── */}
@@ -1183,29 +1182,28 @@ const BookDetail = () => {
                   .replace(/[^a-z0-9]+/g, "-")
                   .replace(/(^-|-$)/g, "");
 
-                const relatedRealPrice = relatedBook.realPrice || relatedBook.real_price;
                 const hasRelatedDiscount =
-                  relatedRealPrice &&
-                  relatedRealPrice > relatedBook.price;
+                  relatedBook.real_price &&
+                  relatedBook.real_price > relatedBook.price;
 
                 const relatedDiscount = hasRelatedDiscount
                   ? Math.round(
-                    ((relatedRealPrice - relatedBook.price) /
-                      relatedRealPrice) *
+                    ((relatedBook.real_price - relatedBook.price) /
+                      relatedBook.real_price) *
                     100,
                   )
                   : 0;
 
                 return (
                   <Link
-                    key={relatedBook.id}
-                    to={`/books/${relatedBook.bagcheeId || relatedBook.id}/${relatedSlug}`}
+                    key={relatedBook._id}
+                    to={`/books/${relatedBook.bagchee_id || relatedBook._id}/${relatedSlug}`}
                     className="flex-shrink-0 w-40 bg-cream-50 border border-gray-200 rounded overflow-hidden hover:shadow-md transition-shadow group"
                   >
                     <div className="aspect-[3/4] overflow-hidden bg-white relative">
                       <img
                         /* 🟢 FIXED: Added getFullImageUrl for Related Books */
-                        src={getProductImageUrl(relatedBook) || "https://placehold.co/300x400?text=No+Cover"}
+                        src={getFullImageUrl(relatedBook.default_image) || "https://via.placeholder.com/300x400?text=No+Image"}
                         alt={relatedBook.title}
                         className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform"
                       />
@@ -1222,7 +1220,7 @@ const BookDetail = () => {
                       </p>
                       {hasRelatedDiscount && (
                         <span className="text-xs text-gray-400 line-through block">
-                          {formatPrice(relatedRealPrice)}
+                          {formatPrice(relatedBook.real_price)}
                         </span>
                       )}
                       {relatedBook.weight && (
@@ -1262,62 +1260,65 @@ const BookDetail = () => {
               </button>
             </div>
 
-            {/* ─── PREMIUM TAB BAR ─── */}
+            {/* ─── PREMIUM TAB BAR (Dynamic Logic) ─── */}
             <div className="flex px-8 bg-gray-50/50 border-b border-gray-100">
               {[
-                { key: 'images', label: 'Images' },
-                { key: 'sample', label: 'Sample Pages' },
-                { key: 'content', label: 'Table of Contents' },
-              ].map(tab => (
-                <button
-                  key={tab.key}
-                  onClick={() => setPreviewTab(tab.key)}
-                  className={`px-6 py-4 text-[11px] font-bold font-montserrat uppercase tracking-widest border-b-2 transition-all duration-300 
+                { key: 'images', label: 'Images', show: true }, // Images hamesha dikhengi
+                {
+                  key: 'sample',
+                  label: 'Sample Pages',
+                  show: sampleImages.length > 0
+                },
+                {
+                  key: 'content',
+                  label: 'Table of Contents',
+                  show: tocImages.length > 0
+                },
+              ]
+                .filter(tab => tab.show) // Sirf wahi dikhao jiska data available hai
+                .map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setPreviewTab(tab.key)}
+                    className={`px-6 py-4 text-[11px] font-bold font-montserrat uppercase tracking-widest border-b-2 transition-all duration-300 
               ${previewTab === tab.key ? 'border-primary text-primary bg-white' : 'border-transparent text-gray-400 hover:text-gray-700'}`}
-                >
-                  {tab.label}
-                </button>
-              ))}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
             </div>
 
             {/* ─── CONTENT AREA ─── */}
-            {/* ─── CONTENT AREA ─── */}
             <div className="overflow-y-auto flex-1 p-8 bg-white custom-scrollbar">
-              {/* MNC Style Grid: Sabhi tabs ke liye same structure (3 columns on desktop) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
                 {(() => {
                   // 1. Data Selection Logic
                   const dataList = previewTab === 'content'
-                    ? (book.toc_images || [])
+                    ? tocImages
                     : (previewTab === 'images'
-                      ? [book.defaultImage || book.default_image, ...(book.related_images || []).map(i => i.image || i)]
-                      : (book.sample_images || []).map(i => i.image || i)
+                      ? [defaultImage, ...(book.relatedImages || book.related_images || []).map(i => i.image || i)]
+                      : sampleImages.map(i => i?.image || i)
                     ).filter(Boolean);
 
                   if (dataList.length === 0) return <EmptyState message={`No ${previewTab} available`} />;
 
                   return dataList.map((img, idx) => {
-                    // 2. Image Path extraction for TOC vs others
                     const imgSrc = previewTab === 'content' ? img.image : (img.image || img);
 
                     return (
                       <div
                         key={idx}
-                        // 🟢 aspect-[3/4] yahan lagaya hai taaki TOC ka size bhi Images jaisa ho jaye
                         className="relative group overflow-hidden aspect-[3/4] cursor-pointer rounded-xl border border-gray-100 shadow-sm"
                         onClick={() => setFullscreenImage(getFullImageUrl(imgSrc))}
                       >
-                        {/* Image Wrapper */}
-                        <div className="w-full h-full overflow-hidden bg-gray-50">
+                        <div className="w-full h-full p-2 sm:p-4 lg:p-6 flex items-center justify-center">
                           <img
                             src={getFullImageUrl(imgSrc)}
                             alt={`Preview ${idx + 1}`}
-                            // 🟢 object-cover use kiya hai taaki poora box fill ho jaye bina kisi gap ke
-                            className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.1]"
+                            className="w-full h-full object-contain transition-transform duration-700 ease-out group-hover:scale-[1.1]"
                           />
                         </div>
 
-                        {/* MNC Style Click Overlay */}
                         <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-center">
                           <div className="p-3 bg-white/10 backdrop-blur-md rounded-full border border-white/20 mb-2 scale-75 group-hover:scale-100 transition-transform">
                             <Eye className="text-white w-6 h-6" />
@@ -1341,7 +1342,7 @@ const BookDetail = () => {
           onClick={() => setFullscreenImage(null)}
         >
           {/* Header: Isko alag rakha hai taaki X button fix rahe aur scrollbar niche rahe */}
-          <div className="flex justify-end p-6 z-[210]">
+          <div className="flex justify-end p-2 z-[210]">
             <button
               className="text-white/50 hover:text-white transition-all hover:rotate-90 duration-300 outline-none"
               onClick={() => setFullscreenImage(null)}
@@ -1352,12 +1353,12 @@ const BookDetail = () => {
 
           {/* Scrollable Container: Sirf isme scrollbar aayega */}
           <div
-            className="flex-1 overflow-auto custom-scrollbar flex items-start justify-center p-4 md:p-10"
+            className="flex-1 overflow-auto custom-scrollbar flex items-center justify-center p-2 md:p-2"
             onClick={() => setFullscreenImage(null)} // Background click to close
           >
             <img
               src={fullscreenImage}
-              className="max-w-none md:max-w-[90%] h-auto shadow-2xl transition-all duration-500 animate-in zoom-in-95 cursor-default"
+              className="max-w-[95%] max-h-[75vh] w-auto  h-auto shadow-2xl transition-all duration-500 animate-in zoom-in-95 cursor-default object-contain"
               alt="Fullscreen Preview"
               style={{
                 // Isse image apni natural quality maintain karegi
@@ -1410,11 +1411,11 @@ const BookDetail = () => {
               {seriesBooks.map(sb => {
                 const sbSlug = sb.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
                 return (
-                  <Link key={sb.id} to={`/books/${sb.bagcheeId || sb.id}/${sbSlug}`} className="flex-shrink-0 w-40 bg-cream-50 border border-gray-200 rounded overflow-hidden hover:shadow-md transition-shadow group">
+                  <Link key={sb._id} to={`/books/${sb.bagchee_id || sb._id}/${sbSlug}`} className="flex-shrink-0 w-40 bg-cream-50 border border-gray-200 rounded overflow-hidden hover:shadow-md transition-shadow group">
                     <div className="aspect-[3/4] overflow-hidden bg-white">
                       <img
                         /* 🟢 FIXED: getFullImageUrl function added here */
-                        src={getProductImageUrl(sb) || 'https://placehold.co/300x400?text=No+Cover'}
+                        src={getFullImageUrl(sb.default_image) || 'https://via.placeholder.com/300x400?text=No+Image'}
                         alt={sb.title}
                         className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform"
                       />
@@ -1547,7 +1548,7 @@ const BookDetail = () => {
           <div className="space-y-6 mt-10">
             {reviews.length > 0 ? (
               reviews.map((rev, idx) => (
-                <div key={rev.id || idx} className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm animate-fadeIn">
+                <div key={rev._id || idx} className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm animate-fadeIn">
                   <div className="flex justify-between items-start mb-4">
                     <div>
                       <p className="font-bold text-text-main font-montserrat">{rev.name}</p>
@@ -1578,112 +1579,135 @@ const BookDetail = () => {
       </div>
 
       {/* 🟢 About the Author Section */}
-{/* 🟢 About the Author(s) Section - Professional MNC Layout */}
-{/* 🟢 About the Author(s) Section - With Read More Logic */}
-{authorData && authorData.length > 0 && (
-  <div className="max-w-380 mx-auto px-4 mt-8">
-    <div className="bg-cream-100 border border-gray-200 rounded p-6 shadow-sm">
-      
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <h2 className="text-2xl font-display font-bold text-gray-900 tracking-tight uppercase">
-          About the Author{authorData.length > 1 ? 's' : ''}
-        </h2>
-        
-        {authorData.length > 2 && (
-          <div className="flex gap-3">
-            <button
-              onClick={() => setCurrentAuthorIndex(prev => Math.max(0, prev - 1))}
-              disabled={currentAuthorIndex === 0}
-              className="p-2 bg-white border border-gray-200 hover:border-primary hover:text-primary rounded-full disabled:opacity-30 transition-all shadow-sm"
-            >
-              <ChevronLeft size={20} />
-            </button>
-            <button
-              onClick={() => setCurrentAuthorIndex(prev => Math.min(authorData.length - 2, prev + 1))}
-              disabled={currentAuthorIndex >= authorData.length - 2}
-              className="p-2 bg-white border border-gray-200 hover:border-primary hover:text-primary rounded-full disabled:opacity-30 transition-all shadow-sm"
-            >
-              <ChevronRight size={20} />
-            </button>
-          </div>
-        )}
-      </div>
+      {/* 🟢 About the Author(s) Section - Professional MNC Layout */}
+      {/* 🟢 About the Author(s) Section - With Read More Logic */}
+      {authorData && authorData.length > 0 && (
+        <div className="max-w-380 mx-auto px-4 mt-8">
+          <div className="bg-cream-100 border border-gray-200 rounded p-6 shadow-sm">
 
-      {/* Authors Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-        {(authorData || []).slice(currentAuthorIndex, currentAuthorIndex + 2).map((author, index) => {
-          
-          const authorId = author.id || `idx-${index}`;
-          const isExpanded = expandedAuthors[authorId];
-          
-          const rawProfile = author.profile ? author.profile : (book.aboutAuthorText || "");
-          const plainTextProfile = stripHtml(rawProfile);
-          
-          // Check if text is long enough to show button (e.g., 200 characters)
-          const isLongBio = plainTextProfile.length > 200;
+            {/* Header */}
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-2xl font-display font-bold text-gray-900 tracking-tight uppercase">
+                About the Author{authorData.length > 1 ? 's' : ''}
+              </h2>
 
-          return (
-            <div key={authorId} className="flex flex-col sm:flex-row gap-5 items-start animate-fadeIn bg-white/40 p-4 rounded-xl border border-white/60">
-              
-              {/* Author Image */}
-              <div className="shrink-0">
-                <img
-                  src={author.picture ? getFullImageUrl(author.picture) : "https://via.placeholder.com/150?text=Author"}
-                  alt={getAuthorName(author)}
-                  className="w-24 h-24 sm:w-28 sm:h-28 rounded-full object-cover border-4 border-white shadow-md bg-gray-50"
-                  onError={e => { e.target.src = "https://via.placeholder.com/150?text=Author"; }}
-                />
-              </div>
-
-              {/* Author Details */}
-              <div className="flex-1 min-w-0 pt-2">
-                <h3 className="text-xl font-bold text-gray-900 font-montserrat leading-tight">
-                  {getAuthorName(author)}
-                </h3>
-                
-                {author.origin && (
-                  <p className="text-[10px] text-primary font-bold mt-1 uppercase tracking-widest bg-primary/5 inline-block px-2 py-0.5 rounded">
-                    {author.origin}
-                  </p>
-                )}
-
-                <div className="mt-3 relative">
-                  {plainTextProfile ? (
-                    <>
-                      <p className={`text-gray-700 text-sm leading-relaxed font-body transition-all duration-300 ${!isExpanded ? 'line-clamp-4' : ''}`}>
-                        {plainTextProfile}
-                      </p>
-                      
-                      {/* Read More / Less Button */}
-                      {isLongBio && (
-                        <button 
-                          onClick={() => toggleAuthorBio(authorId)}
-                          className="mt-2 text-primary font-bold text-[11px] uppercase tracking-wider flex items-center gap-1 hover:text-primary-dark"
-                        >
-                          {isExpanded ? (
-                            <>Show Less <ChevronDown className="w-3 h-3 rotate-180" /></>
-                          ) : (
-                            <>Read More <ChevronDown className="w-3 h-3" /></>
-                          )}
-                        </button>
-                      )}
-                    </>
-                  ) : (
-                    <p className="text-gray-400 text-sm italic font-body">Biography not available.</p>
-                  )}
+              {authorData.length > 2 && (
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setCurrentAuthorIndex(prev => Math.max(0, prev - 1))}
+                    disabled={currentAuthorIndex === 0}
+                    className="p-2 bg-white border border-gray-200 hover:border-primary hover:text-primary rounded-full disabled:opacity-30 transition-all shadow-sm"
+                  >
+                    <ChevronLeft size={20} />
+                  </button>
+                  <button
+                    onClick={() => setCurrentAuthorIndex(prev => Math.min(authorData.length - 2, prev + 1))}
+                    disabled={currentAuthorIndex >= authorData.length - 2}
+                    className="p-2 bg-white border border-gray-200 hover:border-primary hover:text-primary rounded-full disabled:opacity-30 transition-all shadow-sm"
+                  >
+                    <ChevronRight size={20} />
+                  </button>
                 </div>
-
-                
-              </div>
+              )}
             </div>
-          );
-        })}
-      </div>
 
-    </div>
-  </div>
-)}
+            {/* Authors Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+              {(authorData || []).slice(currentAuthorIndex, currentAuthorIndex + 2).map((author, index) => {
+                const authorId = author._id || `idx-${index}`;
+                const isExpanded = expandedAuthors[authorId];
+                const plainTextProfile = stripHtml(author.profile || book.aboutAuthorText || "");
+                const isLongBio = plainTextProfile.length > 200;
+
+                // 🟢 Step 1: Author ka slug generate karein (Jo AuthorDetail route se match kare)
+                const authorSlug = createAuthorSlug(author);
+                // console.log("Redirecting to:", authorSlug);
+
+                return (
+                  <div key={authorId} className="flex flex-col sm:flex-row gap-5 items-start animate-fadeIn bg-white/40 p-4 rounded-xl border border-white/60 hover:shadow-md transition-all duration-300">
+
+                    {/* 🟢 Step 2: Image ko link banayein */}
+                    <Link to={`/author/${authorSlug}`} className="shrink-0 group">
+                      {/* onClick={() => console.log("Link clicked, target URL: /author/" + authorSlug)} */}
+                      <div className="relative">
+                        <img
+                          src={author.picture ? getFullImageUrl(author.picture) : "https://via.placeholder.com/150?text=Author"}
+                          alt={getAuthorName(author)}
+                          className="w-24 h-24 sm:w-28 sm:h-28 rounded-full object-contain border-4 border-white shadow-md bg-gray-50 group-hover:border-primary/20 transition-all"
+                          onError={e => { e.target.src = "https://via.placeholder.com/150?text=Author"; }}
+                        />
+                        {/* Hover overlay icon */}
+                        <div className="absolute inset-0 rounded-full bg-primary/10 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                          <Search size={20} className="text-primary" />
+                        </div>
+                      </div>
+                    </Link>
+
+                    {/* Author Details */}
+                    <div className="flex-1 min-w-0 pt-2">
+                      {/* 🟢 Step 3: Name ko link banayein */}
+                      <Link to={`/author/${authorSlug}`} className="group/name">
+                        <h3 className="text-xl font-bold text-gray-900 font-montserrat leading-tight group-hover/name:text-primary transition-colors">
+                          {getAuthorName(author)}
+                        </h3>
+                      </Link>
+
+                      {author.origin && (
+                        <p className="text-[10px] text-primary font-bold mt-1 uppercase tracking-widest bg-primary/5 inline-block px-2 py-0.5 rounded">
+                          {author.origin}
+                        </p>
+                      )}
+
+                      <div className="mt-3 relative">
+                        {plainTextProfile ? (
+                          <>
+                            <p className={`text-gray-700 text-sm leading-relaxed font-body transition-all duration-300 ${!isExpanded ? 'line-clamp-4' : ''}`}>
+                              {plainTextProfile}
+                            </p>
+
+                            <div className="flex flex-col items-start gap-1 mt-2">
+                              {isLongBio && (
+                                <button
+                                  onClick={() => toggleAuthorBio(authorId)}
+                                  className="mt-2 text-primary font-bold text-[11px] uppercase tracking-wider flex items-center gap-1 hover:text-primary-dark"
+                                >
+                                  {isExpanded ? (
+                                    <>Show Less <ChevronDown className="w-3 h-3 rotate-180" /></>
+                                  ) : (
+                                    <>Read More <ChevronDown className="w-3 h-3" /></>
+                                  )}
+                                </button>
+                              )}
+                              {/* 🟢 View Profile Button (Redirect karne ke liye) */}
+                              <Link
+                                to={`/author/${authorSlug}`}
+                                className="text-gray-400 font-bold text-[11px] uppercase tracking-wider flex items-center gap-1 hover:text-primary transition-colors mt-1"
+                              >
+                                view more books
+                              </Link>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex flex-col items-start gap-3">
+                            <p className="text-gray-400 text-sm italic font-body"></p>
+                            <Link
+                              to={`/author/${authorSlug}`}
+                              className="text-primary font-bold text-[11px] uppercase tracking-wider flex items-center gap-1 hover:underline"
+                            >
+                              view more books
+                            </Link>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* 🟢 Others Also Bought Section */}
       {alsoBoughtBooks.length > 0 && (
@@ -1705,15 +1729,14 @@ const BookDetail = () => {
             <div ref={alsoBoughtCarouselRef} className="flex gap-4 overflow-x-auto scrollbar-hide scroll-smooth pb-3">
               {alsoBoughtBooks.map(ab => {
                 const abSlug = ab.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-                const abRealPrice = ab.realPrice || ab.real_price;
-                const abHasDiscount = abRealPrice && abRealPrice > ab.price;
-                const abDiscount = abHasDiscount ? Math.round(((abRealPrice - ab.price) / abRealPrice) * 100) : 0;
+                const abHasDiscount = ab.real_price && ab.real_price > ab.price;
+                const abDiscount = abHasDiscount ? Math.round(((ab.real_price - ab.price) / ab.real_price) * 100) : 0;
                 return (
-                  <Link key={ab.id} to={`/books/${ab.bagcheeId || ab.id}/${abSlug}`} className="flex-shrink-0 w-40 bg-cream-50 border border-gray-200 rounded overflow-hidden hover:shadow-md transition-shadow group">
+                  <Link key={ab._id} to={`/books/${ab.bagchee_id || ab._id}/${abSlug}`} className="flex-shrink-0 w-40 bg-cream-50 border border-gray-200 rounded overflow-hidden hover:shadow-md transition-shadow group">
                     <div className="aspect-[3/4] overflow-hidden bg-white relative">
                       <img
                         /* 🟢 FIXED: getFullImageUrl added here */
-                        src={getProductImageUrl(ab) || 'https://placehold.co/300x400?text=No+Cover'}
+                        src={getFullImageUrl(ab.default_image) || 'https://via.placeholder.com/300x400?text=No+Image'}
                         alt={ab.title}
                         className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform"
                       />
@@ -1725,7 +1748,7 @@ const BookDetail = () => {
                       <p className="text-xs font-medium text-gray-800 line-clamp-2 mb-1">{ab.title}</p>
                       {/* 🟢 FIXED: Using formatPrice for proper currency display */}
                       <p className="text-sm font-bold text-primary">{formatPrice(ab.price)}</p>
-                      {abHasDiscount && <span className="text-[10px] text-gray-400 line-through">{formatPrice(abRealPrice)}</span>}
+                      {abHasDiscount && <span className="text-[10px] text-gray-400 line-through">{formatPrice(ab.real_price)}</span>}
                     </div>
                   </Link>
                 );
@@ -1775,6 +1798,7 @@ const BookDetail = () => {
 
   );
 };
+// Helper for Empty States
 const EmptyState = ({ message }) => (
   <div className="col-span-full py-32 text-center flex flex-col items-center justify-center">
     <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
@@ -1792,7 +1816,7 @@ const NewsletterBox = ({ email, setEmail, onSubmit, message, bookTitle }) => (
       </div>
       <h3 className="font-display font-bold text-lg text-text-main mb-2">Get Notified</h3>
       <p className="text-xs text-gray-500 mb-6 font-body leading-relaxed">
-        {message} 
+        {message}
         <br />
         <span className="text-primary font-bold">Regarding: {bookTitle}</span>
       </p>

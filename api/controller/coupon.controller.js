@@ -1,171 +1,242 @@
 import prisma from '../lib/prisma.js';
 
-// Coupon: active is Boolean (old Mongoose had string 'active'/'inactive').
-// code is @unique in schema — P2002 handles duplicates on create.
-// Fields explicitly mapped from Prisma Coupon schema.
+// Coupon type values:
+//   percent_order       — % off entire order
+//   percent_section     — % off qualifying section items (bestseller/new arrivals/books of month/recommended)
+//   flat_amount         — fixed $ amount off
+//   tiered              — amount varies by order total (tier1: amount, tier2: tier2Amount when total >= tier2MinOrder)
+//   buy3get1            — cheapest item free when 3+ distinct item quantities
+//   new_customer_percent — % off for new customers only
+//   member_percent      — % off for members only
 
-const parseBool = (v) => v === true || v === 'true' || v === '1';
+const parseBool  = (v) => v === true || v === 'true' || v === '1' || v === 'active';
+const parseFloat2 = (v) => Math.round((Number(v) || 0) * 100) / 100;
 
+// ── Shared field extractor ────────────────────────────────────────────────────
+const extractFields = (body) => ({
+    code:             (body.code || body.coupon_code || '').trim().toUpperCase(),
+    title:            body.title || '',
+    couponType:       body.couponType || body.coupon_type || 'percent_order',
+    validFrom:        body.validFrom || body.valid_from || null,
+    validTo:          body.validTo   || body.valid_to   || null,
+    active:           parseBool(body.active),
+    fixAmount:        parseBool(body.fix_amount || body.fixAmount),
+    amount:           parseFloat2(body.amount),
+    flatDeduction:    parseFloat2(body.flatDeduction || body.flat_deduction),
+    minimumBuy:       parseFloat2(body.minimumBuy   || body.minimum_buy),
+    priceOverOnly:    parseFloat2(body.priceOverOnly || body.price_over_only),
+    tier2MinOrder:    parseFloat2(body.tier2MinOrder || body.tier2_min_order),
+    tier2Amount:      parseFloat2(body.tier2Amount   || body.tier2_amount),
+    newCustomerOnly:  parseBool(body.newCustomerOnly  || body.new_customer_only),
+    membersOnly:      parseBool(body.membersOnly      || body.members_only),
+    nextOrderOnly:    parseBool(body.nextOrderOnly    || body.next_order_only),
+    bestsellerOnly:   parseBool(body.bestsellerOnly   || body.bestseller_only),
+    recommendedOnly:  parseBool(body.recommendedOnly  || body.recommended_only),
+    newArrivalsOnly:  parseBool(body.newArrivalsOnly  || body.new_arrivals_only),
+    booksOfMonthOnly: parseBool(body.booksOfMonthOnly || body.books_of_month_only),
+    getThirdFree:     parseBool(body.getThirdFree     || body.get_third_free),
+});
+
+// ── Discount calculator (shared by applyCoupon + saveOrder) ─────────────────
+// cartItems: [{ price: number, quantity: number }]  (optional, needed for buy3get1)
+export const calcDiscount = (coupon, cartTotal, cartItems = []) => {
+    const total = Math.max(0, Number(cartTotal) || 0);
+    const type  = coupon.couponType || 'percent_order';
+    let discount = 0;
+
+    switch (type) {
+        case 'percent_order':
+        case 'percent_section':
+        case 'new_customer_percent':
+        case 'member_percent':
+            // amount is a percentage
+            discount = Math.round((total * (coupon.amount / 100)) * 100) / 100;
+            break;
+
+        case 'flat_amount':
+            // flatDeduction is the fixed $ off; amount is also accepted for legacy
+            discount = Math.min(coupon.flatDeduction || coupon.amount || 0, total);
+            break;
+
+        case 'tiered':
+            if (coupon.tier2MinOrder > 0 && total >= coupon.tier2MinOrder) {
+                // Tier 2: higher discount for bigger orders
+                discount = coupon.tier2Amount > 0
+                    ? (coupon.tier2Amount <= 100 && String(coupon.tier2Amount).includes('.') === false && coupon.tier2Amount <= total
+                        ? coupon.tier2Amount   // treat as flat if it's a whole number and <= total
+                        : Math.round((total * (coupon.tier2Amount / 100)) * 100) / 100)
+                    : 0;
+                // Simple rule: if tier2Amount > 100 treat as flat, else treat as %
+                discount = coupon.tier2Amount >= 100
+                    ? Math.min(coupon.tier2Amount, total)
+                    : Math.round((total * (coupon.tier2Amount / 100)) * 100) / 100;
+                // Actually: if tier2Amount looks like a flat value (e.g. 10) vs % (e.g. 10%):
+                // We store flat values. Admin enters "$10 off above $100" so tier2Amount = 10 flat.
+                // Tier amounts are FLAT amounts (not percentages).
+                discount = Math.min(coupon.tier2Amount, total);
+            } else {
+                // Tier 1: lower discount (amount is flat)
+                discount = Math.min(coupon.amount, total);
+            }
+            break;
+
+        case 'buy3get1': {
+            // Need at least 3 total items in cart; cheapest item is free
+            const allUnits = cartItems.flatMap(i => Array(i.quantity).fill(Number(i.price) || 0));
+            if (allUnits.length >= 3) {
+                discount = Math.min(...allUnits); // cheapest item price
+            }
+            break;
+        }
+
+        default:
+            // Legacy fallback: fixAmount boolean
+            discount = coupon.fixAmount
+                ? Math.min(coupon.amount, total)
+                : Math.round((total * (coupon.amount / 100)) * 100) / 100;
+    }
+
+    // Always add flatDeduction on top (for flat_amount type this is the main value, but allow stacking)
+    if (type !== 'flat_amount' && coupon.flatDeduction > 0) {
+        discount += Math.min(coupon.flatDeduction, total - discount);
+    }
+
+    return Math.max(0, Math.round(discount * 100) / 100);
+};
+
+// ── CREATE ───────────────────────────────────────────────────────────────────
 export const saveCoupon = async (req, res) => {
     try {
-        const { code, title, validFrom, validTo, active, fixAmount, amount,
-            minimumBuy, priceOverOnly, newCustomerOnly, membersOnly, nextOrderOnly,
-            bestsellerOnly, recommendedOnly, newArrivalsOnly, getThirdFree } = req.body;
+        const f = extractFields(req.body);
+        if (!f.code) return res.status(400).json({ status: false, msg: 'Coupon Code is required.' });
+        if (!f.validFrom || !f.validTo) return res.status(400).json({ status: false, msg: 'Valid From and Valid To are required.' });
 
-        if (!code || code.trim() === '') {
-            return res.status(400).json({ status: false, msg: 'Coupon Code is required.' });
-        }
-        if (!validFrom || !validTo) {
-            return res.status(400).json({ status: false, msg: 'validFrom and validTo are required.' });
-        }
-        const fromDate = new Date(validFrom);
-        const toDate   = new Date(validTo);
-        if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
-            return res.status(400).json({ status: false, msg: 'Invalid date format.' });
-        }
-        if (toDate <= fromDate) {
-            return res.status(400).json({ status: false, msg: 'validTo must be after validFrom.' });
-        }
-        const cleanCode = code.trim().toUpperCase();
+        const fromDate = new Date(f.validFrom);
+        const toDate   = new Date(f.validTo);
+        if (isNaN(fromDate) || isNaN(toDate)) return res.status(400).json({ status: false, msg: 'Invalid date format.' });
+        if (toDate <= fromDate) return res.status(400).json({ status: false, msg: 'Valid To must be after Valid From.' });
 
-        const newCoupon = await prisma.coupon.create({
+        const coupon = await prisma.coupon.create({
             data: {
-                code: cleanCode,
-                title: title || '',
-                validFrom: fromDate,
-                validTo: toDate,
-                active: parseBool(active),
-                fixAmount: parseBool(fixAmount),
-                amount: Number(amount) || 0,
-                minimumBuy: Number(minimumBuy) || 0,
-                priceOverOnly: Number(priceOverOnly) || 0,
-                newCustomerOnly: parseBool(newCustomerOnly),
-                membersOnly: parseBool(membersOnly),
-                nextOrderOnly: parseBool(nextOrderOnly),
-                bestsellerOnly: parseBool(bestsellerOnly),
-                recommendedOnly: parseBool(recommendedOnly),
-                newArrivalsOnly: parseBool(newArrivalsOnly),
-                getThirdFree: parseBool(getThirdFree)
+                code: f.code, title: f.title, couponType: f.couponType,
+                validFrom: fromDate, validTo: toDate, active: f.active,
+                fixAmount: f.fixAmount, amount: f.amount, flatDeduction: f.flatDeduction,
+                minimumBuy: f.minimumBuy, priceOverOnly: f.priceOverOnly,
+                tier2MinOrder: f.tier2MinOrder, tier2Amount: f.tier2Amount,
+                newCustomerOnly: f.newCustomerOnly, membersOnly: f.membersOnly,
+                nextOrderOnly: f.nextOrderOnly, bestsellerOnly: f.bestsellerOnly,
+                recommendedOnly: f.recommendedOnly, newArrivalsOnly: f.newArrivalsOnly,
+                booksOfMonthOnly: f.booksOfMonthOnly, getThirdFree: f.getThirdFree,
             }
         });
-        res.status(201).json({ status: true, msg: 'Coupon created successfully!', data: newCoupon });
-    } catch (error) {
-        if (error.code === 'P2002') return res.status(400).json({ status: false, msg: 'Coupon Code already exists.' });
+        res.status(201).json({ status: true, msg: 'Coupon created!', data: coupon });
+    } catch (err) {
+        if (err.code === 'P2002') return res.status(400).json({ status: false, msg: 'Coupon Code already exists.' });
+        console.error(err);
         res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
+// ── LIST (admin) ──────────────────────────────────────────────────────────────
 export const getAllCoupons = async (req, res) => {
     try {
-        const pageNum = Math.max(1, parseInt(req.query.page) || 1);
+        const pageNum  = Math.max(1, parseInt(req.query.page)  || 1);
         const pageSize = Math.max(1, parseInt(req.query.limit) || 25);
         const skip = (pageNum - 1) * pageSize;
         const [coupons, total] = await Promise.all([
             prisma.coupon.findMany({ orderBy: { id: 'desc' }, skip, take: pageSize }),
             prisma.coupon.count()
         ]);
-        res.status(200).json({
-            status: true, data: coupons, total,
-            page: pageNum, limit: pageSize,
-            totalPages: Math.ceil(total / pageSize)
-        });
-    } catch (error) {
+        res.json({ status: true, data: coupons, total, page: pageNum, limit: pageSize, totalPages: Math.ceil(total / pageSize) });
+    } catch (err) {
         res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
+// ── ACTIVE (checkout) ─────────────────────────────────────────────────────────
 export const getActiveCoupons = async (req, res) => {
     try {
         const now = new Date();
         const coupons = await prisma.coupon.findMany({
             where: { active: true, validFrom: { lte: now }, validTo: { gte: now } },
-            select: { id: true, code: true, amount: true, fixAmount: true }
+            select: {
+                id: true, code: true, title: true, couponType: true,
+                amount: true, flatDeduction: true, fixAmount: true,
+                minimumBuy: true, tier2MinOrder: true, tier2Amount: true,
+                newCustomerOnly: true, membersOnly: true,
+                bestsellerOnly: true, recommendedOnly: true, newArrivalsOnly: true, booksOfMonthOnly: true,
+                getThirdFree: true, validFrom: true, validTo: true,
+            }
         });
-        res.status(200).json({ status: true, data: coupons });
-    } catch (error) {
+        res.json({ status: true, data: coupons });
+    } catch (err) {
         res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
+// ── GET BY ID ─────────────────────────────────────────────────────────────────
 export const getCouponById = async (req, res) => {
     try {
         const coupon = await prisma.coupon.findUnique({ where: { id: parseInt(req.params.id) } });
         if (!coupon) return res.status(404).json({ status: false, msg: 'Coupon not found' });
-        res.status(200).json({ status: true, data: coupon });
-    } catch (error) {
+        res.json({ status: true, data: coupon });
+    } catch (err) {
         res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
+// ── UPDATE ────────────────────────────────────────────────────────────────────
 export const updateCoupon = async (req, res) => {
     try {
         const id = parseInt(req.params.id);
-        const { code, title, validFrom, validTo, active, fixAmount, amount,
-            minimumBuy, priceOverOnly, newCustomerOnly, membersOnly, nextOrderOnly,
-            bestsellerOnly, recommendedOnly, newArrivalsOnly, getThirdFree } = req.body;
+        if (isNaN(id)) return res.status(400).json({ status: false, msg: 'Invalid ID' });
 
+        const f = extractFields(req.body);
         const updateData = {};
 
-        if (code) {
-            const cleanCode = code.trim().toUpperCase();
-            // Check duplicate code against other coupons
-            const existing = await prisma.coupon.findFirst({ where: { code: cleanCode, NOT: { id } } });
-            if (existing) return res.status(400).json({ status: false, msg: 'This Coupon Code is already in use.' });
-            updateData.code = cleanCode;
+        if (f.code) {
+            const existing = await prisma.coupon.findFirst({ where: { code: f.code, NOT: { id } } });
+            if (existing) return res.status(400).json({ status: false, msg: 'Coupon Code already in use.' });
+            updateData.code = f.code;
         }
-        if (title !== undefined) updateData.title = title;
-        if (validFrom) {
-            const d = new Date(validFrom);
-            if (isNaN(d.getTime())) return res.status(400).json({ status: false, msg: 'Invalid validFrom date.' });
-            updateData.validFrom = d;
-        }
-        if (validTo) {
-            const d = new Date(validTo);
-            if (isNaN(d.getTime())) return res.status(400).json({ status: false, msg: 'Invalid validTo date.' });
-            updateData.validTo = d;
-        }
-        if (updateData.validFrom && updateData.validTo && updateData.validTo <= updateData.validFrom) {
-            return res.status(400).json({ status: false, msg: 'validTo must be after validFrom.' });
-        }
-        if (active !== undefined) updateData.active = parseBool(active);
-        if (fixAmount !== undefined) updateData.fixAmount = parseBool(fixAmount);
-        if (amount !== undefined) updateData.amount = Number(amount);
-        if (minimumBuy !== undefined) updateData.minimumBuy = Number(minimumBuy);
-        if (priceOverOnly !== undefined) updateData.priceOverOnly = Number(priceOverOnly);
-        if (newCustomerOnly !== undefined) updateData.newCustomerOnly = parseBool(newCustomerOnly);
-        if (membersOnly !== undefined) updateData.membersOnly = parseBool(membersOnly);
-        if (nextOrderOnly !== undefined) updateData.nextOrderOnly = parseBool(nextOrderOnly);
-        if (bestsellerOnly !== undefined) updateData.bestsellerOnly = parseBool(bestsellerOnly);
-        if (recommendedOnly !== undefined) updateData.recommendedOnly = parseBool(recommendedOnly);
-        if (newArrivalsOnly !== undefined) updateData.newArrivalsOnly = parseBool(newArrivalsOnly);
-        if (getThirdFree !== undefined) updateData.getThirdFree = parseBool(getThirdFree);
+
+        const boolFields = ['active','fixAmount','newCustomerOnly','membersOnly','nextOrderOnly',
+            'bestsellerOnly','recommendedOnly','newArrivalsOnly','booksOfMonthOnly','getThirdFree'];
+        const floatFields = ['amount','flatDeduction','minimumBuy','priceOverOnly','tier2MinOrder','tier2Amount'];
+        const strFields   = ['title','couponType'];
+
+        strFields.forEach(k  => { if (req.body[k] !== undefined || req.body[k.replace(/([A-Z])/g,'_$1').toLowerCase()] !== undefined) updateData[k] = f[k]; });
+        boolFields.forEach(k => { const snk = k.replace(/([A-Z])/g,'_$1').toLowerCase(); if (req.body[k] !== undefined || req.body[snk] !== undefined) updateData[k] = f[k]; });
+        floatFields.forEach(k=> { const snk = k.replace(/([A-Z])/g,'_$1').toLowerCase(); if (req.body[k] !== undefined || req.body[snk] !== undefined) updateData[k] = f[k]; });
+
+        if (f.validFrom) { const d = new Date(f.validFrom); if (!isNaN(d)) updateData.validFrom = d; }
+        if (f.validTo)   { const d = new Date(f.validTo);   if (!isNaN(d)) updateData.validTo   = d; }
 
         const updated = await prisma.coupon.update({ where: { id }, data: updateData });
-        res.status(200).json({ status: true, msg: 'Coupon updated successfully!', data: updated });
-    } catch (error) {
-        if (error.code === 'P2025') return res.status(404).json({ status: false, msg: 'Coupon not found' });
+        res.json({ status: true, msg: 'Coupon updated!', data: updated });
+    } catch (err) {
+        if (err.code === 'P2025') return res.status(404).json({ status: false, msg: 'Coupon not found' });
+        console.error(err);
         res.status(500).json({ status: false, msg: 'Update failed' });
     }
 };
 
+// ── DELETE ────────────────────────────────────────────────────────────────────
 export const deleteCoupon = async (req, res) => {
     try {
         await prisma.coupon.delete({ where: { id: parseInt(req.params.id) } });
-        res.status(200).json({ status: true, msg: 'Coupon deleted successfully!' });
-    } catch (error) {
-        if (error.code === 'P2025') return res.status(404).json({ status: false, msg: 'Coupon not found' });
+        res.json({ status: true, msg: 'Coupon deleted!' });
+    } catch (err) {
+        if (err.code === 'P2025') return res.status(404).json({ status: false, msg: 'Coupon not found' });
         res.status(500).json({ status: false, msg: 'Delete failed' });
     }
 };
 
-// POST /coupons/apply
-// Body: { code, cartTotal }
-// Preview endpoint — validates coupon eligibility and returns discount info.
-// NOTE: actual discount is always recalculated server-side in saveOrder.
-// cartTotal here is only used to check minimumBuy eligibility and show estimated discount.
+// ── APPLY (checkout preview) ──────────────────────────────────────────────────
+// Body: { code, cartTotal, cartItems?: [{ price, quantity }] }
 export const applyCoupon = async (req, res) => {
     try {
-        const { code, cartTotal } = req.body;
+        const { code, cartTotal, cartItems = [] } = req.body;
         if (!code) return res.status(400).json({ status: false, msg: 'Coupon code is required' });
 
         const total = Math.max(0, Number(cartTotal) || 0);
@@ -174,7 +245,7 @@ export const applyCoupon = async (req, res) => {
         const cleanCode = code.trim().toUpperCase();
         const coupon = await prisma.coupon.findUnique({ where: { code: cleanCode } });
 
-        if (!coupon) return res.status(404).json({ status: false, msg: 'Invalid coupon code' });
+        if (!coupon)        return res.status(404).json({ status: false, msg: 'Invalid coupon code' });
         if (!coupon.active) return res.status(400).json({ status: false, msg: 'This coupon is not active' });
 
         const now = new Date();
@@ -182,29 +253,29 @@ export const applyCoupon = async (req, res) => {
         if (now > coupon.validTo)   return res.status(400).json({ status: false, msg: 'This coupon has expired' });
 
         if (coupon.minimumBuy > 0 && total < coupon.minimumBuy) {
-            return res.status(400).json({
-                status: false,
-                msg: `Minimum cart value of ${coupon.minimumBuy} required for this coupon`
-            });
+            return res.status(400).json({ status: false, msg: `Minimum order of ${coupon.minimumBuy} required for this coupon` });
         }
 
-        // Estimated discount for UI display only — saveOrder recalculates this authoritatively
-        const discount = coupon.fixAmount
-            ? Math.min(coupon.amount, total)
-            : Math.round((total * coupon.amount / 100) * 100) / 100;
+        const discount = calcDiscount(coupon, total, cartItems);
 
-        res.status(200).json({
+        res.json({
             status: true,
-            msg: 'Coupon applied successfully',
+            msg: 'Coupon applied!',
             data: {
-                couponId:  coupon.id,
-                code:      coupon.code,
+                couponId:      coupon.id,
+                code:          coupon.code,
+                title:         coupon.title,
+                couponType:    coupon.couponType,
                 discount,
-                fixAmount: coupon.fixAmount,
-                amount:    coupon.amount,
+                fixAmount:     coupon.fixAmount,
+                amount:        coupon.amount,
+                flatDeduction: coupon.flatDeduction,
+                tier2MinOrder: coupon.tier2MinOrder,
+                tier2Amount:   coupon.tier2Amount,
             }
         });
-    } catch (error) {
+    } catch (err) {
+        console.error(err);
         res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };

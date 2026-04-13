@@ -1,7 +1,6 @@
 'use client';
 
 import React, { Suspense, lazy } from 'react';
-import { Helmet } from 'react-helmet-async';
 import { Loader2 } from 'lucide-react';
 
 // 🟢 Performance Optimization: Lazy Loading Components
@@ -16,7 +15,10 @@ const RecommendedSection = lazy(() => import('../../components/website/home/Reco
 const SaleToday = lazy(() => import('../../components/website/home/SaleToday/SaleToday.jsx'));
 const ShopByCategory = lazy(() => import('../../components/website/home/shopByCategory/shopByCategory.jsx'));
 const FeaturedAuthors = lazy(() => import('../../components/website/home/featuredAuthorSection/FeaturedAuthor.jsx'));
-
+const FeaturedToday = lazy(() => import('../../components/website/home/FeaturedTodaysection/FeaturedToday.jsx'));
+const InTheSpotlight = lazy(() => import('../../components/website/home/InTheSpotlight/InTheSpotlight.jsx'));
+const EGiftcardBanner = lazy(() => import('../../components/website/home/E-GiftCardBanner.jsx'));
+const DualBannerTwo = lazy(() => import('../../components/website/home/sideBysideBanner2/sideBysideBanner2.jsx'));
 // Loading Placeholder
 const PageLoader = () => (
   <div className="min-h-[50vh] flex flex-col items-center justify-center bg-cream-50">
@@ -28,42 +30,35 @@ const PageLoader = () => (
 function Home() {
   return (
     <div className="bg-cream-50">
-      <Helmet>
-        <title>Bagchee — Books That Stick</title>
-        <meta name="description" content="Bagchee — India's favourite online bookstore. Shop books, CDs, DVDs, music, handicrafts and more with free delivery." />
-        <meta name="keywords" content="buy books online, books india, online bookstore, bagchee, hindi books, english books, children books" />
-        <meta property="og:title" content="Bagchee — Books That Stick" />
-        <meta property="og:description" content="India's favourite online bookstore. Shop books, CDs, DVDs and more." />
-        <meta property="og:type" content="website" />
-      </Helmet>
       {/* 🟢 Suspense handles lazy loading state */}
       <Suspense fallback={<PageLoader />}>
-        
+
         {/* <PremiumOfferBar /> */}
-        
+
         <HeroSlider />
-        
+
+
         <NewAndNotable />
+        <FeaturedToday />
         
-        {/* Commented Banners preserved as per your original code */}
-        {/* <BestSellerBanner /> */}
-        
+        <InTheSpotlight />
         <BestSellerSection />
-        
-        <DualBanner /> 
-        
+
+        <DualBanner />
+
         <BooksOfTheMonthSection />
-        
+
         <RecommendedSection />
-        
+
         {/* <SaleTodayBanner/> */}
-        
+
         <SaleToday />
-        
+<DualBannerTwo/>
         <ShopByCategory />
-        
+
         <FeaturedAuthors />
 
+        <EGiftcardBanner />
       </Suspense>
     </div>
   );

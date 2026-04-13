@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Check, RotateCcw, X, Loader2, UploadCloud } from 'lucide-react';
-import JoditEditor from '../../components/admin/LazyJoditEditor';
+import JoditEditor from 'jodit-react';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
 
@@ -173,7 +173,7 @@ const AddPayments = () => {
                   ref={editor} 
                   value={additionalText} 
                   config={config} 
-                  onBlur={newContent => setAdditionalText(newContent)} 
+                  onChange={newContent => setAdditionalText(newContent)} 
                 />
               </div>
             </div>

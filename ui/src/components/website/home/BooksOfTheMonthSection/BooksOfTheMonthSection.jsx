@@ -56,7 +56,7 @@ const BooksOfTheMonthSection = () => {
 
     return (
         <section id='books-of-the-month' className="py-10 md:py-16 bg-cream-50 font-body">
-            <div className="max-w-[1400px] mx-auto px-4">
+            <div className="w-full px-4 md:px-4">
                 
                 {/* --- HEADER --- */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 md:mb-10 gap-2 md:gap-4 border-b border-primary-200 pb-4">
@@ -89,7 +89,7 @@ const BooksOfTheMonthSection = () => {
                     ) : (
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-6 transition-all duration-500">
                             {data?.products?.slice(0, 6).map((book) => (
-                                <div key={book.id} className="relative group/card transform transition-all duration-300 hover:-translate-y-1">
+                                <div key={book._id} className="relative group/card transform transition-all duration-300 hover:-translate-y-1">
                                     <div className="absolute top-2 right-2 z-20 transform group-hover/card:scale-110 transition-transform">
                                         <div className="bg-accent p-1.5 rounded-full shadow-md">
                                             <Star fill="#0B2F3A" size={12} className="text-text-main" />

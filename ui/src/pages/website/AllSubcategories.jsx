@@ -45,8 +45,8 @@ const AllSubcategories = () => {
               (subcat) => {
                 // Try multiple possible field names for the category reference
                 const catId = subcat.categoryId || subcat.categoryid || subcat.category_id || subcat.category;
-                const catIdStr = typeof catId === 'object' ? catId.id : catId;
-                const foundCatIdStr = foundCategory.id;
+                const catIdStr = typeof catId === 'object' ? catId._id : catId;
+                const foundCatIdStr = foundCategory._id;
                 
                 return catIdStr === foundCatIdStr || String(catIdStr) === String(foundCatIdStr);
               }
@@ -67,11 +67,11 @@ const AllSubcategories = () => {
   const buildCategoryTree = (categories) => {
     const map = {};
     const tree = [];
-    categories.forEach((c) => (map[c.id] = { ...c, children: [] }));
+    categories.forEach((c) => (map[c._id] = { ...c, children: [] }));
     categories.forEach((c) => {
       if (c.parentid && map[c.parentid])
-        map[c.parentid].children.push(map[c.id]);
-      else tree.push(map[c.id]);
+        map[c.parentid].children.push(map[c._id]);
+      else tree.push(map[c._id]);
     });
     return tree;
   };
@@ -149,13 +149,13 @@ const AllSubcategories = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {subcategories.map((subcat) => (
               <Link
-                key={subcat.id}
+                key={subcat._id}
                 to={`/books/${slug}`}
                 onClick={(e) => {
                   e.preventDefault();
                   // Navigate back to category page with this subcategory selected
                   navigate(`/books/${slug}`, { 
-                    state: { selectedSubcategoryId: subcat.id } 
+                    state: { selectedSubcategoryId: subcat._id } 
                   });
                 }}
                 className="bg-cream-100 border-2 border-gray-200 rounded-lg p-6 hover:border-primary hover:shadow-md transition-all group"

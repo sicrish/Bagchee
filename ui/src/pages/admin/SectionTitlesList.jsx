@@ -203,7 +203,7 @@ const SectionTitlesList = () => {
                 </tr>
               ) : filteredSections.length > 0 ? (
                 filteredSections.map((item, index) => (
-                  <tr key={item.id} className="hover:bg-primary/5 transition-colors group">
+                  <tr key={item._id} className="hover:bg-primary/5 transition-colors group">
                     <td className="p-4 border-r text-gray-500 font-mono text-xs font-bold uppercase tracking-tighter">
                       {item.section}
                     </td>
@@ -229,14 +229,14 @@ const SectionTitlesList = () => {
                     <td className="p-4 text-center">
                       <div className="flex justify-center gap-3">
                         <button
-                          onClick={() => navigate(`/admin/edit-home-section/${item.id}`)}
+                          onClick={() => navigate(`/admin/edit-home-section/${item._id}`)}
                           className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm"
                           title="Full Edit"
                         >
                           <Edit size={14} />
                         </button>
                         <button
-                          onClick={() => handleDelete(item.id)}
+                          onClick={() => handleDelete(item._id)}
                           className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all shadow-sm"
                           title="Delete"
                         >

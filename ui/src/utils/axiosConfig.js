@@ -3,7 +3,7 @@ import toast from 'react-hot-toast'; // 🟢 Toast Import karein
 import { encryptData } from './encryption.js';
 
 const axiosInstance = axios.create({
-    baseURL: process.env.REACT_APP_API_URL || 'http://localhost:3001'
+    baseURL: process.env.REACT_APP_API_URL
 });
 
 // Flag to prevent multiple redirects
@@ -34,6 +34,7 @@ axiosInstance.interceptors.request.use(
 
             // FormData (Images/Files) ko encrypt nahi karna hai
             if (!(config.data instanceof FormData)) {
+
                 config.data = {
                     payload: encryptData(config.data)
                 };
@@ -51,14 +52,25 @@ axiosInstance.interceptors.request.use(
 axiosInstance.interceptors.response.use(
     (response) => response,
     (error) => {
+
+// 🟢 Check karein ki URL 'verify' wala toh nahi hai
+const isVerifyRoute = error.config?.url?.includes('/user/verify');
+
         // Agar Backend ne 401 (Unauthorized) error diya
         if (error.response && error.response.status === 401) {
+
+
+
+            if (isVerifyRoute) {
+                return Promise.reject(error);
+            }
+
 
             // Check karein ki pehle se redirect process chal to nahi raha
             if (!isRedirecting) {
                 isRedirecting = true; // Flag set karein
 
-                // Session expired — redirect to login
+                console.warn("Session Expired! Redirecting...");
 
                 // 1. Storage Clear
                 localStorage.removeItem('token');

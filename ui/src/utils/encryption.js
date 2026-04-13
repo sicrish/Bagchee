@@ -1,9 +1,6 @@
 import CryptoJS from 'crypto-js';
 
-const SECRET_KEY = process.env.REACT_APP_ENCRYPTION_SECRET;
-if (!SECRET_KEY) {
-    console.error('REACT_APP_ENCRYPTION_SECRET is not set. Encryption will fail.');
-}
+const SECRET_KEY = process.env.REACT_APP_ENCRYPTION_SECRET || "Bagchee_secret_data_key_2026"; 
 
 export const encryptData = (data) => {
     try {
@@ -15,6 +12,7 @@ export const encryptData = (data) => {
         // Encrypt karo aur seedha string return karo
         return CryptoJS.AES.encrypt(dataString, SECRET_KEY).toString();
     } catch (error) {
+        console.error("❌ Encryption Error:", error);
         return "";
     }
 };

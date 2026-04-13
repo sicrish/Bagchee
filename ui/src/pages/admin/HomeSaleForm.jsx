@@ -79,8 +79,8 @@ const HomeSaleForm = () => {
 
   // --- 3. SELECT PRODUCT ---
   const handleSelectProduct = (product) => {
-    setFormData({ ...formData, productId: product.bagcheeId });
-    setSearchQuery(`${product.bagcheeId} - ${product.title}`); 
+    setFormData({ ...formData, productId: product.bagchee_id });
+    setSearchQuery(`${product.bagchee_id} - ${product.title}`); 
     setIsDropdownOpen(false); 
   };
 
@@ -191,7 +191,7 @@ const HomeSaleForm = () => {
                     <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded shadow-lg mt-1 max-h-60 overflow-y-auto z-50">
                         {searchResults.map((prod) => (
                             <div 
-                                key={prod.id} 
+                                key={prod._id} 
                                 onClick={() => handleSelectProduct(prod)}
                                 className="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-0 flex flex-col justify-center"
                             >
@@ -199,7 +199,7 @@ const HomeSaleForm = () => {
                                 <p className="text-xs font-bold text-gray-800 line-clamp-1">{prod.title}</p>
                                 
                                 <div className="text-[10px] text-gray-500 flex flex-wrap gap-x-2">
-                                    <span>ID: <strong className="text-primary">{prod.bagcheeId}</strong></span>
+                                    <span>ID: <strong className="text-primary">{prod.bagchee_id}</strong></span>
                                     {prod.isbn13 && <span>| ISBN-13: {prod.isbn13}</span>}
                                     {prod.isbn10 && <span>| ISBN-10: {prod.isbn10}</span>}
                                 </div>

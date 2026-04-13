@@ -2,7 +2,6 @@ import React, { useState, memo, useRef, useEffect, useCallback } from "react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import axios from "axios";
-import { getImageUrl } from '../../../../utils/imageUrl.js';
 
 /* 🔥 ANTI-FLICKER STYLE (Optimized for GPU) */
 const gpuLockStyle = {
@@ -20,6 +19,14 @@ const DualBanner = () => {
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
 
+  // 🟢 Helper to fix image URL (Memoized for stability)
+  const getImageUrl = useCallback((imgRaw) => {
+    if (!imgRaw) return "";
+    if (imgRaw.startsWith("http")) return imgRaw;
+    const API_BASE = process.env.REACT_APP_API_URL?.replace("/api", "") || "http://localhost:5000";
+    return `${API_BASE}/${imgRaw.replace(/^\//, "")}`;
+  }, []);
+
   // 🟢 Fetch Data from Backend
   useEffect(() => {
     let isMounted = true;
@@ -32,7 +39,7 @@ const DualBanner = () => {
             .filter((b) => b.isActive)
             .sort((a, b) => (a.order || 0) - (b.order || 0))
             .map((b) => ({
-              id: b.id,
+              id: b._id,
               image1: getImageUrl(b.image1),
               image2: getImageUrl(b.image2),
               link1: b.link1 || "/shop",

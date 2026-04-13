@@ -2,7 +2,8 @@ import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { Save, RotateCcw, Plus, Search, Check, X, Upload, Eye, Loader2, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useNavigate, useParams } from 'react-router-dom';
-import JoditEditor from '../../components/admin/LazyJoditEditor';
+import JoditEditor from 'jodit-react';
+import 'react-quill/dist/quill.snow.css';
 import axios from '../../utils/axiosConfig';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { validateImageFiles } from '../../utils/fileValidator';
@@ -32,7 +33,6 @@ const EditBook = () => {
     // --- LIST DATA STATES ---
     const [categories, setCategories] = useState([]);
     const [languages, setLanguages] = useState([]);
-    const [preloadedAuthorNames, setPreloadedAuthorNames] = useState({});
     const [tags, setTags] = useState([]);
     const [authors, setAuthors] = useState([]);
     const [formats, setFormats] = useState([]);
@@ -188,17 +188,17 @@ const EditBook = () => {
             setFormData({
                 title: book.title || '',
                 product_type: book.product_type || 'book',
-                bagchee_id: book.bagcheeId || book.bagchee_id || '',
-                leading_category: book.leadingCategoryId || book.categoryId || (book.product_categories?.[0] || ''),
-                product_categories: book.categories ? book.categories.map(c => c.categoryId) : (book.product_categories || []),
-                product_languages: book.languages ? book.languages.map(l => l.language?.title).filter(Boolean) : (book.product_languages || (book.language ? [book.language] : [])),
-                product_tags: book.tags ? book.tags.map(t => t.tag?.title).filter(Boolean) : (book.product_tags || []),
-                product_formats: book.formats ? book.formats.map(f => f.format?.title).filter(Boolean) : (book.product_formats || (book.binding ? [book.binding] : [])),
-                authors: book.authors ? [...new Set(book.authors.map(a => typeof a === 'object' ? (a.authorId || a.id) : a))] : (book.author ? [book.author] : []),
+                bagchee_id: book.bagchee_id || '',
+                leading_category: book.categoryId ? (typeof book.categoryId === 'object' ? book.categoryId._id : book.categoryId) : (book.product_categories?.[0] || ''),
+                product_categories: book.product_categories || [],
+                product_languages: book.product_languages || (book.language ? [book.language] : []),
+                product_tags: book.product_tags || [],
+                product_formats: book.product_formats || (book.binding ? [book.binding] : []),
+                authors: book.authors ? book.authors : (book.author ? [book.author] : []),
                 // Agar series array hai to wahi rakho, single hai to array bana do, warna khali array []
 series: Array.isArray(book.series) 
-? book.series.map(s => typeof s === 'object' ? s.id : s) 
-: (book.series ? [typeof book.series === 'object' ? book.series.id : book.series] : []),
+? book.series.map(s => typeof s === 'object' ? s._id : s) 
+: (book.series ? [typeof book.series === 'object' ? book.series._id : book.series] : []),
                 publisher: book.publisher || '',
                 volume: book.volume || '',
                 edition: book.edition || '',
@@ -207,66 +207,51 @@ series: Array.isArray(book.series)
                 total_pages: (book.pages !== undefined && book.pages !== null) ? String(book.pages) : '',
                 weight: book.weight || '',
                 price: book.price || '',
-                real_price: book.realPrice || book.real_price || book.priceForeign || '',
-                inr_price: book.inrPrice || book.inr_price || '',
+                real_price: book.real_price || book.priceForeign || '',
+                inr_price: book.price || '',
                 discount: book.discount || '',
                 stock: typeof book.stock === 'number' ? (book.stock > 0 ? 'active' : 'inactive') : (book.stock || 'active'),
                 availability: book.availability ? Number(book.availability) : 0,
                 notes: book.notes || '',
                 series_number: (book.series_number !== undefined && book.series_number !== null) ? String(book.series_number) : '',
-                meta_title: book.metaTitle || book.meta_title || '',
-                meta_keywords: book.metaKeywords || book.meta_keywords || '',
-                meta_description: book.metaDescription || book.meta_description || '',
+                meta_title: book.meta_title || '',
+                meta_keywords: book.meta_keywords || '',
+                meta_description: book.meta_description || '',
                 active: book.isActive ? 'active' : 'inactive',
                 recommended: book.isRecommended ? 'active' : 'inactive',
                 upcoming: (book.upcoming || book.Upcoming) ? 'active' : 'inactive',
                 upcoming_date: book.upcoming_date ? new Date(book.upcoming_date).toISOString().split('T')[0] : '',
                 new_release: book.isNewRelease ? 'active' : 'inactive',
-                new_release_until: (book.newReleaseUntil || book.new_release_until) ? new Date(book.newReleaseUntil || book.new_release_until).toISOString().split('T')[0] : '',
+                new_release_until: book.new_release_until ? new Date(book.new_release_until).toISOString().split('T')[0] : '',
                 exclusive: book.isExclusive ? 'active' : 'inactive',
-                ship_days: (book.shipDays !== undefined && book.shipDays !== null) ? String(book.shipDays) : (book.ship_days !== undefined && book.ship_days !== null) ? String(book.ship_days) : "",
-                deliver_days: (book.deliverDays !== undefined && book.deliverDays !== null) ? String(book.deliverDays) : (book.deliver_days !== undefined && book.deliver_days !== null) ? String(book.deliver_days) : "",
-                pub_date: book.pubDate || book.pub_date || '',
+                ship_days: (book.ship_days !== undefined && book.ship_days !== null) ? String(book.ship_days) : (book.shipDays ? String(book.shipDays) : ""),
+                deliver_days: (book.deliver_days !== undefined && book.deliver_days !== null) ? String(book.deliver_days) : (book.deliverDays ? String(book.deliverDays) : ""),
+                pub_date: book.pub_date || '',
                 source: book.source || '',
                 rating: book.rating || '',
-                rated_times: book.ratedTimes || book.rated_times || '',
-                toc_image: book.tocImage || book.toc_image || '',
-                ordered_items_count: book.soldCount || book.ordered_items_count || 0,
+                rated_times: book.rated_times || '',
+                toc_image: book.toc_image || book.tocImage || '',
+                ordered_items_count: book.soldCount || 0,
             });
 
-            // Build author name map from embedded junction data (handles 91k authors pagination issue)
-            if (book.authors) {
-                const nameMap = {};
-                book.authors.forEach(a => {
-                    if (a.author) {
-                        nameMap[a.authorId] = `${a.author.firstName || ''} ${a.author.lastName || ''}`.trim();
-                    }
-                });
-                setPreloadedAuthorNames(nameMap);
+            if (book.new_release_until) {
+                setUserSelectedDate(new Date(book.new_release_until).toISOString().split('T')[0]);
             }
 
-            if (book.newReleaseUntil || book.new_release_until) {
-                setUserSelectedDate(new Date(book.newReleaseUntil || book.new_release_until).toISOString().split('T')[0]);
-            }
+            if (book.toc_images && book.toc_images.length > 0) setTocImagesList(book.toc_images.map((img) => ({ id: img._id, image: img.image, order: img.order, file: null })));
+            if (book.related_images && book.related_images.length > 0) setRelatedImagesList(book.related_images.map((img) => ({ id: img._id, image: img.image, order: img.order, file: null })));
+            if (book.sample_images && book.sample_images.length > 0) setSampleImagesList(book.sample_images.map((img) => ({ id: img._id, image: img.image, order: img.order, file: null })));
 
-            const tocImgs = book.tocImages || book.toc_images || [];
-            const relImgs = book.images || book.related_images || [];
-            const sampImgs = book.sampleImages || book.sample_images || [];
-            if (tocImgs.length > 0) setTocImagesList(tocImgs.map((img) => ({ id: img.id, image: img.file || img.image, order: img.ord ?? img.order, file: null })));
-            if (relImgs.length > 0) setRelatedImagesList(relImgs.map((img) => ({ id: img.id, image: img.file || img.image, order: img.ord ?? img.order, file: null })));
-            if (sampImgs.length > 0) setSampleImagesList(sampImgs.map((img) => ({ id: img.id, image: img.file || img.image, order: img.ord ?? img.order, file: null })));
-
-            const tocImgField = book.tocImage || book.toc_image;
-            if (tocImgField) {
-                let cleanTocPath = tocImgField.replace(/\\/g, '/');
+            if (book.toc_image) {
+                let cleanTocPath = book.toc_image.replace(/\\/g, '/');
                 if (!cleanTocPath.startsWith('http')) {
-                    const baseUrl = API_URL.replace('/api', '') || 'http://localhost:3001';
+                    const baseUrl = API_URL.replace('/api', '') || 'http://localhost:5000';
                     cleanTocPath = `${baseUrl}${cleanTocPath.startsWith('/') ? '' : '/'}${cleanTocPath}`;
                 }
                 setTocPreview(cleanTocPath);
             }
 
-            const imgRaw = book.defaultImage || book.default_image || book.producticonname;
+            const imgRaw = book.default_image || book.producticonname;
             if (imgRaw) {
                 let cleanPath = imgRaw.replace(/\\/g, '/');
                 if (!cleanPath.startsWith('http')) {
@@ -278,7 +263,7 @@ series: Array.isArray(book.series)
 
             setSynopsis(book.synopsis || book.description || '');
             setCriticsNote(book.criticsNote || book.critics_note || '');
-            setSearchText(book.searchText || book.search_text || book.aboutAuthorText || '');
+            setSearchText(book.aboutAuthorText || book.search_text || '');
 
             if (book.related_products) {
                 const ids = book.related_products.split(',').map(s => s.trim()).filter(Boolean);
@@ -360,7 +345,7 @@ series: Array.isArray(book.series)
     }, [relatedSearchQuery, isRelatedDropdownOpen]);
 
     const handleAddRelatedProduct = (product) => {
-        const idToAdd = product.bagcheeId || product.id;
+        const idToAdd = product.bagchee_id || product._id;
         const titleToAdd = product.title;
         if (selectedRelatedItems.find(item => item.id === idToAdd)) {
             return toast.error("Product already linked!");
@@ -425,7 +410,7 @@ series: Array.isArray(book.series)
                 if (res.status) {
                     toast.success("Author added!", { id: toastId });
                     setAuthors(prev => [...prev, res.data]);
-                    setFormData(prev => ({ ...prev, authors: [...prev.authors, res.data.id] }));
+                    setFormData(prev => ({ ...prev, authors: [...prev.authors, res.data._id] }));
                     setIsAuthorPanelOpen(false);
                     setNewAuthorData({ first_name: '', last_name: '', origin: '' });
                     setNewAuthorProfile('');
@@ -478,7 +463,7 @@ series: Array.isArray(book.series)
                 if (res.status) {
                     toast.success("Publisher added!", { id: toastId });
                     setPublishers(prev => [...prev, res.data]);
-                    setFormData(prev => ({ ...prev, publisher: res.data.id }));
+                    setFormData(prev => ({ ...prev, publisher: res.data._id }));
                     setIsPubPanelOpen(false);
                     setNewPubData({ category: '', title: '', company: '', address: '', place: '', email: '', phone: '', order: '', slug: '' });
                     setNewPubImage(null);
@@ -497,7 +482,7 @@ series: Array.isArray(book.series)
             onSuccess: (res) => {
                 if (res.status) {
                     setSeriesList(prev => [...prev, res.data]);
-                    setFormData(prev => ({ ...prev, series: res.data.id, series_number: "1" }));
+                    setFormData(prev => ({ ...prev, series: res.data._id, series_number: "1" }));
                     toast.success("Series added!", { id: toastId });
                     setIsSeriesPanelOpen(false);
                     setNewSeriesData({ title: '' });
@@ -619,14 +604,14 @@ series: Array.isArray(book.series)
             const currentSeries = Array.isArray(prev.series) ? prev.series : [];
 
             // Duplicate check: Agar ID pehle se hai to error dikhao
-            if (currentSeries.includes(selectedSeries.id)) {
+            if (currentSeries.includes(selectedSeries._id)) {
                 toast.error("This series is already added!");
                 return prev;
             }
 
             return {
                 ...prev,
-                series: [...currentSeries, selectedSeries.id],
+                series: [...currentSeries, selectedSeries._id],
                 // Pehli baar select hone par number suggest karega
                 series_number: prev.series_number || (selectedSeries.total_books ? (selectedSeries.total_books + 1).toString() : "1")
             };
@@ -636,7 +621,7 @@ series: Array.isArray(book.series)
     };
 
     const handlePublisherSelect = (pub) => {
-        setFormData(prev => ({ ...prev, publisher: pub.id }));
+        setFormData(prev => ({ ...prev, publisher: pub._id }));
         setIsPublisherDropdownOpen(false); setPublisherSearch("");
     };
 
@@ -659,7 +644,7 @@ series: Array.isArray(book.series)
 
     const removeTocImage = () => { setTocImageFile(null); const input = document.getElementById('toc_image_input'); if (input) input.value = ""; };
 
-    const selectedLeadingCategory = categories.find(c => c.id === formData.leading_category);
+    const selectedLeadingCategory = categories.find(c => c._id === formData.leading_category);
 
     return (
         <div className="bg-gray-50 min-h-screen font-body text-text-main">
@@ -723,7 +708,7 @@ series: Array.isArray(book.series)
                             <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight">Leading category*</label>
                             <div className="col-span-9 relative">
                                 <div onClick={() => setIsLeadingOpen(!isLeadingOpen)} className="theme-input w-1/2 cursor-pointer flex justify-between items-center bg-white border border-gray-300 rounded p-2 text-sm">
-                                    <span className={selectedLeadingCategory ? "text-gray-700" : "text-gray-400"}>{selectedLeadingCategory ? selectedLeadingCategory.title : "Select category"}</span>
+                                    <span className={selectedLeadingCategory ? "text-gray-700" : "text-gray-400"}>{selectedLeadingCategory ? selectedLeadingCategory.categorytitle : "Select category"}</span>
                                     <span className="text-gray-400 text-[10px]">▼</span>
                                 </div>
                                 {isLeadingOpen && (
@@ -732,9 +717,9 @@ series: Array.isArray(book.series)
                                             <input type="text" placeholder="Search..." value={leadingSearch} onChange={(e) => setLeadingSearch(e.target.value)} className="w-full text-xs p-1.5 border border-gray-200 rounded focus:border-primary outline-none" autoFocus />
                                         </div>
                                         <div className="overflow-y-auto">
-                                            {categories.filter(cat => cat.title.toLowerCase().includes(leadingSearch.toLowerCase())).map((cat) => (
-                                                <div key={cat.id} onClick={() => { setFormData({ ...formData, leading_category: cat.id }); setIsLeadingOpen(false); setLeadingSearch(""); }} className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${formData.leading_category === cat.id ? "bg-blue-50 text-primary font-bold" : "text-gray-600"}`}>
-                                                    {cat.title}
+                                            {categories.filter(cat => cat.categorytitle.toLowerCase().includes(leadingSearch.toLowerCase())).map((cat) => (
+                                                <div key={cat._id} onClick={() => { setFormData({ ...formData, leading_category: cat._id }); setIsLeadingOpen(false); setLeadingSearch(""); }} className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${formData.leading_category === cat._id ? "bg-blue-50 text-primary font-bold" : "text-gray-600"}`}>
+                                                    {cat.categorytitle}
                                                 </div>
                                             ))}
                                         </div>
@@ -751,10 +736,10 @@ series: Array.isArray(book.series)
                                 <div className="border border-gray-300 rounded p-2 bg-white cursor-pointer min-h-[38px] flex flex-wrap gap-2 items-center hover:border-primary transition-colors" onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}>
                                     {formData.product_categories.length > 0 ? (
                                         formData.product_categories.map((catId) => {
-                                            const category = categories.find(c => c.id === catId);
+                                            const category = categories.find(c => c._id === catId);
                                             return category ? (
                                                 <span key={catId} className="bg-blue-50 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded border border-blue-100 flex items-center gap-1">
-                                                    {category.title}
+                                                    {category.categorytitle}
                                                     <button type="button" onClick={(e) => { e.stopPropagation(); handleCheckboxChange('product_categories', catId); }} className="hover:text-red-500">×</button>
                                                 </span>
                                             ) : null;
@@ -768,12 +753,12 @@ series: Array.isArray(book.series)
                                             <input type="text" placeholder="Search categories..." value={categorySearch} onChange={(e) => setCategorySearch(e.target.value)} onClick={(e) => e.stopPropagation()} className="w-full text-xs p-1.5 border border-gray-300 rounded focus:border-primary outline-none bg-white" autoFocus />
                                         </div>
                                         <div className="max-h-48 overflow-y-auto p-1 scrollbar-thin">
-                                            {categories.filter((cat) => cat.title.toLowerCase().includes(categorySearch.toLowerCase())).map((cat) => {
-                                                const isSelected = formData.product_categories.includes(cat.id);
+                                            {categories.filter((cat) => cat.categorytitle.toLowerCase().includes(categorySearch.toLowerCase())).map((cat) => {
+                                                const isSelected = formData.product_categories.includes(cat._id);
                                                 return (
-                                                    <div key={cat.id} onClick={() => handleCheckboxChange('product_categories', cat.id)} className={`flex items-center gap-2 p-2 cursor-pointer text-sm rounded hover:bg-blue-50 ${isSelected ? 'bg-blue-50' : ''}`}>
+                                                    <div key={cat._id} onClick={() => handleCheckboxChange('product_categories', cat._id)} className={`flex items-center gap-2 p-2 cursor-pointer text-sm rounded hover:bg-blue-50 ${isSelected ? 'bg-blue-50' : ''}`}>
                                                         <input type="checkbox" checked={isSelected} readOnly className="accent-primary h-4 w-4 pointer-events-none" />
-                                                        <span className={`text-gray-700 ${isSelected ? 'font-bold text-primary' : ''}`}>{cat.title}</span>
+                                                        <span className={`text-gray-700 ${isSelected ? 'font-bold text-primary' : ''}`}>{cat.categorytitle}</span>
                                                     </div>
                                                 );
                                             })}
@@ -880,9 +865,9 @@ series: Array.isArray(book.series)
                                     {isRelatedDropdownOpen && relatedSearchQuery.length > 2 && (
                                         <div className="absolute z-50 top-full left-0 w-full bg-white border border-gray-300 rounded shadow-lg mt-1 max-h-60 overflow-y-auto">
                                             {relatedSearchResults.length > 0 ? relatedSearchResults.map(prod => (
-                                                <div key={prod.id} onClick={() => handleAddRelatedProduct(prod)} className="px-3 py-2 border-b hover:bg-blue-50 cursor-pointer">
+                                                <div key={prod._id} onClick={() => handleAddRelatedProduct(prod)} className="px-3 py-2 border-b hover:bg-blue-50 cursor-pointer">
                                                     <span className="text-sm font-bold block">{prod.title}</span>
-                                                    <span className="text-[10px] text-gray-500">ID: {prod.bagcheeId || prod.id}</span>
+                                                    <span className="text-[10px] text-gray-500">ID: {prod.bagchee_id || prod._id}</span>
                                                 </div>
                                             )) : <div className="p-3 text-xs text-gray-400 text-center">No products found</div>}
                                         </div>
@@ -900,10 +885,8 @@ series: Array.isArray(book.series)
                                     <div className="border border-gray-300 rounded p-2 bg-white cursor-pointer min-h-[38px] flex flex-wrap gap-2 items-center hover:border-primary transition-colors" onClick={() => setIsAuthorDropdownOpen(!isAuthorDropdownOpen)}>
                                         {formData.authors.length > 0 ? (
                                             formData.authors.map((authId, idx) => {
-                                                const author = authors.find(a => Number(a.id) === Number(authId));
-                                                const authorName = author
-                                                    ? `${author.firstName} ${author.lastName}`.trim()
-                                                    : preloadedAuthorNames[authId] || `ID:${authId}`;
+                                                const author = authors.find(a => a._id === authId);
+                                                const authorName = author ? `${author.first_name} ${author.last_name}` : authId;
                                                 return (
                                                     <span key={idx} className="bg-blue-50 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded border border-blue-100 flex items-center gap-1">
                                                         {authorName}
@@ -920,11 +903,11 @@ series: Array.isArray(book.series)
                                                 <input type="text" placeholder="Search authors..." value={authorSearch} onChange={(e) => setAuthorSearch(e.target.value)} onClick={(e) => e.stopPropagation()} className="w-full text-xs p-1.5 border border-gray-300 rounded focus:border-primary outline-none bg-white" autoFocus />
                                             </div>
                                             <div className="max-h-48 overflow-y-auto p-1 scrollbar-thin">
-                                                {authors.filter(a => `${a.firstName} ${a.lastName}`.toLowerCase().includes(authorSearch.toLowerCase())).map((auth) => {
-                                                    const isSelected = formData.authors.includes(auth.id);
+                                                {authors.filter(a => `${a.first_name} ${a.last_name}`.toLowerCase().includes(authorSearch.toLowerCase())).map((auth) => {
+                                                    const isSelected = formData.authors.includes(auth._id);
                                                     return (
-                                                        <div key={auth.id} onClick={() => handleCheckboxChange('authors', auth.id)} className={`flex items-center justify-between p-2 text-sm rounded hover:bg-blue-50 cursor-pointer ${isSelected ? 'bg-blue-50 font-bold text-primary' : ''}`}>
-                                                            <span>{auth.firstName || auth.first_name} {auth.lastName || auth.last_name}</span>
+                                                        <div key={auth._id} onClick={() => handleCheckboxChange('authors', auth._id)} className={`flex items-center justify-between p-2 text-sm rounded hover:bg-blue-50 cursor-pointer ${isSelected ? 'bg-blue-50 font-bold text-primary' : ''}`}>
+                                                            <span>{auth.first_name} {auth.last_name}</span>
                                                             {isSelected && <Check size={14} />}
                                                         </div>
                                                     );
@@ -1095,7 +1078,7 @@ series: Array.isArray(book.series)
                                     <div key={item.id} className="flex flex-col sm:flex-row items-center gap-3 border p-3 rounded bg-gray-50">
                                         <div className="w-full sm:w-14 h-14 border bg-white flex-shrink-0 overflow-hidden rounded relative">
                                             {(item.file || item.image) ? (
-                                                <img src={item.file ? URL.createObjectURL(item.file) : (item.image?.startsWith('http') ? item.image : `${process.env.REACT_APP_API_URL}${item.image?.startsWith('/') ? '' : '/'}${item.image}`)} alt="preview" className="w-full h-full object-cover" />
+                                                <img src={item.file ? URL.createObjectURL(item.file) : `${process.env.REACT_APP_API_URL}${item.image}`} alt="preview" className="w-full h-full object-cover" />
                                             ) : <div className="flex items-center justify-center h-full bg-gray-100 text-[9px] text-gray-400">No Img</div>}
                                         </div>
                                         <div className="flex-1 w-full text-center sm:text-left">
@@ -1122,7 +1105,7 @@ series: Array.isArray(book.series)
                                     <div key={item.id} className="flex flex-col sm:flex-row items-center gap-3 border p-3 rounded bg-gray-50">
                                         <div className="w-full sm:w-14 h-14 border bg-white flex-shrink-0 overflow-hidden rounded relative">
                                             {(item.file || item.image) ? (
-                                                <img src={item.file ? URL.createObjectURL(item.file) : (item.image?.startsWith('http') ? item.image : `${process.env.REACT_APP_API_URL}${item.image?.startsWith('/') ? '' : '/'}${item.image}`)} alt="preview" className="w-full h-full object-cover" />
+                                                <img src={item.file ? URL.createObjectURL(item.file) : `${process.env.REACT_APP_API_URL}${item.image}`} alt="preview" className="w-full h-full object-cover" />
                                             ) : <div className="flex items-center justify-center h-full bg-gray-100 text-[9px] text-gray-400">No Img</div>}
                                         </div>
                                         <div className="flex-1 w-full text-center sm:text-left">
@@ -1149,7 +1132,7 @@ series: Array.isArray(book.series)
                                     <div key={item.id} className="flex flex-col sm:flex-row items-center gap-3 border p-3 rounded bg-gray-50">
                                         <div className="w-full sm:w-14 h-14 border bg-white flex-shrink-0 overflow-hidden rounded relative">
                                             {(item.file || item.image) ? (
-                                                <img src={item.file ? URL.createObjectURL(item.file) : (item.image?.startsWith('http') ? item.image : `${process.env.REACT_APP_API_URL}${item.image?.startsWith('/') ? '' : '/'}${item.image}`)} alt="preview" className="w-full h-full object-cover" />
+                                                <img src={item.file ? URL.createObjectURL(item.file) : `${process.env.REACT_APP_API_URL}${item.image}`} alt="preview" className="w-full h-full object-cover" />
                                             ) : <div className="flex items-center justify-center h-full bg-gray-100 text-[9px] text-gray-400">No Img</div>}
                                         </div>
                                         <div className="flex-1 w-full text-center sm:text-left">
@@ -1214,7 +1197,7 @@ series: Array.isArray(book.series)
                 {formData.series && formData.series.length > 0 ? (
                     formData.series.map((serId) => {
                         // list mein se series ka naam dhoondhna
-                        const seriesObj = seriesList.find(s => s.id === serId);
+                        const seriesObj = seriesList.find(s => s._id === serId);
                         return seriesObj ? (
                             <span key={serId} className="bg-purple-50 text-purple-700 text-[10px] font-bold px-2 py-0.5 rounded border border-purple-100 flex items-center gap-1">
                                 {seriesObj.title}
@@ -1254,10 +1237,10 @@ series: Array.isArray(book.series)
                     <div className="max-h-48 overflow-y-auto p-1 scrollbar-thin">
                         {seriesList.filter(s => s.title.toLowerCase().includes(seriesSearch.toLowerCase())).map(s => {
                             
-                            const isSelected = Array.isArray(formData.series) && formData.series.includes(s.id);
+                            const isSelected = Array.isArray(formData.series) && formData.series.includes(s._id);
                             return (
                                 <div 
-                                    key={s.id} 
+                                    key={s._id} 
                                     onClick={() => handleSeriesSelect(s)} 
                                     className={`px-3 py-2 text-sm cursor-pointer rounded hover:bg-blue-50 flex justify-between items-center ${isSelected ? "bg-blue-50 text-primary font-bold" : "text-gray-600"}`}
                                 >
@@ -1355,7 +1338,7 @@ series: Array.isArray(book.series)
                             <div className="col-span-9 space-y-3">
                                 <div className="relative">
                                     <div className="border border-gray-300 rounded p-2 bg-white cursor-pointer min-h-[38px] flex justify-between items-center hover:border-primary transition-colors theme-input w-full md:w-1/2" onClick={() => setIsPublisherDropdownOpen(!isPublisherDropdownOpen)}>
-                                        <span className={formData.publisher ? "text-gray-700 font-medium" : "text-gray-400 text-sm"}>{formData.publisher ? (publishers.find(p => p.id === formData.publisher)?.name || publishers.find(p => p.id === formData.publisher)?.title || "Unknown Publisher") : "Select Publisher"}</span>
+                                        <span className={formData.publisher ? "text-gray-700 font-medium" : "text-gray-400 text-sm"}>{formData.publisher ? (publishers.find(p => p._id === formData.publisher)?.name || publishers.find(p => p._id === formData.publisher)?.title || "Unknown Publisher") : "Select Publisher"}</span>
                                         <ChevronDown size={14} className="text-gray-400" />
                                     </div>
                                     {isPublisherDropdownOpen && (
@@ -1365,7 +1348,7 @@ series: Array.isArray(book.series)
                                             </div>
                                             <div className="max-h-48 overflow-y-auto">
                                                 {publishers.filter(p => (p.name || p.title || "").toLowerCase().includes(publisherSearch.toLowerCase())).map(p => (
-                                                    <div key={p.id} onClick={() => handlePublisherSelect(p)} className="px-3 py-2 text-sm hover:bg-primary/5 cursor-pointer text-gray-600 hover:text-primary transition-colors">{p.name || p.title}</div>
+                                                    <div key={p._id} onClick={() => handlePublisherSelect(p)} className="px-3 py-2 text-sm hover:bg-primary/5 cursor-pointer text-gray-600 hover:text-primary transition-colors">{p.name || p.title}</div>
                                                 ))}
                                             </div>
                                         </div>
@@ -1388,7 +1371,7 @@ series: Array.isArray(book.series)
                                                 <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Category*</label>
                                                 <select value={newPubData.category} onChange={(e) => setNewPubData({ ...newPubData, category: e.target.value })} className="theme-input w-full bg-white text-xs">
                                                     <option value="">Select Category</option>
-                                                    {categories.map(c => <option key={c.id} value={c.id}>{c.title || c.categorytitle}</option>)}
+                                                    {categories.map(c => <option key={c._id} value={c._id}>{c.categorytitle}</option>)}
                                                 </select>
                                             </div>
                                             <div className="space-y-1">
@@ -1501,8 +1484,8 @@ series: Array.isArray(book.series)
                         </div>
 
                         {/* 18. Ship & Search */}
-                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Ship Days</label><div className="col-span-9"><select name="ship_days" value={formData.ship_days} onChange={handleChange} className="theme-input w-48"><option value="">Select</option>{["1", "2", "3", "5", "7", "10", "14", "15", "21", "24", "25", "28", "30", "45"].map(d => <option key={d} value={d}>{d}</option>)}</select></div></div>
-                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Deliver Days</label><div className="col-span-9"><select name="deliver_days" value={formData.deliver_days} onChange={handleChange} className="theme-input w-48"><option value="">Select</option>{["1", "2", "3", "5", "7", "10", "14", "18", "21"].map(d => <option key={d} value={d}>{d}</option>)}</select></div></div>
+                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Ship Days</label><div className="col-span-9"><select name="ship_days" value={formData.ship_days} onChange={handleChange} className="theme-input w-48"><option value="">Select</option>{["24", "1-2", "2-4", "3-5", "1-7", "5-7", "7-10", "7-14", "10-15", "10-18", "14-21", "15-25", "28", "25-30", "28-45", "30-45"].map(d => <option key={d} value={d}>{d}</option>)}</select></div></div>
+                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Deliver Days</label><div className="col-span-9"><select name="deliver_days" value={formData.deliver_days} onChange={handleChange} className="theme-input w-48"><option value="">Select</option>{["1-2", "3-5", "5-7", "10-18"].map(d => <option key={d} value={d}>{d}</option>)}</select></div></div>
 
                         <div className="grid grid-cols-12 gap-4 items-start border-b border-gray-50 pb-12">
                             <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase pt-2">Search Text</label>

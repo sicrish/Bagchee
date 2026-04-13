@@ -65,6 +65,21 @@ export const saveMetaTag = async (req, res) => {
     }
 };
 
+// GET /meta-tags/page?url=/some-page  (PUBLIC — used by frontend to inject meta tags)
+export const getMetaTagByPage = async (req, res) => {
+    try {
+        const pageUrl = (req.query.url || '').trim();
+        if (!pageUrl) return res.json({ status: true, data: null });
+
+        const item = await prisma.metaTag.findFirst({
+            where: { pageUrl: { equals: pageUrl, mode: 'insensitive' } }
+        });
+        res.json({ status: true, data: item || null });
+    } catch (error) {
+        res.status(500).json({ status: false, msg: 'Server Error' });
+    }
+};
+
 // DELETE /meta-tags/delete/:id
 export const deleteMetaTag = async (req, res) => {
     try {

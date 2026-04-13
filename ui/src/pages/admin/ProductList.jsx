@@ -3,25 +3,27 @@ import {
   Plus, Search, Printer, Download, Edit, Trash2,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Filter, Loader2
 } from 'lucide-react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom'; // 🟢 Import useParams
 import axios from '../../utils/axiosConfig';
 
 import toast from 'react-hot-toast';
 
 const ProductList = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const typeName = new URLSearchParams(location.search).get('typeName');
 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(10); // Default as per your requirement
   const [totalItems, setTotalItems] = useState(0);
 
+  // 🟢 1. Main Search (Top Bar)
   const [searchTerm, setSearchTerm] = useState("");
+ 
 
+  // 🟢 2. Column Filters State (Table Header)
+  // Sabhi filters ke liye ek hi state object
   const [filters, setFilters] = useState({
     id: "",
     title: "",
@@ -33,14 +35,15 @@ const ProductList = () => {
     product_type: ""
   });
 
-  const pageTitle = "Products List";
+  const category = "book";
+  const pageTitle = "Books list";
 
   const fetchProducts = async (isExport = false) => {
     if (!isExport) setLoading(true);
     try {
       const API_URL = process.env.REACT_APP_API_URL;
       const params = new URLSearchParams();
-      if (typeName) params.append("product_type", typeName);
+      params.append("product_type", "book");
       params.append("showAll", "true");
 
       // Pagination Params (Export ke waqt limit bypass karega)
@@ -134,14 +137,14 @@ const ProductList = () => {
         const meta = `"${(item.meta_title || "").replace(/"/g, '""')}"`;
 
         return [
-          item.id, 
+          item._id, 
           title, 
-          item.bagcheeId || "",
-          item.priceForeign || item.realPrice || item.real_price || 0,
+          item.bagchee_id || "",
+          item.priceForeign || item.real_price || 0,
           meta,
-          isbn10,
-          isbn13,
-          item.product_type || item.productType || "Book"
+          isbn10, 
+          isbn13, 
+          item.product_type || "Book"
         ].join(",");
       })
     ].join("\n");
@@ -211,7 +214,7 @@ const ProductList = () => {
           onClick={() => navigate('/admin/add-book')}
           className="bg-[#f8f9fa] border border-gray-300 text-gray-700 hover:bg-white px-4 py-1.5 rounded shadow-sm flex items-center gap-2 font-bold text-xs uppercase transition-all active:scale-95"
         >
-          <Plus size={14} className="text-red-600" /> Add Product
+          <Plus size={14} className="text-red-600" /> Add {category || 'Product'}
         </button>
 
         <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end">
@@ -371,17 +374,17 @@ const ProductList = () => {
                 <tr>
                   <td colSpan="9" className="p-10 text-center text-gray-500">
                     <div className="flex justify-center items-center gap-2">
-                      <Loader2 className="animate-spin text-primary" /> Loading Products...
+                      <Loader2 className="animate-spin text-primary" /> Loading {category || 'Products'}...
                     </div>
                   </td>
                 </tr>
               ) : products.length > 0 ? (
                 products.map((item, index) => (
-                  <tr key={item.id} className="hover:bg-blue-50/30 transition-colors group">
-                    <td className="p-2.5 border-r text-center text-sm text-gray-600">{item.bagcheeId || item.id}</td>
+                  <tr key={item._id} className="hover:bg-blue-50/30 transition-colors group">
+                    <td className="p-2.5 border-r text-center text-sm text-gray-600">{item.bagchee_id || item._id}</td>
                     <td className="p-2.5 border-r text-sm font-bold text-[#333]">{item.title}</td>
-                    <td className="p-2.5 border-r text-sm text-gray-600 font-semibold">{`BB${item.id}`}</td>
-                    <td className="p-2.5 border-r text-sm text-gray-600 font-bold">{Number(item.priceForeign || item.realPrice || item.real_price || 0).toFixed(2)}</td>
+                    <td className="p-2.5 border-r text-sm text-gray-600 font-semibold">{`BB${item._id}`}</td>
+                    <td className="p-2.5 border-r text-sm text-gray-600 font-bold">{Number(item.priceForeign || item.real_price || 0).toFixed(2)}</td>
                     <td className="p-2.5 border-r text-sm text-gray-500 max-w-xs truncate">{item.meta_title || '-'}</td>
                     <td className="p-2.5 border-r text-sm text-gray-500">{item.isbn10 || '-'}</td>
                     <td className="p-2.5 border-r text-sm text-gray-500">{item.isbn13 || '-'}</td>
@@ -389,13 +392,13 @@ const ProductList = () => {
                     <td className="p-2.5">
                       <div className="flex justify-center gap-1.5">
                         <button
-                          onClick={() => navigate(`/admin/edit-book/${item.id}`)}
+                          onClick={() => navigate(`/admin/edit-book/${item._id}`)}
                           className="p-1.5 bg-gray-100 border rounded text-gray-600 hover:bg-white transition-all shadow-sm"
                         >
                           <Edit size={14} />
                         </button>
                         <button
-                          onClick={() => handleDelete(item.id)}
+                          onClick={() => handleDelete(item._id)}
                           className="p-1.5 bg-gray-100 border rounded text-red-500 hover:bg-white transition-all shadow-sm"
                         >
                           <Trash2 size={14} />
@@ -407,7 +410,7 @@ const ProductList = () => {
               ) : (
                 <tr>
                   <td colSpan="9" className="p-10 text-center font-bold text-gray-400 italic">
-                    No products found.
+                    No products found in "{category}".
                   </td>
                 </tr>
               )}

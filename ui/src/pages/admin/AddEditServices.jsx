@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Check, RotateCcw, X, Loader2 } from 'lucide-react';
-import JoditEditor from '../../components/admin/LazyJoditEditor';
+import JoditEditor from 'jodit-react';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // 🟢 React Query Imports
@@ -50,13 +50,13 @@ const AddEditServices = () => {
     if (isEdit && serviceData && !isDataInitialized) {
       setFormData({
         title: serviceData.title || '',
-        page_title: serviceData.pageTitle || '',
-        meta_title: serviceData.metaTitle || '',
-        meta_description: serviceData.metaDesc || '',
-        meta_keywords: serviceData.metaKeywords || '',
+        page_title: serviceData.page_title || '',
+        meta_title: serviceData.meta_title || '',
+        meta_description: serviceData.meta_description || '',
+        meta_keywords: serviceData.meta_keywords || '',
       });
-      setBoxDescription(serviceData.boxDesc || '');
-      setPageContent(serviceData.pageContent || '');
+      setBoxDescription(serviceData.box_description || '');
+      setPageContent(serviceData.page_content || '');
       
       setIsDataInitialized(true); // Lock the initialization
     }

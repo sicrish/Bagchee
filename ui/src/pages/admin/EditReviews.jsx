@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Check, RotateCcw, X, Loader2, Search } from 'lucide-react';
-import JoditEditor from '../../components/admin/LazyJoditEditor';
+import JoditEditor from 'jodit-react';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
 
@@ -65,9 +65,13 @@ const EditReviews = () => {
           const data = reviewRes.data.data;
 
 
+          const currentItemId = data.item_id && typeof data.item_id === 'object'
+            ? data.item_id._id
+            : data.item_id;
+
           setFormData({
-            category_id: '',
-            item_id: data.item_id || '', // productId mapped by backend
+            category_id: data.category_id || '',
+            item_id: currentItemId || '', // Auto-select product
             email: data.email || '',
             name: data.name || '',
             title: data.title || '',
@@ -75,10 +79,15 @@ const EditReviews = () => {
             status: data.status || 'inactive',
           });
           setReviewContent(data.review || '');
-          // Setup Search Bar with current product id
-          if (data.item_id) {
-            setSearchQuery(String(data.item_id));
-          }
+          // 🟢 Setup Search Bar with current product name
+          if (data.item_id && typeof data.item_id === 'object') {
+            const prodName = data.item_id.title || data.item_id.name || "";
+            const bagcheeId = data.item_id.bagchee_id || "";
+            setSearchQuery(`${bagcheeId} - ${prodName}`); 
+        } else if (data.item_id) {
+            // Agar backend se sirf ID aa rahi hai
+            setSearchQuery(data.item_id); 
+        }
         }
 
       } catch (error) {
@@ -124,8 +133,8 @@ const EditReviews = () => {
 
 
   const handleSelectProduct = (product) => {
-    setFormData({ ...formData, item_id: product.id }); // Database ID (integer)
-    setSearchQuery(`${product.bagcheeId || ""} - ${product.title || ""}`); // UI Display Text
+    setFormData({ ...formData, item_id: product._id }); // Database ID
+    setSearchQuery(`${product.bagchee_id || ""} - ${product.title || ""}`); // UI Display Text
     setIsDropdownOpen(false);
   };
 
@@ -221,7 +230,7 @@ const EditReviews = () => {
                 >
                   <option value="">Select Category id</option>
                   {categories.map(cat => (
-                    <option key={cat.id} value={cat.id}>{cat.title}</option>
+                    <option key={cat._id} value={cat._id}>{cat.categorytitle || cat.name}</option>
                   ))}
                 </select>
               </div>
@@ -257,13 +266,13 @@ const EditReviews = () => {
                   <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded shadow-lg mt-1 max-h-60 overflow-y-auto z-[100]">
                     {searchResults.map((prod) => (
                       <div
-                        key={prod.id}
+                        key={prod._id}
                         onClick={() => handleSelectProduct(prod)}
                         className="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-0 flex flex-col"
                       >
                         <p className="text-xs font-bold text-gray-800 line-clamp-1">{prod.title}</p>
                         <div className="text-[10px] text-gray-500 flex gap-x-2">
-                          <span>ID: <strong className="text-primary">{prod.bagcheeId}</strong></span>
+                          <span>ID: <strong className="text-primary">{prod.bagchee_id}</strong></span>
                           {prod.isbn13 && <span>| ISBN: {prod.isbn13}</span>}
                         </div>
                       </div>

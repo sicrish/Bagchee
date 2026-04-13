@@ -35,7 +35,6 @@ const AdminSidebar = () => {
     { name: "Payments", path: "/admin/payments" },
     { name: "Users", path: "/admin/users" },
     { name: "NewsLetter subs", path: "/admin/newsletter-subs" },
-    { name: "Send Email", path: "/admin/send-email" },
     { name: "Meta", path: "/admin/meta-tags" },
     { name: "Setting", path: "/admin/settings" },
   ];

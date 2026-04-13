@@ -7,7 +7,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
-import { exportToExcel } from '../../utils/exportExcel';
+import { exportToExcel } from '../../utils/exportExcel.js';
 
 const NavigationList = () => {
   const navigate = useNavigate();
@@ -52,11 +52,11 @@ const handleExport = async () => {
   // Excel ke liye data prepare karein
   const dataToExport = navigationItems.map((nav, index) => ({
     "Sr No": index + 1,
-    "Item Name": nav.item,
-    "Link URL": nav.itemLink,
-    "Dropdown Status": nav.hasDropdown ? 'active' : 'inactive',
-    "Status (Active)": nav.active ? 'active' : 'inactive',
-    "Display Order": nav.ord
+    "Item Name": nav.item || nav.name,
+    "Link URL": nav.link,
+    "Dropdown Status": nav.dropdown,
+    "Status (Active)": nav.active || nav.status,
+    "Display Order": nav.order
   }));
 
   await exportToExcel(dataToExport, "Navigations", "Navigation_Report");
@@ -75,14 +75,15 @@ const handlePrint = () => {
   const filteredNavs = useMemo(() => {
     return navigationItems.filter((nav, index) => {
       const displayId = (index + 1).toString();
-      const statusValue = nav.active ? "active" : "inactive";
+      const itemName = nav.name || nav.item || "";
+      const statusValue = String(nav.status ?? nav.active ?? "");
       return (
         displayId.includes(filters.id) &&
-        (nav.item || "").toLowerCase().includes(filters.item.toLowerCase()) &&
-        (nav.itemLink || "").toLowerCase().includes(filters.link.toLowerCase()) &&
-        (nav.hasDropdown ? "active" : "inactive").includes(filters.dropdown.toLowerCase()) &&
+        itemName.toLowerCase().includes(filters.item.toLowerCase()) &&
+        (nav.link || "").toLowerCase().includes(filters.link.toLowerCase()) &&
+        String(nav.dropdown ?? "").toLowerCase().includes(filters.dropdown.toLowerCase()) &&
         statusValue.toLowerCase().includes(filters.active.toLowerCase()) &&
-        (nav.ord || "0").toString().includes(filters.order)
+        (nav.order ?? "0").toString().includes(filters.order)
       );
     });
   }, [navigationItems, filters]);
@@ -210,16 +211,16 @@ const handlePrint = () => {
                         </div>
                     </td>
                     <td className="p-3 border-r text-gray-700 font-medium">
-                        {nav.item}
+                        {nav.name || nav.item}
                     </td>
-                    <td className="p-3 border-r text-gray-500 italic text-xs">{nav.itemLink}</td>
-                    <td className={`p-3 border-r font-bold ${nav.hasDropdown ? 'text-primary' : 'text-gray-400'}`}>
-                        {nav.hasDropdown ? 'active' : 'inactive'}
+                    <td className="p-3 border-r text-gray-500 italic text-xs">{nav.link}</td>
+                    <td className={`p-3 border-r font-bold ${nav.dropdown === 'active' ? 'text-primary' : 'text-gray-400'}`}>
+                        {nav.dropdown}
                     </td>
-                    <td className={`p-3 border-r font-bold ${nav.active ? 'text-primary' : 'text-red-400'}`}>
-                      {nav.active ? 'active' : 'inactive'}
-                    </td>
-                    <td className="p-3 border-r text-gray-600 text-center font-bold">{nav.ord}</td>
+                    <td className={`p-3 border-r font-bold ${(nav.status || nav.active) === 'active' ? 'text-primary' : 'text-red-400'}`}>
+    {nav.status || nav.active}
+</td>
+                    <td className="p-3 border-r text-gray-600 text-center font-bold">{nav.order}</td>
                     <td className="p-3">
                       <div className="flex justify-center gap-2">
                         <button onClick={() => navigate(`/admin/edit-navigation/${nav.id}`)} className="p-1.5 bg-gray-100 border border-gray-200 rounded text-gray-600 hover:text-[#0096cc] transition-all"><Edit size={14} /></button>

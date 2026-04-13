@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext, useMemo, useCallback } from 'react';
+import React, { createContext, useState, useEffect, useContext, useMemo } from 'react';
 
 // Create Context
 const CartContext = createContext();
@@ -63,42 +63,50 @@ export const CartProvider = ({ children }) => {
   // --- CART FUNCTIONS ---
 
   // 1. Add to Cart
-  const addToCart = useCallback((product, quantity = 1, selectedSize = null, selectedColor = null) => {
+  const addToCart = (product, quantity = 1, selectedSize = null, selectedColor = null) => {
     setCart((prevCart) => {
-      const existingItem = prevCart.find((item) => item.id === product.id);
+      // Check karo agar item pehle se cart me hai
+      const existingItem = prevCart.find((item) => item._id === product._id);
+
       if (existingItem) {
+        // Agar hai, to quantity badha do
         return prevCart.map((item) =>
-          item.id === product.id
+          item._id === product._id
             ? { ...item, quantity: item.quantity + quantity }
             : item
         );
       } else {
+        // Naya item add karo
         return [...prevCart, { ...product, quantity, selectedSize, selectedColor }];
       }
     });
-  }, []);
+    // Yahan aap Toast Notification laga sakte ho (e.g. "Added to Cart!")
+  };
 
   // 2. Remove from Cart
-  const removeFromCart = useCallback((productId) => {
-    setCart((prevCart) => prevCart.filter((item) => item.id !== productId));
-  }, []);
+  const removeFromCart = (productId) => {
+    setCart((prevCart) => prevCart.filter((item) => item._id !== productId));
+  };
 
   // 3. Update Quantity (+ / -)
-  const updateQuantity = useCallback((productId, type) => {
+  const updateQuantity = (productId, type) => {
     setCart((prevCart) => {
       return prevCart.map((item) => {
-        if (item.id === productId) {
+        if (item._id === productId) {
           const newQty = type === 'inc' ? item.quantity + 1 : item.quantity - 1;
-          if (newQty < 1) return null;
+          if (newQty < 1) {
+            // If quantity would be less than 1, remove the item instead
+            return null; // Will be filtered out
+          }
           return { ...item, quantity: newQty };
         }
         return item;
-      }).filter(item => item !== null);
+      }).filter(item => item !== null); // Remove null items
     });
-  }, []);
+  };
 
-  // 4. Clear Cart (After successful order)
-  const clearCart = useCallback(() => {
+  // 4. Clear Cart (After successful order) - sab extras bhi clear ho
+  const clearCart = () => {
     setCart([]);
     setAppliedCoupon(null);
     setAppliedShipping(null);
@@ -107,26 +115,28 @@ export const CartProvider = ({ children }) => {
     localStorage.removeItem('appliedCoupon');
     localStorage.removeItem('appliedShipping');
     localStorage.removeItem('membershipAdded');
-  }, []);
+  };
 
   // --- WISHLIST FUNCTIONS ---
 
   // 1. Toggle Wishlist (Add/Remove)
-  const toggleWishlist = useCallback((product) => {
+  const toggleWishlist = (product) => {
     setWishlist((prevWishlist) => {
-      const exists = prevWishlist.find((item) => item.id === product.id);
+      const exists = prevWishlist.find((item) => item._id === product._id);
       if (exists) {
-        return prevWishlist.filter((item) => item.id !== product.id);
+        // Agar already hai, to hata do
+        return prevWishlist.filter((item) => item._id !== product._id);
       } else {
+        // Nahi hai, to add karo
         return [...prevWishlist, product];
       }
     });
-  }, []);
+  };
 
-  // 2. Check if in Wishlist
-  const isInWishlist = useCallback((productId) => {
-    return wishlist.some((item) => item.id === productId);
-  }, [wishlist]);
+  // 2. Check if in Wishlist (UI ke liye - Heart icon red karne ke liye)
+  const isInWishlist = (productId) => {
+    return wishlist.some((item) => item._id === productId);
+  };
 
   // --- CALCULATIONS (Subtotal, Item Count) ---
   const cartItemCount = useMemo(() => {
@@ -139,30 +149,27 @@ export const CartProvider = ({ children }) => {
 
   const wishlistCount = wishlist.length;
 
-  const contextValue = useMemo(() => ({
-    cart,
-    wishlist,
-    addToCart,
-    removeFromCart,
-    updateQuantity,
-    clearCart,
-    toggleWishlist,
-    isInWishlist,
-    cartItemCount,
-    cartTotal,
-    wishlistCount,
-    appliedCoupon,
-    setAppliedCoupon,
-    appliedShipping,
-    setAppliedShipping,
-    membershipAdded,
-    setMembershipAdded,
-  }), [cart, wishlist, addToCart, removeFromCart, updateQuantity, clearCart,
-       toggleWishlist, isInWishlist, cartItemCount, cartTotal, wishlistCount,
-       appliedCoupon, appliedShipping, membershipAdded]);
-
   return (
-    <CartContext.Provider value={contextValue}>
+    <CartContext.Provider value={{
+      cart,
+      wishlist,
+      addToCart,
+      removeFromCart,
+      updateQuantity,
+      clearCart,
+      toggleWishlist,
+      isInWishlist,
+      cartItemCount,
+      cartTotal,
+      wishlistCount,
+      // 🟢 New extras
+      appliedCoupon,
+      setAppliedCoupon,
+      appliedShipping,
+      setAppliedShipping,
+      membershipAdded,
+      setMembershipAdded,
+    }}>
       {children}
     </CartContext.Provider>
   );

@@ -9,7 +9,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
-import { exportToExcel } from '../../utils/exportExcel';
+import { exportToExcel } from '../../utils/exportExcel.js';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL;
 
@@ -61,7 +61,7 @@ const CouriersList = () => {
                 "Sr No": i + 1,
                 "Partner Name": item.title,
                 "Tracking Page": item.trackingPage,
-                "Status": item.active ? "Active" : "Inactive",
+                "Status": item.isActive ? "Active" : "Inactive",
                 "Created At": new Date(item.createdAt).toLocaleDateString('en-GB')
             }));
 
@@ -189,7 +189,7 @@ const CouriersList = () => {
                                 </tr>
                             ) : filteredCouriers.length > 0 ? (
                                 filteredCouriers.map((item, index) => (
-                                    <tr key={item.id} className="hover:bg-primary/5 transition-colors group">
+                                    <tr key={item._id} className="hover:bg-primary/5 transition-colors group">
                                         <td className="p-4 text-center border-r border-gray-50">
                                             <span className="text-gray-400 font-mono text-xs">{index + 1}</span>
                                         </td>
@@ -197,22 +197,22 @@ const CouriersList = () => {
                                             {item.title}
                                         </td>
                                         <td className="p-4">
-                                            <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter shadow-sm ${item.active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                            <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter shadow-sm ${item.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                                                 }`}>
-                                                {item.active ? 'Active' : 'Inactive'}
+                                                {item.isActive ? 'Active' : 'Inactive'}
                                             </span>
                                         </td>
                                         <td className="p-4">
                                             <div className="flex justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button
-                                                    onClick={() => navigate(`/admin/edit-couriers/${item.id}`)}
+                                                    onClick={() => navigate(`/admin/edit-couriers/${item._id}`)}
                                                     className="p-2 bg-white border border-gray-200 rounded-lg text-primary hover:bg-primary hover:text-white transition-all shadow-sm"
                                                     title="Edit Partner"
                                                 >
                                                     <Edit size={14} />
                                                 </button>
                                                 <button
-                                                    onClick={() => handleDelete(item.id)}
+                                                    onClick={() => handleDelete(item._id)}
                                                     className="p-2 bg-white border border-gray-200 rounded-lg text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-sm"
                                                     title="Delete Partner"
                                                 >

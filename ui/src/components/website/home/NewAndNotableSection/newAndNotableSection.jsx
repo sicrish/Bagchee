@@ -3,11 +3,11 @@ import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, ChevronLeft, ChevronRight, Heart, ShoppingCart } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query'; // 🟢 React Query
+import { getProductImageUrl } from '../../../../utils/imageUrl';
 import { CurrencyContext } from '../../../../context/CurrencyContext.jsx';
 import { useCart } from '../../../../context/CartContext.jsx';
 import ProductModal from '../../ProductModal.jsx'; // 🟢 Modal Import
 import toast from 'react-hot-toast';
-import { getImageUrl, getProductImageUrl } from '../../../../utils/imageUrl.js';
 
 // 🟢 Skeleton Loader for Fast UX Feel
 const ProductSkeleton = () => (
@@ -20,15 +20,6 @@ const ProductSkeleton = () => (
         </div>
     </div>
 );
-
-const makeBookUrl = (book) => {
-    const slug = (book.title || 'product')
-        .toLowerCase().trim()
-        .replace(/[^a-z0-9\s-]/g, '')
-        .replace(/\s+/g, '-')
-        .replace(/-+/g, '-');
-    return `/books/${book.bagcheeId || book.id}/${slug}`;
-};
 
 const NewAndNotable = () => {
     const navigate = useNavigate();
@@ -61,6 +52,11 @@ const NewAndNotable = () => {
     const sectionTagline = queryData?.sectionTagline || "";
     const totalPages = Math.ceil((queryData?.total || 0) / itemsPerPage);
 
+    // 🛠️ Image URL Logic
+    const getImageUrl = useCallback((book) => {
+        return getProductImageUrl(book) || "https://placehold.co/300x450?text=No+Image";
+    }, []);
+
     // 🟢 Handlers
     const openModal = useCallback((e, product) => {
         e.preventDefault();
@@ -85,11 +81,19 @@ const NewAndNotable = () => {
     const handleNext = () => { if (page < totalPages) setPage(prev => prev + 1); };
     const handlePrev = () => { if (page > 1) setPage(prev => prev - 1); };
 
+
+    // NewAndNotable component ke andar hi handlePrev ke niche ise paste karein
+    const createSlug = (title) => {
+        if (!title) return '';
+        return title.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');
+    };
+
+
     if (!isLoading && products.length === 0) return null;
 
     return (
         <section className="py-10 md:py-16 bg-cream-50 font-body">
-            <div className="max-w-[1400px] mx-auto px-4 group/section">
+            <div className="w-full px-4 md:px-4 group/section">
 
                 {/* --- HEADER --- */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 md:mb-10 gap-2 md:gap-4 border-b border-primary-200 pb-4">
@@ -115,7 +119,6 @@ const NewAndNotable = () => {
                     <button
                         onClick={handlePrev}
                         disabled={page === 1}
-                        aria-label="Previous new and notable"
                         className={`absolute top-1/2 -left-2 md:-left-5 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 bg-cream-100 border border-cream-200 rounded-full flex items-center justify-center text-text-muted shadow-lg z-20 transition-all duration-300 ${page === 1 ? 'opacity-30 cursor-not-allowed' : 'hover:text-primary hover:border-primary hover:scale-110'}`}
                     >
                         <ChevronLeft size={20} />
@@ -127,30 +130,34 @@ const NewAndNotable = () => {
                             Array(itemsPerPage).fill(0).map((_, i) => <ProductSkeleton key={i} />)
                         ) : (
                             products.map((item) => {
-                                const book = item.product;
-                                if (!book?.id) return null;
+                                const book = item.product || item;
+                                const bookId = book.id || book._id;
+                                if (!bookId) return null;
+                                const bagcheeId = book.bagcheeId || book.bagchee_id || bookId;
 
-                                // 2. Pricing Variables (Relative Discount Logic)
-                                const mPrice = Number(book.price || 0);       // USD MRP
-                                const rPrice = Number(book.realPrice || book.real_price || 0);  // USD Final
-                                const iPrice = Number(book.inrPrice || book.inr_price || 0);   // Flat INR
+                                const mPrice = Number(book.price || 0);
+                                const rPrice = Number(book.realPrice ?? book.real_price ?? 0);
+                                const iPrice = Number(book.inrPrice ?? book.inr_price ?? 0);
 
-                                const imageUrl = getProductImageUrl(book, { width: 300 });
-                                const authorName = book.authors?.[0]?.author?.fullName
-                                    || `${book.authors?.[0]?.author?.firstName || ''} ${book.authors?.[0]?.author?.lastName || ''}`.trim()
-                                    || (typeof book.author === 'object' ? (book.author?.name || book.author?.firstName || '') : (book.author || ''));
+                                const imageUrl = getImageUrl(book);
+                                const authorObj = book.authors?.[0]?.author;
+                                const authorName = authorObj ? `${authorObj.firstName || authorObj.first_name || ''} ${authorObj.lastName || authorObj.last_name || ''}`.trim() : (book.author || '');
 
                                 return (
-                                    <div key={item.id} className="bg-cream-100 hover:shadow-xl transition-all group cursor-pointer flex flex-col block rounded-lg overflow-hidden border border-transparent hover:border-primary-100 relative">
+                                    <div key={item.id || item._id || bookId} className="bg-cream-100 hover:shadow-xl transition-all group cursor-pointer flex flex-col block rounded-lg overflow-hidden border border-transparent hover:border-primary-100 relative">
 
                                         {/* Image Area (Click -> Details Page) */}
-                                        <div className="relative aspect-[2/3] overflow-hidden bg-gray-200" onClick={() => navigate(makeBookUrl(book))}>
+                                        <div className="relative aspect-[2/3] overflow-hidden bg-gray-200" onClick={() => {
+                                            const slug = createSlug(book.title);
+                                            // 🟢 Redirect to professional URL format
+                                            navigate(`/books/${bagcheeId}/${slug}`);
+                                        }}>
                                             <img
                                                 src={imageUrl}
                                                 alt={book.title}
                                                 loading="lazy"
                                                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                                                onError={(e) => { e.target.src = "https://placehold.co/300x450/f9f5ef/1a3c5e?text=No+Cover"; }}
+                                                onError={(e) => { e.target.src = "https://placehold.co/300x450?text=Error"; }}
                                             />
 
                                             {book.discount > 0 && (
@@ -170,7 +177,7 @@ const NewAndNotable = () => {
 
                                         {/* Content Area */}
                                         <div className="text-left px-3 pt-3 flex flex-col flex-1 pb-3">
-                                            <Link to={makeBookUrl(book)}>
+                                            <Link to={`/books/${bagcheeId}/${createSlug(book.title)}`}>
                                                 <h3 className="font-display font-bold text-text-main text-xs md:text-sm truncate" title={book.title}>
                                                     {book.title || "Untitled"}
                                                 </h3>
@@ -181,26 +188,24 @@ const NewAndNotable = () => {
 
                                             <div className="mt-auto pt-3 flex items-center justify-between gap-1">
                                                 <div className="flex flex-col leading-none">
-                                                {mPrice > rPrice && (
-                                <span className="text-[10px] md:text-xs text-text-muted line-through font-body opacity-60">
-                                    {formatPrice(mPrice, iPrice, mPrice)}
-                                </span>
-                            )}
+                                                    {mPrice > rPrice && (
+                                                        <span className="text-[10px] md:text-xs text-text-muted line-through font-body opacity-60">
+                                                            {formatPrice(mPrice, iPrice, mPrice)}
+                                                        </span>
+                                                    )}
                                                     <p className="text-primary font-bold text-sm md:text-base font-montserrat">
-                                                    {formatPrice(mPrice, iPrice, rPrice)}
+                                                        {formatPrice(mPrice, iPrice, rPrice)}
                                                     </p>
                                                 </div>
 
                                                 <div className="flex items-center gap-1">
                                                     <button
-                                                        aria-label={isInWishlist(book.id) ? "Remove from wishlist" : "Add to wishlist"}
-                                                        className={`p-1 md:p-1.5 rounded-full transition-all ${isInWishlist(book.id) ? 'text-red-500 bg-red-50' : 'text-text-muted hover:text-red-500 hover:bg-red-50'}`}
+                                                        className={`p-1 md:p-1.5 rounded-full transition-all ${isInWishlist(bookId) ? 'text-red-500 bg-red-50' : 'text-text-muted hover:text-red-500 hover:bg-red-50'}`}
                                                         onClick={(e) => handleWishlist(e, book)}
                                                     >
-                                                        <Heart size={16} fill={isInWishlist(book.id) ? "currentColor" : "none"} className="md:w-[18px] md:h-[18px]" />
+                                                        <Heart size={16} fill={isInWishlist(bookId) ? "currentColor" : "none"} className="md:w-[18px] md:h-[18px]" />
                                                     </button>
                                                     <button
-                                                        aria-label="Add to cart"
                                                         className="text-text-muted hover:text-primary hover:bg-primary/10 p-1 md:p-1.5 rounded-full transition-all"
                                                         onClick={(e) => handleAddToCart(e, book)}
                                                     >
@@ -219,7 +224,6 @@ const NewAndNotable = () => {
                     <button
                         onClick={handleNext}
                         disabled={page >= totalPages}
-                        aria-label="Next new and notable"
                         className={`absolute top-1/2 -right-2 md:-right-5 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 bg-cream-100 border border-cream-200 rounded-full flex items-center justify-center text-text-muted shadow-lg z-20 transition-all duration-300 ${page >= totalPages ? 'opacity-30 cursor-not-allowed' : 'hover:text-primary hover:border-primary hover:scale-110'}`}
                     >
                         <ChevronRight size={20} />

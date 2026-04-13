@@ -1,13 +1,21 @@
 import express from "express";
+import rateLimit from "express-rate-limit";
 import * as CouponController from "../controller/coupon.controller.js";
-import authMiddleware from '../middleware/auth.middleware.js';
 import adminAuth from '../middleware/adminAuth.middleware.js';
 
 const router = express.Router();
 
-// AUTH — checkout operations (logged-in users only)
-router.get("/active", authMiddleware, CouponController.getActiveCoupons);
-router.post("/apply", authMiddleware, CouponController.applyCoupon);
+const couponApplyLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 20,
+    message: { status: false, msg: "Too many coupon attempts. Please try again later." },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+// PUBLIC — checkout operations (guests + logged-in users)
+router.get("/active", CouponController.getActiveCoupons);
+router.post("/apply", couponApplyLimiter, CouponController.applyCoupon);
 
 // ADMIN — coupon management
 router.post("/save",          adminAuth, CouponController.saveCoupon);

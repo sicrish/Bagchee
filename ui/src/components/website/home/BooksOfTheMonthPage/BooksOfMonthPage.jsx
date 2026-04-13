@@ -1,5 +1,6 @@
 import React, { useState, useEffect, memo, useCallback } from 'react';
 import axios from '../../../../utils/axiosConfig.js';
+import { normalizeProduct } from '../../../../utils/normalizeProduct.js';
 import ProductCardGrid from '../../ProductCardGrid.jsx';
 import ProductModal from '../../ProductModal.jsx'; // 🟢 Modal Import
 import { useQuery } from '@tanstack/react-query'; // 🟢 React Query Import
@@ -66,11 +67,19 @@ const BooksOfMonthPage = () => {
     // Error or No Data State
     if (isError || (!isLoading && !data)) return null;
 
+
+    const createSlug = (title) => {
+        if (!title) return '';
+        return title.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');
+    };
+
+
+
     return (
         <div className="bg-cream-50 min-h-screen pb-20 font-body">
             {/* Dedicated Header for Full Page */}
             <div className="bg-primary text-white py-12 md:py-12 mb-12 shadow-inner">
-                <div className="max-w-[1400px] mx-auto px-4 text-center">
+                <div className="w-full px-4 md:px-4text-center">
                     <span className="bg-accent text-text-main text-xs font-bold px-4 py-1 rounded-full uppercase tracking-widest font-montserrat">
                         Curated Collection
                     </span>
@@ -89,26 +98,38 @@ const BooksOfMonthPage = () => {
                     <GridSkeleton />
                 ) : (
                     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6 md:gap-8 transition-opacity duration-500 opacity-100">
-                        {data.products.map((book) => (
-                            <div 
-                                key={book.id} 
-                                className="transform transition-all duration-300 hover:-translate-y-1"
-                            >
-                                <ProductCardGrid 
-                                    data={book} 
-                                    onQuickView={handleOpenModal} // 🟢 Modal trigger passed here
-                                />
-                            </div>
-                        ))}
+                        {data.products.map((rawBook) => {
+                            const book = normalizeProduct(rawBook);
+                            // 🟢 Generate Slug and URL
+                            const slug = createSlug(book.title);
+                            const bookId = book.bagcheeId || book.bagchee_id || book.id || book._id;
+                            const detailUrl = `/books/${bookId}/${slug}`;
+
+                            return (
+                                <div
+                                    key={book.id || book._id}
+                                    className="transform transition-all duration-300 hover:-translate-y-1 cursor-pointer"
+                                    onClick={() => window.location.href = detailUrl} // 🟢 Click se detail page par jayega
+                                >
+                                    <ProductCardGrid
+                                        data={book}
+                                        onQuickView={(e) => {
+                                            e.stopPropagation(); // 🟢 Important: Taaki detail page na khule sirf modal khule
+                                            handleOpenModal(book);
+                                        }}
+                                    />
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
             </div>
 
             {/* 🟢 Render Product Modal */}
-            <ProductModal 
-                product={selectedProduct} 
-                isOpen={isModalOpen} 
-                onClose={handleCloseModal} 
+            <ProductModal
+                product={selectedProduct}
+                isOpen={isModalOpen}
+                onClose={handleCloseModal}
             />
         </div>
     );
