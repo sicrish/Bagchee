@@ -57,13 +57,24 @@ export const getAllAuthors = async (req, res) => {
 export const getAuthorBySlug = async (req, res) => {
     try {
         const { slug } = req.params;
-        // Reconstruct search: slug is "first-last", convert back to space-separated words
-        const nameQuery = slug.replace(/-/g, ' ');
-        const authors = await prisma.author.findMany({
-            where: { fullName: { contains: nameQuery, mode: 'insensitive' } }
-        });
-        // Find exact slug match among results
         const createSlug = (name) => name.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+
+        // Search by the last word of the slug (most distinctive — usually last name)
+        // e.g. "dp-chattopadhyaya" → search lastName contains "chattopadhyaya"
+        const slugParts = slug.split('-');
+        const lastWord = slugParts[slugParts.length - 1];
+
+        const authors = await prisma.author.findMany({
+            where: {
+                OR: [
+                    { lastName: { contains: lastWord, mode: 'insensitive' } },
+                    { firstName: { contains: lastWord, mode: 'insensitive' } },
+                ]
+            },
+            take: 50
+        });
+
+        // Find exact slug match among results
         const found = authors.find(a => createSlug(`${a.firstName} ${a.lastName}`) === slug);
         if (!found) return res.status(404).json({ status: false, msg: 'Author not found' });
         res.status(200).json({ status: true, data: found });
