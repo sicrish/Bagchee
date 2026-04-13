@@ -47,35 +47,20 @@ const AuthorDetail = () => {
     const fetchAuthorData = async () => {
       try {
         setLoading(true);
-        // console.log("1. URL Slug detected:", slug); // Check slug from URL
 
-        // 🟢 1. Author fetch logic badal diya: Ab direct search (q) bhej rahe hain
-        // Isse pagination ki wajah se koi author miss nahi hoga
-        const authorNameFromSlug = slug.replace(/-/g, ' ');
-        // console.log("2. Searching Backend for name:", authorNameFromSlug);
-        const authorFirstWord = slug.split('-')[0];
-        const authorsRes = await axios.get(`${process.env.REACT_APP_API_URL}/authors/list?q=${authorFirstWord}`);
-        // console.log("3. Backend Response (Authors):", authorsRes.data);
+        // Use the dedicated by-slug endpoint — returns camelCase fields from Prisma
+        const authorRes = await axios.get(`${process.env.REACT_APP_API_URL}/authors/by-slug/${slug}`);
 
-        // Slug se exact match hone wala author filter kar lo (security check)
-        const foundAuthor = authorsRes.data.data?.find(a => {
-          const generated = createSlug(`${a.first_name} ${a.last_name}`);
-          // console.log(`Comparing: URL(${slug}) with Generated(${generated})`);
-          return generated === slug;
-        });
-
-        if (!foundAuthor) {
-          // navigate('/');
+        if (!authorRes.data.status || !authorRes.data.data) {
           return;
         }
 
+        const foundAuthor = authorRes.data.data;
         setAuthor(foundAuthor);
 
-        // 🟢 2. Books fetch logic badal diya: Ab frontend filter nahi, direct Backend filter use hoga
-        // Isse agar 10,000 books bhi hain toh author ki books turant load hongi
         try {
           const booksRes = await axios.get(
-            `${process.env.REACT_APP_API_URL}/product/fetch?authors=${foundAuthor._id}&limit=20&page=${currentPage}`
+            `${process.env.REACT_APP_API_URL}/product/fetch?authors=${foundAuthor.id}&limit=20&page=${currentPage}`
           );
           if (booksRes.data.status) {
             setBooks(booksRes.data.data || []);
@@ -144,7 +129,7 @@ const AuthorDetail = () => {
     ? getFullImageUrl(author.picture)
     : 'https://via.placeholder.com/400x400?text=Author';
 
-  const authorFullName = `${author.first_name || ''} ${author.last_name || ''}`.trim();
+  const authorFullName = `${author.firstName || ''} ${author.lastName || ''}`.trim();
   const authorBio = author.biography ? author.biography.replace(/<[^>]+>/g, '').substring(0, 160) : `Books and biography of ${authorFullName} on Bagchee.`;
 
   return (
@@ -163,7 +148,7 @@ const AuthorDetail = () => {
             <Link to="/" className="hover:text-primary transition-colors">Home</Link>
             <ChevronRight size={12} className="opacity-50" />
 
-            <span className="text-text-main">{author.first_name} {author.last_name}</span>
+            <span className="text-text-main">{author.firstName} {author.lastName}</span>
           </div>
         </div>
       </div>
@@ -177,7 +162,7 @@ const AuthorDetail = () => {
             <div className="w-56 h-56 lg:w-72 lg:h-72 rounded-full overflow-hidden border-[10px] border-white shadow-2xl relative z-10">
               <img
                 src={authorImageUrl}
-                alt={`${author.first_name} ${author.last_name}`}
+                alt={`${author.firstName} ${author.lastName}`}
                 className="w-full h-full object-cover transition-transform duration-700 hover:scale-110"
                 onError={(e) => { e.target.src = 'https://via.placeholder.com/400x400?text=Author' }}
               />
@@ -195,7 +180,7 @@ const AuthorDetail = () => {
                 </span>
               )}
               <h1 className="text-4xl lg:text-7xl font-display font-black text-text-main leading-none tracking-tightest">
-                {author.first_name} {author.last_name}
+                {author.firstName} {author.lastName}
               </h1>
               <div className="h-1.5 w-24 bg-primary rounded-full mt-4 mx-auto md:mx-0"></div>
             </div>
@@ -218,7 +203,7 @@ const AuthorDetail = () => {
           <div className="flex flex-col md:flex-row items-end justify-between mb-12 gap-6">
             <div className="space-y-2 text-center md:text-left">
               <h2 className="text-3xl lg:text-5xl font-display font-black text-text-main tracking-tight">
-                Collection by {author.first_name}
+                Collection by {author.firstName}
               </h2>
 
             </div>
@@ -229,7 +214,7 @@ const AuthorDetail = () => {
           {books.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 lg:gap-10">
               {books.map(book => (
-                <div key={book._id} className="transition-transform duration-500 hover:-translate-y-2">
+                <div key={book.id || book._id} className="transition-transform duration-500 hover:-translate-y-2">
                   <ProductCardGrid data={book} />
                 </div>
               ))}
