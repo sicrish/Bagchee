@@ -482,7 +482,7 @@ series: Array.isArray(book.series)
             onSuccess: (res) => {
                 if (res.status) {
                     setSeriesList(prev => [...prev, res.data]);
-                    setFormData(prev => ({ ...prev, series: res.data.id || data._id, series_number: "1" }));
+                    setFormData(prev => ({ ...prev, series: res.data.id || res.data._id, series_number: "1" }));
                     toast.success("Series added!", { id: toastId });
                     setIsSeriesPanelOpen(false);
                     setNewSeriesData({ title: '' });
