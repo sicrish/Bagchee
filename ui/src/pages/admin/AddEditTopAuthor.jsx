@@ -29,35 +29,38 @@ const AddEditTopAuthor = () => {
   });
 
   // 🚀 OPTIMIZATION 1: Fetch Existing Data with useQuery
-  const { data: topAuthorData, isLoading: fetching } = useQuery({
+  const { data: topAuthorData, isLoading: fetching, isError: fetchError } = useQuery({
     queryKey: ['topAuthorData', id],
     queryFn: async () => {
       const res = await axios.get(`${process.env.REACT_APP_API_URL}/top-authors/get/${id}`);
       if (!res.data.status) throw new Error("Failed to load details");
       return res.data.data;
     },
-    enabled: isEdit, 
-    staleTime: 1000 * 60 * 5, 
-    refetchOnWindowFocus: false, 
-    onError: (error) => {
+    enabled: isEdit,
+    staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
+  });
+
+  useEffect(() => {
+    if (fetchError) {
       toast.error("Failed to load details");
       navigate('/admin/top-authors');
     }
-  });
+  }, [fetchError, navigate]);
 
   // 🟢 Initialize Data Only Once
   useEffect(() => {
     if (isEdit && topAuthorData && !isDataInitialized) {
       const d = topAuthorData;
       setFormData({
-        authorId: d.authorId?._id || '',
-        bookId: d.bookId?._id || '',
+        authorId: d.authorId?.id || d.authorId?._id || '',
+        bookId: d.bookId?.id || d.bookId?._id || '',
         role: d.role || '',
         quote: d.quote || '',
         active: d.active ? 'yes' : 'no',
         order: d.order || ''
       });
-      setAuthorSearch(`${d.authorId?.first_name || ''} ${d.authorId?.last_name || ''}`.trim());
+      setAuthorSearch(`${d.authorId?.firstName || d.authorId?.first_name || ''} ${d.authorId?.lastName || d.authorId?.last_name || ''}`.trim());
       setBookSearch(d.bookId?.title || "");
       
       setIsDataInitialized(true);
@@ -90,13 +93,13 @@ const AddEditTopAuthor = () => {
 
   // 🟢 3. SELECTION HANDLERS
   const handleSelectAuthor = (author) => {
-    setFormData({ ...formData, authorId: author._id });
-    setAuthorSearch(`${author.first_name} ${author.last_name}`);
+    setFormData({ ...formData, authorId: author.id || author._id });
+    setAuthorSearch(`${author.firstName || author.first_name || ''} ${author.lastName || author.last_name || ''}`.trim());
     setActiveDropdown(null);
   };
 
   const handleSelectBook = (book) => {
-    setFormData({ ...formData, bookId: book._id });
+    setFormData({ ...formData, bookId: book.id || book._id });
     setBookSearch(book.title);
     setActiveDropdown(null);
   };
@@ -187,8 +190,8 @@ const AddEditTopAuthor = () => {
                 {activeDropdown === 'author' && authorResults.length > 0 && (
                   <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded shadow-lg mt-1 max-h-40 overflow-y-auto z-50">
                     {authorResults.map(a => (
-                      <div key={a._id} onClick={() => handleSelectAuthor(a)} className="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b text-xs font-bold flex items-center gap-3 text-gray-700">
-                        {a.first_name} {a.last_name}
+                      <div key={a.id || a._id} onClick={() => handleSelectAuthor(a)} className="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b text-xs font-bold flex items-center gap-3 text-gray-700">
+                        {a.firstName || a.first_name} {a.lastName || a.last_name}
                       </div>
                     ))}
                   </div>
@@ -216,8 +219,8 @@ const AddEditTopAuthor = () => {
                 {activeDropdown === 'book' && bookResults.length > 0 && (
                   <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded shadow-lg mt-1 max-h-40 overflow-y-auto z-50">
                     {bookResults.map(b => (
-                      <div key={b._id} onClick={() => handleSelectBook(b)} className="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b text-xs font-bold text-gray-700">
-                        {b.title} <span className="text-primary ml-2">({b.bagchee_id})</span>
+                      <div key={b.id || b._id} onClick={() => handleSelectBook(b)} className="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b text-xs font-bold text-gray-700">
+                        {b.title} <span className="text-primary ml-2">({b.bagcheeId || b.bagchee_id})</span>
                       </div>
                     ))}
                   </div>

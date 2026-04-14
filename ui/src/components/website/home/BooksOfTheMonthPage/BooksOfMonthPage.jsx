@@ -33,7 +33,7 @@ const BooksOfMonthPage = () => {
             return res.data;
         },
         staleTime: 600000, // 10 minutes cache (Data refresh background mein hoga)
-        cacheTime: 3600000, // 1 hour memory storage
+        gcTime: 3600000, // 1 hour memory storage
         refetchOnWindowFocus: false, // Window switch karne par faltu refetch nahi
     });
 

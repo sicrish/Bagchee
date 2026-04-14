@@ -31,7 +31,7 @@ import { CurrencyContext } from "../../context/CurrencyContext";
 const formatAmount = (amount, currencyCode) => {
   const numericAmount = Number(amount || 0);
   try {
-    return new Intl.NumberFormat('en-IN', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: currencyCode || 'USD',
       maximumFractionDigits: 2
@@ -41,21 +41,32 @@ const formatAmount = (amount, currencyCode) => {
   }
 };
 
-const getProductInfo = (product) => {
-  // 🟢 Database mein product.image ke naam se save ho raha hai
-  let imageUrl = product.image;
-
+const getProductInfo = (item) => {
+  // Prisma includes nested product relation — use it first
+  if (item.product) {
+    let imageUrl = item.product.defaultImage || item.product.default_image || item.image || '';
+    if (imageUrl && !imageUrl.startsWith('http')) {
+      const API_BASE = process.env.REACT_APP_API_URL?.replace('/api', '');
+      imageUrl = `${API_BASE}/${imageUrl.replace(/^\//, '')}`;
+    }
+    return {
+      ...item,
+      title: item.product.title || item.name,
+      default_image: imageUrl,
+      bagchee_id: item.product.bagcheeId || item.product.bagchee_id
+    };
+  }
+  // Fallback: old flat structure
+  let imageUrl = item.image || '';
   if (imageUrl && !imageUrl.startsWith('http')) {
-    // Backend API URL se base path nikalein (e.g. http://localhost:5000)
     const API_BASE = process.env.REACT_APP_API_URL?.replace('/api', '');
     imageUrl = `${API_BASE}/${imageUrl.replace(/^\//, '')}`;
   }
-
   return {
-    ...product,
-    title: product.name,
+    ...item,
+    title: item.name,
     default_image: imageUrl,
-    bagchee_id: product.product_id // Link ke liye product_id use karenge
+    bagchee_id: item.productId || item.product_id
   };
 };
 
@@ -265,7 +276,7 @@ const navigate = useNavigate();
 
   const getOrderTotal = (order) => {
     const subtotal = Number(order.total || order.totalAmount || 0);
-    const shipping = Number(order.shipping_cost || 0);
+    const shipping = Number(order.shippingCost ?? order.shipping_cost ?? 0);
     return subtotal + shipping;
   };
 
@@ -496,16 +507,15 @@ const navigate = useNavigate();
             <div className="divide-y divide-gray-200">
               {recentOrders.map((order) => (
                 <div
-                  key={order._id}
+                  key={order.id || order._id}
                   className="p-6 hover:bg-cream-200/30 transition-colors"
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div>
                       <p className="font-semibold text-gray-900">
                         Order #
-                        {order.order_number ||
-                          order.orderId ||
-                          order._id?.slice(-8)?.toUpperCase()}
+                        {order.orderNumber || order.order_number ||
+                          String(order.id || order._id || '').slice(-8).toUpperCase()}
                       </p>
                       <p className="text-sm text-gray-500 mt-1">
                         {formatOrderDate(order)}
@@ -603,8 +613,8 @@ const navigate = useNavigate();
                           <div>
                             <h2 className="text-2xl font-display font-bold text-text-main">
                               Order #
-                              {selectedOrder.order_number ||
-                                selectedOrder._id.slice(-8).toUpperCase()}
+                              {selectedOrder.orderNumber || selectedOrder.order_number ||
+                                String(selectedOrder.id || selectedOrder._id || '').slice(-8).toUpperCase()}
                             </h2>
                             <p className="text-sm text-text-muted mt-1">
                               Placed on{" "}
@@ -635,17 +645,17 @@ const navigate = useNavigate();
                           {/* Products Section */}
                           <div className="lg:col-span-2 space-y-4">
                             <h3 className="font-semibold text-text-main mb-3">
-                              {selectedOrder.products?.length || 0}{" "}
-                              {selectedOrder.products?.length === 1
+                              {(selectedOrder.items || selectedOrder.products)?.length || 0}{" "}
+                              {(selectedOrder.items || selectedOrder.products)?.length === 1
                                 ? "Item"
                                 : "Items"}{" "}
                               Ordered
                             </h3>
 
                             <div className="space-y-4">
-                              {selectedOrder.products &&
-                                selectedOrder.products.length > 0 ? (
-                                selectedOrder.products.map((product, idx) => {
+                              {(selectedOrder.items || selectedOrder.products) &&
+                                (selectedOrder.items || selectedOrder.products).length > 0 ? (
+                                (selectedOrder.items || selectedOrder.products).map((product, idx) => {
                                   const productInfo = getProductInfo(product); // 🟢 Data normalize kiya
                                   const bookLink = getBookDetailLink(productInfo);
 
@@ -777,12 +787,12 @@ const navigate = useNavigate();
                                   </span>
                                   <span className="font-medium text-text-main">
                                     {formatAmount(
-                                      selectedOrder.shipping_cost || 0,
+                                      selectedOrder.shippingCost ?? selectedOrder.shipping_cost ?? 0,
                                       selectedOrder.currency,
                                     )}
                                   </span>
                                 </div>
-                                {selectedOrder.membership_discount > 0 && (
+                                {(selectedOrder.membershipDiscount || selectedOrder.membership_discount || 0) > 0 && (
                                   <div className="flex justify-between">
                                     <span className="text-text-muted">
                                       Membership Discount:
@@ -790,7 +800,7 @@ const navigate = useNavigate();
                                     <span className="font-medium text-green-600">
                                       -
                                       {formatAmount(
-                                        selectedOrder.membership_discount,
+                                        selectedOrder.membershipDiscount ?? selectedOrder.membership_discount,
                                         selectedOrder.currency,
                                       )}
                                     </span>
@@ -810,7 +820,7 @@ const navigate = useNavigate();
                                   </div>
                                   <p className="text-xs text-text-muted mt-1">
                                     Order currency:{" "}
-                                    {selectedOrder.currency || "INR"}
+                                    {selectedOrder.currency || "USD"}
                                   </p>
                                 </div>
                               </div>

@@ -64,7 +64,7 @@ const ProductListing = ({ type }) => {
             const cleanTitle = title.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]/g, '');
             const cleanSlug = currentSlug.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-            if (cat._id === currentSlug || cleanTitle === cleanSlug || cat.slug === currentSlug) {
+            if ((cat.id || cat._id) === currentSlug || cleanTitle === cleanSlug || cat.slug === currentSlug) {
                 return cat;
             }
             if (cat.children && cat.children.length > 0) {
@@ -97,9 +97,13 @@ const ProductListing = ({ type }) => {
                         );
                         if (foundCat) {
                             setPageTitle(foundCat.categorytitle || foundCat.title);
-                            // Filter all categories whose parentid matches this category's _id
+                            const foundCatId = foundCat.id || foundCat._id;
+                            // Filter all categories whose parentId matches this category's id
                             const children = flatCategories.filter(
-                                c => c.parentid && String(c.parentid) === String(foundCat._id)
+                                c => {
+                                    const parentId = c.parentId || c.parentid;
+                                    return parentId && String(parentId) === String(foundCatId);
+                                }
                             );
                             setSubcategoriesList(children);
                         } else {
@@ -115,7 +119,7 @@ const ProductListing = ({ type }) => {
                         } else {
                             setPageTitle(type ? type.replace(/-/g, ' ') : 'category');
                             // No slug = special page (recommended/bestsellers etc.) — show root categories
-                            const rootCategories = flatCategories.filter(c => !c.parentid || c.level === 0);
+                            const rootCategories = flatCategories.filter(c => !(c.parentId || c.parentid) || c.level === 0);
                             setSubcategoriesList(rootCategories);
                         }
                     }
@@ -162,8 +166,9 @@ const ProductListing = ({ type }) => {
                 // 🟢 STEP 2: Agar URL mein slug hai, toh flat list se category ID nikaalo
                 if (slug && allCategories.length > 0) {
                     const foundCat = findCategoryObject(allCategories, slug);
-                    if (foundCat && !categoryIds.includes(foundCat._id)) {
-                        categoryIds.push(foundCat._id);
+                    const foundCatId = foundCat && (foundCat.id || foundCat._id);
+                    if (foundCat && foundCatId && !categoryIds.includes(foundCatId)) {
+                        categoryIds.push(foundCatId);
                     }
                 }
 
@@ -531,10 +536,15 @@ const ProductListing = ({ type }) => {
 
 const buildCategoryTree = (categories) => {
     const map = {}; const tree = [];
-    categories.forEach(c => map[c._id] = { ...c, children: [] });
     categories.forEach(c => {
-        if (c.parentid && map[c.parentid]) map[c.parentid].children.push(map[c._id]);
-        else tree.push(map[c._id]);
+        const id = c.id || c._id;
+        map[id] = { ...c, children: [] };
+    });
+    categories.forEach(c => {
+        const id = c.id || c._id;
+        const parentId = c.parentId || c.parentid;
+        if (parentId && map[parentId]) map[parentId].children.push(map[id]);
+        else tree.push(map[id]);
     });
     return tree;
 };

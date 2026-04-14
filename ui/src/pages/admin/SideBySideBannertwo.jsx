@@ -96,7 +96,7 @@ const SideBySideBannertwo = () => {
 
             if (res.data.status && res.data.data.length > 0) {
                 const exportData = res.data.data.map(item => ({
-                    "ID": item._id,
+                    "ID": item.id || item._id,
                     "Image 1": item.image1 || 'N/A',
                     "Link 1": item.link1 || 'N/A',
                     "Image 2": item.image2 || 'N/A',
@@ -237,7 +237,7 @@ const SideBySideBannertwo = () => {
                                 </tr>
                             ) : banners.length > 0 ? (
                                 banners.map((item, index) => (
-                                    <tr key={item._id} className="hover:bg-primary-50 transition-colors">
+                                    <tr key={item.id || item._id} className="hover:bg-primary-50 transition-colors">
                                         <td className="p-3 border-r border-cream-50 text-center hide-on-print"><input type="checkbox" className="h-4 w-4 accent-primary" /></td>
                                         <td className="p-3 border-r border-cream-50 text-text-main">{index + 1}</td>
 
@@ -274,8 +274,8 @@ const SideBySideBannertwo = () => {
 
                                         <td className="p-3 text-center hide-on-print">
                                             <div className="flex justify-center gap-2">
-                                                <button onClick={() => navigate(`/admin/edit-side-banner-two/${item._id}`)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm"><Edit size={14} /></button>
-                                                <button onClick={() => handleDelete(item._id)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 hover:border-red-600 transition-all shadow-sm"><Trash2 size={14} /></button>
+                                                <button onClick={() => navigate(`/admin/edit-side-banner-two/${item.id || item._id}`)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm"><Edit size={14} /></button>
+                                                <button onClick={() => handleDelete(item.id || item._id)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 hover:border-red-600 transition-all shadow-sm"><Trash2 size={14} /></button>
                                             </div>
                                         </td>
                                     </tr>

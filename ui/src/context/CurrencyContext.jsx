@@ -4,20 +4,29 @@ import axios from 'axios';
 export const CurrencyContext = createContext();
 
 export const CurrencyProvider = ({ children }) => {
-    const [currency, setCurrency] = useState(localStorage.getItem('bagchee_currency') || 'INR');
-    const [exchangeRates, setExchangeRates] = useState({ USD: 1, INR: 83.5, EUR: 0.92, GBP: 0.78 }); // Base: USD (Universal Standard)
+    const SUPPORTED = ['USD', 'EUR', 'GBP'];
+    const stored = localStorage.getItem('bagchee_currency');
+    // Remove INR from localStorage if it was previously stored
+    if (stored && !SUPPORTED.includes(stored)) {
+        localStorage.removeItem('bagchee_currency');
+    }
+    const [currency, setCurrency] = useState(SUPPORTED.includes(stored) ? stored : 'USD');
+    const [exchangeRates, setExchangeRates] = useState({ USD: 1, EUR: 0.92, GBP: 0.78 });
     const [loading, setLoading] = useState(true);
 
-    const symbols = { USD: '$', INR: '₹', EUR: '€', GBP: '£' };
+    const symbols = { USD: '$', EUR: '€', GBP: '£' };
 
-    // 1. IP Based Currency Detection (Sirf first time ke liye)
+    // 1. IP Based Currency Detection — INR excluded, fallback to USD
     useEffect(() => {
         const detectCurrency = async () => {
             if (!localStorage.getItem('bagchee_currency')) {
                 try {
                     const res = await axios.get('https://ipapi.co/json/');
-                    if (res.data && res.data.currency) {
-                        setCurrency(res.data.currency);
+                    const detected = res.data?.currency;
+                    if (detected && SUPPORTED.includes(detected)) {
+                        setCurrency(detected);
+                    } else {
+                        setCurrency('USD');
                     }
                 } catch (err) {
                     console.error("IP Detection Failed:", err);
@@ -51,53 +60,25 @@ export const CurrencyProvider = ({ children }) => {
     }, [currency]);
 
   /**
- * 3. Magic Function (MNC Level Logic - Version 2.0)
- * @param {number} mainPrice - Backend 'price' (USD Base)
- * @param {number} inrPrice - Backend 'inr_price' (Fixed by Admin)
- * @param {number} displayPrice - Current calculated value to show
- */
-const formatPrice = useCallback((mainPrice, inrPrice, displayPrice) => {
-    // 1. Data Cleaning
-    const mPrice = Number(mainPrice) || 0;
-    const iPrice = (inrPrice === null || inrPrice === undefined) ? -1 : Number(inrPrice); 
-    const dPrice = (displayPrice === null || displayPrice === undefined) ? mPrice : Number(displayPrice);
+   * formatPrice(mainPrice, _ignored, displayPrice)
+   * mainPrice    — USD base price from backend
+   * _ignored     — was INR price, no longer used
+   * displayPrice — pre-calculated USD value to display (e.g. after discount)
+   */
+  const formatPrice = useCallback((mainPrice, _ignored, displayPrice) => {
+    const usdAmount = (displayPrice === null || displayPrice === undefined)
+        ? Number(mainPrice) || 0
+        : Number(displayPrice) || 0;
 
-    let finalAmount = 0;
+    const rate = exchangeRates[currency] || 1;
+    const finalAmount = Math.round((usdAmount * rate + Number.EPSILON) * 100) / 100;
     const symbol = symbols[currency] || `${currency} `;
 
-    // 2. MNC Intelligence Logic
-    if (currency === 'INR') {
-        if (iPrice === 0 && dPrice === 0) {
-            // Case A: Admin ne fix 0 dala hai (Free Item/Shipping)
-            finalAmount = 0;
-        } else if (iPrice > 0) {
-            // Case B: RELATIVE DISCOUNT LOGIC
-            const discountRatio = mPrice > 0 ? dPrice / mPrice : 1; 
-finalAmount = iPrice * discountRatio;
-        } else if (iPrice === 0 && dPrice > 0) {
-             // Case C: Jab dPrice (calculated total) 0 se bada ho, lekin backend 0 ho
-             // Toh ise fallback calculation par le jao
-             finalAmount = dPrice * (exchangeRates['INR'] || 83.5);
-        } else {
-            // Fallback: Agar INR field -1 (Empty) hai
-            finalAmount = dPrice * (exchangeRates['INR'] || 83.5);
-        }
-    } else if (currency === 'USD') {
-        finalAmount = dPrice;
-    } else {
-        const rate = exchangeRates[currency] || 1;
-        finalAmount = dPrice * rate;
-    }
-
-    // 3. Rounding Fix: MNCs use precision for financial accuracy
-    finalAmount = Math.round((finalAmount + Number.EPSILON) * 100) / 100;
-
-    // 4. MNC Level Formatting (Indian vs Western Commas)
-    return `${symbol}${finalAmount.toLocaleString(currency === 'INR' ? 'en-IN' : 'en-US', {
+    return `${symbol}${finalAmount.toLocaleString('en-US', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
     })}`;
-}, [currency, exchangeRates]);
+  }, [currency, exchangeRates]);
 
     return (
         <CurrencyContext.Provider value={{ currency, setCurrency, formatPrice, loading, symbols }}>

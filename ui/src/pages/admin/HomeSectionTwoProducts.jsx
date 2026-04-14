@@ -166,7 +166,7 @@ const HomeSectionTwoProducts = () => {
                 </tr>
               ) : filteredData.length > 0 ? (
                 filteredData.map((item) => (
-                  <tr key={item._id} className="hover:bg-primary/5 transition-colors text-[13px]">
+                  <tr key={item.id || item._id} className="hover:bg-primary/5 transition-colors text-[13px]">
                     <td className="p-3 border-r border-cream-50 text-center">
                        <input type="checkbox" className="h-4 w-4 rounded accent-primary cursor-pointer shrink-0" />
                     </td>
@@ -183,13 +183,13 @@ const HomeSectionTwoProducts = () => {
                       <div className="flex justify-center gap-2">
                         <button 
                           // 🟢 Fix: Correct Edit Route
-                          onClick={() => navigate(`/admin/edit-home-section-1/${item._id}`)} 
+                          onClick={() => navigate(`/admin/edit-home-section-1/${item.id || item._id}`)} 
                           className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary transition-all shadow-sm"
                         >
                           <Edit size={14} />
                         </button>
                         <button 
-                          onClick={() => handleDelete(item._id)}
+                          onClick={() => handleDelete(item.id || item._id)}
                           className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 transition-all shadow-sm"
                         >
                           <Trash2 size={14} />

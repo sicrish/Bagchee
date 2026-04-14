@@ -44,23 +44,27 @@ const EditReviews = () => {
         const API_URL = process.env.REACT_APP_API_URL;
 
         // 🟢 Parallel Fetch: Categories + Products + Review Details
-        const [catRes, prodRes, reviewRes] = await Promise.all([
+        const [catResult, prodResult, reviewResult] = await Promise.allSettled([
           axios.get(`${API_URL}/category/fetch`),
           axios.get(`${API_URL}/product/fetch`), // 🟢 Fetching Products List
           axios.get(`${API_URL}/reviews/get/${id}`)
         ]);
 
         // Set Categories
-        if (catRes.data.status) {
-          setCategories(catRes.data.data);
+        if (catResult.status === 'fulfilled' && catResult.value.data.status) {
+          setCategories(catResult.value.data.data);
         }
 
         // Set Products
-        if (prodRes.data.status) {
-          setProducts(prodRes.data.data);
+        if (prodResult.status === 'fulfilled' && prodResult.value.data.status) {
+          setProducts(prodResult.value.data.data);
         }
 
         // Set Review Data (Auto-fill)
+        if (reviewResult.status === 'rejected') {
+          throw new Error(reviewResult.reason?.message || 'Failed to load review');
+        }
+        const reviewRes = reviewResult.value;
         if (reviewRes.data.status) {
           const data = reviewRes.data.data;
 
@@ -133,7 +137,7 @@ const EditReviews = () => {
 
 
   const handleSelectProduct = (product) => {
-    setFormData({ ...formData, item_id: product._id }); // Database ID
+    setFormData({ ...formData, item_id: product.id || product._id }); // Database ID
     setSearchQuery(`${product.bagchee_id || ""} - ${product.title || ""}`); // UI Display Text
     setIsDropdownOpen(false);
   };
@@ -230,7 +234,7 @@ const EditReviews = () => {
                 >
                   <option value="">Select Category id</option>
                   {categories.map(cat => (
-                    <option key={cat._id} value={cat._id}>{cat.categorytitle || cat.name}</option>
+                    <option key={cat.id || cat._id} value={cat.id || cat._id}>{cat.title || cat.categorytitle || cat.name}</option>
                   ))}
                 </select>
               </div>
@@ -266,7 +270,7 @@ const EditReviews = () => {
                   <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded shadow-lg mt-1 max-h-60 overflow-y-auto z-[100]">
                     {searchResults.map((prod) => (
                       <div
-                        key={prod._id}
+                        key={prod.id || prod.id || prod._id}
                         onClick={() => handleSelectProduct(prod)}
                         className="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-0 flex flex-col"
                       >

@@ -23,5 +23,6 @@ router.get("/list",           adminAuth, CouponController.getAllCoupons);
 router.get("/get/:id",        adminAuth, CouponController.getCouponById);
 router.patch("/update/:id",   adminAuth, CouponController.updateCoupon);
 router.delete("/delete/:id",  adminAuth, CouponController.deleteCoupon);
+router.post("/send",          adminAuth, CouponController.sendCouponEmail);
 
 export default router;

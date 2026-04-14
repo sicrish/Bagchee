@@ -79,9 +79,10 @@ const HomeSaleForm = () => {
 
   // --- 3. SELECT PRODUCT ---
   const handleSelectProduct = (product) => {
-    setFormData({ ...formData, productId: product.bagchee_id });
-    setSearchQuery(`${product.bagchee_id} - ${product.title}`); 
-    setIsDropdownOpen(false); 
+    const pid = product.bagcheeId || product.bagchee_id || product.id || product._id;
+    setFormData({ ...formData, productId: pid });
+    setSearchQuery(`${pid} - ${product.title}`);
+    setIsDropdownOpen(false);
   };
 
   // --- 4. SUBMIT HANDLER ---
@@ -190,16 +191,14 @@ const HomeSaleForm = () => {
                 {isDropdownOpen && searchResults.length > 0 && (
                     <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded shadow-lg mt-1 max-h-60 overflow-y-auto z-50">
                         {searchResults.map((prod) => (
-                            <div 
-                                key={prod._id} 
+                            <div
+                                key={prod.id || prod._id}
                                 onClick={() => handleSelectProduct(prod)}
                                 className="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-0 flex flex-col justify-center"
                             >
-                                {/* 🟢 Image Removed Here */}
                                 <p className="text-xs font-bold text-gray-800 line-clamp-1">{prod.title}</p>
-                                
                                 <div className="text-[10px] text-gray-500 flex flex-wrap gap-x-2">
-                                    <span>ID: <strong className="text-primary">{prod.bagchee_id}</strong></span>
+                                    <span>ID: <strong className="text-primary">{prod.bagcheeId || prod.bagchee_id || prod.id}</strong></span>
                                     {prod.isbn13 && <span>| ISBN-13: {prod.isbn13}</span>}
                                     {prod.isbn10 && <span>| ISBN-10: {prod.isbn10}</span>}
                                 </div>

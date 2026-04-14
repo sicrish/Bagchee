@@ -56,7 +56,11 @@ const Address = () => {
   // 🟢 2. SAVE/UPDATE ADDRESS (useMutation)
   const saveMutation = useMutation({
     mutationFn: async (newAddress) => {
-      // Agar editing hai, toh pehle purana delete karke naya add (Vahi logic jo aapne diya tha)
+      // Split "Full Name" into firstName / lastName for the backend
+      const nameParts = (newAddress.name || '').trim().split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName  = nameParts.slice(1).join(' ') || '';
+
       if (isEditing) {
         await axios.post(`${API_BASE_URL}/user/delete-address`, {
           userId: user.id,
@@ -65,7 +69,9 @@ const Address = () => {
       }
       const res = await axios.post(`${API_BASE_URL}/user/add-address`, {
         userId: user.id,
-        ...newAddress
+        ...newAddress,
+        firstName,
+        lastName,
       });
       return res.data;
     },
@@ -104,9 +110,22 @@ const Address = () => {
   };
 
   const handleEdit = (addr) => {
-    setFormData(addr);
+    setFormData({
+      type:     addr.type     || 'Home',
+      name:     addr.firstName && addr.lastName
+                  ? `${addr.firstName} ${addr.lastName}`
+                  : addr.name || '',
+      houseNo:  addr.houseNo  || '',
+      street:   addr.street   || '',
+      landmark: addr.landmark || '',
+      city:     addr.city     || '',
+      state:    addr.state    || '',
+      pincode:  addr.pincode  || '',
+      country:  addr.country  || 'India',
+      phone:    addr.phone    || '',
+    });
     setIsEditing(true);
-    setCurrentAddressId(addr._id);
+    setCurrentAddressId(addr.id || addr._id);
     setShowModal(true);
   };
 
@@ -169,7 +188,7 @@ const Address = () => {
 
           {addresses.map((addr) => (
             <div
-              key={addr._id}
+              key={addr.id || addr._id}
               className="bg-cream-100 border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 flex flex-col overflow-hidden"
             >
               <div className="bg-cream-200/40 px-6 py-4 border-b border-gray-200 flex justify-between items-center">
@@ -189,7 +208,11 @@ const Address = () => {
               </div>
 
               <div className="p-6 flex-grow space-y-4 text-sm">
-                <p className="font-bold text-lg text-gray-900">{addr.name}</p>
+                <p className="font-bold text-lg text-gray-900">
+                  {addr.firstName && addr.lastName
+                    ? `${addr.firstName} ${addr.lastName}`
+                    : addr.name || '—'}
+                </p>
                 <div className="space-y-2">
                   <div className="flex gap-3 items-start">
                     <MapPin
@@ -229,7 +252,7 @@ const Address = () => {
                   <Edit size={16} /> Edit
                 </button>
                 <button
-                  onClick={() => handleDelete(addr._id)}
+                  onClick={() => handleDelete(addr.id || addr._id)}
                   disabled={deleteMutation.isPending}
                   className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all duration-300 disabled:opacity-50"
                 >

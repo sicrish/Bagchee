@@ -152,7 +152,7 @@ const ArtistsList = () => {
                 </tr>
               ) : filteredArtists.length > 0 ? (
                 filteredArtists.map((artist, index) => (
-                  <tr key={artist._id} className="hover:bg-primary/5 transition-colors group">
+                  <tr key={artist.id || artist._id} className="hover:bg-primary/5 transition-colors group">
                     <td className="p-4 border-r border-gray-50 text-center font-mono text-xs text-gray-400">
                         {index + 1}
                     </td>
@@ -165,14 +165,14 @@ const ArtistsList = () => {
                     <td className="p-4">
                       <div className="flex justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button 
-                          onClick={() => navigate(`/admin/edit-artist/${artist._id}`)} 
+                          onClick={() => navigate(`/admin/edit-artist/${artist.id || artist._id}`)} 
                           className="p-2 bg-white border border-gray-200 rounded-lg text-primary hover:bg-primary hover:text-white transition-all shadow-sm"
                           title="Edit Profile"
                         >
                           <Edit size={14} />
                         </button>
                         <button 
-                          onClick={() => handleDelete(artist._id)}
+                          onClick={() => handleDelete(artist.id || artist._id)}
                           className="p-2 bg-white border border-gray-200 rounded-lg text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-sm"
                           title="Delete Artist"
                         >

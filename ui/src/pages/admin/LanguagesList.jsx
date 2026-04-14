@@ -239,7 +239,7 @@ const LanguagesList = () => {
                 </tr>
               ) : filteredLanguages.length > 0 ? (
                 filteredLanguages.map((lang, index) => (
-                  <tr key={lang._id} className="hover:bg-primary-50 transition-colors text-[13px]">
+                  <tr key={lang.id || lang._id} className="hover:bg-primary-50 transition-colors text-[13px]">
                     <td className="p-3 border-r border-cream-50">
                       <div className="flex items-center gap-5 px-1">
                         <input type="checkbox" className="h-4 w-4 rounded accent-primary cursor-pointer shrink-0" />
@@ -250,8 +250,8 @@ const LanguagesList = () => {
                     <td className="p-3 border-r border-cream-50 text-text-main font-bold">{lang.order || 0}</td>
                     <td className="p-3">
                       <div className="flex justify-center gap-2">
-                        <button onClick={() => navigate(`/admin/edit-languages/${lang._id}`)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm active:scale-95"><Edit size={14} /></button>
-                        <button onClick={() => handleDelete(lang._id)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 hover:border-red-600 transition-all shadow-sm active:scale-95"><Trash2 size={14} /></button>
+                        <button onClick={() => navigate(`/admin/edit-languages/${lang.id || lang._id}`)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm active:scale-95"><Edit size={14} /></button>
+                        <button onClick={() => handleDelete(lang.id || lang._id)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 hover:border-red-600 transition-all shadow-sm active:scale-95"><Trash2 size={14} /></button>
                       </div>
                     </td>
                   </tr>

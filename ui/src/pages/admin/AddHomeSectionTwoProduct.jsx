@@ -72,11 +72,10 @@ const AddHomeSectionTwoProduct = () => {
   const handleSelectProduct = (product) => {
     setSearchTerm(product.title);
     
-    setFormData(prev => ({ 
-        ...prev, 
-        // 🛠️ Mongoose ID standard use kar rahe hain taaki Cast error na aaye
-        productId: product._id, 
-        title: product.title 
+    setFormData(prev => ({
+        ...prev,
+        productId: product.id || product._id,
+        title: product.title
     }));
     setShowDropdown(false);
   };
@@ -161,7 +160,7 @@ const AddHomeSectionTwoProduct = () => {
                 >
                     <option value="">{fetchingSections ? "Loading Sections..." : "-- Select Target Section --"}</option>
                     {sectionsList.map((sec) => (
-                        <option key={sec._id} value={sec._id}>
+                        <option key={sec.id || sec._id} value={sec.id || sec._id}>
                             {sec.title} ({sec.section || "No Label"}) 
                         </option>
                     ))}
@@ -198,14 +197,14 @@ const AddHomeSectionTwoProduct = () => {
                         </li>
                     ) : searchResults.length > 0 ? (
                       searchResults.map((p) => (
-                        <li 
-                          key={p._id} 
+                        <li
+                          key={p.id || p._id}
                           onClick={() => handleSelectProduct(p)}
                           className="px-4 py-3 hover:bg-primary/5 cursor-pointer transition-colors group flex justify-between items-center"
                         >
                           <div className="flex flex-col">
                             <span className="text-sm font-bold text-gray-700 group-hover:text-primary">{p.title}</span>
-                            <span className="text-[10px] text-gray-400">Bagchee ID: {p.bagchee_id}</span>
+                            <span className="text-[10px] text-gray-400">Bagchee ID: {p.bagcheeId || p.bagchee_id || p.id}</span>
                           </div>
                           <span className="text-[10px] font-mono bg-gray-100 px-2 py-1 rounded text-gray-500 shrink-0">SKU: {p.isbn13 || p.productId}</span>
                         </li>

@@ -23,8 +23,7 @@ const ORDER_DETAIL_INCLUDE = {
     coupon:   { select: { id: true, code: true, amount: true, fixAmount: true, flatDeduction: true } },
     items: {
         include: {
-            product: { select: { id: true, title: true, defaultImage: true, bagcheeId: true, price: true } },
-            courier: { select: { id: true, title: true, trackingPage: true } }
+            product: { select: { id: true, title: true, defaultImage: true, bagcheeId: true, price: true } }
         }
     }
 };
@@ -40,33 +39,33 @@ const ORDER_LIST_INCLUDE = {
 const extractShipping = (body) => {
     const sd = body.shipping_details || {};
     return {
-        shippingEmail:     body.shippingEmail     || sd.email      || '',
-        shippingFirstName: body.shippingFirstName || sd.first_name || sd.firstName || '',
-        shippingLastName:  body.shippingLastName  || sd.last_name  || sd.lastName  || '',
-        shippingAddress1:  body.shippingAddress1  || sd.address1   || sd.address   || '',
-        shippingAddress2:  body.shippingAddress2  || sd.address2   || '',
-        shippingCompany:   body.shippingCompany   || sd.company    || '',
-        shippingCountry:   body.shippingCountry   || sd.country    || '',
-        shippingState:     body.shippingState     || sd.state      || '',
-        shippingCity:      body.shippingCity      || sd.city       || '',
-        shippingPostcode:  body.shippingPostcode  || sd.postcode   || sd.pincode   || '',
-        shippingPhone:     body.shippingPhone     || sd.phone      || '',
+        shippingEmail:     body.shippingEmail     || sd.email                              || '',
+        shippingFirstName: body.shippingFirstName || sd.first_name  || sd.firstName        || '',
+        shippingLastName:  body.shippingLastName  || sd.last_name   || sd.lastName         || '',
+        shippingAddress1:  body.shippingAddress1  || sd.address_1   || sd.address1 || sd.address || '',
+        shippingAddress2:  body.shippingAddress2  || sd.address_2   || sd.address2         || '',
+        shippingCompany:   body.shippingCompany   || sd.company                            || '',
+        shippingCountry:   body.shippingCountry   || sd.country                            || '',
+        shippingState:     body.shippingState     || sd.state_region || sd.state           || '',
+        shippingCity:      body.shippingCity      || sd.city                               || '',
+        shippingPostcode:  body.shippingPostcode  || sd.postcode    || sd.pincode          || '',
+        shippingPhone:     body.shippingPhone     || sd.phone                              || '',
     };
 };
 
 const extractBilling = (body) => {
     const bd = body.billing_details || {};
     return {
-        billingFirstName: body.billingFirstName || bd.first_name || bd.firstName || '',
-        billingLastName:  body.billingLastName  || bd.last_name  || bd.lastName  || '',
-        billingAddress1:  body.billingAddress1  || bd.address1   || bd.address   || '',
-        billingAddress2:  body.billingAddress2  || bd.address2   || '',
-        billingCompany:   body.billingCompany   || bd.company    || '',
-        billingCountry:   body.billingCountry   || bd.country    || '',
-        billingState:     body.billingState     || bd.state      || '',
-        billingCity:      body.billingCity      || bd.city       || '',
-        billingPostcode:  body.billingPostcode  || bd.postcode   || bd.pincode   || '',
-        billingPhone:     body.billingPhone     || bd.phone      || '',
+        billingFirstName: body.billingFirstName || bd.first_name  || bd.firstName          || '',
+        billingLastName:  body.billingLastName  || bd.last_name   || bd.lastName           || '',
+        billingAddress1:  body.billingAddress1  || bd.address_1   || bd.address1 || bd.address || '',
+        billingAddress2:  body.billingAddress2  || bd.address_2   || bd.address2           || '',
+        billingCompany:   body.billingCompany   || bd.company                              || '',
+        billingCountry:   body.billingCountry   || bd.country                              || '',
+        billingState:     body.billingState     || bd.state_region || bd.state             || '',
+        billingCity:      body.billingCity      || bd.city                                 || '',
+        billingPostcode:  body.billingPostcode  || bd.postcode    || bd.pincode            || '',
+        billingPhone:     body.billingPhone     || bd.phone                                || '',
     };
 };
 

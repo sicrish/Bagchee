@@ -54,7 +54,7 @@ const Categories = () => {
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {categories.length > 0 ? (
           categories.map((cat) => (
-            <CategoryItem key={cat._id} category={cat} level={0} />
+            <CategoryItem key={cat.id || cat._id} category={cat} level={0} />
           ))
         ) : (
           <p className="text-center col-span-full text-text-muted font-bold">No categories found.</p>
@@ -175,7 +175,7 @@ const CategoryItem = ({ category, level }) => {
 
           {/* Children List */}
           {hasChildren && category.children.map((child) => (
-            <CategoryItem key={child._id} category={child} level={level + 1} />
+            <CategoryItem key={child.id || child._id} category={child} level={level + 1} />
           ))}
         </div>
       </div>
@@ -189,13 +189,16 @@ const buildCategoryTree = (categories) => {
   const categoryMap = {};
   const tree = [];
   categories.forEach(cat => {
-    categoryMap[cat._id] = { ...cat, children: [] };
+    const id = cat.id || cat._id;
+    categoryMap[id] = { ...cat, children: [] };
   });
   categories.forEach(cat => {
-    if (cat.parentid && categoryMap[cat.parentid]) {
-      categoryMap[cat.parentid].children.push(categoryMap[cat._id]);
+    const id = cat.id || cat._id;
+    const parentId = cat.parentId || cat.parentid;
+    if (parentId && categoryMap[parentId]) {
+      categoryMap[parentId].children.push(categoryMap[id]);
     } else {
-      tree.push(categoryMap[cat._id]);
+      tree.push(categoryMap[id]);
     }
   });
   return tree;

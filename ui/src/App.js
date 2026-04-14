@@ -24,7 +24,7 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5, // 5 minutes (data 5 min tak fresh rahega)
-      cacheTime: 1000 * 60 * 30, // 30 minutes (memory mein data rahega)
+      gcTime: 1000 * 60 * 30, // 30 minutes (memory mein data rahega)
       refetchOnWindowFocus: false, // Tab change karne par faltu fetch nahi karega
       retry: 1, // Error aane par sirf 1 baar auto-retry karega
     },
@@ -273,6 +273,7 @@ const AddCoupons = lazy(() => import('./pages/admin/AddCoupons.jsx'));
 // import EditCoupons from './pages/admin/EditCoupons.jsx';
 const EditCoupons = lazy(() => import('./pages/admin/EditCoupons.jsx'));
 
+const SendCoupon = lazy(() => import('./pages/admin/SendCoupon.jsx'));
 
 //languages
 // import LanguagesList from './pages/admin/LanguagesList.jsx';
@@ -696,8 +697,6 @@ function App() {
               {/* <Route path="shipping-info" element={<ShippingInfo />} />
               <Route path="returns-refunds" element={<ReturnsRefunds />} /> */}
               <Route path="contact-us" element={<ContactUs />} />
-              <Route path="forgot-password" element={<ForgotPassword />} />
-              <Route path="reset-password" element={<ResetPassword />} />
               <Route path="disclaimer" element={<UnderMaintenance />} />
 
             </Route>
@@ -705,6 +704,8 @@ function App() {
             {/* --- SECTION 2: AUTH + HEADERLESS PAGES --- */}
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/trace-order" element={<TraceOrder />} />
 
 
@@ -748,6 +749,7 @@ function App() {
                 <Route path="coupons" element={<CouponsList />} />
                 <Route path="add-coupons" element={<AddCoupons />} />
                 <Route path="edit-coupons/:id" element={<EditCoupons />} />
+                <Route path="send-coupon" element={<SendCoupon />} />
                 <Route path="languages" element={<LanguagesList />} />
                 <Route path="add-languages" element={<AddLanguages />} />
                 <Route path="edit-languages/:id" element={<EditLanguages />} />

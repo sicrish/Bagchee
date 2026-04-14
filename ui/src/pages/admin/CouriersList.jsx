@@ -189,7 +189,7 @@ const CouriersList = () => {
                                 </tr>
                             ) : filteredCouriers.length > 0 ? (
                                 filteredCouriers.map((item, index) => (
-                                    <tr key={item._id} className="hover:bg-primary/5 transition-colors group">
+                                    <tr key={item.id || item._id} className="hover:bg-primary/5 transition-colors group">
                                         <td className="p-4 text-center border-r border-gray-50">
                                             <span className="text-gray-400 font-mono text-xs">{index + 1}</span>
                                         </td>
@@ -205,14 +205,14 @@ const CouriersList = () => {
                                         <td className="p-4">
                                             <div className="flex justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button
-                                                    onClick={() => navigate(`/admin/edit-couriers/${item._id}`)}
+                                                    onClick={() => navigate(`/admin/edit-couriers/${item.id || item._id}`)}
                                                     className="p-2 bg-white border border-gray-200 rounded-lg text-primary hover:bg-primary hover:text-white transition-all shadow-sm"
                                                     title="Edit Partner"
                                                 >
                                                     <Edit size={14} />
                                                 </button>
                                                 <button
-                                                    onClick={() => handleDelete(item._id)}
+                                                    onClick={() => handleDelete(item.id || item._id)}
                                                     className="p-2 bg-white border border-gray-200 rounded-lg text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-sm"
                                                     title="Delete Partner"
                                                 >

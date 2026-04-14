@@ -46,7 +46,7 @@ const AllSubcategories = () => {
                 // Try multiple possible field names for the category reference
                 const catId = subcat.categoryId || subcat.categoryid || subcat.category_id || subcat.category;
                 const catIdStr = typeof catId === 'object' ? catId._id : catId;
-                const foundCatIdStr = foundCategory._id;
+                const foundCatIdStr = foundCategory.id || foundCategory._id;
                 
                 return catIdStr === foundCatIdStr || String(catIdStr) === String(foundCatIdStr);
               }
@@ -67,11 +67,16 @@ const AllSubcategories = () => {
   const buildCategoryTree = (categories) => {
     const map = {};
     const tree = [];
-    categories.forEach((c) => (map[c._id] = { ...c, children: [] }));
     categories.forEach((c) => {
-      if (c.parentid && map[c.parentid])
-        map[c.parentid].children.push(map[c._id]);
-      else tree.push(map[c._id]);
+      const id = c.id || c._id;
+      map[id] = { ...c, children: [] };
+    });
+    categories.forEach((c) => {
+      const id = c.id || c._id;
+      const parentId = c.parentId || c.parentid;
+      if (parentId && map[parentId])
+        map[parentId].children.push(map[id]);
+      else tree.push(map[id]);
     });
     return tree;
   };

@@ -827,9 +827,8 @@ const BookDetail = () => {
           {/* ══ COL 3: Dynamic Buy Box / Newsletter (MNC Standard Fix) ══ */}
           <div className="lg:sticky lg:top-6 lg:self-start">
 
-            {/* 🟢 Step 1: Membership Promo Box (Image 1 Style) - Only for Global Currencies */}
-            {/* 🟢 Step 1: Premium Promo Box (Ab ye real checkbox hai) */}
-            {currency !== 'INR' && !isOutOfStock && !isUpcoming && (
+            {/* 🟢 Step 1: Membership Promo Box */}
+            {!isOutOfStock && !isUpcoming && (
               <MembershipPromoBox
                 formatPrice={formatPrice}
                 isChecked={membershipAdded}
@@ -838,17 +837,14 @@ const BookDetail = () => {
             )}
             <div className="bg-cream-100 border border-gray-200 rounded p-4 space-y-4 shadow-sm">
 
-              {/* 1. Condition: INR select ho YA Out of Stock ho toh Newsletter dikhao */}
-              {(currency === 'INR' || isOutOfStock) ? (
+              {/* 1. Out of Stock: show newsletter */}
+              {isOutOfStock ? (
                 <NewsletterBox
                   email={newsEmail}
                   setEmail={setNewsEmail}
                   onSubmit={handleNewsletterSubmit}
                   bookTitle={book.title}
-                  message={isOutOfStock
-                    ? "This item is currently out of stock. Leave your email to be notified when it's back!"
-                    : "Direct purchase in INR is coming soon. Subscribe to get notified."
-                  }
+                  message="This item is currently out of stock. Leave your email to be notified when it's back!"
                 />
               ) : (
                 /* 2. Global Currencies (USD/EUR) aur In-Stock ke liye Buying Options */
@@ -1559,7 +1555,7 @@ const BookDetail = () => {
                       </div>
                     </div>
                     <span className="text-[11px] text-gray-400 font-medium">
-                      {new Date(rev.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {new Date(rev.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </span>
                   </div>
                   {rev.title && <p className="font-bold text-sm text-text-main mb-2 uppercase tracking-wide">{rev.title}</p>}

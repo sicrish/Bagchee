@@ -158,7 +158,7 @@ const BooksOfMonthList = () => {
                 history.map((item) => {
                   const isExpired = new Date(item.expiryDate) < new Date();
                   return (
-                    <tr key={item._id} className="hover:bg-primary-50 transition-colors">
+                    <tr key={item.id || item._id} className="hover:bg-primary-50 transition-colors">
                       <td className="p-4 border-r border-cream-50 text-center hide-on-print">
                           <input type="checkbox" className="h-4 w-4 rounded accent-primary cursor-pointer" />
                       </td>
@@ -182,14 +182,14 @@ const BooksOfMonthList = () => {
                       <td className="p-4 text-center hide-on-print">
                         <div className="flex justify-center gap-2">
                           <button 
-                            onClick={() => navigate(`/admin/edit-books-of-the-month/${item._id}`)} 
+                            onClick={() => navigate(`/admin/edit-books-of-the-month/${item.id || item._id}`)} 
                             className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm"
                             title="Edit / Reactivate"
                           >
                             <Edit size={14} />
                           </button>
                           <button 
-                            onClick={() => handleDelete(item._id)}
+                            onClick={() => handleDelete(item.id || item._id)}
                             className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 hover:border-red-600 transition-all shadow-sm"
                             title="Delete"
                           >

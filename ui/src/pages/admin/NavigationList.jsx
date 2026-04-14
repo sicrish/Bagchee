@@ -53,10 +53,10 @@ const handleExport = async () => {
   const dataToExport = navigationItems.map((nav, index) => ({
     "Sr No": index + 1,
     "Item Name": nav.item || nav.name,
-    "Link URL": nav.link,
-    "Dropdown Status": nav.dropdown,
-    "Status (Active)": nav.active || nav.status,
-    "Display Order": nav.order
+    "Link URL": nav.itemLink || nav.link,
+    "Dropdown Status": nav.hasDropdown !== undefined ? (nav.hasDropdown ? 'Yes' : 'No') : nav.dropdown,
+    "Status (Active)": nav.active ? 'Active' : 'Inactive',
+    "Display Order": nav.ord ?? nav.order
   }));
 
   await exportToExcel(dataToExport, "Navigations", "Navigation_Report");
@@ -76,14 +76,14 @@ const handlePrint = () => {
     return navigationItems.filter((nav, index) => {
       const displayId = (index + 1).toString();
       const itemName = nav.name || nav.item || "";
-      const statusValue = String(nav.status ?? nav.active ?? "");
+      const statusValue = String(nav.active !== undefined ? (nav.active ? 'active' : 'inactive') : (nav.status ?? ""));
       return (
         displayId.includes(filters.id) &&
         itemName.toLowerCase().includes(filters.item.toLowerCase()) &&
-        (nav.link || "").toLowerCase().includes(filters.link.toLowerCase()) &&
-        String(nav.dropdown ?? "").toLowerCase().includes(filters.dropdown.toLowerCase()) &&
+        (nav.itemLink || nav.link || "").toLowerCase().includes(filters.link.toLowerCase()) &&
+        String(nav.hasDropdown ?? nav.dropdown ?? "").toLowerCase().includes(filters.dropdown.toLowerCase()) &&
         statusValue.toLowerCase().includes(filters.active.toLowerCase()) &&
-        (nav.order ?? "0").toString().includes(filters.order)
+        (nav.ord ?? nav.order ?? "0").toString().includes(filters.order)
       );
     });
   }, [navigationItems, filters]);
@@ -213,14 +213,14 @@ const handlePrint = () => {
                     <td className="p-3 border-r text-gray-700 font-medium">
                         {nav.name || nav.item}
                     </td>
-                    <td className="p-3 border-r text-gray-500 italic text-xs">{nav.link}</td>
-                    <td className={`p-3 border-r font-bold ${nav.dropdown === 'active' ? 'text-primary' : 'text-gray-400'}`}>
-                        {nav.dropdown}
+                    <td className="p-3 border-r text-gray-500 italic text-xs">{nav.itemLink || nav.link}</td>
+                    <td className={`p-3 border-r font-bold text-xs ${(nav.hasDropdown ?? nav.dropdown === 'active') ? 'text-primary' : 'text-gray-400'}`}>
+                        {nav.hasDropdown !== undefined ? (nav.hasDropdown ? 'Yes' : 'No') : (nav.dropdown || '-')}
                     </td>
-                    <td className={`p-3 border-r font-bold ${(nav.status || nav.active) === 'active' ? 'text-primary' : 'text-red-400'}`}>
-    {nav.status || nav.active}
-</td>
-                    <td className="p-3 border-r text-gray-600 text-center font-bold">{nav.order}</td>
+                    <td className={`p-3 border-r font-bold text-xs ${nav.active ? 'text-green-600' : 'text-red-400'}`}>
+                        {nav.active ? 'Active' : 'Inactive'}
+                    </td>
+                    <td className="p-3 border-r text-gray-600 text-center font-bold">{nav.ord ?? nav.order}</td>
                     <td className="p-3">
                       <div className="flex justify-center gap-2">
                         <button onClick={() => navigate(`/admin/edit-navigation/${nav.id}`)} className="p-1.5 bg-gray-100 border border-gray-200 rounded text-gray-600 hover:text-[#0096cc] transition-all"><Edit size={14} /></button>

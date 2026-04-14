@@ -19,6 +19,7 @@ const AdminSidebar = () => {
     { name: "Navigation", path: "/admin/navigation" },
     { name: "Authors", path: "/admin/authors" },
     { name: "Coupons", path: "/admin/coupons" },
+    { name: "Send Coupon", path: "/admin/send-coupon" },
     { name: "Languages", path: "/admin/languages" },
     { name: "Tags", path: "/admin/tags" },
     { name: "Formats", path: "/admin/formats" },

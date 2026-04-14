@@ -92,11 +92,9 @@ const Cart = () => {
   // --- Helpers ---
   const getShippingPrice = (option) => {
     if (!option) return 0;
-    // 🟢 Threshold check: Agar subtotal limit se upar hai toh 0
     if (settings?.free_shipping_over > 0 && Number(cartTotal) >= settings.free_shipping_over) {
       return 0;
     }
-    if (currency === 'INR') return option.priceInr || 0;
     if (currency === 'EUR') return option.priceEur || 0;
     return option.priceUsd || 0;
   };
@@ -113,8 +111,7 @@ const Cart = () => {
   };
 
   const freeShippingOver = settings ? (
-    currency === 'INR' ? (settings.freeShippingOverInr || settings.free_shipping_over_inr || 0)
-    : currency === 'EUR' ? (settings.freeShippingOverEur || 0)
+    currency === 'EUR' ? (settings.freeShippingOverEur || 0)
     : (settings.freeShippingOver || settings.free_shipping_over || 0)
   ) : 0;
 
@@ -136,14 +133,12 @@ const Cart = () => {
 
   const getSelectedShippingRawPrice = () => {
     if (!appliedShipping) return 0;
-    if (currency === 'INR') return appliedShipping.priceInr || 0;
     if (currency === 'EUR') return appliedShipping.priceEur || 0;
     if (currency === 'GBP') {
-        // Agar GBP hai toh USD Price ko Exchange Rate se convert karo
         const rate = exchangeRates?.GBP || 0.78;
         return (appliedShipping.priceUsd || 0) * rate;
     }
-    return appliedShipping.priceUsd || 0; // Default USD
+    return appliedShipping.priceUsd || 0;
   };
 
 
@@ -590,15 +585,13 @@ const Cart = () => {
       </div>
       
       <span className="text-sm font-bold text-gray-600">
-        {currency === 'INR' 
-          ? `₹${(option.priceInr || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` 
-          : currency === 'USD' 
-            ? `$${(option.priceUsd || 0).toFixed(2)}`
-            : currency === 'EUR'
-              ? `€${(option.priceEur || 0).toFixed(2)}`
-              : currency === 'GBP'
-                ? `£${((option.priceUsd || 0) * (exchangeRates?.GBP || 0.78)).toFixed(2)}`
-                : `${symbols?.[currency] || ''}${(option.priceUsd * (exchangeRates?.[currency] || 1)).toFixed(2)}`
+        {currency === 'USD'
+          ? `$${(option.priceUsd || 0).toFixed(2)}`
+          : currency === 'EUR'
+            ? `€${(option.priceEur || 0).toFixed(2)}`
+            : currency === 'GBP'
+              ? `£${((option.priceUsd || 0) * (exchangeRates?.GBP || 0.78)).toFixed(2)}`
+              : `${symbols?.[currency] || ''}${(option.priceUsd * (exchangeRates?.[currency] || 1)).toFixed(2)}`
         }
       </span>
     </label>

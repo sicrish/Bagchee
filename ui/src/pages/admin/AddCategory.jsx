@@ -101,7 +101,7 @@ const AddCategory = () => {
         if (!prev.metaTitle) updatedData.metaTitle = value;
 
         if (prev.parentId) {
-          const parent = parentCategories.find(cat => cat._id === prev.parentId);
+          const parent = parentCategories.find(cat => String(cat.id || cat._id) === String(prev.parentId));
           if (parent) {
             const parentFullRoute = parent.parentslug || parent.parentsSlug;
             const basePath = (parentFullRoute && parentFullRoute !== 'root-category')
@@ -113,7 +113,7 @@ const AddCategory = () => {
       }
 
       if (name === 'parentId') {
-        const selectedParent = parentCategories.find(cat => cat._id === value);
+        const selectedParent = parentCategories.find(cat => String(cat.id || cat._id) === String(value));
         if (selectedParent) {
           updatedData.level = (Number(selectedParent.level) || 0) + 1;
           const currentSlug = updatedData.slug || prev.slug || '';
@@ -215,7 +215,7 @@ const AddCategory = () => {
                 <option value="">Select Parent id</option>
                 {parentCategories && parentCategories.length > 0 ? (
                   parentCategories.map((category) => (
-                    <option key={category._id} value={category._id}>
+                    <option key={category.id || category._id} value={category.id || category._id}>
                       {category.categorytitle || category.categoryTitle || category.title || "Unnamed Category"}
                     </option>
                   ))

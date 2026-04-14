@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Plus, Download, Printer, Search, RotateCw, 
   Edit, Trash2, ChevronLeft, ChevronRight, 
@@ -40,15 +40,16 @@ const FormatsList = () => {
     return res.data;
   };
 
-  const { data: queryData, isLoading, isFetching, refetch } = useQuery({
+  const { data: queryData, isLoading, isFetching, isError, refetch } = useQuery({
     queryKey: ['formatsList', currentPage, itemsPerPage],
     queryFn: fetchFormats,
-    staleTime: 1000 * 60 * 5, // Cache for 5 mins for lightning fast pagination
-    keepPreviousData: true, // Pagination ke time table blink/blank nahi hogi
-    onError: () => {
-      toast.error("Failed to load formats");
-    }
+    staleTime: 1000 * 60 * 5,
+    placeholderData: (previousData) => previousData,
   });
+
+  useEffect(() => {
+    if (isError) toast.error("Failed to load formats");
+  }, [isError]);
 
   // Extract Data from Query
   const formats = queryData?.data || [];
@@ -109,9 +110,10 @@ const FormatsList = () => {
       
       const matchesId = displayId.includes(filters.id);
       const matchesTitle = (format.title || "").toLowerCase().includes(filters.title.toLowerCase());
-      const matchesStatus = (format.active || "active").toLowerCase().includes(filters.status.toLowerCase());
+      const activeStr = (format.active === true || format.active === 'active') ? 'active' : 'inactive';
+      const matchesStatus = activeStr.includes(filters.status.toLowerCase());
       const matchesCategory = (format.category_name || "N/A").toLowerCase().includes(filters.category.toLowerCase());
-      const matchesOrder = (format.order || "0").toString().includes(filters.order);
+      const matchesOrder = ((format.ord ?? format.order) || "0").toString().includes(filters.order);
 
       return matchesId && matchesTitle && matchesStatus && matchesCategory && matchesOrder;
     });
@@ -227,8 +229,11 @@ const FormatsList = () => {
                   </td>
                 </tr>
               ) : filteredFormats.length > 0 ? (
-                filteredFormats.map((format, index) => (
-                  <tr key={format._id} className="hover:bg-primary-50 transition-colors text-[13px]">
+                filteredFormats.map((format, index) => {
+                  const formatId = format.id || format._id;
+                  const isActive = format.active === true || format.active === 'active';
+                  return (
+                  <tr key={formatId} className="hover:bg-primary-50 transition-colors text-[13px]">
                     <td className="p-3 border-r border-cream-50">
                         <div className="flex items-center gap-5 px-1">
                           <input type="checkbox" className="h-4 w-4 rounded accent-primary cursor-pointer shrink-0" />
@@ -239,24 +244,25 @@ const FormatsList = () => {
                     </td>
                     <td className="p-3 border-r border-cream-50 text-text-main font-medium">{format.title}</td>
                     <td className="p-3 border-r border-cream-50">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${format.active === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                        {format.active || 'active'}
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                        {isActive ? 'active' : 'inactive'}
                       </span>
                     </td>
                     <td className="p-3 border-r border-cream-50 text-text-main font-bold ">{format.category_name || 'N/A'}</td>
-                    <td className="p-3 border-r border-cream-50 text-text-main font-bold text-center">{format.order || '0'}</td>
+                    <td className="p-3 border-r border-cream-50 text-text-main font-bold text-center">{format.ord ?? format.order ?? '0'}</td>
                     <td className="p-3">
                       <div className="flex justify-center gap-2">
-                        <button onClick={() => navigate(`/admin/edit-formats/${format._id}`)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm active:scale-95">
+                        <button onClick={() => navigate(`/admin/edit-formats/${formatId}`)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm active:scale-95">
                            <Edit size={14} />
                         </button>
-                        <button onClick={() => handleDelete(format._id)} disabled={deleteFormatMutation.isPending} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 hover:border-red-600 transition-all shadow-sm active:scale-95 disabled:opacity-50">
+                        <button onClick={() => handleDelete(formatId)} disabled={deleteFormatMutation.isPending} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 hover:border-red-600 transition-all shadow-sm active:scale-95 disabled:opacity-50">
                            <Trash2 size={14} />
                         </button>
                       </div>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               ) : (
                 <tr>
                   <td colSpan="6" className="p-10 text-center text-text-muted italic font-montserrat">No formats found matching your filters.</td>

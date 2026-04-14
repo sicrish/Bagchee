@@ -1,4 +1,7 @@
 import prisma from '../lib/prisma.js';
+import nodemailer from 'nodemailer';
+import dotenv from 'dotenv';
+dotenv.config();
 
 // Coupon type values:
 //   percent_order       — % off entire order
@@ -229,6 +232,85 @@ export const deleteCoupon = async (req, res) => {
     } catch (err) {
         if (err.code === 'P2025') return res.status(404).json({ status: false, msg: 'Coupon not found' });
         res.status(500).json({ status: false, msg: 'Delete failed' });
+    }
+};
+
+// ── SEND COUPON VIA EMAIL ─────────────────────────────────────────────────────
+// Body: { couponId, emails?: string (comma-separated), emailContent: string, sendToAll?: boolean }
+export const sendCouponEmail = async (req, res) => {
+    try {
+        const { couponId, emails, emailContent, sendToAll } = req.body;
+
+        if (!couponId) return res.status(400).json({ status: false, msg: 'Coupon is required.' });
+        if (!emailContent) return res.status(400).json({ status: false, msg: 'Email content is required.' });
+        if (!sendToAll && (!emails || !emails.trim())) return res.status(400).json({ status: false, msg: 'Provide customer emails or select Send to all.' });
+
+        // Fetch coupon details
+        const coupon = await prisma.coupon.findUnique({ where: { id: parseInt(couponId) } });
+        if (!coupon) return res.status(404).json({ status: false, msg: 'Coupon not found.' });
+
+        // Build recipients list
+        let recipientEmails = [];
+        if (sendToAll) {
+            const users = await prisma.user.findMany({ select: { email: true }, where: { email: { not: null } } });
+            recipientEmails = users.map(u => u.email).filter(Boolean);
+        } else {
+            recipientEmails = emails.split(',').map(e => e.trim()).filter(e => e.includes('@'));
+        }
+
+        if (recipientEmails.length === 0) return res.status(400).json({ status: false, msg: 'No valid email addresses found.' });
+
+        const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+        });
+
+        const shopUrl = process.env.FRONTEND_URL || 'https://bagchee.com';
+        const subject = `Your Coupon Code: ${coupon.code} – Bagchee`;
+
+        // Wrap admin content in branded email shell
+        const htmlBody = `
+            <div style="font-family:'Inter',Helvetica,Arial,sans-serif;background-color:#F7EEDD;padding:40px 0;">
+                <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 15px rgba(0,0,0,0.1);border:1px solid #e6decd;">
+                    <div style="background-color:#008DDA;padding:30px;text-align:center;">
+                        <h1 style="color:#fff;margin:0;font-size:24px;font-weight:700;letter-spacing:0.5px;">Bagchee</h1>
+                        <p style="color:#fff;margin-top:5px;opacity:0.9;font-size:13px;">Your Favorite Bookstore</p>
+                    </div>
+                    <div style="padding:10px 30px 30px;">
+                        ${emailContent}
+                    </div>
+                    <div style="background:#fffdf5;padding:16px 30px;text-align:center;border-top:1px solid #e6decd;">
+                        <p style="font-size:12px;color:#4A6fa5;margin:0;">
+                            Use code <strong style="color:#008DDA;letter-spacing:1px;">${coupon.code}</strong> at checkout.
+                            Valid till ${new Date(coupon.validTo).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })}.
+                        </p>
+                        <a href="${shopUrl}" style="display:inline-block;margin-top:12px;background:#008DDA;color:#fff;text-decoration:none;padding:10px 24px;font-size:13px;font-weight:bold;border-radius:6px;">Shop Now</a>
+                        <p style="font-size:11px;color:#9ca3af;margin-top:16px;margin-bottom:0;">&copy; ${new Date().getFullYear()} Bagchee. All rights reserved.</p>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        let sent = 0, failed = 0;
+        for (const email of recipientEmails) {
+            try {
+                await transporter.sendMail({
+                    from: `"Bagchee Team" <${process.env.EMAIL_USER}>`,
+                    to: email,
+                    subject,
+                    html: htmlBody
+                });
+                sent++;
+            } catch (e) {
+                console.error(`Failed to send to ${email}:`, e.message);
+                failed++;
+            }
+        }
+
+        res.json({ status: true, msg: `Coupon email sent to ${sent} customer(s).${failed > 0 ? ` ${failed} failed.` : ''}`, sent, failed });
+    } catch (err) {
+        console.error('sendCouponEmail error:', err);
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 

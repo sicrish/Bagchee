@@ -34,7 +34,7 @@ const BooksOfTheMonthSection = () => {
             return res.data;
         },
         staleTime: 600000, // 10 minutes cache (Home page load speed badhane ke liye)
-        cacheTime: 3600000, // 1 hour memory storage
+        gcTime: 3600000, // 1 hour memory storage
     });
 
     // Extract data safely from response

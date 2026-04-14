@@ -70,7 +70,6 @@ const SettingsList = () => {
         "Sale Threshold (%)": item.saleThreshold ?? item.sale_threshold,
         "Bestseller Threshold": item.bestSellerThreshold ?? item.bestseller_threshold,
         "Membership Cost (USD)": item.membershipCartPrice ?? item.membership_cost,
-        "Membership Cost (INR)": item.membershipCartPriceInr ?? item.membership_cart_price,
         "Free Shipping Over (USD)": item.freeShippingOver ?? item.free_shipping_over,
         "Free Shipping Over (INR)": item.freeShippingOverInr ?? item.free_shipping_over_inr,
         "Topbar Promotion": item.topbarPromotion ? 'Yes' : 'No',
@@ -85,7 +84,7 @@ const SettingsList = () => {
 
 
   const handleDelete = async (id) => {
-
+    if (!window.confirm("Are you sure you want to delete this setting? This cannot be undone.")) return;
 
     const toastId = toast.loading("Deleting setting...");
     try {
@@ -206,7 +205,6 @@ const SettingsList = () => {
                     <td className="p-4 border-r border-cream-50 font-bold text-primary">{item.saleThreshold ?? item.sale_threshold}%</td>
                     <td className="p-4 border-r border-cream-50">{item.bestSellerThreshold ?? item.bestseller_threshold} Orders</td>
                     <td className="p-4 border-r border-cream-50 font-medium">${item.membershipCartPrice ?? item.membership_cost}</td>
-                    <td className="p-4 border-r border-cream-50">{item.freeShippingOverInr ?? item.free_shipping_over_inr ?? '—'}</td>
                     <td className="p-4 border-r border-cream-50 font-medium">${item.freeShippingOver ?? item.free_shipping_over}</td>
                     <td className="p-4 border-r border-cream-50">
                       {(() => { const on = item.topbarPromotion === true || item.topbar_promotion === 'Yes'; return (

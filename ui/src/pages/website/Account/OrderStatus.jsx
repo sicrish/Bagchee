@@ -53,7 +53,7 @@ const OrderStatus = () => {
     const formatAmount = (amount, currencyCode) => {
         const num = Number(amount || 0);
         return currencyCode
-            ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: currencyCode }).format(num)
+            ? new Intl.NumberFormat('en-US', { style: 'currency', currency: currencyCode }).format(num)
             : formatPrice(num);
     };
 

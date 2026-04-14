@@ -19,12 +19,12 @@ const EditCourier = () => {
   const [isDataInitialized, setIsDataInitialized] = useState(false);
 
   // 🚀 OPTIMIZATION 1: FETCH EXISTING DATA WITH useQuery
-  const { data: courierData, isLoading: fetching } = useQuery({
+  const { data: courierData, isLoading: fetching, isError: fetchError } = useQuery({
     queryKey: ['editCourierData', id],
     queryFn: async () => {
       const API_URL = process.env.REACT_APP_API_URL;
       const res = await axios.get(`${API_URL}/couriers/get/${id}`);
-      
+
       if (!res.data.status) {
         throw new Error("Courier not found");
       }
@@ -33,19 +33,22 @@ const EditCourier = () => {
     enabled: !!id, // Run only if ID exists
     staleTime: 1000 * 60 * 5, // Cache for 5 mins
     refetchOnWindowFocus: false, // Auto-refresh roko taaki form data overwrite na ho
-    onError: (error) => {
-      console.error("Fetch Error:", error);
+  });
+
+  // React Query v5: onError in useQuery is ignored — use useEffect instead
+  useEffect(() => {
+    if (fetchError) {
       toast.error("Failed to fetch courier details");
       navigate('/admin/couriers');
     }
-  });
+  }, [fetchError, navigate]);
 
   // 🟢 Effect to populate state ONLY ONCE when data arrives
   useEffect(() => {
     if (courierData && !isDataInitialized) {
       setTitle(courierData.title || '');
       setTrackingPage(courierData.trackingPage || '');
-      setIsActive(courierData.isActive);
+      setIsActive(courierData.active !== undefined ? courierData.active : courierData.isActive);
       
       setIsDataInitialized(true); // Lock it
     }

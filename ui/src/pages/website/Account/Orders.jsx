@@ -64,28 +64,45 @@ const navigate = useNavigate();
   React.useEffect(() => {
     if (orders.length > 0) {
       orders.forEach(order => {
-        order.products?.forEach(p => p.product_id && fetchProductDetails(p.product_id));
+        const items = order.items || order.products || [];
+        items.forEach(p => {
+          const pid = p.productId || p.product_id;
+          if (pid && !p.product) fetchProductDetails(pid);
+        });
       });
     }
   }, [orders]);
 
-  const getProductInfo = (product) => {
-    const details = productDetails[product.product_id];
-    if (details) {
-      // Ensure default_image has full URL
-      let imageUrl = details.default_image;
+  const getProductInfo = (item) => {
+    // Prisma includes nested product relation — use it first
+    if (item.product) {
+      let imageUrl = item.product.defaultImage || item.product.default_image || '';
       if (imageUrl && !imageUrl.startsWith('http')) {
         imageUrl = `${process.env.REACT_APP_API_URL}${imageUrl}`;
       }
-
       return {
-        ...product,
-        title: details.title || product.name,
+        ...item,
+        title: item.product.title || item.name,
         default_image: imageUrl,
-        bagchee_id: details.bagchee_id
+        bagchee_id: item.product.bagcheeId || item.product.bagchee_id
       };
     }
-    return product;
+    // Fallback: separately fetched details cache
+    const pid = item.productId || item.product_id;
+    const details = productDetails[pid];
+    if (details) {
+      let imageUrl = details.defaultImage || details.default_image || '';
+      if (imageUrl && !imageUrl.startsWith('http')) {
+        imageUrl = `${process.env.REACT_APP_API_URL}${imageUrl}`;
+      }
+      return {
+        ...item,
+        title: details.title || item.name,
+        default_image: imageUrl,
+        bagchee_id: details.bagcheeId || details.bagchee_id
+      };
+    }
+    return item;
   };
 
   // Generate book detail link in correct format: /books/:bagcheeId/:slug
@@ -132,7 +149,7 @@ const navigate = useNavigate();
   };
 
   const getOrderTotal = (order) => {
-    return (order.total || 0) + (order.shipping_cost || 0);
+    return (order.total || 0) + (order.shippingCost ?? order.shipping_cost ?? 0);
   };
 
   const formatStatusLabel = (status) => {
@@ -157,7 +174,7 @@ const navigate = useNavigate();
 
     if (currencyCode) {
       try {
-        return new Intl.NumberFormat('en-IN', {
+        return new Intl.NumberFormat('en-US', {
           style: 'currency',
           currency: currencyCode,
           maximumFractionDigits: 2
@@ -172,7 +189,7 @@ const navigate = useNavigate();
 
   const activeOrders = orders.filter((order) => {
     const status = (order.status || '').toLowerCase();
-    return status === 'processing' || status === 'payment pending' || status === 'not yet ordered';
+    return status === 'processing' || status === 'payment pending' || status === 'not yet ordered' || status === 'pending';
   }).length;
 
   // 🟢 FRONTEND PAGINATION LOGIC
@@ -235,7 +252,7 @@ const navigate = useNavigate();
           {orders.length > 0 ? (
             displayedOrders.map((order) => (
               <div
-                key={order._id}
+                key={order.id || order._id}
                 className="bg-cream-100 border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden"
               >
                 {/* Order Header */}
@@ -245,8 +262,8 @@ const navigate = useNavigate();
                       <div className="flex items-center gap-3">
                         <h2 className="text-lg font-display font-bold text-text-main">
                           Order #
-                          {order.order_number ||
-                            order._id.slice(-8).toUpperCase()}
+                          {order.orderNumber || order.order_number ||
+                            String(order.id || order._id || '').slice(-8).toUpperCase()}
                         </h2>
                         <div
                           className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(order.status)}`}
@@ -258,14 +275,14 @@ const navigate = useNavigate();
                       <p className="text-sm text-text-muted flex items-center gap-1.5">
                         <Calendar size={14} />
                         Placed on{" "}
-                        {formatDate(order.createdAt || order.created_at)}
+                        {formatDate(order.createdAt || order.created_at || order.date)}
                       </p>
                     </div>
 
                     {/* Header Actions */}
                     <div className="flex items-center gap-3">
                       <button
-                       onClick={() => navigate(`/account/order-status/${order._id}`, { state: { orderData: order } })}
+                       onClick={() => navigate(`/account/order-status/${order.id || order._id}`, { state: { orderData: order } })}
                         className="flex items-center gap-2 px-3 py-2 text-sm text-primary hover:text-primary-dark hover:bg-primary/5 rounded-lg transition-colors"
                       >
                         <Eye size={16} />
@@ -277,7 +294,7 @@ const navigate = useNavigate();
                           {formatAmount(getOrderTotal(order), order.currency)}
                         </p>
                         <p className="text-xs text-text-muted">
-                          Currency: {order.currency || "INR"}
+                          Currency: {order.currency || "USD"}
                         </p>
                       </div>
                     </div>
@@ -289,8 +306,8 @@ const navigate = useNavigate();
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
                       <div className="flex -space-x-2">
-                        {order.products &&
-                          order.products.slice(0, 3).map((product, idx) => {
+                        {(order.items || order.products) &&
+                          (order.items || order.products).slice(0, 3).map((product, idx) => {
                             const productInfo = getProductInfo(product);
                             const bookLink = getBookDetailLink(productInfo);
                             const ImageWrapper = bookLink ? Link : "div";
@@ -330,18 +347,18 @@ const navigate = useNavigate();
                               </ImageWrapper>
                             );
                           })}
-                        {order.products && order.products.length > 3 && (
+                        {(order.items || order.products) && (order.items || order.products).length > 3 && (
                           <div className="w-12 h-12 bg-gray-100 rounded-lg border-2 border-white flex items-center justify-center">
                             <span className="text-xs font-medium text-text-muted">
-                              +{order.products.length - 3}
+                              +{(order.items || order.products).length - 3}
                             </span>
                           </div>
                         )}
                       </div>
                       <div>
                         <p className="text-sm text-text-main font-medium">
-                          {order.products?.length || 0}{" "}
-                          {order.products?.length === 1 ? "item" : "items"}
+                          {(order.items || order.products)?.length || 0}{" "}
+                          {(order.items || order.products)?.length === 1 ? "item" : "items"}
                         </p>
                         {/* <p className="text-sm text-text-muted">
                           {order.products && order.products.length > 0

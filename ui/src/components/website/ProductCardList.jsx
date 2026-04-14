@@ -45,8 +45,9 @@ const ProductCardList = ({ data }) => {
         const iPrice = Number(data.inrPrice ?? data.inr_price ?? 0);
 
         const hasDiscount = mPrice > rPrice && rPrice > 0;
+        const discountPercentage = hasDiscount ? Math.round(((mPrice - rPrice) / mPrice) * 100) : 0;
 
-        return { mPrice, rPrice, iPrice, hasDiscount };
+        return { mPrice, rPrice, iPrice, hasDiscount, discountPercentage };
     }, [data.price, data.realPrice, data.real_price, data.inrPrice, data.inr_price]);
 
     // 🟢 React Query Mutation for Wishlist
@@ -93,6 +94,11 @@ const ProductCardList = ({ data }) => {
 
             {/* --- LEFT: IMAGE (Click to Product Page) --- */}
             <div className="w-full h-64 md:h-72 md:w-48 shrink-0 relative bg-cream-50 rounded overflow-hidden group">
+                {priceData.hasDiscount && priceData.discountPercentage > 0 && (
+                    <span className="absolute top-2 left-2 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-sm z-10 shadow-sm font-montserrat">
+                        {priceData.discountPercentage}% OFF
+                    </span>
+                )}
                 <Link to={productUrl} className="block w-full h-full">
                     <img
                         src={imageUrl}
@@ -100,7 +106,7 @@ const ProductCardList = ({ data }) => {
                         loading="lazy"
                         decoding="async"
                         className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-500"
-                        onError={(e) => { e.target.src = "https://via.placeholder.com/300x400?text=No+Image" }}
+                        onError={(e) => { e.target.src = "https://placehold.co/300x400?text=No+Image" }}
                     />
                 </Link>
             </div>
@@ -118,7 +124,7 @@ const ProductCardList = ({ data }) => {
 
                 <p className="text-xs md:text-sm font-bold text-text-main mb-1 font-montserrat">
                     By <span className="text-primary hover:underline cursor-pointer">
-                        {data.authors?.[0]?.author?.fullName || (data.author?.first_name ? `${data.author.first_name} ${data.author.last_name || ''}` : 'Unknown Author')}
+                        {data.authors?.[0]?.author?.fullName || data.author?.name || (data.author?.first_name ? `${data.author.first_name} ${data.author.last_name || ''}` : 'Unknown Author')}
                     </span>
                 </p>
 

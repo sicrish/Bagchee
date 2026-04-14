@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom'
-import { Eye, EyeOff, Check } from 'lucide-react'; // Check ko bhi add kar lein checkbox ke liye agar aage kaam aaye;
+import { Eye, EyeOff, RefreshCw, ShieldCheck } from 'lucide-react';
 import axios from '../../utils/axiosConfig.js';
 import toast from 'react-hot-toast';
 import Logo from '../../components/common/Logo.jsx';
@@ -21,10 +21,26 @@ const Register = () => {
         repeatPassword: ""
     });
 
-
     const [showPassword, setShowPassword] = useState(false);
     const [showRepeatPassword, setShowRepeatPassword] = useState(false);
 
+    // Captcha states
+    const [captchaCode, setCaptchaCode] = useState("");
+    const [userCaptchaInput, setUserCaptchaInput] = useState("");
+
+    const generateCaptcha = useCallback(() => {
+        const characters = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+        let result = '';
+        for (let i = 0; i < 6; i++) {
+            result += characters.charAt(Math.floor(Math.random() * characters.length));
+        }
+        setCaptchaCode(result);
+        setUserCaptchaInput("");
+    }, []);
+
+    useEffect(() => {
+        generateCaptcha();
+    }, [generateCaptcha]);
 
     // 2. Handle Input Change
     const handleChange = (e) => {
@@ -65,6 +81,12 @@ const Register = () => {
         // Client Side Validation
         if (formData.password !== formData.repeatPassword) {
             return toast.error("Passwords do not match");
+        }
+
+        if (userCaptchaInput.toUpperCase() !== captchaCode) {
+            toast.error("Invalid Captcha Code!");
+            generateCaptcha();
+            return;
         }
 
         // 🟢 Trigger Mutation
@@ -172,6 +194,33 @@ const Register = () => {
                             >
                                 {showRepeatPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                             </button>
+                        </div>
+                    </div>
+
+                    {/* CAPTCHA SECTION */}
+                    <div className="bg-cream-100 p-3 sm:p-5 rounded-xl border border-gray-200 space-y-3 sm:space-y-4 shadow-inner">
+                        <div className="flex items-center justify-between px-1">
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                                <ShieldCheck size={14} className="text-green-500" /> Security Verification
+                            </span>
+                            <button type="button" onClick={generateCaptcha} className="text-primary hover:rotate-180 transition-transform duration-500">
+                                <RefreshCw size={16} />
+                            </button>
+                        </div>
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+                            <div className="bg-white px-4 sm:px-6 py-3 rounded-lg border-2 border-dashed border-accent/40 flex justify-center items-center select-none pointer-events-none min-w-[120px]">
+                                <span className="text-lg sm:text-xl font-black tracking-slick italic text-primary font-display line-through opacity-80">
+                                    {captchaCode}
+                                </span>
+                            </div>
+                            <input
+                                type="text"
+                                required
+                                placeholder="Code"
+                                value={userCaptchaInput}
+                                onChange={(e) => setUserCaptchaInput(e.target.value)}
+                                className="flex-1 px-4 py-3 bg-white border border-gray-200 rounded-lg focus:ring-1 focus:ring-primary outline-none uppercase font-bold text-center tracking-widest text-sm sm:text-base shadow-sm"
+                            />
                         </div>
                     </div>
 

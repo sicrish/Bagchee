@@ -107,7 +107,7 @@ const ProductCardGrid = ({ data }) => {
                         decoding="async"
                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                         style={{ willChange: 'transform' }}
-                        onError={(e) => { e.target.src = "https://placehold.co/300x400?text=Error" }}
+                        onError={(e) => { e.target.src = "https://placehold.co/300x400?text=No+Image" }}
                     />
                 </Link>
             </div>
@@ -122,9 +122,17 @@ const ProductCardGrid = ({ data }) => {
                 </h3>
 
                 {/* Author */}
-                <p className="text-[11px] md:text-xs text-text-muted mb-3 line-clamp-1 font-medium italic opacity-80">
+                <p className="text-[11px] md:text-xs text-text-muted mb-1 line-clamp-1 font-medium italic opacity-80">
                     {data.authors?.[0]?.author?.fullName || data.author?.name || (data.author?.first_name ? `${data.author.first_name} ${data.author.last_name || ''}` : 'Unknown Author')}
                 </p>
+
+                {/* Rating */}
+                <div className="flex items-center gap-1 text-xs text-accent font-bold mb-2">
+                    {'★'.repeat(data.rating || 0)}{'☆'.repeat(5 - (data.rating || 0))}
+                    {(data.ratedTimes || 0) > 0 && (
+                        <span className="text-text-muted text-[10px] font-normal font-body">({data.ratedTimes})</span>
+                    )}
+                </div>
 
                 {/* BOTTOM ROW */}
                 <div className="mt-auto flex items-end justify-between border-t border-cream-100 pt-3">

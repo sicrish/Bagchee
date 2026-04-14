@@ -122,7 +122,7 @@ const Categories = () => {
     const filteredCategories = useMemo(() => {
         return categories.filter(item => {
             // Safe check for null values before lowercase
-            const id = (item.id || item.categoryId || item._id || "").toString().toLowerCase();
+            const id = (item.id || item.categoryId || item.id || item._id || "").toString().toLowerCase();
             const title = (item.categorytitle || item.title || "").toLowerCase();
             const slug = (item.slug || "").toLowerCase();
             const parent = (item.parentslug || "").toLowerCase();
@@ -262,7 +262,7 @@ const Categories = () => {
                             </tr>
                         ) : filteredCategories.length > 0 ? (
                             filteredCategories.map((item, index) => (
-                                <tr key={item._id} className="hover:bg-blue-50/30 transition-colors">
+                                <tr key={item.id || item._id} className="hover:bg-blue-50/30 transition-colors">
                                     <td className="p-3 border-r border-gray-200 text-center">
                                         <input type="checkbox" className="accent-[#0096cc]" />
                                     </td>
@@ -299,14 +299,14 @@ const Categories = () => {
                                     <td className="p-3 text-center">
                                         <div className="flex justify-center gap-2">
                                             <button
-                                                onClick={() => navigate(`/admin/edit-category/${item._id}`)}
+                                                onClick={() => navigate(`/admin/edit-category/${item.id || item._id}`)}
                                                 className="p-1.5 bg-gray-100 border border-gray-300 rounded text-gray-600 hover:bg-white hover:text-[#0096cc] transition-all shadow-sm"
                                                 title="Edit"
                                             >
                                                 <Edit size={14} />
                                             </button>
                                             <button
-                                                onClick={() => handleDelete(item._id)}
+                                                onClick={() => handleDelete(item.id || item._id)}
                                                 className="p-1.5 bg-gray-100 border border-gray-300 rounded text-red-500 hover:bg-white hover:border-red-200 transition-all shadow-sm"
                                                 title="Delete"
                                             >

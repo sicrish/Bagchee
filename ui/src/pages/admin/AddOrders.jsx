@@ -148,7 +148,7 @@ const AddOrders = () => {
 
   const handleSelectProduct = (product) => {
     const newRow = {
-      product_id: product._id,
+      product_id: product.id || product._id,
       name: product.title,
       price: product.price || 0,
       inr_price: product.inr_price || 0,
@@ -344,7 +344,7 @@ const AddOrders = () => {
               <div className="col-span-9">
                 <select name="customer_id" value={formData.customer_id} onChange={handleChange} className={dropdownClass}>
                   <option value="">Select Customer</option>
-                  {customers.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                  {customers.map(c => <option key={c.id || c.id || c._id} value={c.id || c.id || c._id}>{c.name}</option>)}
                 </select>
               </div>
             </div>
@@ -357,7 +357,7 @@ const AddOrders = () => {
                   <option value="">Select Payment type</option>
                   {/* 🟢 Dynamic Payment Options */}
                   {paymentMethods.map((pm) => (
-                    <option key={pm._id} value={pm.title}>
+                    <option key={pm.id || pm.id || pm._id} value={pm.title}>
                       {pm.title}
                     </option>
                   ))}
@@ -379,7 +379,7 @@ const AddOrders = () => {
                   {/* 🟢 DYNAMIC SHIPPING OPTIONS */}
                   {shippingOptions.length > 0 ? (
                     shippingOptions.map((opt) => (
-                      <option key={opt._id} value={opt.title}>
+                      <option key={opt.id || opt.id || opt._id} value={opt.title}>
                         {opt.title}
                       </option>
                     ))
@@ -426,7 +426,7 @@ const AddOrders = () => {
                               <option value="">Select Status</option>
                               {/* 🟢 Dynamic Row Status Options */}
                               {orderStatuses.map((st) => (
-                                <option key={st._id} value={st.name}>
+                                <option key={st.id || st.id || st._id} value={st.name}>
                                   {st.name}
                                 </option>
                               ))}
@@ -440,7 +440,7 @@ const AddOrders = () => {
                             >
                               <option value="">Select Courier</option>
                               {courierList.map((c) => (
-                                <option key={c._id} value={c.title}>
+                                <option key={c.id || c.id || c._id} value={c.title}>
                                   {c.title}
                                 </option>
                               ))}
@@ -486,7 +486,7 @@ const AddOrders = () => {
                         </div>
                         {searchResults.map((prod) => (
                           <div
-                            key={prod._id}
+                            key={prod.id || prod.id || prod._id}
                             onClick={() => handleSelectProduct(prod)}
                             className="px-4 py-2.5 hover:bg-primary-50 cursor-pointer border-b border-gray-100 flex flex-col group transition-colors"
                           >
@@ -532,7 +532,7 @@ const AddOrders = () => {
                   {/* 🟢 DYNAMIC STATUS OPTIONS FROM BACKEND */}
                   {orderStatuses.length > 0 ? (
                     orderStatuses.map((st) => (
-                      <option key={st._id} value={st.name}>
+                      <option key={st.id || st.id || st._id} value={st.name}>
                         {st.name}
                       </option>
                     ))
@@ -560,7 +560,7 @@ const AddOrders = () => {
               <div className="col-span-9">
                 <select name="coupon_id" value={formData.coupon_id} onChange={handleChange} className={dropdownClass}>
                   <option value="">Select Coupon id</option>
-                  {coupons.map(c => <option key={c._id} value={c._id}>{c.code}</option>)}
+                  {coupons.map(c => <option key={c.id || c.id || c._id} value={c.id || c.id || c._id}>{c.code}</option>)}
                 </select>
               </div>
             </div>

@@ -67,8 +67,8 @@ const EditUser = () => {
         if (res.data.status) {
           const data = res.data.data;
           
-          let fName = data.firstname || "";
-          let lName = data.lastname || "";
+          let fName = data.firstName || data.firstname || "";
+          let lName = data.lastName || data.lastname || "";
           if (!fName && data.name) {
              const parts = data.name.split(" ");
              fName = parts[0];

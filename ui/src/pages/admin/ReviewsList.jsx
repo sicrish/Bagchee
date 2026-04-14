@@ -250,7 +250,7 @@ const ReviewsList = () => {
                                 </tr>
                             ) : filteredReviews.length > 0 ? (
                                 filteredReviews.map((item, index) => (
-                                    <tr key={item._id} className="hover:bg-primary-50 transition-colors text-[13px]">
+                                    <tr key={item.id || item._id} className="hover:bg-primary-50 transition-colors text-[13px]">
                                         <td className="p-3 border-r border-cream-50">
                                             <div className="flex items-center gap-3 px-1">
                                                 <input type="checkbox" className="h-4 w-4 rounded accent-primary cursor-pointer shrink-0" />
@@ -280,13 +280,13 @@ const ReviewsList = () => {
                                         <td className="p-3 text-center">
                                             <div className="flex justify-center gap-2">
                                                 <button
-                                                    onClick={() => navigate(`/admin/edit-reviews/${item._id}`)}
+                                                    onClick={() => navigate(`/admin/edit-reviews/${item.id || item._id}`)}
                                                     className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm active:scale-95"
                                                 >
                                                     <Edit size={14} />
                                                 </button>
                                                 <button
-                                                    onClick={() => handleDelete(item._id)}
+                                                    onClick={() => handleDelete(item.id || item._id)}
                                                     className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 hover:border-red-600 transition-all shadow-sm active:scale-95"
                                                 >
                                                     <Trash2 size={14} />

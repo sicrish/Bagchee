@@ -242,9 +242,7 @@ const Checkout = () => {
         if (settingsRes.data.status && settingsRes.data.data) {
           const s = settingsRes.data.data;
           setSettings(s);
-          const mPrice = currency === 'INR'
-            ? Number(s.membershipCartPriceInr) || 2500
-            : Number(s.membershipCartPrice) || 35;
+          const mPrice = Number(s.membershipCartPrice) || 35;
           setMembershipPrice(mPrice);
         }
 
@@ -283,7 +281,6 @@ const Checkout = () => {
   // ─── Helpers ───
   const getShippingPrice = (option) => {
     if (!option) return 0;
-    if (currency === "INR") return option.priceInr || 0;
     if (currency === "EUR") return option.priceEur || 0;
     return option.priceUsd || 0;
   };
@@ -298,23 +295,17 @@ const Checkout = () => {
 
 
   const originalBaseUSD = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-  const originalBaseINR = cart.reduce((acc, item) => acc + ((item.inrPrice || item.inr_price || 0) * item.quantity), 0);
 
   const subtotal = useMemo(() => {
-    if (currency === 'INR' && originalBaseINR > 0) {
-      const ratio = originalBaseUSD > 0 ? subtotalAfterItemDiscountUSD / originalBaseUSD : 1;
-      return originalBaseINR * ratio;
-    }
     if (currency === 'USD') return subtotalAfterItemDiscountUSD;
     if (currency === 'GBP') return subtotalAfterItemDiscountUSD * (exchangeRates?.GBP || 0.78);
     if (currency === 'EUR') return subtotalAfterItemDiscountUSD * (exchangeRates?.EUR || 0.92);
     return subtotalAfterItemDiscountUSD * (exchangeRates?.[currency] || 1);
-  }, [currency, cart, exchangeRates, subtotalAfterItemDiscountUSD, originalBaseINR, originalBaseUSD]);
+  }, [currency, exchangeRates, subtotalAfterItemDiscountUSD]);
 
   // ─── 🟢 STEP 2: DYNAMIC MEMBERSHIP COST (Fixed - No Ratio) ───
   const currentMembershipCost = useMemo(() => {
     if (!membershipAdded || !settings) return 0;
-    if (currency === 'INR') return Number(settings.membership_cart_price) || 2500;
     if (currency === 'EUR') return Number(settings.membership_cost_eur) || 31;
     if (currency === 'GBP') return (Number(settings.membership_cost) || 35) * (exchangeRates?.GBP || 0.78);
     return Number(settings.membership_cost) || 35;
@@ -323,9 +314,8 @@ const Checkout = () => {
   // ─── 🟢 STEP 3: SHIPPING COST (Fixed - No Ratio) ───
   const shippingCost = useMemo(() => {
     if (!appliedShipping) return 0;
-    const freeThreshold = (currency === 'INR') ? (Number(settings?.show_promo_over_inr) || 3560) : (Number(settings?.free_shipping_over) || 50);
+    const freeThreshold = Number(settings?.free_shipping_over) || 50;
     if (freeThreshold > 0 && subtotal >= freeThreshold) return 0;
-    if (currency === 'INR') return appliedShipping.priceInr || 0;
     if (currency === 'EUR') return appliedShipping.priceEur || 0;
     if (currency === 'GBP') return (appliedShipping.priceUsd || 0) * (exchangeRates?.GBP || 0.78);
     return appliedShipping.priceUsd || 0;
@@ -347,7 +337,7 @@ const Checkout = () => {
   // UI Display Helper (Symbols ke saath)
   const formatCheckoutDisplay = (val) => {
     const symbol = symbols?.[currency] || '';
-    return `${symbol}${val.toLocaleString(currency === 'INR' ? 'en-IN' : 'en-US', {
+    return `${symbol}${val.toLocaleString('en-US', {
       minimumFractionDigits: 2, maximumFractionDigits: 2
     })}`;
   };
@@ -688,17 +678,19 @@ const Checkout = () => {
       let shippingDetails;
       if (user && selectedAddress) {
         const addr = selectedAddress;
+        const addrFirst = addr.firstName || addr.name?.split(" ")[0] || "";
+        const addrLast  = addr.lastName  || addr.name?.split(" ").slice(1).join(" ") || "";
         shippingDetails = {
           email: user.email || "",
-          first_name: addr.name?.split(" ")[0] || addr.name || "",
-          last_name: addr.name?.split(" ").slice(1).join(" ") || "",
+          first_name: addrFirst,
+          last_name: addrLast,
           address_1:
             addr.houseNo && addr.street
               ? `${addr.houseNo}, ${addr.street}`
               : addr.houseNo || addr.street || "",
           address_2: addr.landmark || "",
           company: "",
-          country: addr.country || "India",
+          country: addr.country || "",
           state_region: addr.state || "",
           city: addr.city || "",
           postcode: addr.pincode || "",
@@ -724,16 +716,18 @@ const Checkout = () => {
       let billingDetails;
       if (user) {
         const bAddr = sameAsShipping ? selectedAddress : selectedBillingAddress;
+        const bFirst = bAddr.firstName || bAddr.name?.split(" ")[0] || "";
+        const bLast  = bAddr.lastName  || bAddr.name?.split(" ").slice(1).join(" ") || "";
         billingDetails = {
-          first_name: bAddr.name?.split(" ")[0] || bAddr.name || "",
-          last_name: bAddr.name?.split(" ").slice(1).join(" ") || "",
+          first_name: bFirst,
+          last_name: bLast,
           address_1:
             bAddr.houseNo && bAddr.street
               ? `${bAddr.houseNo}, ${bAddr.street}`
               : bAddr.houseNo || bAddr.street || "",
           address_2: bAddr.landmark || "",
           company: "",
-          country: bAddr.country || "India",
+          country: bAddr.country || "",
           state_region: bAddr.state || "",
           city: bAddr.city || "",
           postcode: bAddr.pincode || "",
@@ -1906,7 +1900,7 @@ const Checkout = () => {
                         ? (() => {
                           const d = new Date();
                           d.setDate(d.getDate() + option.maxDayLimit);
-                          return d.toLocaleDateString("en-IN", {
+                          return d.toLocaleDateString("en-US", {
                             day: "numeric",
                             month: "short",
                             year: "numeric",
@@ -2632,7 +2626,7 @@ const Checkout = () => {
                             ? (() => {
                               const d = new Date();
                               d.setDate(d.getDate() + option.maxDayLimit);
-                              return d.toLocaleDateString("en-IN", {
+                              return d.toLocaleDateString("en-US", {
                                 day: "numeric",
                                 month: "short",
                               });

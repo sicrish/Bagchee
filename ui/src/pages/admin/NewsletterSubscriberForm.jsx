@@ -44,8 +44,8 @@ const NewsletterSubscriberForm = () => {
             const data = subRes.data.data;
             setFormData({
               email: data.email || '',
-              firstName: data.firstname || '', // Check backend casing
-              lastName: data.lastname || ''
+              firstName: data.firstName || data.firstname || '',
+              lastName: data.lastName || data.lastname || ''
             });
             // Handle pre-selected categories (backend might send array of strings or IDs)
             setSelectedCategories(data.categories || []);
@@ -242,7 +242,7 @@ const NewsletterSubscriberForm = () => {
                                     const isSelected = selectedCategories.includes(catName);
                                     return (
                                        <div 
-                                          key={cat._id} 
+                                          key={cat.id || cat._id}
                                           onClick={() => toggleCategory(catName)}
                                           className={`flex items-center gap-2 p-2 cursor-pointer text-sm rounded hover:bg-blue-50 ${isSelected ? 'bg-blue-50 font-bold text-primary' : 'text-gray-700'}`}
                                        >

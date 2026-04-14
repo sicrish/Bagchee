@@ -133,7 +133,7 @@ const ActorsList = () => {
                 </tr>
               ) : actors.length > 0 ? (
                 actors.map((actor, index) => (
-                  <tr key={actor._id} className="hover:bg-primary-50 transition-colors">
+                  <tr key={actor.id || actor._id} className="hover:bg-primary-50 transition-colors">
                     {/* 🟢 Body Alignment match with Filter Header */}
                     <td className="p-3 border-r border-cream-50">
                        <div className="flex items-center gap-5 px-1">
@@ -146,13 +146,13 @@ const ActorsList = () => {
                     <td className="p-3 text-center">
                       <div className="flex justify-center gap-2">
                         <button 
-                          onClick={() => navigate(`/admin/edit-actor/${actor._id}`)} 
+                          onClick={() => navigate(`/admin/edit-actor/${actor.id || actor._id}`)} 
                           className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm"
                         >
                           <Edit size={14} />
                         </button>
                         <button 
-                          onClick={() => handleDelete(actor._id)}
+                          onClick={() => handleDelete(actor.id || actor._id)}
                           className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 hover:border-red-600 transition-all shadow-sm"
                         >
                           <Trash2 size={14} />

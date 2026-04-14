@@ -38,9 +38,9 @@ const EditPayments = () => {
           const data = res.data.data;
           setFormData({
             title: data.title || '',
-            status: data.isActive ? 'active' : 'inactive', // Handle boolean/string mapping if needed
-            order: data.order || '',
-            additional_text_status: data.isAdditionalTextActive ? 'active' : 'inactive',
+            status: (data.active !== undefined ? data.active : data.isActive) ? 'active' : 'inactive',
+            order: data.ord ?? data.order ?? '',
+            additional_text_status: (data.additionalTextActive !== undefined ? data.additionalTextActive : data.isAdditionalTextActive) ? 'active' : 'inactive',
             image: null 
           });
           setAdditionalText(data.additionalText || '');

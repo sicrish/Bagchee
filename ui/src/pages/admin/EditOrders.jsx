@@ -94,86 +94,88 @@ const EditOrders = () => {
       try {
         const API_URL = process.env.REACT_APP_API_URL;
 
-        // Parallel requests: Dropdowns + Single Order Data
-        const [custRes, prodRes, coupRes, orderRes, payRes, shipRes, courierRes, statusRes] = await Promise.all([
+        // Use Promise.allSettled so one failing dropdown doesn't break everything
+        const [custRes, prodRes, coupRes, orderRes, payRes, shipRes, courierRes, statusRes] = await Promise.allSettled([
           axios.get(`${API_URL}/user/fetch`),
           axios.get(`${API_URL}/product/fetch`),
           axios.get(`${API_URL}/coupons/active`),
-          axios.get(`${API_URL}/orders/get/${id}`),
+          axios.get(`${API_URL}/orders/admin/get/${id}`),  // admin-specific route
           axios.get(`${API_URL}/payments/list`),
           axios.get(`${API_URL}/shipping-options/list`),
-          axios.get(`${API_URL}/couriers/list`),      // 🟢 Courier API
+          axios.get(`${API_URL}/couriers/list`),
           axios.get(`${API_URL}/order-status/list`)
         ]);
 
-        // Set Dropdowns
-        if (custRes.data.status) setCustomers(custRes.data.data);
-        if (prodRes.data.status) setProductsList(prodRes.data.data);
-        if (coupRes.data.status) setCoupons(coupRes.data.data);
-        if (payRes.data.status) setPaymentMethods(payRes.data.data);
-        if (shipRes.data.status) setShippingOptions(shipRes.data.data);
-        if (courierRes.data.status) setCourierList(courierRes.data.data); // 🟢 Set Courier
-        if (statusRes.data.status) setOrderStatuses(statusRes.data.data);
+        // Set Dropdowns (only if request succeeded)
+        if (custRes.status === 'fulfilled' && custRes.value.data.status) setCustomers(custRes.value.data.data);
+        if (prodRes.status === 'fulfilled' && prodRes.value.data.status) setProductsList(prodRes.value.data.data);
+        if (coupRes.status === 'fulfilled' && coupRes.value.data.status) setCoupons(coupRes.value.data.data);
+        if (payRes.status === 'fulfilled' && payRes.value.data.status) setPaymentMethods(payRes.value.data.data);
+        if (shipRes.status === 'fulfilled' && shipRes.value.data.status) setShippingOptions(shipRes.value.data.data);
+        if (courierRes.status === 'fulfilled' && courierRes.value.data.status) setCourierList(courierRes.value.data.data);
+        if (statusRes.status === 'fulfilled' && statusRes.value.data.status) setOrderStatuses(statusRes.value.data.data);
 
-        // Set Order Data (Auto-fill)
-        if (orderRes.data.status) {
-          const data = orderRes.data.data;
+        // Set Order Data — map Prisma camelCase fields
+        if (orderRes.status === 'fulfilled' && orderRes.value.data.status) {
+          const d = orderRes.value.data.data;
 
-          // Date Format Fix for datetime-local
-          const formattedDate = data.created_at ? new Date(data.created_at).toISOString().slice(0, 16) : '';
+          const formattedDate = d.createdAt ? new Date(d.createdAt).toISOString().slice(0, 16) : '';
 
           setFormData({
-            order_number: data.order_number || '',
+            order_number: d.orderNumber || d.order_number || '',
             created_at: formattedDate,
-            customer_id: data.customer_id?._id || data.customer_id || '',
-            payment_type: data.payment_type || '',
-            shipping_type: data.shipping_type || '',
+            customer_id: d.customerId || d.customer?.id || d.customer_id || '',
+            payment_type: d.paymentType || d.payment_type || '',
+            shipping_type: d.shippingType || d.shipping_type || '',
 
-            total: data.total || '',
-            shipping_cost: data.shipping_cost || '',
-            currency: data.currency || '',
+            total: d.total || '',
+            shipping_cost: d.shippingCost ?? d.shipping_cost ?? '',
+            currency: d.currency || '',
 
-            status: data.status || 'Not yet ordered',
-            shipped_at: data.shippedAt ? new Date(data.shippedAt).toISOString().split('T')[0] : (data.shipped_at ? new Date(data.shipped_at).toISOString().split('T')[0] : ''),
-            estimated_delivery: data.estimatedDelivery ? new Date(data.estimatedDelivery).toISOString().split('T')[0] : (data.estimated_delivery ? new Date(data.estimated_delivery).toISOString().split('T')[0] : ''),
-            membership: data.membership || 'No',
-            membership_discount: data.membership_discount || '',
-            coupon_id: data.coupon_id?._id || data.coupon_id || '',
+            status: d.status || 'Not yet ordered',
+            shipped_at: d.shippedAt ? new Date(d.shippedAt).toISOString().split('T')[0] : '',
+            estimated_delivery: d.estimatedDelivery ? new Date(d.estimatedDelivery).toISOString().split('T')[0] : '',
+            membership: d.membership || 'No',
+            membership_discount: d.membershipDiscount ?? d.membership_discount ?? '',
+            coupon_id: d.couponId || d.coupon?.id || d.coupon_id || '',
 
-            //shipping
-            shipping_email: data.shipping_details?.email || '',
-            shipping_first_name: data.shipping_details?.first_name || '',
-            shipping_last_name: data.shipping_details?.last_name || '',
-            shipping_address_1: data.shipping_details?.address_1 || '',
-            shipping_address_2: data.shipping_details?.address_2 || '',
-            shipping_company: data.shipping_details?.company || '',
-            shipping_country: data.shipping_details?.country || 'India',
-            shipping_state_region: data.shipping_details?.state_region || '',
-            shipping_city: data.shipping_details?.city || '',
-            shipping_postcode: data.shipping_details?.postcode || '',
-            shipping_phone: data.shipping_details?.phone || '',
+            // Shipping (Prisma flat camelCase fields)
+            shipping_email:        d.shippingEmail       || '',
+            shipping_first_name:   d.shippingFirstName   || '',
+            shipping_last_name:    d.shippingLastName     || '',
+            shipping_address_1:    d.shippingAddress1     || '',
+            shipping_address_2:    d.shippingAddress2     || '',
+            shipping_company:      d.shippingCompany      || '',
+            shipping_country:      d.shippingCountry      || 'India',
+            shipping_state_region: d.shippingState        || '',
+            shipping_city:         d.shippingCity         || '',
+            shipping_postcode:     d.shippingPostcode     || '',
+            shipping_phone:        d.shippingPhone        || '',
 
-            //billing
-            billing_first_name: data.billing_details?.first_name || '',
-            billing_last_name: data.billing_details?.last_name || '',
-            billing_address_1: data.billing_details?.address_1 || '',
-            billing_address_2: data.billing_details?.address_2 || '',
-            billing_company: data.billing_details?.company || '',
-            billing_country: data.billing_details?.country || 'India',
-            billing_state_region: data.billing_details?.state_region || '',
-            billing_city: data.billing_city || '',
-            billing_postcode: data.billing_details?.postcode || '',
-            billing_phone: data.billing_details?.phone || '',
+            // Billing (Prisma flat camelCase fields)
+            billing_first_name:   d.billingFirstName  || '',
+            billing_last_name:    d.billingLastName    || '',
+            billing_address_1:    d.billingAddress1    || '',
+            billing_address_2:    d.billingAddress2    || '',
+            billing_company:      d.billingCompany     || '',
+            billing_country:      d.billingCountry     || 'India',
+            billing_state_region: d.billingState       || '',
+            billing_city:         d.billingCity        || '',
+            billing_postcode:     d.billingPostcode    || '',
+            billing_phone:        d.billingPhone       || '',
 
-            // Bottom
-            payment_status: data.payment_status || '',
-            transaction_id: data.transaction_id || ''
+            payment_status: d.paymentStatus  || d.payment_status  || '',
+            transaction_id: d.transactionId  || d.transaction_id  || ''
           });
 
-          setOrderProducts(data.products || data.items || []);
-          setCommentContent(data.comment || '');
-          setPaymentLink(data.paymentLink || data.payment_link || '');
-          setPurchaseOrderNumber(data.purchaseOrderNumber || data.purchase_order_number || '');
+          setOrderProducts(d.items || d.products || []);
+          setCommentContent(d.comment || '');
+          setPaymentLink(d.paymentLink || d.payment_link || '');
+          setPurchaseOrderNumber(d.purchaseOrderNumber || d.purchase_order_number || '');
+        } else if (orderRes.status === 'rejected') {
+          toast.error("Failed to load order data");
+        } else {
+          toast.error("Order not found");
         }
 
       } catch (error) {
@@ -435,7 +437,7 @@ const EditOrders = () => {
               <div className="col-span-9">
                 <select name="customer_id" value={formData.customer_id} onChange={handleChange} className={dropdownClass}>
                   <option value="">Select Customer</option>
-                  {customers.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                  {customers.map(c => <option key={c.id || c.id || c._id} value={c.id || c.id || c._id}>{c.name}</option>)}
                 </select>
               </div>
             </div>
@@ -455,7 +457,7 @@ const EditOrders = () => {
                   {/* 🟢 DYNAMIC OPTIONS FROM BACKEND */}
                   {paymentMethods.length > 0 ? (
                     paymentMethods.map((pm) => (
-                      <option key={pm._id} value={pm.title}>
+                      <option key={pm.id || pm.id || pm._id} value={pm.title}>
                         {pm.title}
                       </option>
                     ))
@@ -481,7 +483,7 @@ const EditOrders = () => {
                   {/* 🟢 DYNAMIC SHIPPING OPTIONS FROM BACKEND */}
                   {shippingOptions.length > 0 ? (
                     shippingOptions.map((opt) => (
-                      <option key={opt._id} value={opt.title}>
+                      <option key={opt.id || opt.id || opt._id} value={opt.title}>
                         {opt.title}
                       </option>
                     ))
@@ -522,13 +524,13 @@ const EditOrders = () => {
               <td className="border-b p-1">
                 <select value={row.status} onChange={(e) => handleProductChange(index, 'status', e.target.value)} className="w-full outline-none bg-transparent text-[10px]">
                   <option value="">Status</option>
-                  {orderStatuses.map((st) => <option key={st._id} value={st.name}>{st.name}</option>)}
+                  {orderStatuses.map((st) => <option key={st.id || st.id || st._id} value={st.name}>{st.name}</option>)}
                 </select>
               </td>
               <td className="border-b p-1">
                 <select value={row.courier} onChange={(e) => handleProductChange(index, 'courier', e.target.value)} className="w-full outline-none bg-transparent text-[10px]">
                   <option value="">Select Courier</option>
-                  {courierList.map((c) => <option key={c._id} value={c.title}>{c.title}</option>)}
+                  {courierList.map((c) => <option key={c.id || c.id || c._id} value={c.title}>{c.title}</option>)}
                 </select>
               </td>
               <td className="border p-1"><input type="text" value={row.tracking_id} onChange={(e) => handleProductChange(index, 'tracking_id', e.target.value)} className="w-full outline-none bg-transparent" /></td>
@@ -562,7 +564,7 @@ const EditOrders = () => {
         {isDropdownOpen && searchResults.length > 0 && (
           <div className="absolute left-0 top-full w-full bg-white border border-gray-300 rounded shadow-2xl z-[9999] max-h-60 overflow-y-auto mt-1">
             {searchResults.map((prod) => (
-              <div key={prod._id} onClick={() => handleSelectProduct(prod)} className="px-4 py-2 hover:bg-primary/10 cursor-pointer border-b border-gray-100 flex flex-col">
+              <div key={prod.id || prod.id || prod._id} onClick={() => handleSelectProduct(prod)} className="px-4 py-2 hover:bg-primary/10 cursor-pointer border-b border-gray-100 flex flex-col">
                 <p className="text-[11px] font-bold text-gray-800 uppercase">{prod.title}</p>
                 <span className="text-[9px] text-primary">Price: ₹{prod.price}</span>
               </div>
@@ -593,7 +595,7 @@ const EditOrders = () => {
                 <select name="status" value={formData.status} onChange={handleChange} className={dropdownClass}>
                   <option value="">Select Status</option>
                   {orderStatuses.map((st) => (
-                    <option key={st._id} value={st.name}>{st.name}</option>
+                    <option key={st.id || st.id || st._id} value={st.name}>{st.name}</option>
                   ))}
                 </select>
               </div>
@@ -624,7 +626,7 @@ const EditOrders = () => {
               <div className="col-span-9">
                 <select name="coupon_id" value={formData.coupon_id} onChange={handleChange} className={dropdownClass}>
                   <option value="">Select Coupon id</option>
-                  {coupons.map(c => <option key={c._id} value={c._id}>{c.code}</option>)}
+                  {coupons.map(c => <option key={c.id || c.id || c._id} value={c.id || c.id || c._id}>{c.code}</option>)}
                 </select>
               </div>
             </div>

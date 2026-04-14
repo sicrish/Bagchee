@@ -184,7 +184,7 @@ const FooterList = () => {
                 </tr>
               ) : footerColumns.length > 0 ? (
                 footerColumns.map((item) => (
-                  <tr key={item._id} className="hover:bg-primary/5 transition-colors text-[13px]">
+                  <tr key={item.id || item._id} className="hover:bg-primary/5 transition-colors text-[13px]">
                     <td className="p-4 border-r border-cream-50 font-medium whitespace-nowrap text-text-main">
                       {item.name}
                     </td>
@@ -196,14 +196,14 @@ const FooterList = () => {
                     </td>
                     <td className="p-4 text-center">
                       <div className="flex items-center justify-center gap-2">
-                        <button 
-                          onClick={() => navigate(`/admin/edit-footer/${item._id}`)} 
+                        <button
+                          onClick={() => navigate(`/admin/edit-footer/${item.id || item._id}`)}
                           className="p-2 bg-cream-50 border border-cream-200 rounded-lg text-text-muted hover:text-primary hover:bg-white transition-all active:scale-90 shadow-sm"
                         >
                           <Edit size={16} />
                         </button>
-                        <button 
-                          onClick={() => handleDelete(item._id)} 
+                        <button
+                          onClick={() => handleDelete(item.id || item._id)}
                           className="p-2 bg-cream-50 border border-cream-200 rounded-lg text-text-muted hover:text-red-600 hover:bg-white transition-all active:scale-90 shadow-sm"
                         >
                           <Trash2 size={16} />

@@ -128,18 +128,26 @@ const Profile = () => {
     userId: ''
   });
 
-  // Load User Data (No changes)
+  // Load User Data
   useEffect(() => {
     const auth = JSON.parse(localStorage.getItem("auth"));
 
     if (auth && auth.userDetails) {
-      const nameParts = auth.userDetails.name ? auth.userDetails.name.split(" ") : ["", ""];
+      const u = auth.userDetails;
+      // Prisma returns firstName/lastName separately; login token stores name as full string
+      let firstName = u.firstName || '';
+      let lastName  = u.lastName  || '';
+      if (!firstName && !lastName && u.name) {
+        const parts = u.name.trim().split(' ');
+        firstName = parts[0] || '';
+        lastName  = parts.slice(1).join(' ') || '';
+      }
       setUserData({
-        firstName: nameParts[0] || "",
-        lastName: nameParts.slice(1).join(" ") || "",
-        email: auth.userDetails.email || "",
-        phone: auth.userDetails.phone || "",
-        userId: auth.userDetails.id
+        firstName,
+        lastName,
+        email:  u.email || '',
+        phone:  u.phone || '',
+        userId: u.id
       });
 
 
@@ -183,14 +191,21 @@ const Profile = () => {
       if (data.status) {
         toast.success("Profile Updated Successfully!");
 
-        // LocalStorage update
+        // Update localStorage so refresh shows the new values
         const oldAuth = JSON.parse(localStorage.getItem("auth"));
-        if (oldAuth) {
-          oldAuth.userDetails = { ...oldAuth.userDetails, ...data.user };
+        if (oldAuth && data.data) {
+          const updated = data.data;
+          oldAuth.userDetails = {
+            ...oldAuth.userDetails,
+            firstName:    updated.firstName,
+            lastName:     updated.lastName,
+            name:         updated.name || `${updated.firstName} ${updated.lastName}`.trim(),
+            phone:        updated.phone,
+            profileImage: updated.profileImage ?? oldAuth.userDetails.profileImage,
+          };
           localStorage.setItem("auth", JSON.stringify(oldAuth));
         }
 
-        // Global Cache refresh karein taaki Header me naya naam/photo dikhe
         queryClient.invalidateQueries(['user-profile']);
       } else {
         toast.error(data.msg);
@@ -215,7 +230,8 @@ const Profile = () => {
     e.preventDefault();
     const formData = new FormData();
     formData.append('userId', userData.userId);
-    formData.append('name', `${userData.firstName} ${userData.lastName}`);
+    formData.append('firstName', userData.firstName);
+    formData.append('lastName', userData.lastName);
     formData.append('phone', userData.phone);
     if (selectedFile) formData.append('profileImage', selectedFile);
 

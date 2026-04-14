@@ -210,7 +210,7 @@ const PremiumHeader = () => {
   // 🟢 NEW STATE: Mobile Search Dropdown Track Karne Ke Liye
   const [isMobileSearchVisible, setIsMobileSearchVisible] = useState(false);
 
-  const currencies = ['INR', 'EUR', 'GBP', 'USD'];
+  const currencies = ['USD', 'EUR', 'GBP'];
   const [mobileCurrencyOpen, setMobileCurrencyOpen] = useState(false);
   const [mobileAccountOpen, setMobileAccountOpen] = useState(false);
 

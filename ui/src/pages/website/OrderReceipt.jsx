@@ -235,7 +235,7 @@ const OrderReceipt = () => {
                         </h4>
                         <p className="text-[10px] text-gray-400 mt-1 uppercase font-bold tracking-tighter">Quantity: {item.quantity}</p>
                         <p className="text-sm font-black text-text-main mt-1"> {symbols[order.currency] || symbols[currency]}
-                          {Number(item.price).toLocaleString(order.currency === 'INR' ? 'en-IN' : 'en-US', {
+                          {Number(item.price).toLocaleString('en-US', {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2
                           })}</p>
@@ -262,7 +262,7 @@ const OrderReceipt = () => {
                     <span className="text-sm font-black text-text-main uppercase tracking-[0.1em]">Total Pay</span>
                     <div className="text-right leading-none">
                       <span className="text-2xl font-black text-primary">{symbols[order.currency] || symbols[currency]}
-                        {order.total.toLocaleString(order.currency === 'INR' ? 'en-IN' : 'en-US', {
+                        {order.total.toLocaleString('en-US', {
                           minimumFractionDigits: 2
                         })}</span>
                       <p className="text-[8px] text-gray-400 font-bold uppercase tracking-widest mt-1">{order.currency} </p>

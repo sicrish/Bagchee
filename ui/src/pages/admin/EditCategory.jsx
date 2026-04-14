@@ -62,27 +62,28 @@ const EditCategory = () => {
                 
                 setFormData({
                     slug: fetchedData.slug || '',
-                    parentslug: fetchedData.parentslug || '',
-                    mainmodule: fetchedData.mainmodule || '',
-                    oldid: fetchedData.oldid || '',
-                    parentid: fetchedData.parentid || '',
-                    categorytitle: fetchedData.categorytitle || '',
-                    active: fetchedData.active || 'active',
+                    parentslug: fetchedData.parentSlug || fetchedData.parentslug || '',
+                    mainmodule: fetchedData.mainModule || fetchedData.mainmodule || '',
+                    oldid: fetchedData.oldId || fetchedData.oldid || '',
+                    parentid: fetchedData.parentId || fetchedData.parentid || '',
+                    categorytitle: fetchedData.title || fetchedData.categorytitle || '',
+                    active: fetchedData.active ? 'active' : 'inactive',
                     lft: fetchedData.lft || '',
                     rght: fetchedData.rght || '',
                     level: fetchedData.level || '',
-                    metatitle: fetchedData.metatitle || '',
-                    metakeywords: fetchedData.metakeywords || '',
-                    metadescription: fetchedData.metadescription || '',
-                    producttype: fetchedData.producttype || '',
-                    newslettercategory: fetchedData.newslettercategory || 'No',
-                    newsletterorder: fetchedData.newsletterorder || '',
-                    categoryiconname: fetchedData.categoryiconname || ''
+                    metatitle: fetchedData.metaTitle || fetchedData.metatitle || '',
+                    metakeywords: fetchedData.metaKeywords || fetchedData.metakeywords || '',
+                    metadescription: fetchedData.metaDesc || fetchedData.metadescription || '',
+                    producttype: fetchedData.productType || fetchedData.producttype || '',
+                    newslettercategory: fetchedData.newsletterCategory ? 'Yes' : (fetchedData.newslettercategory || 'No'),
+                    newsletterorder: fetchedData.newsletterOrder || fetchedData.newsletterorder || '',
+                    categoryiconname: fetchedData.image || fetchedData.categoryiconname || ''
                 });
 
                 // Agar purani image (icon) hai toh preview me dikhao
-                if (fetchedData.categoryiconname) {
-                    setPreviewImage(`${API_URL}${fetchedData.categoryiconname}`);
+                const iconPath = fetchedData.image || fetchedData.categoryiconname;
+                if (iconPath) {
+                    setPreviewImage(`${API_URL}${iconPath}`);
                 }
                 return fetchedData;
             }
@@ -114,7 +115,7 @@ const EditCategory = () => {
                 updatedData.slug = newSlug;
     
                 if (prev.parentid && prev.parentid !== 'root') {
-                    const parent = parentCategories.find(cat => cat._id === prev.parentid);
+                    const parent = parentCategories.find(cat => String(cat.id || cat._id) === String(prev.parentid));
                     if (parent) {
                         const basePath = (parent.parentslug && parent.parentslug !== 'root-category') 
                             ? parent.parentslug 
@@ -127,7 +128,7 @@ const EditCategory = () => {
             }
     
             if (name === 'parentid') {
-                const selectedParent = parentCategories.find(cat => cat._id === value);
+                const selectedParent = parentCategories.find(cat => String(cat.id || cat._id) === String(value));
                 
                 if (selectedParent) {
                     updatedData.level = (Number(selectedParent.level) || 0) + 1;
@@ -252,9 +253,9 @@ const EditCategory = () => {
                             <select name="parentid" value={formData.parentid} onChange={handleChange} className="theme-input appearance-none bg-white cursor-pointer w-full">
                                 <option value="">Select Parent</option>
                                 <option value="root">Root Category</option>
-                                {parentCategories.filter(c => c._id !== id).map((cat) => (
-                                    <option key={cat._id} value={cat._id}>
-                                        {cat.categorytitle || cat.categoryTitle || cat.title || "Unnamed Category"}
+                                {parentCategories.filter(c => String(c.id || c._id) !== String(id)).map((cat) => (
+                                    <option key={cat.id || cat._id} value={cat.id || cat._id}>
+                                        {cat.title || cat.categorytitle || cat.categoryTitle || "Unnamed Category"}
                                     </option>
                                 ))}
                             </select>

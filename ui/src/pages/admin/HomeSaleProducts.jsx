@@ -263,7 +263,7 @@ const HomeSaleProducts = () => {
                 </tr>
               ) : products.length > 0 ? (
                 products.map((item, index) => (
-                  <tr key={item._id} className="hover:bg-primary-50 transition-colors">
+                  <tr key={item.id || item._id} className="hover:bg-primary-50 transition-colors">
                     
                     {/* Checkbox */}
                     <td className="p-3 border-r border-cream-50 text-center hide-on-print">
@@ -296,13 +296,13 @@ const HomeSaleProducts = () => {
                     <td className="p-3 text-center hide-on-print">
                       <div className="flex justify-center gap-2">
                         <button 
-                          onClick={() => navigate(`/admin/edit-home-sale/${item._id}`)} 
+                          onClick={() => navigate(`/admin/edit-home-sale/${item.id || item._id}`)} 
                           className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm"
                         >
                           <Edit size={14} />
                         </button>
                         <button 
-                          onClick={() => handleDelete(item._id)}
+                          onClick={() => handleDelete(item.id || item._id)}
                           className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 hover:border-red-600 transition-all shadow-sm"
                         >
                           <Trash2 size={14} />

@@ -137,7 +137,7 @@ const ProductList = () => {
         const meta = `"${(item.meta_title || "").replace(/"/g, '""')}"`;
 
         return [
-          item._id, 
+          item.id || item._id, 
           title, 
           item.bagchee_id || "",
           item.priceForeign || item.real_price || 0,
@@ -380,10 +380,10 @@ const ProductList = () => {
                 </tr>
               ) : products.length > 0 ? (
                 products.map((item, index) => (
-                  <tr key={item._id} className="hover:bg-blue-50/30 transition-colors group">
-                    <td className="p-2.5 border-r text-center text-sm text-gray-600">{item.bagchee_id || item._id}</td>
+                  <tr key={item.id || item._id} className="hover:bg-blue-50/30 transition-colors group">
+                    <td className="p-2.5 border-r text-center text-sm text-gray-600">{item.bagchee_id || item.id || item._id}</td>
                     <td className="p-2.5 border-r text-sm font-bold text-[#333]">{item.title}</td>
-                    <td className="p-2.5 border-r text-sm text-gray-600 font-semibold">{`BB${item._id}`}</td>
+                    <td className="p-2.5 border-r text-sm text-gray-600 font-semibold">{`BB${item.id || item._id}`}</td>
                     <td className="p-2.5 border-r text-sm text-gray-600 font-bold">{Number(item.priceForeign || item.real_price || 0).toFixed(2)}</td>
                     <td className="p-2.5 border-r text-sm text-gray-500 max-w-xs truncate">{item.meta_title || '-'}</td>
                     <td className="p-2.5 border-r text-sm text-gray-500">{item.isbn10 || '-'}</td>
@@ -392,13 +392,13 @@ const ProductList = () => {
                     <td className="p-2.5">
                       <div className="flex justify-center gap-1.5">
                         <button
-                          onClick={() => navigate(`/admin/edit-book/${item._id}`)}
+                          onClick={() => navigate(`/admin/edit-book/${item.id || item._id}`)}
                           className="p-1.5 bg-gray-100 border rounded text-gray-600 hover:bg-white transition-all shadow-sm"
                         >
                           <Edit size={14} />
                         </button>
                         <button
-                          onClick={() => handleDelete(item._id)}
+                          onClick={() => handleDelete(item.id || item._id)}
                           className="p-1.5 bg-gray-100 border rounded text-red-500 hover:bg-white transition-all shadow-sm"
                         >
                           <Trash2 size={14} />

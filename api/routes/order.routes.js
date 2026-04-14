@@ -17,6 +17,7 @@ router.get("/my-orders",   authMiddleware, OrderController.getUserOrders);
 router.get("/get/:id",     authMiddleware, OrderController.getOrderById);
 
 // ADMIN — full order management
+router.get("/admin/get/:id", adminAuth, OrderController.getOrderById);
 router.get("/list",         adminAuth, OrderController.getAllOrders);
 router.patch("/update/:id", adminAuth, OrderController.updateOrder);
 router.delete("/delete/:id",adminAuth, OrderController.deleteOrder);

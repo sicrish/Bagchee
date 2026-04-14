@@ -29,7 +29,6 @@ const EditSettings = () => {
         order_accepted_promo: '',
         show_promo_over_usd: '',
         show_promo_over_eur: '',
-        show_promo_over_inr: '',
         topbar_promotion: 'Yes',
         account_number: '',
         swift_code: '',
@@ -79,7 +78,6 @@ const EditSettings = () => {
                 order_accepted_promo: settingsData.order_accepted_promo || '',
                 show_promo_over_usd: settingsData.show_promo_over_usd || '',
                 show_promo_over_eur: settingsData.show_promo_over_eur || '',
-                show_promo_over_inr: settingsData.show_promo_over_inr || '',
                 topbar_promotion: (settingsData.topbarPromotion === true || settingsData.topbar_promotion === 'Yes') ? 'Yes' : 'No',
                 account_number: settingsData.account_number || settingsData.bankIban || '',
                 swift_code: settingsData.swift_code || settingsData.bankBic || '',
@@ -118,7 +116,7 @@ const EditSettings = () => {
             const API_URL = process.env.REACT_APP_API_URL;
             if (isEdit) {
                 // Settings backend mostly uses PATCH, maintaining consistency
-                const res = await axios.patch(`${API_URL}/settings/update/${id}`, payload);
+                const res = await axios.put(`${API_URL}/settings/update/${id}`, payload);
                 return res.data;
             } else {
                 const res = await axios.post(`${API_URL}/settings/save`, payload);
@@ -232,13 +230,6 @@ const EditSettings = () => {
                         </div>
 
                         <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4">
-                            <label className={labelClass}>Membership cart price inr</label>
-                            <div className="col-span-12 md:col-span-9">
-                                <input name="membership_cart_price" value={formData.membership_cart_price} onChange={handleChange} className={inputClass} />
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4">
                             <label className={labelClass}>Now arrival time</label>
                             <div className="col-span-12 md:col-span-9">
                                 <input name="new_arrival_time" value={formData.new_arrival_time} onChange={handleChange} className={inputClass} />
@@ -280,13 +271,6 @@ const EditSettings = () => {
                             <label className={labelClass}>Show promo over eur</label>
                             <div className="col-span-12 md:col-span-9">
                                 <input name="show_promo_over_eur" value={formData.show_promo_over_eur} onChange={handleChange} className={inputClass} />
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4">
-                            <label className={labelClass}>Show promo over inr</label>
-                            <div className="col-span-12 md:col-span-9">
-                                <input name="show_promo_over_inr" value={formData.show_promo_over_inr} onChange={handleChange} className={inputClass} />
                             </div>
                         </div>
 

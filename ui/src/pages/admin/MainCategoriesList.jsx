@@ -189,7 +189,7 @@ const filteredData = useMemo(() => {
                 <tr><td colSpan="7" className="p-10 text-center text-text-muted font-bold"><div className="flex justify-center items-center gap-2"><Loader2 className="animate-spin text-primary" size={20} /> Loading...</div></td></tr>
               ) : filteredData.length > 0 ? (
                 filteredData.map((item) => (
-                  <tr key={item._id} className="hover:bg-primary/5 transition-colors text-[13px]">
+                  <tr key={item.id || item._id} className="hover:bg-primary/5 transition-colors text-[13px]">
                     <td className="p-3 border-r border-cream-50 text-center"><input type="checkbox" className="h-4 w-4 rounded accent-primary cursor-pointer" /></td>
                     
                     <td className="p-3 border-r border-cream-50">
@@ -217,8 +217,8 @@ const filteredData = useMemo(() => {
                     <td className="p-3 border-r border-cream-50 text-text-main">{item.order}</td>
                     <td className="p-3 text-center">
                       <div className="flex justify-center gap-2">
-                        <button onClick={() => navigate(`/admin/edit-main-category/${item._id}`)} className="p-1.5 bg-white border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm"><Edit size={14} /></button>
-                        <button onClick={() => handleDelete(item._id)} className="p-1.5 bg-white border border-cream-200 rounded text-text-muted hover:text-red-600 hover:border-red-600 transition-all shadow-sm"><Trash2 size={14} /></button>
+                        <button onClick={() => navigate(`/admin/edit-main-category/${item.id || item._id}`)} className="p-1.5 bg-white border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm"><Edit size={14} /></button>
+                        <button onClick={() => handleDelete(item.id || item._id)} className="p-1.5 bg-white border border-cream-200 rounded text-text-muted hover:text-red-600 hover:border-red-600 transition-all shadow-sm"><Trash2 size={14} /></button>
                       </div>
                     </td>
                   </tr>

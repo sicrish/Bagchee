@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Check, RotateCcw, X, Loader2 } from 'lucide-react';
 import axios from '../../utils/axiosConfig.js';
@@ -35,7 +35,7 @@ const EditFormats = () => {
   });
 
   // 🚀 OPTIMIZATION 2: Fetch Format Details
-  const { data: formatData, isLoading: isFormatLoading } = useQuery({
+  const { data: formatData, isLoading: isFormatLoading, isError: isFormatError } = useQuery({
     queryKey: ['editFormatData', id],
     queryFn: async () => {
       const API_URL = process.env.REACT_APP_API_URL;
@@ -45,26 +45,30 @@ const EditFormats = () => {
       }
       return res.data.data;
     },
-    enabled: !!id, // Run only if ID is present
-    staleTime: 1000 * 60 * 5, // Cache for 5 mins
-    refetchOnWindowFocus: false, // Prevent background overwrite
-    onError: (error) => {
-      console.error("Data fetch error:", error);
+    enabled: !!id,
+    staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
+  });
+
+  const hasNavigatedRef = useRef(false);
+  useEffect(() => {
+    if (isFormatError && !hasNavigatedRef.current) {
+      hasNavigatedRef.current = true;
       toast.error("Failed to load format details");
       navigate('/admin/formats');
     }
-  });
+  }, [isFormatError, navigate]);
 
   // 🟢 1. Initialize State ONCE when data arrives
   useEffect(() => {
     if (formatData && !isDataInitialized) {
       setFormData({
         title: formatData.title || '',
-        status: formatData.active || 'active', // Adjusted based on schema field name
-        category_id: formatData.category || '', // Adjusted based on schema reference
-        order: formatData.order || ''
+        status: (formatData.active === true || formatData.active === 'active') ? 'active' : 'inactive',
+        category_id: formatData.categoryId || formatData.category_id || formatData.category || '',
+        order: formatData.ord ?? formatData.order ?? ''
       });
-      setIsDataInitialized(true); // Lock it!
+      setIsDataInitialized(true);
     }
   }, [formatData, isDataInitialized]);
 
@@ -210,7 +214,7 @@ const EditFormats = () => {
                 >
                   <option value="">{isCategoriesLoading ? 'Loading...' : 'Select Category'}</option>
                   {categories.map((cat) => (
-                    <option key={cat._id} value={cat._id}>{cat.categorytitle}</option>
+                    <option key={cat.id || cat._id} value={cat.id || cat._id}>{cat.title || cat.categorytitle}</option>
                   ))}
                 </select>
               </div>

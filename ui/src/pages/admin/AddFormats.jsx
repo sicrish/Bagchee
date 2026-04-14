@@ -26,11 +26,7 @@ const AddFormats = () => {
       }
       return [];
     },
-    staleTime: 1000 * 60 * 10, // Cache for 10 minutes for speed boost
-    onError: (error) => {
-      console.error("Categories fetch error", error);
-      toast.error("Failed to load categories");
-    }
+    staleTime: 1000 * 60 * 10,
   });
 
   // 🚀 OPTIMIZATION 2: Save Format Mutation
@@ -157,7 +153,7 @@ const AddFormats = () => {
                 >
                   <option value="">{isCategoriesLoading ? 'Loading...' : 'Select Category'}</option>
                   {categories.map((cat) => (
-                    <option key={cat._id} value={cat._id}>{cat.categorytitle}</option>
+                    <option key={cat.id || cat._id} value={cat.id || cat._id}>{cat.title || cat.categorytitle}</option>
                   ))}
                 </select>
               </div>
