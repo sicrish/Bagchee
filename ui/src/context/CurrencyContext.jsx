@@ -4,7 +4,7 @@ import axios from 'axios';
 export const CurrencyContext = createContext();
 
 export const CurrencyProvider = ({ children }) => {
-    const SUPPORTED = ['USD', 'EUR', 'GBP'];
+    const SUPPORTED = ['USD', 'EUR', 'GBP']; // v2-no-inr
     const stored = localStorage.getItem('bagchee_currency');
     // Remove INR from localStorage if it was previously stored
     if (stored && !SUPPORTED.includes(stored)) {
