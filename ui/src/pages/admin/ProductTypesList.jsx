@@ -47,7 +47,7 @@ const ProductTypesList = () => {
     return productTypes.filter(item => {
       return (
         (item.name || "").toLowerCase().includes(filters.name.toLowerCase()) &&
-        (item.image_folder || "").toLowerCase().includes(filters.folder.toLowerCase())
+        (item.imageFolder || item.image_folder || "").toLowerCase().includes(filters.folder.toLowerCase())
       );
     });
   }, [productTypes, filters]);
@@ -166,7 +166,7 @@ const ProductTypesList = () => {
                         <span className="text-gray-400 font-bold text-xs">{index + 1}</span>
                     </td>
                     <td className="p-3 border-r font-medium text-gray-800">{item.name}</td>
-                    <td className="p-3 border-r text-gray-600 font-mono text-xs">{item.image_folder}</td>
+                    <td className="p-3 border-r text-gray-600 font-mono text-xs">{item.imageFolder || item.image_folder}</td>
                     <td className="p-3">
                       <div className="flex justify-center gap-2">
                         <button onClick={() => navigate(`/admin/edit-product-type/${item.id || item._id}`)} className="p-1.5 border border-gray-200 rounded text-gray-500 hover:text-primary hover:border-primary transition-all"><Edit size={14} /></button>

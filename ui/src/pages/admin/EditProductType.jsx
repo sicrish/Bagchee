@@ -25,8 +25,12 @@ const EditProductType = () => {
         const res = await axios.get(`${API_URL}/product-types/get/${id}`);
         
         if (res.data.status) {
-          const { name, image_folder, bagchee_prefix } = res.data.data;
-          setFormData({ name, image_folder, bagchee_prefix });
+          const d = res.data.data;
+          setFormData({
+            name: d.name || '',
+            image_folder: d.imageFolder || d.image_folder || '',
+            bagchee_prefix: d.bagcheePrefix || d.bagchee_prefix || ''
+          });
         } else {
           toast.error("Product type not found");
           navigate('/admin/product-types');

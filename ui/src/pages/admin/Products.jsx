@@ -64,7 +64,7 @@ const Products = () => {
           {categories.map((item) => (
             <div 
               key={item.id || item._id} 
-              onClick={() => navigate(`/admin/${item.image_folder}`)} 
+              onClick={() => navigate(`/admin/${item.imageFolder || item.image_folder}`)} 
               className="bg-white rounded-2xl p-6 flex items-center gap-6 shadow-[0_10px_30px_rgba(0,0,0,0.04)] border border-gray-100 hover:shadow-xl transition-all cursor-pointer group"
             >
               {/* 🔴 FIXED ICON BOX: Only Book icon remains */}
@@ -78,7 +78,7 @@ const Products = () => {
                   {item.name}
                 </h3>
                 <span className="text-xs text-gray-400 font-medium bg-gray-100 px-2 py-1 rounded mt-1 inline-block">
-                  {item.bagchee_prefix || 'N/A'}
+                  {item.bagcheePrefix || item.bagchee_prefix || 'N/A'}
                 </span>
               </div>
             </div>
