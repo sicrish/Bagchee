@@ -1,35 +1,86 @@
 import prisma from '../lib/prisma.js';
 import { cache } from '../lib/cache.js';
 
-// Accepts both camelCase (Prisma) and snake_case (old frontend) field names.
+// Accepts both camelCase (Prisma) and snake_case (old/new frontend) field names.
 const mapBody = (b) => {
     const d = {};
-    const f = (cc, sc) => b[cc] !== undefined ? b[cc] : b[sc];
+    // Pick first defined value from a list of candidate keys
+    const f = (...keys) => { for (const k of keys) { if (b[k] !== undefined) return b[k]; } return undefined; };
     const num = (v) => parseFloat(v) || 0;
     const int = (v) => parseInt(v) || 0;
-    const bool = (v) => v === true || v === 'true';
-    if (f('saleThreshold','sale_threshold') !== undefined) d.saleThreshold = num(f('saleThreshold','sale_threshold'));
-    if (f('bestSellerThreshold','best_seller_threshold') !== undefined) d.bestSellerThreshold = int(f('bestSellerThreshold','best_seller_threshold'));
-    if (f('memberDiscount','member_discount') !== undefined) d.memberDiscount = num(f('memberDiscount','member_discount'));
-    if (f('freeShippingOver','free_shiping_over') !== undefined) d.freeShippingOver = num(f('freeShippingOver','free_shiping_over'));
-    if (f('freeShippingOverEur','free_shiping_over_eur') !== undefined) d.freeShippingOverEur = num(f('freeShippingOverEur','free_shiping_over_eur'));
-    if (f('freeShippingOverInr','free_shiping_over_inr') !== undefined) d.freeShippingOverInr = num(f('freeShippingOverInr','free_shiping_over_inr'));
-    if (f('membershipCartPrice','membership_cart_price') !== undefined) d.membershipCartPrice = num(f('membershipCartPrice','membership_cart_price'));
-    if (f('membershipCartPriceEur','membership_cart_price_eur') !== undefined) d.membershipCartPriceEur = num(f('membershipCartPriceEur','membership_cart_price_eur'));
-    if (f('membershipCartPriceInr','membership_cart_price_inr') !== undefined) d.membershipCartPriceInr = num(f('membershipCartPriceInr','membership_cart_price_inr'));
-    if (f('usdToEurRate','usd_to_eur_rate') !== undefined) d.usdToEurRate = num(f('usdToEurRate','usd_to_eur_rate'));
-    if (f('usdToInrRate','usd_to_inr_rate') !== undefined) d.usdToInrRate = num(f('usdToInrRate','usd_to_inr_rate'));
-    if (f('mailFrom','mail_from') !== undefined) d.mailFrom = f('mailFrom','mail_from') || '';
-    if (f('mailReplyTo','mail_reply_to') !== undefined) d.mailReplyTo = f('mailReplyTo','mail_reply_to') || '';
-    if (f('topbarPromotion','topbar_promotion') !== undefined) d.topbarPromotion = bool(f('topbarPromotion','topbar_promotion'));
-    if (f('topbarPromotionText','topbar_promotion_text') !== undefined) d.topbarPromotionText = f('topbarPromotionText','topbar_promotion_text') || '';
-    if (f('bankIban','bank_iban') !== undefined) d.bankIban = f('bankIban','bank_iban') || '';
-    if (f('bankBic','bank_bic') !== undefined) d.bankBic = f('bankBic','bank_bic') || '';
-    if (f('bankOwner','bank_owner') !== undefined) d.bankOwner = f('bankOwner','bank_owner') || '';
-    if (f('bankName','bank_name') !== undefined) d.bankName = f('bankName','bank_name') || '';
-    if (f('emailsCopy','emails_copy') !== undefined) d.emailsCopy = f('emailsCopy','emails_copy') || '';
+    // Handle boolean: true, 'true', 'Yes', 1
+    const bool = (v) => v === true || v === 'true' || v === 'Yes' || v === 1;
+
+    const saleThreshold = f('saleThreshold','sale_threshold');
+    if (saleThreshold !== undefined) d.saleThreshold = num(saleThreshold);
+
+    // frontend sends 'bestseller_threshold' (no underscore between best/seller)
+    const bst = f('bestSellerThreshold','best_seller_threshold','bestseller_threshold');
+    if (bst !== undefined) d.bestSellerThreshold = int(bst);
+
+    const memberDiscount = f('memberDiscount','member_discount');
+    if (memberDiscount !== undefined) d.memberDiscount = num(memberDiscount);
+
+    // frontend sends 'free_shipping_over'; controller historically had a typo 'free_shiping_over'
+    const fso = f('freeShippingOver','free_shipping_over','free_shiping_over');
+    if (fso !== undefined) d.freeShippingOver = num(fso);
+
+    const fsoEur = f('freeShippingOverEur','free_shipping_over_eur','free_shiping_over_eur');
+    if (fsoEur !== undefined) d.freeShippingOverEur = num(fsoEur);
+
+    const fsoInr = f('freeShippingOverInr','free_shipping_over_inr','free_shiping_over_inr');
+    if (fsoInr !== undefined) d.freeShippingOverInr = num(fsoInr);
+
+    // frontend sends 'membership_cost' for USD membership price
+    const mcp = f('membershipCartPrice','membership_cart_price','membership_cost');
+    if (mcp !== undefined) d.membershipCartPrice = num(mcp);
+
+    // frontend sends 'membership_cost_eur'
+    const mcpEur = f('membershipCartPriceEur','membership_cart_price_eur','membership_cost_eur');
+    if (mcpEur !== undefined) d.membershipCartPriceEur = num(mcpEur);
+
+    const mcpInr = f('membershipCartPriceInr','membership_cart_price_inr');
+    if (mcpInr !== undefined) d.membershipCartPriceInr = num(mcpInr);
+
+    const usdToEur = f('usdToEurRate','usd_to_eur_rate');
+    if (usdToEur !== undefined) d.usdToEurRate = num(usdToEur);
+
+    const usdToInr = f('usdToInrRate','usd_to_inr_rate');
+    if (usdToInr !== undefined) d.usdToInrRate = num(usdToInr);
+
+    const mailFrom = f('mailFrom','mail_from');
+    if (mailFrom !== undefined) d.mailFrom = mailFrom || '';
+
+    const mailReplyTo = f('mailReplyTo','mail_reply_to');
+    if (mailReplyTo !== undefined) d.mailReplyTo = mailReplyTo || '';
+
+    const topbarPromo = f('topbarPromotion','topbar_promotion');
+    if (topbarPromo !== undefined) d.topbarPromotion = bool(topbarPromo);
+
+    const topbarText = f('topbarPromotionText','topbar_promotion_text');
+    if (topbarText !== undefined) d.topbarPromotionText = topbarText || '';
+
+    // frontend sends 'account_number' for legacy bankIban field
+    const bankIban = f('bankIban','bank_iban','account_number');
+    if (bankIban !== undefined) d.bankIban = bankIban || '';
+
+    // frontend sends 'swift_code' for bankBic
+    const bankBic = f('bankBic','bank_bic','swift_code');
+    if (bankBic !== undefined) d.bankBic = bankBic || '';
+
+    // frontend sends 'beneficiary_name' for bankOwner
+    const bankOwner = f('bankOwner','bank_owner','beneficiary_name');
+    if (bankOwner !== undefined) d.bankOwner = bankOwner || '';
+
+    const bankName = f('bankName','bank_name');
+    if (bankName !== undefined) d.bankName = bankName || '';
+
+    const emailsCopy = f('emailsCopy','emails_copy');
+    if (emailsCopy !== undefined) d.emailsCopy = emailsCopy || '';
+
     // Payment gateway mode
-    if (f('paymentGatewayMode','payment_gateway_mode') !== undefined) d.paymentGatewayMode = f('paymentGatewayMode','payment_gateway_mode') || 'deferred';
+    const pgm = f('paymentGatewayMode','payment_gateway_mode');
+    if (pgm !== undefined) d.paymentGatewayMode = pgm || 'deferred';
     // Per-currency bank details
     if (f('bankNameUsd','bank_name_usd') !== undefined) d.bankNameUsd = f('bankNameUsd','bank_name_usd') || '';
     if (f('bankIbanUsd','bank_iban_usd') !== undefined) d.bankIbanUsd = f('bankIbanUsd','bank_iban_usd') || '';
