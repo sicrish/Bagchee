@@ -134,17 +134,17 @@ const ProductList = () => {
         const isbn10 = item.isbn10 ? `\t${item.isbn10}` : "-";
         const isbn13 = item.isbn13 ? `\t${item.isbn13}` : "-";
         const title = `"${(item.title || "").replace(/"/g, '""')}"`;
-        const meta = `"${(item.meta_title || "").replace(/"/g, '""')}"`;
+        const meta = `"${(item.metaTitle || item.meta_title || "").replace(/"/g, '""')}"`;
 
         return [
-          item.id || item._id, 
-          title, 
-          item.bagchee_id || "",
-          item.priceForeign || item.real_price || 0,
+          item.id || item._id,
+          title,
+          item.bagcheeId || item.bagchee_id || `BB${item.id}`,
+          item.realPrice || item.priceForeign || item.real_price || 0,
           meta,
-          isbn10, 
-          isbn13, 
-          item.product_type || "Book"
+          isbn10,
+          isbn13,
+          item.productType || item.product_type || "Book"
         ].join(",");
       })
     ].join("\n");
@@ -381,14 +381,14 @@ const ProductList = () => {
               ) : products.length > 0 ? (
                 products.map((item, index) => (
                   <tr key={item.id || item._id} className="hover:bg-blue-50/30 transition-colors group">
-                    <td className="p-2.5 border-r text-center text-sm text-gray-600">{item.bagchee_id || item.id || item._id}</td>
+                    <td className="p-2.5 border-r text-center text-sm text-gray-600">{item.id || item._id}</td>
                     <td className="p-2.5 border-r text-sm font-bold text-[#333]">{item.title}</td>
-                    <td className="p-2.5 border-r text-sm text-gray-600 font-semibold">{`BB${item.id || item._id}`}</td>
-                    <td className="p-2.5 border-r text-sm text-gray-600 font-bold">{Number(item.priceForeign || item.real_price || 0).toFixed(2)}</td>
-                    <td className="p-2.5 border-r text-sm text-gray-500 max-w-xs truncate">{item.meta_title || '-'}</td>
+                    <td className="p-2.5 border-r text-sm text-gray-600 font-semibold">{item.bagcheeId || item.bagchee_id || `BB${item.id}`}</td>
+                    <td className="p-2.5 border-r text-sm text-gray-600 font-bold">{Number(item.realPrice || item.priceForeign || item.real_price || 0).toFixed(2)}</td>
+                    <td className="p-2.5 border-r text-sm text-gray-500 max-w-xs truncate">{item.metaTitle || item.meta_title || '-'}</td>
                     <td className="p-2.5 border-r text-sm text-gray-500">{item.isbn10 || '-'}</td>
                     <td className="p-2.5 border-r text-sm text-gray-500">{item.isbn13 || '-'}</td>
-                    <td className="p-2.5 border-r text-sm font-bold text-[#0096cc] uppercase">{item.product_type || 'Books'}</td>
+                    <td className="p-2.5 border-r text-sm font-bold text-[#0096cc] uppercase">{item.productType || item.product_type || 'Books'}</td>
                     <td className="p-2.5">
                       <div className="flex justify-center gap-1.5">
                         <button
