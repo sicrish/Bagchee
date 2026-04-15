@@ -1360,13 +1360,6 @@ const AddBook = () => {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4">
-                            <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight">Inr price</label>
-                            <div className="col-span-9">
-                                <input name="inr_price" type="number" value={formData.inr_price || ""} onChange={handleChange} className="theme-input w-full md:w-1/3" />
-                            </div>
-                        </div>
-
                         <div className="grid grid-cols-12 gap-4 items-center">
                             <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight">Discount</label>
                             <div className="col-span-9">

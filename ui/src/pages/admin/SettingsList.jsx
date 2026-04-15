@@ -71,7 +71,6 @@ const SettingsList = () => {
         "Bestseller Threshold": item.bestSellerThreshold ?? item.bestseller_threshold,
         "Membership Cost (USD)": item.membershipCartPrice ?? item.membership_cost,
         "Free Shipping Over (USD)": item.freeShippingOver ?? item.free_shipping_over,
-        "Free Shipping Over (INR)": item.freeShippingOverInr ?? item.free_shipping_over_inr,
         "Topbar Promotion": item.topbarPromotion ? 'Yes' : 'No',
       }));
 

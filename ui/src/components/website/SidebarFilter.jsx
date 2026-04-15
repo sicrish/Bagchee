@@ -348,11 +348,11 @@ const SidebarFilter = ({
               {activeTab === "price" &&
                 [
                   { label: "All Prices", val: "" },
-                  { label: "Under ₹500", val: "0-500" },
-                  { label: "₹500 - ₹1000", val: "500-1000" },
-                  { label: "₹1000 - ₹2000", val: "1000-2000" },
-                  { label: "₹2000 - ₹5000", val: "2000-5000" },
-                  { label: "Above ₹5000", val: "5000-100000" },
+                  { label: "Under $10", val: "0-10" },
+                  { label: "$10 - $25", val: "10-25" },
+                  { label: "$25 - $50", val: "25-50" },
+                  { label: "$50 - $100", val: "50-100" },
+                  { label: "Above $100", val: "100-100000" },
                 ].map((range) => (
                   <label
                     key={range.val}
@@ -735,11 +735,11 @@ const SidebarFilter = ({
               <div className="pt-3 space-y-3 pl-1">
                 {[
                   { label: "All Prices", val: "" },
-                  { label: "Under ₹500", val: "0-500" },
-                  { label: "₹500 - ₹1000", val: "500-1000" },
-                  { label: "₹1000 - ₹2000", val: "1000-2000" },
-                  { label: "₹2000 - ₹5000", val: "2000-5000" },
-                  { label: "Above ₹5000", val: "5000-100000" },
+                  { label: "Under $10", val: "0-10" },
+                  { label: "$10 - $25", val: "10-25" },
+                  { label: "$25 - $50", val: "25-50" },
+                  { label: "$50 - $100", val: "50-100" },
+                  { label: "Above $100", val: "100-100000" },
                 ].map((range) => (
                   <label
                     key={range.val}

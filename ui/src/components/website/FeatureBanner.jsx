@@ -7,7 +7,7 @@ const FeatureBanner = () => {
     {
       icon: <Truck className="w-6 h-6 sm:w-7 sm:h-7" />,
       title: "Fast & Free Delivery Worldwide",
-      subtitle: "on orders over ₹4527.78",
+      subtitle: "on orders over $55",
       link: "/help-desk",
     },
     {

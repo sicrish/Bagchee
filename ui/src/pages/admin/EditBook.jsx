@@ -196,9 +196,9 @@ const EditBook = () => {
                 product_formats: book.product_formats || (book.binding ? [book.binding] : []),
                 authors: book.authors ? book.authors : (book.author ? [book.author] : []),
                 // Agar series array hai to wahi rakho, single hai to array bana do, warna khali array []
-series: Array.isArray(book.series) 
-? book.series.map(s => typeof s === 'object' ? s._id : s) 
-: (book.series ? [typeof book.series === 'object' ? book.series._id : book.series] : []),
+series: Array.isArray(book.series)
+? book.series.map(s => typeof s === 'object' ? (s.id || s._id) : s)
+: (book.series ? [typeof book.series === 'object' ? (book.series.id || book.series._id) : book.series] : []),
                 publisher: book.publisher || '',
                 volume: book.volume || '',
                 edition: book.edition || '',
@@ -604,14 +604,15 @@ series: Array.isArray(book.series)
             const currentSeries = Array.isArray(prev.series) ? prev.series : [];
 
             // Duplicate check: Agar ID pehle se hai to error dikhao
-            if (currentSeries.includes(selectedSeries._id)) {
+            const seriesId = selectedSeries.id || selectedSeries._id;
+            if (currentSeries.includes(seriesId)) {
                 toast.error("This series is already added!");
                 return prev;
             }
 
             return {
                 ...prev,
-                series: [...currentSeries, selectedSeries._id],
+                series: [...currentSeries, seriesId],
                 // Pehli baar select hone par number suggest karega
                 series_number: prev.series_number || (selectedSeries.total_books ? (selectedSeries.total_books + 1).toString() : "1")
             };
@@ -885,7 +886,7 @@ series: Array.isArray(book.series)
                                     <div className="border border-gray-300 rounded p-2 bg-white cursor-pointer min-h-[38px] flex flex-wrap gap-2 items-center hover:border-primary transition-colors" onClick={() => setIsAuthorDropdownOpen(!isAuthorDropdownOpen)}>
                                         {formData.authors.length > 0 ? (
                                             formData.authors.map((authId, idx) => {
-                                                const author = authors.find(a => a._id === authId);
+                                                const author = authors.find(a => (a.id || a._id) === authId);
                                                 const authorName = author ? `${author.first_name} ${author.last_name}` : authId;
                                                 return (
                                                     <span key={idx} className="bg-blue-50 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded border border-blue-100 flex items-center gap-1">
@@ -1197,7 +1198,7 @@ series: Array.isArray(book.series)
                 {formData.series && formData.series.length > 0 ? (
                     formData.series.map((serId) => {
                         // list mein se series ka naam dhoondhna
-                        const seriesObj = seriesList.find(s => s._id === serId);
+                        const seriesObj = seriesList.find(s => (s.id || s._id) === serId);
                         return seriesObj ? (
                             <span key={serId} className="bg-purple-50 text-purple-700 text-[10px] font-bold px-2 py-0.5 rounded border border-purple-100 flex items-center gap-1">
                                 {seriesObj.title}
@@ -1289,13 +1290,6 @@ series: Array.isArray(book.series)
                         </div>
 
                         <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4">
-                            <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">INR Price</label>
-                            <div className="col-span-9">
-                                <input name="inr_price" type="number" value={formData.inr_price || ""} onChange={handleChange} className="theme-input w-32" />
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4">
                             <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Discount (%)</label>
                             <div className="col-span-9">
                                 <input name="discount" type="number" value={formData.discount || ""} onChange={handleChange} className="theme-input w-32" placeholder="%" />
@@ -1338,7 +1332,7 @@ series: Array.isArray(book.series)
                             <div className="col-span-9 space-y-3">
                                 <div className="relative">
                                     <div className="border border-gray-300 rounded p-2 bg-white cursor-pointer min-h-[38px] flex justify-between items-center hover:border-primary transition-colors theme-input w-full md:w-1/2" onClick={() => setIsPublisherDropdownOpen(!isPublisherDropdownOpen)}>
-                                        <span className={formData.publisher ? "text-gray-700 font-medium" : "text-gray-400 text-sm"}>{formData.publisher ? (publishers.find(p => p._id === formData.publisher)?.name || publishers.find(p => p._id === formData.publisher)?.title || "Unknown Publisher") : "Select Publisher"}</span>
+                                        <span className={formData.publisher ? "text-gray-700 font-medium" : "text-gray-400 text-sm"}>{formData.publisher ? (publishers.find(p => (p.id || p._id) === formData.publisher)?.name || publishers.find(p => (p.id || p._id) === formData.publisher)?.title || "Unknown Publisher") : "Select Publisher"}</span>
                                         <ChevronDown size={14} className="text-gray-400" />
                                     </div>
                                     {isPublisherDropdownOpen && (

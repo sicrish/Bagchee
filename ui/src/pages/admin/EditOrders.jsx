@@ -209,7 +209,7 @@ const EditOrders = () => {
       price: product.price || 0,
       quantity: 1,
       status: orderStatuses.length > 0 ? orderStatuses[0].name : 'Pending',
-      courier: '', tracking_id: '', return_note: '', cancel_note: ''
+      courierId: '', trackingCode: '', returnNote: '', cancelNote: ''
     };
     setOrderProducts(prev => {
       const updated = [...prev, newRow];
@@ -239,10 +239,10 @@ const EditOrders = () => {
       price: foundProd ? foundProd.price : '',
       quantity: 1,
       status: '',
-      courier: '',
-      tracking_id: '',
-      return_note: '',
-      cancel_note: ''
+      courierId: '',
+      trackingCode: '',
+      returnNote: '',
+      cancelNote: ''
     };
 
     setOrderProducts([...orderProducts, newRow]);
@@ -273,36 +273,48 @@ const EditOrders = () => {
 
     try {
       const payload = {
-        ...formData,
-        coupon_id: formData.coupon_id === "" ? null : formData.coupon_id,
-        customer_id: formData.customer_id?._id || formData.customer_id,
-        shipping_details: {
-          email: formData.shipping_email,
-          first_name: formData.shipping_first_name,
-          last_name: formData.shipping_last_name,
-          address_1: formData.shipping_address_1,
-          address_2: formData.shipping_address_2,
-          company: formData.shipping_company,
-          country: formData.shipping_country,
-          state_region: formData.shipping_state_region,
-          city: formData.shipping_city,
-          postcode: formData.shipping_postcode,
-          phone: formData.shipping_phone,
-        },
-        billing_details: {
-          first_name: formData.billing_first_name,
-          last_name: formData.billing_last_name,
-          address_1: formData.billing_address_1,
-          address_2: formData.billing_address_2,
-          company: formData.billing_company,
-          country: formData.billing_country,
-          state_region: formData.billing_state_region,
-          city: formData.billing_city,
-          postcode: formData.billing_postcode,
-          phone: formData.billing_phone,
-        },
-        products: orderProducts,
-        comment: commentContent
+        // Scalar order fields (snake_case variants handled by controller)
+        status:          formData.status,
+        payment_status:  formData.payment_status,
+        transaction_id:  formData.transaction_id,
+        total:           formData.total,
+        shipping_cost:   formData.shipping_cost,
+        currency:        formData.currency,
+        payment_type:    formData.payment_type,
+        shipping_type:   formData.shipping_type,
+        membership:      formData.membership,
+        membershipDiscount: formData.membership_discount,
+        estimated_delivery: formData.estimated_delivery,
+        shippedAt:       formData.shipped_at || null,
+        comment:         commentContent,
+
+        // Shipping address — camelCase required by controller
+        shippingEmail:       formData.shipping_email,
+        shippingFirstName:   formData.shipping_first_name,
+        shippingLastName:    formData.shipping_last_name,
+        shippingAddress1:    formData.shipping_address_1,
+        shippingAddress2:    formData.shipping_address_2,
+        shippingCompany:     formData.shipping_company,
+        shippingCountry:     formData.shipping_country,
+        shippingState:       formData.shipping_state_region,
+        shippingCity:        formData.shipping_city,
+        shippingPostcode:    formData.shipping_postcode,
+        shippingPhone:       formData.shipping_phone,
+
+        // Billing address — camelCase required by controller
+        billingFirstName:  formData.billing_first_name,
+        billingLastName:   formData.billing_last_name,
+        billingAddress1:   formData.billing_address_1,
+        billingAddress2:   formData.billing_address_2,
+        billingCompany:    formData.billing_company,
+        billingCountry:    formData.billing_country,
+        billingState:      formData.billing_state_region,
+        billingCity:       formData.billing_city,
+        billingPostcode:   formData.billing_postcode,
+        billingPhone:      formData.billing_phone,
+
+        // Items — controller reads req.body.items with camelCase sub-fields
+        items: orderProducts,
       };
 
       const API_URL = process.env.REACT_APP_API_URL;
@@ -528,14 +540,14 @@ const EditOrders = () => {
                 </select>
               </td>
               <td className="border-b p-1">
-                <select value={row.courier} onChange={(e) => handleProductChange(index, 'courier', e.target.value)} className="w-full outline-none bg-transparent text-[10px]">
+                <select value={row.courierId || ''} onChange={(e) => handleProductChange(index, 'courierId', e.target.value)} className="w-full outline-none bg-transparent text-[10px]">
                   <option value="">Select Courier</option>
-                  {courierList.map((c) => <option key={c.id || c.id || c._id} value={c.title}>{c.title}</option>)}
+                  {courierList.map((c) => <option key={c.id || c._id} value={c.id || c._id}>{c.title}</option>)}
                 </select>
               </td>
-              <td className="border p-1"><input type="text" value={row.tracking_id} onChange={(e) => handleProductChange(index, 'tracking_id', e.target.value)} className="w-full outline-none bg-transparent" /></td>
-              <td className="border p-1"><input type="text" value={row.return_note} onChange={(e) => handleProductChange(index, 'return_note', e.target.value)} className="w-full outline-none bg-transparent" /></td>
-              <td className="border p-1"><input type="text" value={row.cancel_note} onChange={(e) => handleProductChange(index, 'cancel_note', e.target.value)} className="w-full outline-none bg-transparent" /></td>
+              <td className="border p-1"><input type="text" value={row.trackingCode || ''} onChange={(e) => handleProductChange(index, 'trackingCode', e.target.value)} className="w-full outline-none bg-transparent" /></td>
+              <td className="border p-1"><input type="text" value={row.returnNote || ''} onChange={(e) => handleProductChange(index, 'returnNote', e.target.value)} className="w-full outline-none bg-transparent" /></td>
+              <td className="border p-1"><input type="text" value={row.cancelNote || ''} onChange={(e) => handleProductChange(index, 'cancelNote', e.target.value)} className="w-full outline-none bg-transparent" /></td>
               <td className="border p-1 text-center"><button type="button" onClick={() => removeProductRow(index)}><Trash2 size={12} className="text-red-500" /></button></td>
             </tr>
           ))}
@@ -566,7 +578,7 @@ const EditOrders = () => {
             {searchResults.map((prod) => (
               <div key={prod.id || prod.id || prod._id} onClick={() => handleSelectProduct(prod)} className="px-4 py-2 hover:bg-primary/10 cursor-pointer border-b border-gray-100 flex flex-col">
                 <p className="text-[11px] font-bold text-gray-800 uppercase">{prod.title}</p>
-                <span className="text-[9px] text-primary">Price: ₹{prod.price}</span>
+                <span className="text-[9px] text-primary">Price: ${prod.price}</span>
               </div>
             ))}
           </div>

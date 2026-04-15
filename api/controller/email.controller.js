@@ -173,7 +173,7 @@ export const sendOrderConfirmation = async (email, order) => {
             <tr>
                 <td style="padding: 8px 0; border-bottom: 1px solid #e6decd; color: ${theme.textMain};">${escapeHtml(item.name || item.product?.title || 'Item')}</td>
                 <td style="padding: 8px 0; border-bottom: 1px solid #e6decd; text-align: center; color: ${theme.textMain};">${Number(item.quantity) || 0}</td>
-                <td style="padding: 8px 0; border-bottom: 1px solid #e6decd; text-align: right; color: ${theme.textMain};">${escapeHtml(order.currency || 'INR')} ${Number(item.price).toFixed(2)}</td>
+                <td style="padding: 8px 0; border-bottom: 1px solid #e6decd; text-align: right; color: ${theme.textMain};">${escapeHtml(order.currency || 'USD')} ${Number(item.price).toFixed(2)}</td>
             </tr>
         `).join('');
 
@@ -198,7 +198,7 @@ export const sendOrderConfirmation = async (email, order) => {
                             <tbody>${itemRows}</tbody>
                         </table>
                         <div style="margin-top: 20px; text-align: right;">
-                            <p style="font-size: 18px; font-weight: 700; color: ${theme.textMain};">Total: ${order.currency || 'INR'} ${Number(order.total).toFixed(2)}</p>
+                            <p style="font-size: 18px; font-weight: 700; color: ${theme.textMain};">Total: ${order.currency || 'USD'} ${Number(order.total).toFixed(2)}</p>
                         </div>
                         <div style="margin-top: 24px; background: #f9f5ee; border-radius: 8px; padding: 16px; font-size: 13px; color: ${theme.textMain};">
                             <strong>Shipping to:</strong><br/>

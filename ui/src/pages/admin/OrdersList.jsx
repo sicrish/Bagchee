@@ -146,63 +146,62 @@ const handleExport = async () => {
         return;
       }
 
-      // 2. Mapping logic strictly matched with your Order Schema
+      // 2. Mapping logic — Prisma returns flat camelCase fields
       const dataToExport = allOrders.map((order, index) => {
-        // Products array ko map karke ek lambi string banao
-        const productDetails = order.products?.map(p => 
+        const productDetails = (order.items || order.products || []).map(p =>
           `${p.name} (Price: ${p.price}, Qty: ${p.quantity}, Status: ${p.status || 'N/A'})`
         ).join(" | ") || "-";
 
         return {
           "Sr No": index + 1,
-          "Order Number": order.order_number || "-",
+          "Order Number": order.orderNumber || order.order_number || "-",
           "Order Date": formatDate(order.createdAt),
           "Order Status": order.status || "pending",
 
           // --- Financials ---
           "Currency": order.currency || "USD",
           "Total Amount": Number(order.total || 0).toFixed(2),
-          "Shipping Cost": Number(order.shipping_cost || 0).toFixed(2),
+          "Shipping Cost": Number(order.shippingCost ?? order.shipping_cost ?? 0).toFixed(2),
           "Membership": order.membership || "No",
-          "Membership Discount": Number(order.membership_discount || 0).toFixed(2),
+          "Membership Discount": Number(order.membershipDiscount ?? order.membership_discount ?? 0).toFixed(2),
 
           // --- Payment Info ---
-          "Payment Type": order.payment_type || "-",
-          "Payment Status": order.payment_status || "pending",
-          "Transaction ID": order.transaction_id || "-",
+          "Payment Type": order.paymentType || order.payment_type || "-",
+          "Payment Status": order.paymentStatus || order.payment_status || "pending",
+          "Transaction ID": order.transactionId || order.transaction_id || "-",
 
           // --- Customer Info ---
-          "Customer Name": order.customer_id?.name || "Unknown",
-          "Customer Email": order.customer_id?.email || "-",
+          "Customer Name": order.customer?.name || order.customer_id?.name || "Unknown",
+          "Customer Email": order.customer?.email || order.customer_id?.email || "-",
 
-          // --- Shipping Details (Matches Schema shipping_details object) ---
-          "Ship Email": order.shipping_details?.email || "-",
-          "Ship First Name": order.shipping_details?.first_name || "-",
-          "Ship Last Name": order.shipping_details?.last_name || "-",
-          "Ship Address 1": order.shipping_details?.address_1 || "-",
-          "Ship Address 2": order.shipping_details?.address_2 || "-",
-          "Ship Company": order.shipping_details?.company || "-",
-          "Ship Country": order.shipping_details?.country || "-",
-          "Ship State/Region": order.shipping_details?.state_region || "-",
-          "Ship City": order.shipping_details?.city || "-",
-          "Ship Postcode": order.shipping_details?.postcode || "-",
-          "Ship Phone": order.shipping_details?.phone || "-",
+          // --- Shipping Details (flat camelCase from Prisma) ---
+          "Ship Email": order.shippingEmail || "-",
+          "Ship First Name": order.shippingFirstName || "-",
+          "Ship Last Name": order.shippingLastName || "-",
+          "Ship Address 1": order.shippingAddress1 || "-",
+          "Ship Address 2": order.shippingAddress2 || "-",
+          "Ship Company": order.shippingCompany || "-",
+          "Ship Country": order.shippingCountry || "-",
+          "Ship State/Region": order.shippingState || "-",
+          "Ship City": order.shippingCity || "-",
+          "Ship Postcode": order.shippingPostcode || "-",
+          "Ship Phone": order.shippingPhone || "-",
 
-          // --- Billing Details (Matches Schema billing_details object) ---
-          "Bill First Name": order.billing_details?.first_name || "-",
-          "Bill Last Name": order.billing_details?.last_name || "-",
-          "Bill Address 1": order.billing_details?.address_1 || "-",
-          "Bill Address 2": order.billing_details?.address_2 || "-",
-          "Bill Company": order.billing_details?.company || "-",
-          "Bill Country": order.billing_details?.country || "-",
-          "Bill State/Region": order.billing_details?.state_region || "-",
-          "Bill City": order.billing_details?.city || "-",
-          "Bill Postcode": order.billing_details?.postcode || "-",
-          "Bill Phone": order.billing_details?.phone || "-",
+          // --- Billing Details (flat camelCase from Prisma) ---
+          "Bill First Name": order.billingFirstName || "-",
+          "Bill Last Name": order.billingLastName || "-",
+          "Bill Address 1": order.billingAddress1 || "-",
+          "Bill Address 2": order.billingAddress2 || "-",
+          "Bill Company": order.billingCompany || "-",
+          "Bill Country": order.billingCountry || "-",
+          "Bill State/Region": order.billingState || "-",
+          "Bill City": order.billingCity || "-",
+          "Bill Postcode": order.billingPostcode || "-",
+          "Bill Phone": order.billingPhone || "-",
 
           // --- Products & Comments ---
           "Products Detail (Name, Price, Qty)": productDetails,
-          "Admin Comment": order.comment?.replace(/<[^>]*>?/gm, '') || "-" // HTML tags hatane ke liye
+          "Admin Comment": order.comment?.replace(/<[^>]*>?/gm, '') || "-"
         };
       });
 

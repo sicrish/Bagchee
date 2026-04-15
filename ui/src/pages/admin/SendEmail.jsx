@@ -373,7 +373,7 @@ const SendEmail = () => {
     if (pickedProducts.length === 0) return toast.error('No products to insert.');
     const cards = pickedProducts.map(p => {
       const imgSrc = getProductImageUrl(p);
-      const price = p.inrPrice ? `₹${p.inrPrice}` : (p.price ? `$${p.price}` : '');
+      const price = p.price ? `$${p.price}` : '';
       return `
 <table cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:540px;margin:0 auto 20px;border:1px solid #e6decd;border-radius:8px;overflow:hidden;font-family:Inter,Helvetica,Arial,sans-serif;">
   <tr>
@@ -495,8 +495,8 @@ const SendEmail = () => {
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-bold text-text-main truncate">{p.title}</p>
                       <p className="text-[10px] text-primary font-mono">{p.bagcheeId}</p>
-                      {(p.inrPrice || p.price) && (
-                        <p className="text-[10px] font-bold text-gray-500">{p.inrPrice ? `₹${p.inrPrice}` : `$${p.price}`}</p>
+                      {p.price && (
+                        <p className="text-[10px] font-bold text-gray-500">${p.price}</p>
                       )}
                     </div>
                     <button

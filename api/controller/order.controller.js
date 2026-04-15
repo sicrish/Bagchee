@@ -90,12 +90,11 @@ export const saveOrder = async (req, res) => {
         if (productIds.some(isNaN))
             return res.status(400).json({ status: false, msg: 'All products must have a valid productId' });
 
-        const currency = req.body.currency || 'INR';
-        const useInr   = currency === 'INR';
+        const currency = req.body.currency || 'USD';
 
         const dbProducts = await prisma.product.findMany({
             where: { id: { in: productIds } },
-            select: { id: true, title: true, price: true, inrPrice: true, defaultImage: true }
+            select: { id: true, title: true, price: true, defaultImage: true }
         });
         if (dbProducts.length !== productIds.length)
             return res.status(400).json({ status: false, msg: 'One or more products not found' });
@@ -106,7 +105,7 @@ export const saveOrder = async (req, res) => {
         const itemsData = products.map(p => {
             const pId    = parseInt(p.productId || p.product_id || p.id);
             const dbProd = priceMap[pId];
-            const dbPrice = useInr ? (dbProd.inrPrice || dbProd.price) : dbProd.price;
+            const dbPrice = dbProd.price;
             return {
                 productId:    pId,
                 name:         p.name || p.title || dbProd.title || '',
@@ -374,8 +373,8 @@ export const updateOrder = async (req, res) => {
             if (req.body[f] !== undefined) updateData[f] = req.body[f];
         });
 
-        const updatedOrder = await prisma.order.update({
-            where: { id }, data: updateData, include: ORDER_DETAIL_INCLUDE
+        await prisma.order.update({
+            where: { id }, data: updateData
         });
 
         // Optional: per-item status updates (admin can update individual line items)
@@ -395,7 +394,9 @@ export const updateOrder = async (req, res) => {
             }));
         }
 
-        res.status(200).json({ status: true, msg: 'Order updated successfully', data: updatedOrder });
+        // Re-fetch after all updates so the response reflects the latest item data
+        const freshOrder = await prisma.order.findUnique({ where: { id }, include: ORDER_DETAIL_INCLUDE });
+        res.status(200).json({ status: true, msg: 'Order updated successfully', data: freshOrder });
     } catch (error) {
         console.error('Update Order Error:', error.message);
         if (error.code === 'P2025') return res.status(404).json({ status: false, msg: 'Order not found' });

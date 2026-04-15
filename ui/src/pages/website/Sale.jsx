@@ -221,10 +221,10 @@ const Sale = () => {
     const tags = [];
     if (filters.priceRange !== 'all') {
       const priceLabels = {
-        '0-500': 'Under ₹500',
-        '500-1000': '₹500 - ₹1000',
-        '1000-2000': '₹1000 - ₹2000',
-        '2000-': 'Over ₹2000'
+        '0-10': 'Under $10',
+        '10-25': '$10 - $25',
+        '25-50': '$25 - $50',
+        '50-': 'Over $50'
       };
       tags.push({ key: 'priceRange', label: priceLabels[filters.priceRange] });
     }
@@ -424,10 +424,10 @@ const Sale = () => {
         {/* <FilterSection title="Price Range" sectionKey="price">
           {[
             { label: 'All Prices', value: 'all' },
-            { label: 'Under ₹500', value: '0-500' },
-            { label: '₹500 - ₹1000', value: '500-1000' },
-            { label: '₹1000 - ₹2000', value: '1000-2000' },
-            { label: 'Over ₹2000', value: '2000-' }
+            { label: 'Under $10', value: '0-10' },
+            { label: '$10 - $25', value: '10-25' },
+            { label: '$25 - $50', value: '25-50' },
+            { label: 'Over $50', value: '50-' }
           ].map(option => (
             <FilterOption
               key={option.value}
@@ -557,10 +557,10 @@ const Sale = () => {
           {/* <FilterSection title="Price Range" sectionKey="price">
             {[
               { label: 'All Prices', value: 'all' },
-              { label: 'Under ₹500', value: '0-500' },
-              { label: '₹500 - ₹1000', value: '500-1000' },
-              { label: '₹1000 - ₹2000', value: '1000-2000' },
-              { label: 'Over ₹2000', value: '2000-' }
+              { label: 'Under $10', value: '0-10' },
+              { label: '$10 - $25', value: '10-25' },
+              { label: '$25 - $50', value: '25-50' },
+              { label: 'Over $50', value: '50-' }
             ].map(option => (
               <FilterOption
                 key={option.value}

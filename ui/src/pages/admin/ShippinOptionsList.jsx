@@ -28,7 +28,6 @@ const ShippingOptionsList = () => {
     title: "",
     usd: "",
     eur: "",
-    inr: "",
     status: "",
     order: ""
   });
@@ -72,7 +71,6 @@ const ShippingOptionsList = () => {
         "Option Title": item.title,
         "USD": item.priceUsd,
         "EUR": item.priceEur,
-        "INR": item.priceInr,
         "Active": item.isActive ? "Yes" : "No",
         "Order": item.order || 0
       }));
@@ -95,7 +93,6 @@ const ShippingOptionsList = () => {
         (item.title || "").toLowerCase().includes(filters.title.toLowerCase()) &&
         (item.priceUsd || "0").toString().includes(filters.usd) &&
         (item.priceEur || "0").toString().includes(filters.eur) &&
-        (item.priceInr || "0").toString().includes(filters.inr) &&
         statusText.includes(filters.status.toLowerCase()) &&
         (item.order !== undefined ? item.order : "0").toString().includes(filters.order)
       );
@@ -107,7 +104,7 @@ const ShippingOptionsList = () => {
   };
 
   const clearFilters = () => {
-    setFilters({ id: "", title: "", usd: "", eur: "", inr: "", status: "", order: "" });
+    setFilters({ id: "", title: "", usd: "", eur: "", status: "", order: "" });
     fetchShippingOptions();
   };
 
@@ -171,7 +168,6 @@ const ShippingOptionsList = () => {
                 <th className="p-3 text-left border-r border-white/20">Title</th>
                 <th className="p-3 text-left border-r border-white/20 w-28">Price usd</th>
                 <th className="p-3 text-left border-r border-white/20 w-28">Price eur</th>
-                <th className="p-3 text-left border-r border-white/20 w-28">Price inr</th>
                 <th className="p-3 text-left border-r border-white/20 w-24">Active</th>
                 <th className="p-3 text-left border-r border-white/20 w-20">Order</th>
                 <th className="p-3 text-center w-24">Actions</th>
@@ -193,9 +189,6 @@ const ShippingOptionsList = () => {
                 </td>
                 <td className="p-2 border-r border-white/20">
                   <input name="eur" value={filters.eur} onChange={handleFilterChange} type="text" className={filterInputClass} placeholder="Filter EUR" />
-                </td>
-                <td className="p-2 border-r border-white/20">
-                  <input name="inr" value={filters.inr} onChange={handleFilterChange} type="text" className={filterInputClass} placeholder="Filter INR" />
                 </td>
                 <td className="p-2 border-r border-white/20">
                   <input name="status" value={filters.status} onChange={handleFilterChange} type="text" className={filterInputClass} placeholder="Filter Status" />
@@ -232,7 +225,6 @@ const ShippingOptionsList = () => {
                     <td className="p-3 border-r border-cream-50 text-text-main font-medium">{item.title}</td>
                     <td className="p-3 border-r border-cream-50 text-text-main">{item.priceUsd || '0'}</td>
                     <td className="p-3 border-r border-cream-50 text-text-main">{item.priceEur || '0'}</td>
-                    <td className="p-3 border-r border-cream-50 text-text-main">{item.priceInr || '0'}</td>
                     <td className="p-3 border-r border-cream-50 text-text-main">
                         <span className={item.isActive ? 'text-green-600 font-bold' : 'text-text-muted'}>
                             {item.isActive ? 'Yes' : 'No'}
