@@ -88,17 +88,17 @@ const BooksOfTheMonthSection = () => {
                         <SectionSkeleton />
                     ) : (
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-6 transition-all duration-500">
-                            {data?.products?.slice(0, 6).map((book) => (
-                                <div key={book._id} className="relative group/card transform transition-all duration-300 hover:-translate-y-1">
+                            {data?.products?.slice(0, 6).map((item) => (
+                                <div key={item.id} className="relative group/card transform transition-all duration-300 hover:-translate-y-1">
                                     <div className="absolute top-2 right-2 z-20 transform group-hover/card:scale-110 transition-transform">
                                         <div className="bg-accent p-1.5 rounded-full shadow-md">
                                             <Star fill="#0B2F3A" size={12} className="text-text-main" />
                                         </div>
                                     </div>
-                                    
-                                    <ProductCardGrid 
-                                        data={book} 
-                                        onQuickView={handleOpenModal} 
+
+                                    <ProductCardGrid
+                                        data={item.product}
+                                        onQuickView={handleOpenModal}
                                     />
                                 </div>
                             ))}

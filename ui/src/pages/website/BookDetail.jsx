@@ -148,7 +148,7 @@ const BookDetail = () => {
                 `${process.env.REACT_APP_API_URL}/product/fetch?categories=${rootCategoryId}&sort=bestseller&limit=100`
               );
               if (relatedResponse.data.status && Array.isArray(relatedResponse.data.data)) {
-                const pool = relatedResponse.data.data.filter(b => b._id !== bookData._id);
+                const pool = relatedResponse.data.data.filter(b => b.id !== bookData.id).map(normalizeProduct);
                 const shuffled = pool.sort(() => Math.random() - 0.5);
                 setRelatedBooks(shuffled.slice(0, 15));
               }
@@ -240,7 +240,7 @@ const BookDetail = () => {
             `${process.env.REACT_APP_API_URL}/product/fetch?series=${seriesId}&limit=20`
           );
           if (seriesRes.data.status && Array.isArray(seriesRes.data.data)) {
-            setSeriesBooks(seriesRes.data.data.filter(b => b._id !== book._id));
+            setSeriesBooks(seriesRes.data.data.filter(b => b.id !== book.id).map(normalizeProduct));
           }
         } catch {
           // silently fail
@@ -256,7 +256,7 @@ const BookDetail = () => {
             `${process.env.REACT_APP_API_URL}/product/fetch?publishers=${publisherId}&sort=bestseller&limit=20`
           );
           if (abRes.data.status && Array.isArray(abRes.data.data)) {
-            setAlsoBoughtBooks(abRes.data.data.filter(b => b._id !== book._id).slice(0, 15));
+            setAlsoBoughtBooks(abRes.data.data.filter(b => b.id !== book.id).map(normalizeProduct).slice(0, 15));
           }
         }
       } catch {
@@ -1192,8 +1192,8 @@ const BookDetail = () => {
 
                 return (
                   <Link
-                    key={relatedBook._id}
-                    to={`/books/${relatedBook.bagchee_id || relatedBook._id}/${relatedSlug}`}
+                    key={relatedBook.id}
+                    to={`/books/${relatedBook.bagcheeId || relatedBook.bagchee_id || relatedBook.id}/${relatedSlug}`}
                     className="flex-shrink-0 w-40 bg-cream-50 border border-gray-200 rounded overflow-hidden hover:shadow-md transition-shadow group"
                   >
                     <div className="aspect-[3/4] overflow-hidden bg-white relative">
@@ -1407,7 +1407,7 @@ const BookDetail = () => {
               {seriesBooks.map(sb => {
                 const sbSlug = sb.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
                 return (
-                  <Link key={sb._id} to={`/books/${sb.bagchee_id || sb._id}/${sbSlug}`} className="flex-shrink-0 w-40 bg-cream-50 border border-gray-200 rounded overflow-hidden hover:shadow-md transition-shadow group">
+                  <Link key={sb.id} to={`/books/${sb.bagcheeId || sb.bagchee_id || sb.id}/${sbSlug}`} className="flex-shrink-0 w-40 bg-cream-50 border border-gray-200 rounded overflow-hidden hover:shadow-md transition-shadow group">
                     <div className="aspect-[3/4] overflow-hidden bg-white">
                       <img
                         /* 🟢 FIXED: getFullImageUrl function added here */
@@ -1728,7 +1728,7 @@ const BookDetail = () => {
                 const abHasDiscount = ab.real_price && ab.real_price > ab.price;
                 const abDiscount = abHasDiscount ? Math.round(((ab.real_price - ab.price) / ab.real_price) * 100) : 0;
                 return (
-                  <Link key={ab._id} to={`/books/${ab.bagchee_id || ab._id}/${abSlug}`} className="flex-shrink-0 w-40 bg-cream-50 border border-gray-200 rounded overflow-hidden hover:shadow-md transition-shadow group">
+                  <Link key={ab.id} to={`/books/${ab.bagcheeId || ab.bagchee_id || ab.id}/${abSlug}`} className="flex-shrink-0 w-40 bg-cream-50 border border-gray-200 rounded overflow-hidden hover:shadow-md transition-shadow group">
                     <div className="aspect-[3/4] overflow-hidden bg-white relative">
                       <img
                         /* 🟢 FIXED: getFullImageUrl added here */
