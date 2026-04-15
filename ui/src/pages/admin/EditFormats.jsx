@@ -98,7 +98,7 @@ const EditFormats = () => {
     const payload = {
        title: formData.title,
        active: formData.status, // status dropdown mapping to 'active' field in schema
-       category: formData.category_id, // dropdown mapping to 'category' field
+       category_id: formData.category_id,
        order: formData.order
     };
 

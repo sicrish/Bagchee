@@ -86,8 +86,8 @@ const HomeBestSellerForm = () => {
 
   // --- 3. SELECT PRODUCT ---
   const handleSelectProduct = (product) => {
-    setFormData({ ...formData, productId: product.bagchee_id });
-    setSearchQuery(`${product.bagchee_id} - ${product.title}`); 
+    setFormData({ ...formData, productId: product.bagcheeId || product.bagchee_id });
+    setSearchQuery(`${product.bagcheeId || product.bagchee_id} - ${product.title}`); 
     setIsDropdownOpen(false); 
   };
 
