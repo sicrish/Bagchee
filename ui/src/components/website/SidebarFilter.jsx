@@ -214,15 +214,16 @@ const SidebarFilter = ({
                 (subcategories && subcategories.length > 0
                   ? subcategories.map((subcat) => (
                       <div
-                        key={subcat._id}
+                        key={subcat.id || subcat._id}
                         onClick={() => {
-                          navigate(`/books/${subcat.slug.split('/').pop()}`);
+                          const s = subcat.slug || '';
+                          navigate(`/books/${s.split('/').pop() || s}`);
                           if (onClose) onClose();
                         }}
                         className="flex items-center justify-between py-3 border-b border-cream-50 cursor-pointer hover:bg-gray-50"
                       >
                         <span className="text-sm text-text-main">
-                          {subcat.categorytitle}
+                          {subcat.categorytitle || subcat.title}
                         </span>
                         <ChevronRight size={16} className="text-gray-400" />
                       </div>
@@ -451,15 +452,16 @@ const SidebarFilter = ({
                       : subcategories.slice(0, 15)
                     ).map((subcat) => (
                       <div
-                        key={subcat._id}
+                        key={subcat.id || subcat._id}
                         onClick={() => {
-                          navigate(`/books/${subcat.slug.split('/').pop()}`);
+                          const s = subcat.slug || '';
+                          navigate(`/books/${s.split('/').pop() || s}`);
                           if (onClose) onClose();
                         }}
                         className="flex items-center space-x-3 cursor-pointer group py-1.5 hover:text-primary transition-colors select-none"
                       >
                         <span className="text-sm font-body text-text-main group-hover:text-primary">
-                          {subcat.categorytitle}
+                          {subcat.categorytitle || subcat.title}
                         </span>
                       </div>
                     ))}
