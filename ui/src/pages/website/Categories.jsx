@@ -1,31 +1,31 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
-import { ChevronDown, ChevronRight, Book, Loader2, CornerDownRight, Eye, Tag } from 'lucide-react';
+import { ChevronDown, Book, Loader2, Tag, ArrowRight } from 'lucide-react';
 
 const Categories = () => {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [tags, setTags] = useState([]); // 🟢 New state for Tags
+  const [tags, setTags] = useState([]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch Categories
-        const categoriesResponse = await axios.get(`${process.env.REACT_APP_API_URL}/category/fetch`); 
-        if (categoriesResponse.data.status) {
-          const rawData = categoriesResponse.data.data || categoriesResponse.data.categories;
-          const tree = buildCategoryTree(rawData);
-          setCategories(tree);
+        const [catRes, tagRes] = await Promise.all([
+          axios.get(`${process.env.REACT_APP_API_URL}/category/fetch`),
+          axios.get(`${process.env.REACT_APP_API_URL}/tags/list`),
+        ]);
+
+        if (catRes.data.status) {
+          const rawData = catRes.data.data || catRes.data.categories || [];
+          setCategories(buildCategoryTree(rawData));
         }
 
-        // 🟢 Fetch Tags for Special Topics
-        const tagsResponse = await axios.get(`${process.env.REACT_APP_API_URL}/tags/list`);
-        if (tagsResponse.data.status && tagsResponse.data.data) {
-          setTags(tagsResponse.data.data);
+        if (tagRes.data.status && tagRes.data.data) {
+          setTags(tagRes.data.data);
         }
       } catch (error) {
-        console.error("Error loading data:", error);
+        console.error('Error loading data:', error);
       } finally {
         setLoading(false);
       }
@@ -35,53 +35,54 @@ const Categories = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-cream-100 text-primary">
-        <Loader2 className="animate-spin w-10 h-10" />
+      <div className="min-h-screen flex items-center justify-center bg-cream-50">
+        <Loader2 className="animate-spin text-primary" size={40} />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-cream-50 py-10 px-4 md:px-8 font-body">
-      
-      <div className="text-center mb-10">
-        <h1 className="text-3xl md:text-4xl font-display font-bold text-text-main uppercase tracking-wide">
+    <div className="min-h-screen bg-cream-50 font-body text-text-main pb-16">
+
+      {/* Page Header */}
+      <div className="bg-primary py-10 px-4 text-center">
+        <h1 className="text-3xl md:text-4xl font-display font-bold text-white uppercase tracking-wide">
           Browse All Categories
         </h1>
-        <div className="w-24 h-1.5 bg-primary mx-auto mt-4 rounded-full"></div>
+        <div className="w-20 h-1 bg-white/40 mx-auto mt-4 rounded-full" />
       </div>
 
-      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Categories Accordion List */}
+      <div className="max-w-4xl mx-auto px-4 py-10 space-y-3">
         {categories.length > 0 ? (
           categories.map((cat) => (
-            <CategoryItem key={cat.id || cat._id} category={cat} level={0} />
+            <CategoryAccordion key={cat.id || cat._id} category={cat} />
           ))
         ) : (
-          <p className="text-center col-span-full text-text-muted font-bold">No categories found.</p>
+          <p className="text-center text-text-muted font-semibold py-10">
+            No categories found.
+          </p>
         )}
       </div>
 
-      {/* 🟢 Special Topics Section - Displaying Tags */}
+      {/* Special Topics / Tags */}
       {tags.length > 0 && (
-        <div id="special-topics" className="max-w-[85rem] mx-auto mt-16 px-4 md:px-8">
-          <div className="text-center mb-10">
-            <h2 className="text-3xl md:text-4xl font-display font-bold text-text-main uppercase tracking-wide">
+        <div className="max-w-5xl mx-auto px-4 mt-6">
+          <div className="text-center mb-8">
+            <h2 className="text-2xl md:text-3xl font-display font-bold text-text-main uppercase tracking-wide">
               Special Topics
             </h2>
-            <div className="w-24 h-1.5 bg-primary mx-auto mt-4 rounded-full"></div>
+            <div className="w-16 h-1 bg-primary mx-auto mt-3 rounded-full" />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="flex flex-wrap gap-3 justify-center">
             {tags.map((tag) => (
-              <div
-                key={tag._id}
-                className="flex items-center justify-center h-full"
+              <span
+                key={tag.id || tag._id}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-primary/20 text-primary rounded-full text-sm font-semibold shadow-sm hover:bg-primary hover:text-white cursor-pointer transition-all duration-200"
               >
-                <div className="flex flex-row items-center gap-2 px-4 py-3 bg-primary text-white rounded-md font-bold text-sm uppercase tracking-wide shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 cursor-pointer select-none w-full border-primary"
-                >
-                  <Tag size={18} className="text-white opacity-90 flex-shrink-0" />
-                  <span className="line-clamp-1">{tag.title}</span>
-                </div>
-              </div>
+                <Tag size={14} />
+                {tag.title}
+              </span>
             ))}
           </div>
         </div>
@@ -90,118 +91,115 @@ const Categories = () => {
   );
 };
 
-const CategoryItem = ({ category, level }) => {
+/* ─── Single accordion card for a top-level category ─── */
+const CategoryAccordion = ({ category }) => {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const hasChildren = category.children && category.children.length > 0;
-
-  const handleClick = () => {
-    if (hasChildren) {
-      setIsOpen(!isOpen);
-    } else {
-      navigate(`/books/${category.slug}`);
-    }
-  };
-
-  // Color Logic
-  const getLevelStyles = () => {
-    switch (level) {
-      case 0: 
-        return 'bg-primary text-white shadow-lg border-primary';
-      case 1: 
-        return 'bg-white text-text-main shadow-sm border-l-4 border-secondary mt-2';
-      case 2: 
-        return 'bg-cream-100 text-text-main shadow-inner border-l-4 border-accent mt-2';
-      default: 
-        return 'bg-gray-100 text-gray-600 border-l-4 border-gray-300 mt-1';
-    }
-  };
+  const catTitle = category.title || category.categorytitle || '';
 
   return (
-    <div className="w-full transition-all duration-300">
-      
-      {/* --- CATEGORY BOX --- */}
-      <div 
-        onClick={handleClick}
-        className={`
-          flex items-center justify-between px-4 py-3 cursor-pointer transition-all duration-200 rounded-md
-          font-bold uppercase tracking-wide text-sm select-none
-          ${getLevelStyles()}
-          ${level > 0 ? 'ml-4 md:ml-6' : ''} 
-          hover:opacity-90 active:scale-[0.99]
-        `}
-      >
-        <div className="flex items-center gap-3">
-          {level === 0 && <Book size={18} className="text-white opacity-90" />}
-          {level > 0 && <CornerDownRight size={14} className="opacity-50" />}
+    <div className="bg-white rounded-lg border border-cream-200 shadow-sm overflow-hidden">
 
-          <span className="truncate leading-none pt-1">
-            {category.categorytitle || category.title}
+      {/* Header row */}
+      <button
+        type="button"
+        onClick={() => hasChildren ? setIsOpen(!isOpen) : navigate(`/books/${category.slug}`)}
+        className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-cream-50 transition-colors"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+            <Book size={16} className="text-primary" />
           </span>
+          <span className="font-bold text-[15px] text-text-main uppercase tracking-wide truncate">
+            {catTitle}
+          </span>
+          {hasChildren && (
+            <span className="flex-shrink-0 text-[11px] font-semibold text-text-muted bg-cream-100 px-2 py-0.5 rounded-full">
+              {category.children.length}
+            </span>
+          )}
         </div>
 
         {hasChildren ? (
-          <div className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : 'rotate-0'}`}>
-            <ChevronDown size={16} />
-          </div>
+          <ChevronDown
+            size={18}
+            className={`flex-shrink-0 text-primary transition-transform duration-300 ${isOpen ? 'rotate-180' : 'rotate-0'}`}
+          />
         ) : (
-          level > 0 && <ChevronRight size={14} className="opacity-40" />
+          <ArrowRight size={16} className="flex-shrink-0 text-text-muted" />
         )}
-      </div>
+      </button>
 
-      {/* --- DROPDOWN ANIMATION --- */}
-      <div 
-        className={`overflow-hidden transition-[max-height] duration-500 ease-in-out ${isOpen ? 'max-h-[1500px] opacity-100' : 'max-h-0 opacity-0'}`}
-      >
-        <div className="pb-1">
-          
-          {/* 🟢 VIEW ALL BUTTON (Only inside Level 0) */}
-          {/* Blue Border added via 'border-secondary' to match sub-categories */}
-          {level === 0 && hasChildren && (
-             <div 
-                className={`
-                  flex items-center gap-3 px-4 py-3 mt-2 cursor-pointer rounded-md
-                  font-bold text-sm tracking-wide 
-                  bg-white text-text-main shadow-sm border-l-4 border-secondary 
-                  ml-4 md:ml-6
-                  hover:bg-gray-50 transition-colors
-                `}
-                // onClick={() => {}} // Navigation logic removed for now as requested
-             >
-                <Eye size={16} className="text-primary" />
-                <span>View All</span>
-             </div>
-          )}
-
-          {/* Children List */}
-          {hasChildren && category.children.map((child) => (
-            <CategoryItem key={child.id || child._id} category={child} level={level + 1} />
-          ))}
+      {/* Subcategories dropdown */}
+      {hasChildren && (
+        <div
+          className={`overflow-hidden transition-[max-height,opacity] duration-400 ease-in-out ${
+            isOpen ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+          }`}
+        >
+          <div className="border-t border-cream-100">
+            {/* View All row */}
+            <SubcategoryRow
+              label={`View all in ${catTitle}`}
+              slug={category.slug}
+              isViewAll
+            />
+            {/* Children */}
+            {category.children.map((child) => (
+              <SubcategoryRow
+                key={child.id || child._id}
+                label={child.title || child.categorytitle}
+                slug={child.slug}
+              />
+            ))}
+          </div>
         </div>
-      </div>
-
+      )}
     </div>
   );
 };
 
-// Tree Builder Helper
+/* ─── A single row inside the dropdown ─── */
+const SubcategoryRow = ({ label, slug, isViewAll }) => {
+  const navigate = useNavigate();
+  return (
+    <button
+      type="button"
+      onClick={() => slug && navigate(`/books/${slug}`)}
+      className={`w-full flex items-center justify-between px-5 py-3 text-left hover:bg-cream-50 transition-colors border-b border-cream-50 last:border-0 ${
+        isViewAll ? 'text-primary font-bold' : 'text-text-main font-medium'
+      }`}
+    >
+      <span className={`text-[13px] ${isViewAll ? 'italic' : ''}`}>
+        {isViewAll ? `→ ${label}` : label}
+      </span>
+      <ArrowRight size={13} className="text-text-muted flex-shrink-0" />
+    </button>
+  );
+};
+
+/* ─── Build nested tree from flat list (parentId = 0 means root) ─── */
 const buildCategoryTree = (categories) => {
-  const categoryMap = {};
-  const tree = [];
-  categories.forEach(cat => {
-    const id = cat.id || cat._id;
-    categoryMap[id] = { ...cat, children: [] };
+  const map = {};
+  const roots = [];
+
+  categories.forEach((cat) => {
+    const id = cat.id ?? cat._id;
+    map[id] = { ...cat, children: [] };
   });
-  categories.forEach(cat => {
-    const id = cat.id || cat._id;
-    const parentId = cat.parentId || cat.parentid;
-    if (parentId && categoryMap[parentId]) {
-      categoryMap[parentId].children.push(categoryMap[id]);
+
+  categories.forEach((cat) => {
+    const id = cat.id ?? cat._id;
+    const parentId = cat.parentId ?? cat.parentid ?? 0;
+    if (parentId && map[parentId]) {
+      map[parentId].children.push(map[id]);
     } else {
-      tree.push(categoryMap[id]);
+      roots.push(map[id]);
     }
   });
-  return tree;
+
+  return roots;
 };
 
 export default Categories;

@@ -526,4 +526,3 @@ const navigate = useNavigate();
   );
 }
 export default Orders;
-

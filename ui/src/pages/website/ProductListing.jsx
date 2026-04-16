@@ -272,7 +272,7 @@ const ProductListing = ({ type }) => {
     };
 
     return (
-        <div className="min-h-screen bg-cream-50 font-body text-text-main pb-10">
+        <div className="min-h-screen bg-cream-50 font-body text-text-main pb-10 overflow-x-hidden">
             {/* --- PAGE HEADER --- */}
             {/* --- PAGE HEADER --- */}
             {type === 'sale' ? (
