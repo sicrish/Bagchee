@@ -253,9 +253,9 @@ const EditBook = () => {
             const tocImgs = book.tocImages || book.toc_images;
             const relImgs = book.images || book.related_images;
             const sampImgs = book.sampleImages || book.sample_images;
-            if (tocImgs && tocImgs.length > 0) setTocImagesList(tocImgs.map((img) => ({ id: img.id || img._id, image: img.image || img.url, order: img.ord || img.order, file: null })));
-            if (relImgs && relImgs.length > 0) setRelatedImagesList(relImgs.map((img) => ({ id: img.id || img._id, image: img.image || img.url, order: img.ord || img.order, file: null })));
-            if (sampImgs && sampImgs.length > 0) setSampleImagesList(sampImgs.map((img) => ({ id: img.id || img._id, image: img.image || img.url, order: img.ord || img.order, file: null })));
+            if (tocImgs && tocImgs.length > 0) setTocImagesList(tocImgs.map((img) => ({ id: img.id || img._id, image: img.file || img.image || img.url, order: img.ord ?? img.order ?? 0, file: null })));
+            if (relImgs && relImgs.length > 0) setRelatedImagesList(relImgs.map((img) => ({ id: img.id || img._id, image: img.file || img.image || img.url, order: img.ord ?? img.order ?? 0, file: null })));
+            if (sampImgs && sampImgs.length > 0) setSampleImagesList(sampImgs.map((img) => ({ id: img.id || img._id, image: img.file || img.image || img.url, order: img.ord ?? img.order ?? 0, file: null })));
 
             const tocImagePath = book.tocImage || book.toc_image;
             if (tocImagePath) {
