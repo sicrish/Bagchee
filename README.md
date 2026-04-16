@@ -23,27 +23,27 @@ cd api
 npm install
 ```
 
-Create a file called `.env` inside the `api/` folder:
+Create a file called `.env` inside the `api/` folder — ask the team lead for the values:
 
 ```env
 NODE_ENV=development
 PORT=3001
 
-DATABASE_URL=postgresql://neondb_owner:npg_jlP93fWZIORe@ep-still-glitter-ai5lkca1-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require&connect_timeout=30&pool_timeout=30
-DIRECT_URL=postgresql://neondb_owner:npg_jlP93fWZIORe@ep-still-glitter-ai5lkca1.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require
+DATABASE_URL=
+DIRECT_URL=
 
-JWT_SECRET_KEY=IkqwfPnbtuD5KWpWA0G0CxByef5HMv4Oed/ZAtfQh9MMZpAE4P1n0FT2kwRqJU2C
-ENCRYPTION_SECRET=metXFqhCDc39LVSNnwthDmdYQLGZZVx10rR8Qzybw7Au3C2lW/JqdunzKD9ieoQ+
+JWT_SECRET_KEY=
+ENCRYPTION_SECRET=
 
-CLOUD_NAME=dgmkcyrl7
-CLOUD_API_KEY=565771915474825
-CLOUD_API_SECRET=2HW6py7gRaCEyk4ggd1JxNyn79Q
+CLOUD_NAME=
+CLOUD_API_KEY=
+CLOUD_API_SECRET=
 
-RAZORPAY_KEY_ID=rzp_test_SLp1axPzfknnrQ
-RAZORPAY_KEY_SECRET=MdWCjCDOUj5ghVKovTEBrvxy
+RAZORPAY_KEY_ID=
+RAZORPAY_KEY_SECRET=
 
-EMAIL_USER=anshuljaiswal568@gmail.com
-EMAIL_PASS=evoh ljkc gmkx mhtr
+EMAIL_USER=
+EMAIL_PASS=
 
 FRONTEND_URL=http://localhost:3000
 ```
@@ -68,13 +68,13 @@ cd ui
 npm install
 ```
 
-Create a file called `.env` inside the `ui/` folder:
+Create a file called `.env` inside the `ui/` folder — ask the team lead for the values:
 
 ```env
 REACT_APP_API_URL=http://localhost:3001
-REACT_APP_ENCRYPTION_SECRET=metXFqhCDc39LVSNnwthDmdYQLGZZVx10rR8Qzybw7Au3C2lW/JqdunzKD9ieoQ+
-REACT_APP_EXCHANGE_RATE_API_KEY=01b425d377751fbbed67dcdc
-REACT_APP_RAZORPAY_KEY_ID=rzp_test_SLp1axPzfknnrQ
+REACT_APP_ENCRYPTION_SECRET=
+REACT_APP_EXCHANGE_RATE_API_KEY=
+REACT_APP_RAZORPAY_KEY_ID=
 ```
 
 Start the frontend:
@@ -90,8 +90,7 @@ Frontend runs at `http://localhost:3000`
 ## 4. Admin panel
 
 - URL: `http://localhost:3000/admin`
-- Email: `admin@bagchee.com`
-- Password: `Admin@123`
+- Credentials: ask the team lead
 
 ---
 
