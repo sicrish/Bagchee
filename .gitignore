@@ -19,6 +19,7 @@ Thumbs.db
 ui/build/
 
 # Dev tooling artifacts
+.claude/
 api/.agents/
 api/.claude/
 api/skills-lock.json
