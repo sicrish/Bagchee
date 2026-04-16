@@ -161,7 +161,7 @@ const Cart = () => {
   };
 
   const handleQuantityChange = (productId, newQty) => {
-    const item = cart.find(i => i._id === productId);
+    const item = cart.find(i => (i.id || i._id) === productId);
     if (!item) return;
     const diff = newQty - item.quantity;
     if (diff > 0) {
@@ -313,7 +313,7 @@ const Cart = () => {
 
               <div className="divide-y divide-gray-100">
                 {cart.map((item) => (
-                  <div key={item._id} className="p-5">
+                  <div key={item.id || item._id} className="p-5">
                     <div className="flex gap-4">
                       {/* Book cover */}
                       <Link
@@ -376,7 +376,7 @@ const Cart = () => {
                             value={item.quantity}
                             onChange={(e) =>
                               handleQuantityChange(
-                                item._id,
+                                item.id || item._id,
                                 parseInt(e.target.value, 10),
                               )
                             }
@@ -394,7 +394,7 @@ const Cart = () => {
 
                           {/* Action buttons */}
                           <button
-                            onClick={() => handleRemoveItem(item._id)}
+                            onClick={() => handleRemoveItem(item.id || item._id)}
                             className="flex items-center gap-1 border border-gray-400 text-gray-700 text-xs font-bold uppercase px-4 py-1.5 hover:bg-gray-100 transition-colors font-montserrat"
                           >
                             <X size={12} />
@@ -572,12 +572,12 @@ const Cart = () => {
 {/* ─── SHIPPING OPTIONS SECTION ─── */}
 <div className="space-y-2">
   {shippingOptions.map((option) => (
-    <label key={option._id} className={`flex items-center justify-between p-2 cursor-pointer rounded ${appliedShipping?._id === option._id ? 'bg-primary/5' : ''}`}>
+    <label key={option.id || option._id} className={`flex items-center justify-between p-2 cursor-pointer rounded ${(appliedShipping?.id || appliedShipping?._id) === (option.id || option._id) ? 'bg-primary/5' : ''}`}>
       <div className="flex items-center gap-2">
-        <input 
-          type="radio" 
+        <input
+          type="radio"
           name="shipping"
-          checked={appliedShipping?._id === option._id} 
+          checked={(appliedShipping?.id || appliedShipping?._id) === (option.id || option._id)}
           onChange={() => setAppliedShipping(option)} 
           className="w-4 h-4 text-primary"
         />
