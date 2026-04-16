@@ -188,8 +188,11 @@ const buildCategoryTree = (categories) => {
   const map = {};
   const roots = [];
 
+  // Skip placeholder nodes that have no title
   categories.forEach((cat) => {
     const id = cat.id ?? cat._id;
+    const title = (cat.title || cat.category_title || '').trim();
+    if (!title) return; // skip blank-title nodes entirely
     map[id] = { ...cat, children: [] };
   });
 
