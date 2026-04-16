@@ -198,6 +198,7 @@ const buildCategoryTree = (categories) => {
 
   categories.forEach((cat) => {
     const id = cat.id ?? cat._id;
+    if (!map[id]) return; // skip blank-title nodes (not in map)
     const parentId = cat.parentId ?? cat.parentid ?? 0;
     const parent = map[parentId];
     // Treat as root if: no parentId, parent not found, or parent has empty title
