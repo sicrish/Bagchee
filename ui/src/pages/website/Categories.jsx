@@ -179,7 +179,11 @@ const SubcategoryRow = ({ label, slug, isViewAll }) => {
   );
 };
 
-/* ─── Build nested tree from flat list (parentId = 0 means root) ─── */
+/* ─── Build nested tree from flat list ───
+ * parentId = 0 means root.
+ * Also treat a category as root if its parent has an empty title
+ * (id=1 and id=2 in the DB are invisible "super-root" placeholders).
+ */
 const buildCategoryTree = (categories) => {
   const map = {};
   const roots = [];
@@ -192,10 +196,12 @@ const buildCategoryTree = (categories) => {
   categories.forEach((cat) => {
     const id = cat.id ?? cat._id;
     const parentId = cat.parentId ?? cat.parentid ?? 0;
-    if (parentId && map[parentId]) {
-      map[parentId].children.push(map[id]);
-    } else {
+    const parent = map[parentId];
+    // Treat as root if: no parentId, parent not found, or parent has empty title
+    if (!parentId || !parent || !(parent.title || parent.category_title || '').trim()) {
       roots.push(map[id]);
+    } else {
+      parent.children.push(map[id]);
     }
   });
 
