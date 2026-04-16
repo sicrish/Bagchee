@@ -187,19 +187,31 @@ const EditBook = () => {
 
             setFormData({
                 title: book.title || '',
-                product_type: book.product_type || 'book',
-                bagchee_id: book.bagchee_id || '',
-                leading_category: book.categoryId ? (typeof book.categoryId === 'object' ? book.categoryId._id : book.categoryId) : (book.product_categories?.[0] || ''),
-                product_categories: book.product_categories || [],
-                product_languages: book.product_languages || (book.language ? [book.language] : []),
-                product_tags: book.product_tags || [],
-                product_formats: book.product_formats || (book.binding ? [book.binding] : []),
-                authors: book.authors ? book.authors : (book.author ? [book.author] : []),
-                // Agar series array hai to wahi rakho, single hai to array bana do, warna khali array []
-series: Array.isArray(book.series)
-? book.series.map(s => typeof s === 'object' ? (s.id || s._id) : s)
-: (book.series ? [typeof book.series === 'object' ? (book.series.id || book.series._id) : book.series] : []),
-                publisher: book.publisher || '',
+                product_type: book.productType || book.product_type || 'book',
+                bagchee_id: book.bagcheeId || book.bagchee_id || '',
+                leading_category: book.leadingCategoryId || book.categoryId || '',
+                // junction arrays → extract IDs
+                product_categories: book.categories
+                    ? book.categories.map(c => c.categoryId || c.category?.id).filter(Boolean)
+                    : (book.product_categories || []),
+                product_languages: book.languages
+                    ? book.languages.map(l => l.language?.title || l.title).filter(Boolean)
+                    : (book.product_languages || (book.language ? [book.language] : [])),
+                product_tags: book.tags
+                    ? book.tags.map(t => t.tag?.title || t.title).filter(Boolean)
+                    : (book.product_tags || []),
+                product_formats: book.formats
+                    ? book.formats.map(f => f.format?.title || f.title).filter(Boolean)
+                    : (book.product_formats || (book.binding ? [book.binding] : [])),
+                // junction → author IDs only (prevents "Objects not valid as React child" crash)
+                authors: book.authors
+                    ? book.authors.map(a => a.authorId || a.author?.id).filter(Boolean)
+                    : (book.author ? [book.author] : []),
+                // series is a direct relation (single object) or null
+                series: book.series
+                    ? [book.series.id || book.series._id]
+                    : [],
+                publisher: book.publisher ? (book.publisher.id || book.publisher._id || book.publisher) : (book.publisherId || ''),
                 volume: book.volume || '',
                 edition: book.edition || '',
                 isbn10: book.isbn10 || '',
@@ -207,43 +219,47 @@ series: Array.isArray(book.series)
                 total_pages: (book.pages !== undefined && book.pages !== null) ? String(book.pages) : '',
                 weight: book.weight || '',
                 price: book.price || '',
-                real_price: book.real_price || book.priceForeign || '',
-                inr_price: book.price || '',
+                real_price: book.realPrice || book.real_price || book.priceForeign || '',
+                inr_price: book.inrPrice || book.price || '',
                 discount: book.discount || '',
-                stock: typeof book.stock === 'number' ? (book.stock > 0 ? 'active' : 'inactive') : (book.stock || 'active'),
+                stock: book.stock || 'active',
                 availability: book.availability ? Number(book.availability) : 0,
                 notes: book.notes || '',
-                series_number: (book.series_number !== undefined && book.series_number !== null) ? String(book.series_number) : '',
-                meta_title: book.meta_title || '',
-                meta_keywords: book.meta_keywords || '',
-                meta_description: book.meta_description || '',
+                series_number: (book.seriesNumber !== undefined && book.seriesNumber !== null) ? String(book.seriesNumber) : (book.series_number ? String(book.series_number) : ''),
+                meta_title: book.metaTitle || book.meta_title || '',
+                meta_keywords: book.metaKeywords || book.meta_keywords || '',
+                meta_description: book.metaDescription || book.meta_description || '',
                 active: book.isActive ? 'active' : 'inactive',
                 recommended: book.isRecommended ? 'active' : 'inactive',
-                upcoming: (book.upcoming || book.Upcoming) ? 'active' : 'inactive',
-                upcoming_date: book.upcoming_date ? new Date(book.upcoming_date).toISOString().split('T')[0] : '',
+                upcoming: book.upcoming ? 'active' : 'inactive',
+                upcoming_date: (book.upcomingDate || book.upcoming_date) ? new Date(book.upcomingDate || book.upcoming_date).toISOString().split('T')[0] : '',
                 new_release: book.isNewRelease ? 'active' : 'inactive',
-                new_release_until: book.new_release_until ? new Date(book.new_release_until).toISOString().split('T')[0] : '',
+                new_release_until: (book.newReleaseUntil || book.new_release_until) ? new Date(book.newReleaseUntil || book.new_release_until).toISOString().split('T')[0] : '',
                 exclusive: book.isExclusive ? 'active' : 'inactive',
-                ship_days: (book.ship_days !== undefined && book.ship_days !== null) ? String(book.ship_days) : (book.shipDays ? String(book.shipDays) : ""),
-                deliver_days: (book.deliver_days !== undefined && book.deliver_days !== null) ? String(book.deliver_days) : (book.deliverDays ? String(book.deliverDays) : ""),
-                pub_date: book.pub_date || '',
+                ship_days: book.shipDays !== undefined ? String(book.shipDays) : (book.ship_days !== undefined ? String(book.ship_days) : ''),
+                deliver_days: book.deliverDays !== undefined ? String(book.deliverDays) : (book.deliver_days !== undefined ? String(book.deliver_days) : ''),
+                pub_date: book.pubDate || book.pub_date || '',
                 source: book.source || '',
                 rating: book.rating || '',
-                rated_times: book.rated_times || '',
-                toc_image: book.toc_image || book.tocImage || '',
+                rated_times: book.ratedTimes || book.rated_times || '',
+                toc_image: book.tocImage || book.toc_image || '',
                 ordered_items_count: book.soldCount || 0,
             });
 
-            if (book.new_release_until) {
-                setUserSelectedDate(new Date(book.new_release_until).toISOString().split('T')[0]);
+            if (book.newReleaseUntil || book.new_release_until) {
+                setUserSelectedDate(new Date(book.newReleaseUntil || book.new_release_until).toISOString().split('T')[0]);
             }
 
-            if (book.toc_images && book.toc_images.length > 0) setTocImagesList(book.toc_images.map((img) => ({ id: img.id || img._id, image: img.image, order: img.order, file: null })));
-            if (book.related_images && book.related_images.length > 0) setRelatedImagesList(book.related_images.map((img) => ({ id: img.id || img._id, image: img.image, order: img.order, file: null })));
-            if (book.sample_images && book.sample_images.length > 0) setSampleImagesList(book.sample_images.map((img) => ({ id: img.id || img._id, image: img.image, order: img.order, file: null })));
+            const tocImgs = book.tocImages || book.toc_images;
+            const relImgs = book.images || book.related_images;
+            const sampImgs = book.sampleImages || book.sample_images;
+            if (tocImgs && tocImgs.length > 0) setTocImagesList(tocImgs.map((img) => ({ id: img.id || img._id, image: img.image || img.url, order: img.ord || img.order, file: null })));
+            if (relImgs && relImgs.length > 0) setRelatedImagesList(relImgs.map((img) => ({ id: img.id || img._id, image: img.image || img.url, order: img.ord || img.order, file: null })));
+            if (sampImgs && sampImgs.length > 0) setSampleImagesList(sampImgs.map((img) => ({ id: img.id || img._id, image: img.image || img.url, order: img.ord || img.order, file: null })));
 
-            if (book.toc_image) {
-                let cleanTocPath = book.toc_image.replace(/\\/g, '/');
+            const tocImagePath = book.tocImage || book.toc_image;
+            if (tocImagePath) {
+                let cleanTocPath = tocImagePath.replace(/\\/g, '/');
                 if (!cleanTocPath.startsWith('http')) {
                     const baseUrl = API_URL.replace('/api', '') || 'http://localhost:5000';
                     cleanTocPath = `${baseUrl}${cleanTocPath.startsWith('/') ? '' : '/'}${cleanTocPath}`;
@@ -251,7 +267,7 @@ series: Array.isArray(book.series)
                 setTocPreview(cleanTocPath);
             }
 
-            const imgRaw = book.default_image || book.producticonname;
+            const imgRaw = book.defaultImage || book.default_image || book.producticonname;
             if (imgRaw) {
                 let cleanPath = imgRaw.replace(/\\/g, '/');
                 if (!cleanPath.startsWith('http')) {
@@ -645,7 +661,7 @@ series: Array.isArray(book.series)
 
     const removeTocImage = () => { setTocImageFile(null); const input = document.getElementById('toc_image_input'); if (input) input.value = ""; };
 
-    const selectedLeadingCategory = categories.find(c => c._id === formData.leading_category);
+    const selectedLeadingCategory = categories.find(c => (c.id || c._id) === formData.leading_category);
 
     return (
         <div className="bg-gray-50 min-h-screen font-body text-text-main">
@@ -709,7 +725,7 @@ series: Array.isArray(book.series)
                             <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight">Leading category*</label>
                             <div className="col-span-9 relative">
                                 <div onClick={() => setIsLeadingOpen(!isLeadingOpen)} className="theme-input w-1/2 cursor-pointer flex justify-between items-center bg-white border border-gray-300 rounded p-2 text-sm">
-                                    <span className={selectedLeadingCategory ? "text-gray-700" : "text-gray-400"}>{selectedLeadingCategory ? selectedLeadingCategory.categorytitle : "Select category"}</span>
+                                    <span className={selectedLeadingCategory ? "text-gray-700" : "text-gray-400"}>{selectedLeadingCategory ? (selectedLeadingCategory.title || selectedLeadingCategory.categorytitle) : "Select category"}</span>
                                     <span className="text-gray-400 text-[10px]">▼</span>
                                 </div>
                                 {isLeadingOpen && (
@@ -718,8 +734,8 @@ series: Array.isArray(book.series)
                                             <input type="text" placeholder="Search..." value={leadingSearch} onChange={(e) => setLeadingSearch(e.target.value)} className="w-full text-xs p-1.5 border border-gray-200 rounded focus:border-primary outline-none" autoFocus />
                                         </div>
                                         <div className="overflow-y-auto">
-                                            {categories.filter(cat => cat.categorytitle.toLowerCase().includes(leadingSearch.toLowerCase())).map((cat) => (
-                                                <div key={cat.id || cat.id || cat._id} onClick={() => { setFormData({ ...formData, leading_category: cat.id || cat._id }); setIsLeadingOpen(false); setLeadingSearch(""); }} className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${formData.leading_category === cat._id ? "bg-blue-50 text-primary font-bold" : "text-gray-600"}`}>
+                                            {categories.filter(cat => (cat.title || cat.categorytitle || '').toLowerCase().includes(leadingSearch.toLowerCase())).map((cat) => (
+                                                <div key={cat.id || cat._id} onClick={() => { setFormData({ ...formData, leading_category: cat.id || cat._id }); setIsLeadingOpen(false); setLeadingSearch(""); }} className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${formData.leading_category === (cat.id || cat._id) ? "bg-blue-50 text-primary font-bold" : "text-gray-600"}`}>
                                                     {cat.title || cat.categorytitle}
                                                 </div>
                                             ))}
@@ -737,7 +753,7 @@ series: Array.isArray(book.series)
                                 <div className="border border-gray-300 rounded p-2 bg-white cursor-pointer min-h-[38px] flex flex-wrap gap-2 items-center hover:border-primary transition-colors" onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}>
                                     {formData.product_categories.length > 0 ? (
                                         formData.product_categories.map((catId) => {
-                                            const category = categories.find(c => c._id === catId);
+                                            const category = categories.find(c => (c.id || c._id) === catId);
                                             return category ? (
                                                 <span key={catId} className="bg-blue-50 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded border border-blue-100 flex items-center gap-1">
                                                     {category.title || category.categorytitle}
@@ -754,7 +770,7 @@ series: Array.isArray(book.series)
                                             <input type="text" placeholder="Search categories..." value={categorySearch} onChange={(e) => setCategorySearch(e.target.value)} onClick={(e) => e.stopPropagation()} className="w-full text-xs p-1.5 border border-gray-300 rounded focus:border-primary outline-none bg-white" autoFocus />
                                         </div>
                                         <div className="max-h-48 overflow-y-auto p-1 scrollbar-thin">
-                                            {categories.filter((cat) => cat.categorytitle.toLowerCase().includes(categorySearch.toLowerCase())).map((cat) => {
+                                            {categories.filter((cat) => (cat.title || cat.categorytitle || '').toLowerCase().includes(categorySearch.toLowerCase())).map((cat) => {
                                                 const isSelected = formData.product_categories.includes(cat.id || cat._id);
                                                 return (
                                                     <div key={cat.id || cat.id || cat._id} onClick={() => handleCheckboxChange('product_categories', cat.id || cat._id)} className={`flex items-center gap-2 p-2 cursor-pointer text-sm rounded hover:bg-blue-50 ${isSelected ? 'bg-blue-50' : ''}`}>
@@ -887,7 +903,7 @@ series: Array.isArray(book.series)
                                         {formData.authors.length > 0 ? (
                                             formData.authors.map((authId, idx) => {
                                                 const author = authors.find(a => (a.id || a._id) === authId);
-                                                const authorName = author ? `${author.first_name} ${author.last_name}` : authId;
+                                                const authorName = author ? `${author.firstName || author.first_name || ''} ${author.lastName || author.last_name || ''}`.trim() : String(authId);
                                                 return (
                                                     <span key={idx} className="bg-blue-50 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded border border-blue-100 flex items-center gap-1">
                                                         {authorName}
@@ -904,11 +920,11 @@ series: Array.isArray(book.series)
                                                 <input type="text" placeholder="Search authors..." value={authorSearch} onChange={(e) => setAuthorSearch(e.target.value)} onClick={(e) => e.stopPropagation()} className="w-full text-xs p-1.5 border border-gray-300 rounded focus:border-primary outline-none bg-white" autoFocus />
                                             </div>
                                             <div className="max-h-48 overflow-y-auto p-1 scrollbar-thin">
-                                                {authors.filter(a => `${a.first_name} ${a.last_name}`.toLowerCase().includes(authorSearch.toLowerCase())).map((auth) => {
+                                                {authors.filter(a => `${a.firstName || a.first_name || ''} ${a.lastName || a.last_name || ''}`.toLowerCase().includes(authorSearch.toLowerCase())).map((auth) => {
                                                     const isSelected = formData.authors.includes(auth.id || auth._id);
                                                     return (
-                                                        <div key={auth.id || auth.id || auth._id} onClick={() => handleCheckboxChange('authors', auth.id || auth._id)} className={`flex items-center justify-between p-2 text-sm rounded hover:bg-blue-50 cursor-pointer ${isSelected ? 'bg-blue-50 font-bold text-primary' : ''}`}>
-                                                            <span>{auth.first_name} {auth.last_name}</span>
+                                                        <div key={auth.id || auth._id} onClick={() => handleCheckboxChange('authors', auth.id || auth._id)} className={`flex items-center justify-between p-2 text-sm rounded hover:bg-blue-50 cursor-pointer ${isSelected ? 'bg-blue-50 font-bold text-primary' : ''}`}>
+                                                            <span>{auth.firstName || auth.first_name} {auth.lastName || auth.last_name}</span>
                                                             {isSelected && <Check size={14} />}
                                                         </div>
                                                     );
