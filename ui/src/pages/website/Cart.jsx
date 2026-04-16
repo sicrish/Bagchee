@@ -6,6 +6,41 @@ import { CurrencyContext } from '../../context/CurrencyContext';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
 
+// ─── Tiered shipping prices (USD) by shipping DB id ───
+const SHIPPING_TIERS = {
+  6: [ // Express (3-5 Business Days)
+    { min: 1,   max: 2,        usd: 50  },
+    { min: 3,   max: 6,        usd: 80  },
+    { min: 7,   max: 11,       usd: 110 },
+    { min: 12,  max: 15,       usd: 150 },
+    { min: 16,  max: 20,       usd: 200 },
+    { min: 21,  max: 25,       usd: 280 },
+    { min: 26,  max: 36,       usd: 350 },
+    { min: 37,  max: 50,       usd: 435 },
+    { min: 51,  max: 100,      usd: 550 },
+    { min: 101, max: Infinity, usd: 730 },
+  ],
+  5: [ // Expedited (8-12 Business Days)
+    { min: 1,   max: 2,        usd: 20  },
+    { min: 3,   max: 6,        usd: 35  },
+    { min: 7,   max: 11,       usd: 50  },
+    { min: 12,  max: 15,       usd: 80  },
+    { min: 16,  max: 20,       usd: 120 },
+    { min: 21,  max: 25,       usd: 150 },
+    { min: 26,  max: 36,       usd: 175 },
+    { min: 37,  max: 50,       usd: 222 },
+    { min: 51,  max: 100,      usd: 280 },
+    { min: 101, max: Infinity, usd: 400 },
+  ],
+};
+
+const getTieredShippingUsd = (shippingId, totalBooks) => {
+  const tiers = SHIPPING_TIERS[shippingId];
+  if (!tiers || totalBooks === 0) return 0;
+  const tier = tiers.find(t => totalBooks >= t.min && totalBooks <= t.max);
+  return tier ? tier.usd : tiers[tiers.length - 1].usd;
+};
+
 const Cart = () => {
   const navigate = useNavigate();
   const {
@@ -117,6 +152,9 @@ const Cart = () => {
 
   // ─── 🟢 STEP 1: MNC DISCOUNT-SAFE CALCULATIONS (REPLACE LINE 114-124) ───
 
+  // Total number of books across all cart items (drives shipping tier)
+  const totalBooks = cart.reduce((acc, item) => acc + item.quantity, 0);
+
   // 1. Original Base Totals (MNC logic ke liye zaroori hai)
   const originalBaseUSD = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
   const originalBaseINR = cart.reduce((acc, item) => acc + ((item.inrPrice ?? item.inr_price ?? 0) * item.quantity), 0);
@@ -133,12 +171,10 @@ const Cart = () => {
 
   const getSelectedShippingRawPrice = () => {
     if (!appliedShipping) return 0;
-    if (currency === 'EUR') return appliedShipping.priceEur || 0;
-    if (currency === 'GBP') {
-        const rate = exchangeRates?.GBP || 0.78;
-        return (appliedShipping.priceUsd || 0) * rate;
-    }
-    return appliedShipping.priceUsd || 0;
+    const usd = getTieredShippingUsd(appliedShipping.id || appliedShipping._id, totalBooks);
+    if (currency === 'GBP') return usd * (exchangeRates?.GBP || 0.78);
+    if (currency === 'EUR') return usd * (exchangeRates?.EUR || 0.92);
+    return usd;
   };
 
 
@@ -571,31 +607,41 @@ const Cart = () => {
 
 {/* ─── SHIPPING OPTIONS SECTION ─── */}
 <div className="space-y-2">
-  {shippingOptions.map((option) => (
-    <label key={option.id || option._id} className={`flex items-center justify-between p-2 cursor-pointer rounded ${(appliedShipping?.id || appliedShipping?._id) === (option.id || option._id) ? 'bg-primary/5' : ''}`}>
-      <div className="flex items-center gap-2">
-        <input
-          type="radio"
-          name="shipping"
-          checked={(appliedShipping?.id || appliedShipping?._id) === (option.id || option._id)}
-          onChange={() => setAppliedShipping(option)} 
-          className="w-4 h-4 text-primary"
-        />
-        <span className="text-sm">{option.title}</span>
-      </div>
-      
-      <span className="text-sm font-bold text-gray-600">
-        {currency === 'USD'
-          ? `$${(option.priceUsd || 0).toFixed(2)}`
-          : currency === 'EUR'
-            ? `€${(option.priceEur || 0).toFixed(2)}`
-            : currency === 'GBP'
-              ? `£${((option.priceUsd || 0) * (exchangeRates?.GBP || 0.78)).toFixed(2)}`
-              : `${symbols?.[currency] || ''}${(option.priceUsd * (exchangeRates?.[currency] || 1)).toFixed(2)}`
-        }
-      </span>
-    </label>
-  ))}
+  <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide flex items-center gap-1">
+    <Truck size={13} /> Shipping ({totalBooks} {totalBooks === 1 ? 'book' : 'books'})
+  </p>
+  {shippingOptions.map((option) => {
+    const optId = option.id || option._id;
+    const tieredUsd = getTieredShippingUsd(optId, totalBooks);
+    const isSelected = (appliedShipping?.id || appliedShipping?._id) === optId;
+
+    let displayPrice;
+    if (currency === 'EUR') displayPrice = `€${(tieredUsd * (exchangeRates?.EUR || 0.92)).toFixed(2)}`;
+    else if (currency === 'GBP') displayPrice = `£${(tieredUsd * (exchangeRates?.GBP || 0.78)).toFixed(2)}`;
+    else if (currency === 'USD') displayPrice = `$${tieredUsd.toFixed(2)}`;
+    else displayPrice = `${symbols?.[currency] || ''}${(tieredUsd * (exchangeRates?.[currency] || 1)).toFixed(2)}`;
+
+    return (
+      <label key={optId} className={`flex items-start justify-between p-3 cursor-pointer rounded border transition-colors ${isSelected ? 'bg-primary/5 border-primary/30' : 'border-gray-100 hover:border-gray-200'}`}>
+        <div className="flex items-start gap-2">
+          <input
+            type="radio"
+            name="shipping"
+            checked={isSelected}
+            onChange={() => setAppliedShipping(option)}
+            className="w-4 h-4 text-primary mt-0.5"
+          />
+          <div>
+            <span className="text-sm font-semibold text-text-main block">{option.title}</span>
+            {tieredUsd === 0 && <span className="text-xs text-green-600 font-bold">FREE</span>}
+          </div>
+        </div>
+        <span className="text-sm font-bold text-primary shrink-0 ml-2">
+          {tieredUsd === 0 ? 'Free' : displayPrice}
+        </span>
+      </label>
+    );
+  })}
 </div>
 
                 {/* ─── TOTALS ─── */}
@@ -620,12 +666,32 @@ const Cart = () => {
                     </div>
                   )}
 
-                  <div className="flex justify-between items-baseline pt-1">
+                  {/* Shipping line */}
+                  {appliedShipping && (() => {
+                    const shippingUsd = getTieredShippingUsd(appliedShipping.id || appliedShipping._id, totalBooks);
+                    return (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Shipping</span>
+                        <span className="font-medium text-text-main">
+                          {shippingUsd === 0 ? 'Free' : formatPrice(shippingUsd, null, shippingUsd)}
+                        </span>
+                      </div>
+                    );
+                  })()}
+
+                  <div className="flex justify-between items-baseline pt-2 border-t border-gray-100">
                     <span className="text-sm text-gray-600">
                       Total (tax incl.)
                     </span>
                     <span className="text-2xl font-bold text-text-main">
-                      {finalTotalUI}
+                      {(() => {
+                        const shippingUsd = getTieredShippingUsd(appliedShipping?.id || appliedShipping?._id, totalBooks);
+                        const baseUsd = subtotalAfterItemDiscount;
+                        const membershipUsd = membershipAdded ? (mData.usd || 0) : 0;
+                        const totalUsd = baseUsd + shippingUsd + membershipUsd;
+                        const totalInr = originalBaseINR + (shippingUsd * (exchangeRates?.INR || 83)) + (membershipAdded ? (mData.inr || 0) : 0);
+                        return formatPrice(totalUsd, totalInr, totalUsd);
+                      })()}
                     </span>
                   </div>
                 </div>
