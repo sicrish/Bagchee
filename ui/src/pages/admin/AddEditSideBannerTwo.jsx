@@ -64,11 +64,6 @@ const AddEditSideBannerTwo = () => {
     enabled: isEditMode, // Only run in edit mode
     staleTime: 1000 * 60 * 5, // 5 mins cache
     refetchOnWindowFocus: false, // Prevent overwrite on window focus
-    onError: (error) => {
-      console.error("Error fetching data:", error);
-      toast.error("Could not load banner details");
-      navigate('/admin/side-banner-two');
-    }
   });
 
   // 🟢 Populate State Once

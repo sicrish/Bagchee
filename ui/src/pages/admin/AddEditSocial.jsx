@@ -43,11 +43,6 @@ const AddSocial = () => {
     enabled: isEdit, // Run only in edit mode
     staleTime: 1000 * 60 * 5, // Cache for 5 mins
     refetchOnWindowFocus: false, // Prevent auto-refresh overwrite
-    onError: (error) => {
-      console.error(error);
-      toast.error("Failed to load data");
-      navigate('/admin/socials');
-    }
   });
 
   // 🟢 1. Initialize State ONCE when data arrives

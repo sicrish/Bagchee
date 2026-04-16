@@ -38,11 +38,6 @@ const AddEditHomeSection = () => {
     enabled: isEditMode, // 🟢 Sirf tabhi run hoga jab URL me 'id' hogi
     staleTime: 1000 * 60 * 5, // Cache for 5 mins
     refetchOnWindowFocus: false, // Window switch karne par overwrite na kare
-    onError: (error) => {
-      console.error(error);
-      toast.error("Data retrieval failed");
-      navigate('/admin/home-sections');
-    }
   });
 
   // 🟢 Effect to populate state ONLY ONCE (When data arrives in Edit Mode)

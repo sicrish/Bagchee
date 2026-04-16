@@ -66,7 +66,7 @@ const EditCoupons = () => {
     set(name, type === 'checkbox' ? checked : value);
   }, [set]);
 
-  const { isLoading } = useQuery({
+  const { data: couponData, isLoading, isError } = useQuery({
     queryKey: ['editCoupon', id],
     queryFn: async () => {
       const res = await axios.get(`${process.env.REACT_APP_API_URL}/coupons/get/${id}`);
@@ -76,9 +76,15 @@ const EditCoupons = () => {
     enabled: !!id,
     staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
-    onSuccess: (data) => { setForm(buildForm(data)); setReady(true); },
-    onError: () => { toast.error('Failed to load coupon'); navigate('/admin/coupons'); },
   });
+
+  useEffect(() => {
+    if (couponData) { setForm(buildForm(couponData)); setReady(true); }
+  }, [couponData]);
+
+  useEffect(() => {
+    if (isError) { toast.error('Failed to load coupon'); navigate('/admin/coupons'); }
+  }, [isError, navigate]);
 
   const updateMutation = useMutation({
     mutationFn: async (data) => {

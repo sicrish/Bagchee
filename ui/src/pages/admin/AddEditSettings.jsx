@@ -46,7 +46,7 @@ const EditSettings = () => {
     const [topbarPromoText, setTopbarPromoText] = useState('');
     
     // 🚀 OPTIMIZATION 1: Fetch Existing Data with useQuery
-    const { data: settingsData, isLoading: fetching } = useQuery({
+    const { data: settingsData, isLoading: fetching, isError: settingsError } = useQuery({
         queryKey: ['settingsDetails', id],
         queryFn: async () => {
             const API_URL = process.env.REACT_APP_API_URL;
@@ -57,10 +57,6 @@ const EditSettings = () => {
         enabled: isEdit, // Run only if editing an existing ID
         staleTime: 1000 * 60 * 5, // Cache for 5 mins
         refetchOnWindowFocus: false, // Prevent background overwrite
-        onError: (error) => {
-            console.error("Fetch Error:", error);
-            toast.error("Failed to load settings data");
-        }
     });
 
     // 🟢 1. Initialize Data ONLY ONCE

@@ -38,11 +38,6 @@ const AddEditServices = () => {
     enabled: isEdit, // Sirf Edit Mode me run karega
     staleTime: 1000 * 60 * 5, // Cache for 5 mins
     refetchOnWindowFocus: false, // Window switch karne par overwrite rokne ke liye
-    onError: (error) => {
-      console.error(error);
-      toast.error("Failed to fetch service details");
-      navigate('/admin/services');
-    }
   });
 
   // 🟢 Populate State Once

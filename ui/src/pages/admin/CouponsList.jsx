@@ -305,7 +305,7 @@ const CouponsList = () => {
                 </tr>
               ) : filteredCoupons.length > 0 ? (
                 filteredCoupons.map((coupon, index) => {
-                  const isExpired = coupon.valid_to && new Date(coupon.valid_to) < new Date();
+                  const isExpired = (coupon.validTo || coupon.valid_to) && new Date(coupon.validTo || coupon.valid_to) < new Date();
 
                   return (
                     <tr key={coupon.id || coupon._id} className="hover:bg-primary/5 transition-colors group">
@@ -327,8 +327,8 @@ const CouponsList = () => {
                           <Copy size={10} className="opacity-40 group-hover/btn:opacity-100" />
                         </button>
                       </td>
-                      <td className="p-4 border-r border-gray-50 text-gray-600 font-medium text-xs italic">{formatDate(coupon.valid_from)}</td>
-                      <td className="p-4 border-r border-gray-50 text-gray-600 font-medium text-xs italic">{formatDate(coupon.valid_to)}</td>
+                      <td className="p-4 border-r border-gray-50 text-gray-600 font-medium text-xs italic">{formatDate(coupon.validFrom || coupon.valid_from)}</td>
+                      <td className="p-4 border-r border-gray-50 text-gray-600 font-medium text-xs italic">{formatDate(coupon.validTo || coupon.valid_to)}</td>
                       <td className="p-4">
                         <div className="flex justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
