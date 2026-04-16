@@ -182,13 +182,12 @@ const BookDetail = () => {
     if (!book) return;
     const fetchReviews = async () => {
       try {
-        const res = await axios.get(`${process.env.REACT_APP_API_URL}/reviews/list`);
+        const bookId = book.id || book._id;
+        const res = await axios.get(`${process.env.REACT_APP_API_URL}/reviews/list`, {
+          params: { productId: bookId, active: 'true', limit: 100 }
+        });
         if (res.data.status && Array.isArray(res.data.data)) {
-          // Sirf is book ke active reviews ko filter karke state mein daalna
-          const filteredReviews = res.data.data.filter(r =>
-            String(r.itemId?._id || r.itemId) === String(book._id) && r.isActive === true
-          );
-          setReviews(filteredReviews);
+          setReviews(res.data.data);
         }
       } catch (e) { console.error("Error fetching reviews", e); }
     };
@@ -205,7 +204,7 @@ const BookDetail = () => {
     const parsedAuth = JSON.parse(authData);
     try {
       const res = await axios.post(`${process.env.REACT_APP_API_URL}/reviews/save`, {
-        item_id: book._id,
+        item_id: book.id || book._id,
         category_id: book.categoryId?._id || book.categoryId,
         name: parsedAuth.userDetails.name,
         email: parsedAuth.userDetails.email,
@@ -862,9 +861,11 @@ const BookDetail = () => {
                           <span className="text-base text-gray-400 line-through">
                             {formatPrice(book.price, inrPrice, book.price)}
                           </span>
-                          <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-semibold">
-                            {Math.round(((book.price - realPrice) / book.price) * 100)}% OFF
-                          </span>
+                          {Math.round(((book.price - realPrice) / book.price) * 100) >= 20 && (
+                            <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-semibold">
+                              {Math.round(((book.price - realPrice) / book.price) * 100)}% OFF
+                            </span>
+                          )}
                         </>
                       )}
                     </div>
@@ -1203,7 +1204,7 @@ const BookDetail = () => {
                         alt={relatedBook.title}
                         className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform"
                       />
-                      {hasRelatedDiscount && (
+                      {hasRelatedDiscount && relatedDiscount >= 20 && (
                         <span className="absolute top-1 left-1 bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-sm z-10 font-montserrat">
                           {relatedDiscount}% OFF
                         </span>
@@ -1736,7 +1737,7 @@ const BookDetail = () => {
                         alt={ab.title}
                         className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform"
                       />
-                      {abHasDiscount && (
+                      {abHasDiscount && abDiscount >= 20 && (
                         <span className="absolute top-1 left-1 bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-sm z-10 font-montserrat">{abDiscount}% OFF</span>
                       )}
                     </div>

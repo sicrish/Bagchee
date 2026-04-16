@@ -64,7 +64,7 @@ const Products = () => {
           {categories.map((item) => (
             <div 
               key={item.id || item._id} 
-              onClick={() => navigate(`/admin/${item.imageFolder || item.image_folder}`)} 
+              onClick={() => { const folder = item.imageFolder || item.image_folder; if (folder) navigate(`/admin/${folder}`); }}
               className="bg-white rounded-2xl p-6 flex items-center gap-6 shadow-[0_10px_30px_rgba(0,0,0,0.04)] border border-gray-100 hover:shadow-xl transition-all cursor-pointer group"
             >
               {/* 🔴 FIXED ICON BOX: Only Book icon remains */}

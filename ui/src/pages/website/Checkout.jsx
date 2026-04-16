@@ -26,6 +26,11 @@ import axios from "../../utils/axiosConfig";
 import toast from "react-hot-toast";
 
 import logoImg from "../../assets/images/common/logo.png";
+import visaLogo from "../../assets/images/website/payments/Visa.svg";
+import mastercardLogo from "../../assets/images/website/payments/MasterCard.svg";
+import discoverLogo from "../../assets/images/website/payments/Discover.png";
+import amexLogo from "../../assets/images/website/payments/american.png";
+import paypalLogo from "../../assets/images/website/payments/PayPal.svg";
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -586,6 +591,9 @@ const Checkout = () => {
     const t = (method?.title || '').toLowerCase();
     return t.includes('purchase order');
   };
+
+  const isPayPalMethod = (method) =>
+    (method?.title || '').toLowerCase().includes('paypal');
 
   const isCardOrPayPalMethod = (method) => {
     const t = (method?.title || '').toLowerCase();
@@ -1952,7 +1960,7 @@ const Checkout = () => {
                   <span className="flex-shrink-0 w-7 h-7 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center">
                     3
                   </span>
-                  PAYMENT
+                  SELECT A PAYMENT METHOD
                 </h2>
               </div>
               <div className="p-5 space-y-2">
@@ -1968,13 +1976,14 @@ const Checkout = () => {
                   paymentMethods.map((method) => {
                     const isSelected = selectedPayment?.id === method.id;
                     const isCC = isCreditCardMethod(method);
+                    const isPP = isPayPalMethod(method);
                     return (
                       <div
                         key={method.id}
                         className={`border transition-all overflow-hidden rounded ${isSelected ? "border-primary" : "border-gray-200 hover:border-gray-300"}`}
                       >
                         {/* Method row */}
-                        <label className="flex items-center gap-4 px-4 py-3 cursor-pointer w-full">
+                        <label className="flex items-center gap-3 px-4 py-3 cursor-pointer w-full">
                           <input
                             type="radio"
                             name="paymentMethod"
@@ -1982,27 +1991,21 @@ const Checkout = () => {
                             onChange={() => setSelectedPayment(method)}
                             className="w-4 h-4 text-primary border-gray-300 focus:ring-primary shrink-0"
                           />
-                          <div className="flex items-center gap-3 flex-1 min-w-0">
-                            {method.image ? (
-                              <img
-                                src={
-                                  method.image.startsWith("http")
-                                    ? method.image
-                                    : `${API_BASE_URL}${method.image}`
-                                }
-                                alt={method.title}
-                                className="h-6 w-auto max-w-[60px] object-contain shrink-0"
-                                onError={(e) => {
-                                  e.target.style.display = "none";
-                                }}
-                              />
-                            ) : null}
-                            <span className="font-bold text-text-main text-sm">
-                              {method.title}
-                            </span>
-                          </div>
-                          {/* Card type logos on the right when credit card */}
-
+                          <span className="font-medium text-text-main text-sm flex-1">
+                            {method.title}
+                          </span>
+                          {/* Logos on the right */}
+                          {isCC && (
+                            <div className="flex items-center gap-1 shrink-0">
+                              <img src={visaLogo} alt="Visa" className="h-5 w-auto object-contain" />
+                              <img src={mastercardLogo} alt="Mastercard" className="h-5 w-auto object-contain" />
+                              <img src={discoverLogo} alt="Discover" className="h-5 w-auto object-contain" />
+                              <img src={amexLogo} alt="Amex" className="h-5 w-auto object-contain" />
+                            </div>
+                          )}
+                          {isPP && (
+                            <img src={paypalLogo} alt="PayPal" className="h-5 w-auto object-contain shrink-0" />
+                          )}
                         </label>
 
                         {/* Additional text for selected payment method */}

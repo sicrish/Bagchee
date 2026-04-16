@@ -161,7 +161,7 @@ const SaleToday = () => {
                                                 onError={(e) => { e.target.src = "https://placehold.co/300x450?text=Error"; }}
                                             />
 
-                                            {book.discount && Number(book.discount) > 0 && (
+                                            {book.discount && Number(book.discount) >= 20 && (
                                                 <div className="absolute top-2 left-2 bg-secondary text-white w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center text-[9px] md:text-[10px] font-bold shadow-md z-10 font-montserrat animate-in fade-in zoom-in">
                                                     {discountPercentage}%
                                                 </div>

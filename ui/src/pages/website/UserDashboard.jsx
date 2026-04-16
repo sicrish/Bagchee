@@ -140,6 +140,18 @@ const navigate = useNavigate();
       setUser(parsedData.userDetails);
     }
     fetchDashboardData();
+    // Fetch fresh membership dates from API (localStorage may be stale)
+    axiosInstance.get('/user/verify').then(res => {
+      if (res.data?.success && res.data?.user) {
+        const fresh = res.data.user;
+        setUser(prev => ({
+          ...prev,
+          membership: fresh.membership,
+          membershipStart: fresh.membershipStart,
+          membershipEnd: fresh.membershipEnd,
+        }));
+      }
+    }).catch(() => {});
   }, []);
 
   const fetchDashboardData = async () => {

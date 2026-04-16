@@ -33,12 +33,15 @@ export const getAllReviews = async (req, res) => {
         const pageNum = parseInt(req.query.page) || 1;
         const pageSize = parseInt(req.query.limit) || 10;
         const skip = (pageNum - 1) * pageSize;
+        const where = {};
+        if (req.query.productId) where.productId = parseInt(req.query.productId);
+        if (req.query.active === 'true') where.active = true;
         const [reviews, total] = await Promise.all([
             prisma.review.findMany({
-                orderBy: { createdAt: 'desc' }, skip, take: pageSize,
+                where, orderBy: { createdAt: 'desc' }, skip, take: pageSize,
                 include: { product: { select: { title: true, bagcheeId: true } } }
             }),
-            prisma.review.count()
+            prisma.review.count({ where })
         ]);
         res.status(200).json({ status: true, data: reviews, total, totalPages: Math.ceil(total / pageSize), page: pageNum });
     } catch (error) {

@@ -18,7 +18,8 @@ export const verifyUser = async (req, res) => {
         if (!req.user?.userId) return res.status(400).json({ success: false, msg: 'Invalid Token Data' });
         const user = await prisma.user.findUnique({
             where: { id: parseInt(req.user.userId) },
-            select: { id: true, name: true, email: true, role: true, profileImage: true }
+            select: { id: true, name: true, email: true, role: true, profileImage: true,
+                membership: true, membershipStart: true, membershipEnd: true }
         });
         if (!user) return res.status(404).json({ success: false, msg: 'User not found' });
         res.status(200).json({ success: true, user });
@@ -114,6 +115,8 @@ export const login = async (req, res) => {
                 id: user.id, name: user.name, email: user.email,
                 phone: user.phone, profileImage: user.profileImage,
                 role: user.role, membership: user.membership,
+                membershipStart: user.membershipStart,
+                membershipEnd: user.membershipEnd,
                 forceDirectPayment: user.forceDirectPayment
             }
         });

@@ -93,7 +93,7 @@ const ProductCardGrid = ({ data }) => {
             {/* --- IMAGE SECTION (Click to Product Page) --- */}
             <div className="relative overflow-hidden aspect-[3/4] bg-cream-50">
                 {/* Discount Badge */}
-                {priceData.showDiscount && priceData.discountPercentage > 0 && (
+                {priceData.showDiscount && priceData.discountPercentage >= 20 && (
                     <span className="absolute top-2 left-2 bg-red-600 text-white text-[10px] md:text-xs font-bold px-2 py-1 rounded-sm z-10 shadow-sm font-montserrat animate-in fade-in">
                         {priceData.discountPercentage}% OFF
                     </span>

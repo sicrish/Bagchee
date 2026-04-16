@@ -93,8 +93,8 @@ const ProductCardList = ({ data }) => {
         <div className="bg-white rounded-lg border border-cream-200 p-3 md:p-6 flex flex-col md:flex-row gap-4 md:gap-6 shadow-sm hover:shadow-md transition-all duration-300 font-body">
 
             {/* --- LEFT: IMAGE (Click to Product Page) --- */}
-            <div className="w-full h-64 md:h-72 md:w-48 shrink-0 relative bg-cream-50 rounded overflow-hidden group">
-                {priceData.hasDiscount && priceData.discountPercentage > 0 && (
+            <div className="w-40 md:w-44 aspect-[3/4] shrink-0 relative bg-cream-50 rounded overflow-hidden group mx-auto md:mx-0">
+                {priceData.hasDiscount && priceData.discountPercentage >= 20 && (
                     <span className="absolute top-2 left-2 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-sm z-10 shadow-sm font-montserrat">
                         {priceData.discountPercentage}% OFF
                     </span>
@@ -105,7 +105,7 @@ const ProductCardList = ({ data }) => {
                         alt={data.title}
                         loading="lazy"
                         decoding="async"
-                        className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-500"
+                        className="w-full h-full object-contain cursor-pointer hover:scale-105 transition-transform duration-500"
                         onError={(e) => { e.target.src = "https://placehold.co/300x400?text=No+Image" }}
                     />
                 </Link>
