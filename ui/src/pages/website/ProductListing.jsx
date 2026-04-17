@@ -446,7 +446,7 @@ const ProductListing = ({ type }) => {
             {/* 🟢 PAGINATION BUTTONS */}
 
             {!loading && products.length > 0 && (
-                <div className="flex justify-center items-center mt-20 mb-10 gap-3 font-montserrat">
+                <div className="flex flex-wrap px-4 justify-center items-center mt-20 mb-10 gap-3 font-montserrat">
                     {/* 1. FIRST PAGE BUTTON (Double Left Arrow) */}
                     <button
                         disabled={currentPage === 1}
