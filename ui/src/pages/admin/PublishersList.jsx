@@ -69,12 +69,12 @@ const PublishersList = () => {
       const dataToExport = allData.map((pub, i) => ({
         "Sr No": i + 1,
         "Title": pub.title,
-        "Category": pub.category?.categorytitle || "N/A",
+        "Category": pub.categoryName || pub.category?.categorytitle || "N/A",
         "Company": pub.company || "-",
         "Place": pub.place || "-",
         "Email": pub.email || "-",
         "Phone": pub.phone || "-",
-        "Visibility": pub.show || "No",
+        "Visibility": pub.show ? "Yes" : "No",
         "Display Order": pub.order || 0
       }));
 
@@ -89,8 +89,9 @@ const PublishersList = () => {
   const filteredPublishers = useMemo(() => {
     return publishers.filter((pub, index) => {
       const displayId = (index + 1).toString();
-      const catTitle = (pub.category?.categorytitle || "").toLowerCase();
-      
+      const catTitle = (pub.categoryName || pub.category?.categorytitle || "").toLowerCase();
+      const showStr = pub.show === true || pub.show === 'Yes' ? 'yes' : 'no';
+
       return (
         displayId.includes(filters.id) &&
         (pub.title || "").toLowerCase().includes(filters.title.toLowerCase()) &&
@@ -98,7 +99,7 @@ const PublishersList = () => {
         (pub.company || "").toLowerCase().includes(filters.company.toLowerCase()) &&
         (pub.place || "").toLowerCase().includes(filters.place.toLowerCase()) &&
         (pub.email || "").toLowerCase().includes(filters.email.toLowerCase()) &&
-        (pub.show || "").toLowerCase().includes(filters.show.toLowerCase())
+        showStr.includes(filters.show.toLowerCase())
       );
     });
   }, [publishers, filters]);
@@ -248,7 +249,7 @@ const PublishersList = () => {
                     </td>
                     <td className="p-3 border-r border-cream-50 text-text-main font-medium">{pub.title}</td>
                     <td className="p-3 border-r border-cream-50 text-text-main font-bold">
-                        {pub.category?.categorytitle || "N/A"}
+                        {pub.categoryName || pub.category?.categorytitle || "N/A"}
                     </td>
                     <td className="p-3 border-r border-cream-50 text-text-main">{pub.company || '-'}</td>
                     <td className="p-3 border-r border-cream-50 text-text-main max-w-xs truncate">{pub.address || '-'}</td>
@@ -257,11 +258,16 @@ const PublishersList = () => {
                     <td className="p-3 border-r border-cream-50 text-text-main">{pub.phone || '-'}</td>
                     <td className="p-3 border-r border-cream-50 text-text-main">{pub.fax || '-'}</td>
                     <td className="p-3 border-r border-cream-50 text-text-main italic text-[10px]">{pub.slug}</td>
-                    <td className="p-3 border-r border-cream-50 text-text-main">{formatDate(pub.date)}</td>
+                    <td className="p-3 border-r border-cream-50 text-text-main">{formatDate(pub.createdAt || pub.date)}</td>
                     <td className="p-3 border-r border-cream-50 text-center">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${pub.show === 'Yes' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                        {pub.show || 'No'}
-                      </span>
+                      {(() => {
+                        const isVisible = pub.show === true || pub.show === 'Yes';
+                        return (
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${isVisible ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                            {isVisible ? 'Yes' : 'No'}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="p-3 border-r border-cream-50 text-text-main font-bold text-center">{pub.order || 0}</td>
                     <td className="p-3">

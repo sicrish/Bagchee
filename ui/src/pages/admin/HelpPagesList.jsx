@@ -66,7 +66,7 @@ const HelpPagesList = () => {
         "Sr No": i + 1,
         "Title": page.title,
         "Slug": page.slug,
-        "Meta Title": page.meta_title || "-",
+        "Meta Title": page.metaTitle || page.meta_title || "-",
         "Status": page.status || "active",
         "Created Date": new Date(page.createdAt).toLocaleDateString('en-GB')
       }));
@@ -85,8 +85,8 @@ const HelpPagesList = () => {
       return (
         displayId.includes(filters.id) &&
         (page.title || "").toLowerCase().includes(filters.title.toLowerCase()) &&
-        (page.meta_title || "").toLowerCase().includes(filters.metaTitle.toLowerCase()) &&
-        (page.meta_description || "").toLowerCase().includes(filters.metaDesc.toLowerCase())
+        (page.metaTitle || page.meta_title || "").toLowerCase().includes(filters.metaTitle.toLowerCase()) &&
+        (page.metaDesc || page.meta_description || "").toLowerCase().includes(filters.metaDesc.toLowerCase())
       );
     });
   }, [helpPages, filters]);
@@ -207,9 +207,9 @@ const HelpPagesList = () => {
                       </div>
                     </td>
                     <td className="p-3 border-r border-cream-50 text-text-main font-medium">{page.title}</td>
-                    <td className="p-3 border-r border-cream-50 text-text-main text-xs">{page.meta_title || '-'}</td>
+                    <td className="p-3 border-r border-cream-50 text-text-main text-xs">{page.metaTitle || page.meta_title || '-'}</td>
                     <td className="p-3 border-r border-cream-50 text-text-main text-[11px] leading-relaxed max-w-xs truncate">
-                      {page.meta_description || '-'}
+                      {page.metaDesc || page.meta_description || '-'}
                     </td>
                     <td className="p-3">
                       <div className="flex justify-center gap-2">

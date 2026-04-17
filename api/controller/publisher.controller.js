@@ -30,7 +30,7 @@ export const savePublisher = async (req, res) => {
                 phone: phone || null,
                 fax: fax || null,
                 order: Number(order) || 0,
-                show: show === true || show === 'true',
+                show: show === true || show === 'true' || show === 'Yes' || show === 'yes',
                 slug: slug || '',
                 shipInDays: ship_in_days ? String(ship_in_days) : '3',
                 categoryId: parseInt(category) || null
@@ -100,7 +100,7 @@ export const updatePublisher = async (req, res) => {
         if (phone !== undefined) updateData.phone = phone;
         if (fax !== undefined) updateData.fax = fax;
         if (order !== undefined) updateData.order = Number(order);
-        if (show !== undefined) updateData.show = show === true || show === 'true';
+        if (show !== undefined) updateData.show = show === true || show === 'true' || show === 'Yes' || show === 'yes';
         if (slug !== undefined) updateData.slug = slug;
         if (ship_in_days !== undefined) updateData.shipInDays = String(ship_in_days);
         if (category !== undefined) updateData.categoryId = parseInt(category) || null;

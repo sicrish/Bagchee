@@ -61,7 +61,7 @@ const EditPublishers = () => {
             // Date format YYYY-MM-DD for input field
             date: data.date ? new Date(data.date).toISOString().split('T')[0] : '',
             order: data.order || '',
-            show: data.show || '',
+            show: data.show === true || data.show === 'Yes' ? 'Yes' : (data.show === false ? 'No' : ''),
             slug: data.slug || '',
             ship_in_days: data.ship_in_days || ''
           });

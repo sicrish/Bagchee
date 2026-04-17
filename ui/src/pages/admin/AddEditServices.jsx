@@ -45,14 +45,14 @@ const AddEditServices = () => {
     if (isEdit && serviceData && !isDataInitialized) {
       setFormData({
         title: serviceData.title || '',
-        page_title: serviceData.page_title || '',
-        meta_title: serviceData.meta_title || '',
-        meta_description: serviceData.meta_description || '',
-        meta_keywords: serviceData.meta_keywords || '',
+        page_title: serviceData.pageTitle || serviceData.page_title || '',
+        meta_title: serviceData.metaTitle || serviceData.meta_title || '',
+        meta_description: serviceData.metaDesc || serviceData.meta_description || '',
+        meta_keywords: serviceData.metaKeywords || serviceData.meta_keywords || '',
       });
-      setBoxDescription(serviceData.box_description || '');
-      setPageContent(serviceData.page_content || '');
-      
+      setBoxDescription(serviceData.boxDesc || serviceData.box_desc || serviceData.box_description || '');
+      setPageContent(serviceData.pageContent || serviceData.page_content || '');
+
       setIsDataInitialized(true); // Lock the initialization
     }
   }, [isEdit, serviceData, isDataInitialized]);
@@ -84,10 +84,14 @@ const AddEditServices = () => {
 
     const toastId = toast.loading(isEdit ? "Updating service..." : "Saving service...");
 
-    const payload = { 
-      ...formData, 
-      box_description: boxDescription, 
-      page_content: pageContent 
+    const payload = {
+      title: formData.title,
+      pageTitle: formData.page_title,
+      metaTitle: formData.meta_title,
+      metaDesc: formData.meta_description,
+      metaKeywords: formData.meta_keywords,
+      boxDesc: boxDescription,
+      pageContent: pageContent,
     };
 
     saveServiceMutation.mutate(payload, {
