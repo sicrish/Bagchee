@@ -196,7 +196,7 @@ const BooksOfMonthForm = () => {
                             <div key={prod._id} onClick={() => handleAddProduct(prod)} className="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 flex justify-between items-center">
                                 <div>
                                     <p className="text-xs font-bold text-gray-800">{prod.title}</p>
-                                    <p className="text-[10px] text-primary">ID: {prod.bagchee_id}</p>
+                                    <p className="text-[10px] text-primary">ID: {prod.bagcheeId || prod.bagchee_id}</p>
                                 </div>
                                 <span className="text-[9px] bg-green-100 text-green-700 px-2 py-0.5 rounded font-bold">ADD</span>
                             </div>

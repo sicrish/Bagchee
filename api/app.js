@@ -70,6 +70,7 @@ import razorpayRoutes from './routes/razorpay.routes.js';
 import emailCampaignRoutes from './routes/emailCampaignRoutes.js';
 import { processScheduledEmails } from './controller/emailCampaignController.js';
 import sitemapRoutes from './routes/sitemap.routes.js';
+import disclaimerRoutes from './routes/disclaimerRoutes.js';
 
 
 
@@ -213,6 +214,7 @@ app.use('/testimonials', testimonialRoutes);
 app.use('/authors-publishers', authorsPublishersRoutes);
 app.use('/privacy', privacyRoutes);
 app.use('/terms', termsRoutes);
+app.use('/disclaimer', disclaimerRoutes);
 app.use('/side-banner-one', sideBannerOneRoutes);
 app.use('/socials', socialRoutes);
 app.use('/side-banner-two', sideBannerTwoRoutes);

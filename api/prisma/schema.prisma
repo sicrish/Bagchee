@@ -1063,6 +1063,17 @@ model Terms {
   @@map("terms_page")
 }
 
+model Disclaimer {
+  id           Int    @id @default(autoincrement())
+  title        String @default("Disclaimer")
+  pageContent  String @default("") @map("page_content")
+  metaTitle    String @default("") @map("meta_title")
+  metaDesc     String @default("") @map("meta_description")
+  metaKeywords String @default("") @map("meta_keywords")
+
+  @@map("disclaimer_page")
+}
+
 model AuthorsPublishers {
   id           Int    @id @default(autoincrement())
   title        String @default("Authors & Publishers")

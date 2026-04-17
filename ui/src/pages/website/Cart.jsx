@@ -139,9 +139,9 @@ const Cart = () => {
   const getMembershipData = () => {
     if (!settings) return { usd: 0, inr: 0, eur: 0 };
     return {
-      usd: settings.membership_cost || 0,
-      inr: settings.membership_cart_price || 0,
-      eur: settings.membership_cost_eur || 0
+      usd: settings.membership_cost || settings.membershipCartPrice || 0,
+      inr: settings.membership_cart_price || settings.membershipCartPriceInr || 0,
+      eur: settings.membership_cost_eur || settings.membershipCartPriceEur || 0,
     };
   };
 
@@ -188,7 +188,12 @@ const Cart = () => {
   // 3. Membership Data (Sirf display ke liye)
   const mData = getMembershipData();
   const membershipPriceUI = membershipAdded ? formatPrice(mData.usd, mData.inr, mData.usd) : null;
-  const couponDiscountUSD = 0;
+
+  const couponDiscountUSD = (() => {
+    if (!appliedCoupon) return 0;
+    if (appliedCoupon.discountType === 'fixed') return Number(appliedCoupon.discount) || 0;
+    return Math.round((subtotal * (Number(appliedCoupon.discount) / 100)) * 100) / 100;
+  })();
 
   // --- Handlers ---
   const handleRemoveItem = (productId) => {
@@ -448,8 +453,8 @@ const Cart = () => {
             </div>
 
             {/* ─── MEMBERSHIP ROW ─── */}
-            {/* Show only if logged in and membership is not active */}
-            {user?.membership !== "active" && settings && (
+            {/* Show only if logged in and membership is not already active */}
+            {user && user.membership !== "active" && settings && (
               <div className="bg-cream-100 border border-gray-200 shadow-sm">
                 <div className="p-4 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
                   {/* Membership badge */}
@@ -467,7 +472,7 @@ const Cart = () => {
                       className="w-4 h-4 text-primary border-gray-300 focus:ring-primary shrink-0"
                     />
                     <span className="text-sm text-text-main">
-                      Become a member and save 10% now
+                      Become a member and save {settings?.member_discount || settings?.memberDiscount || 10}% now
                     </span>
                   </label>
 

@@ -96,9 +96,10 @@ const HomeNewNoteworthyForm = () => {
 
   // Select Product
   const handleSelectProduct = (product) => {
-    setFormData({ ...formData, productId: product.bagchee_id });
-    setSearchQuery(`${product.bagchee_id} - ${product.title}`); 
-    setIsDropdownOpen(false); 
+    const pid = product.bagcheeId || product.bagchee_id;
+    setFormData({ ...formData, productId: pid });
+    setSearchQuery(`${pid} - ${product.title}`);
+    setIsDropdownOpen(false);
   };
 
   const handleSubmit = (e, actionType) => {
@@ -199,7 +200,7 @@ const HomeNewNoteworthyForm = () => {
                             >
                                 <p className="text-xs font-bold text-gray-800 line-clamp-1">{prod.title}</p>
                                 <div className="text-[10px] text-gray-500 flex flex-wrap gap-x-2">
-                                    <span>ID: <strong className="text-primary">{prod.bagchee_id}</strong></span>
+                                    <span>ID: <strong className="text-primary">{prod.bagcheeId || prod.bagchee_id}</strong></span>
                                     {prod.isbn13 && <span>| ISBN-13: {prod.isbn13}</span>}
                                 </div>
                             </div>
