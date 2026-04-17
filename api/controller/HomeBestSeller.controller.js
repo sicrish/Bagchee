@@ -154,7 +154,7 @@ export const fetchForHome = async (req, res) => {
         const manualEntries = await prisma.homeBestSeller.findMany({ where: { isActive: true }, orderBy: { order: 'asc' } });
         const manualProductIds = manualEntries.map(e => e.productId);
         const manualProducts = manualProductIds.length > 0
-            ? await prisma.product.findMany({ where: { id: { in: manualProductIds } }, select: { id: true, title: true, price: true, inrPrice: true, realPrice: true, discount: true, defaultImage: true, isbn13: true, bagcheeId: true, soldCount: true, authors: { select: { author: { select: { id: true, firstName: true, lastName: true, fullName: true } } } } } })
+            ? await prisma.product.findMany({ where: { id: { in: manualProductIds }, isActive: true }, select: { id: true, title: true, price: true, inrPrice: true, realPrice: true, discount: true, defaultImage: true, isbn13: true, bagcheeId: true, soldCount: true, authors: { select: { author: { select: { id: true, firstName: true, lastName: true, fullName: true } } } } } })
             : [];
         // Auto best sellers (by soldCount, excluding manual picks)
         const autoProducts = await prisma.product.findMany({

@@ -135,7 +135,7 @@ export const fetchForHome = async (req, res) => {
             ? await prisma.product.findMany({ where: { id: { in: productIds }, isActive: true }, select: { id: true, title: true, price: true, inrPrice: true, realPrice: true, discount: true, defaultImage: true, isbn13: true, bagcheeId: true, authors: { select: { author: { select: { id: true, firstName: true, lastName: true, fullName: true } } } } } })
             : [];
         const productMap = Object.fromEntries(products.map(p => [p.id, p]));
-        const validItems = items.filter(i => productMap[i.productId]).map(i => ({ ...i, product: productMap[i.productId] }));
+        const validItems = items.map(i => productMap[i.productId]).filter(Boolean);
         res.status(200).json({ status: true, data: validItems, total, page, limit, sectionTitle: 'New & Notable', sectionTagline: 'Handpicked additions to our collection' });
     } catch (error) {
         res.status(500).json({ status: false, msg: 'Server Error' });
