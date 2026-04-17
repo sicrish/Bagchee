@@ -73,7 +73,7 @@ const Categories = () => {
             </h2>
             <div className="w-16 h-1 bg-primary mx-auto mt-4 rounded-full" />
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {tags.map((tag) => (
               <TagPill key={tag.id || tag._id} tag={tag} />
             ))}
@@ -84,8 +84,8 @@ const Categories = () => {
   );
 };
 
-/* ─── Blue pill button for a category ─── */
-const CategoryPill = ({ category }) => {
+/* ─── Blue pill button for a category (recursive) ─── */
+const CategoryPill = ({ category, depth = 0 }) => {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const hasChildren = category.children && category.children.length > 0;
@@ -93,55 +93,53 @@ const CategoryPill = ({ category }) => {
 
   const handleClick = () => {
     if (hasChildren) setIsOpen(!isOpen);
-    else navigate(`/books/${category.slug}`);
+    else if (category.slug) navigate(`/books/${category.slug}`);
   };
+
+  // Depth-based styling: darker/brighter at root, lighter shades as we go deeper
+  const bgByDepth = ['bg-primary hover:bg-primary/90', 'bg-primary/80 hover:bg-primary', 'bg-primary/70 hover:bg-primary', 'bg-primary/60 hover:bg-primary'];
+  const rowBg = bgByDepth[Math.min(depth, bgByDepth.length - 1)];
+  const textSize = depth === 0 ? 'text-sm' : 'text-xs';
+  const iconSize = depth === 0 ? 16 : 14;
+  const paddingY = depth === 0 ? 'py-3' : 'py-2.5';
 
   return (
     <div>
       <button
         type="button"
         onClick={handleClick}
-        className="w-full flex items-center justify-between bg-primary hover:bg-primary/90 text-white rounded-lg px-4 py-3 transition-colors duration-150"
+        className={`w-full flex items-center justify-between ${rowBg} text-white rounded-lg px-4 ${paddingY} transition-colors duration-150`}
       >
         <div className="flex items-center gap-3">
-          <Book size={16} className="flex-shrink-0 opacity-90" />
-          <span className="font-bold text-sm uppercase tracking-wide text-left">
+          <Book size={iconSize} className="flex-shrink-0 opacity-90" />
+          <span className={`font-bold ${textSize} uppercase tracking-wide text-left`}>
             {catTitle}
           </span>
         </div>
         {hasChildren && (
           <ChevronDown
-            size={16}
+            size={iconSize}
             className={`flex-shrink-0 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
           />
         )}
       </button>
 
-      {/* Subcategories */}
       {hasChildren && isOpen && (
-        <div className="mt-1 ml-2 space-y-1">
-          <button
-            type="button"
-            onClick={() => navigate(`/books/${category.slug}`)}
-            className="w-full flex items-center gap-3 bg-primary/80 hover:bg-primary text-white rounded-lg px-4 py-2.5 transition-colors duration-150"
-          >
-            <Book size={14} className="flex-shrink-0 opacity-80" />
-            <span className="font-semibold text-xs uppercase tracking-wide">
-              View all in {catTitle}
-            </span>
-          </button>
-          {category.children.map((child) => (
+        <div className="mt-1 ml-4 space-y-1 border-l-2 border-primary/30 pl-2">
+          {category.slug && (
             <button
-              key={child.id || child._id}
               type="button"
-              onClick={() => child.slug && navigate(`/books/${child.slug}`)}
-              className="w-full flex items-center gap-3 bg-primary/70 hover:bg-primary text-white rounded-lg px-4 py-2.5 transition-colors duration-150"
+              onClick={() => navigate(`/books/${category.slug}`)}
+              className="w-full flex items-center gap-3 bg-primary/50 hover:bg-primary text-white rounded-lg px-4 py-2 transition-colors duration-150"
             >
-              <Book size={14} className="flex-shrink-0 opacity-80" />
-              <span className="font-medium text-xs uppercase tracking-wide text-left">
-                {child.title || child.categorytitle}
+              <Book size={12} className="flex-shrink-0 opacity-80" />
+              <span className="font-semibold text-[11px] uppercase tracking-wide">
+                View all in {catTitle}
               </span>
             </button>
+          )}
+          {category.children.map((child) => (
+            <CategoryPill key={child.id || child._id} category={child} depth={depth + 1} />
           ))}
         </div>
       )}

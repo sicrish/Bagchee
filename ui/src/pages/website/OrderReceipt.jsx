@@ -8,8 +8,26 @@ const OrderReceipt = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { formatPrice, symbols, currency } = useContext(CurrencyContext);
-  const order = location.state?.orderDetails;
+  const rawOrder = location.state?.orderDetails;
   const bankDetails = location.state?.bankDetails || null;
+
+  // Normalize camelCase (Prisma) + snake_case / nested (legacy) shapes into one object.
+  const sd = rawOrder?.shipping_details || {};
+  const order = rawOrder && {
+    ...rawOrder,
+    orderNumber:       rawOrder.orderNumber       || rawOrder.order_number || '',
+    shippingFirstName: rawOrder.shippingFirstName || sd.first_name || sd.firstName || '',
+    shippingLastName:  rawOrder.shippingLastName  || sd.last_name  || sd.lastName  || '',
+    shippingAddress1:  rawOrder.shippingAddress1  || sd.address_1  || sd.address1  || sd.address || '',
+    shippingCity:      rawOrder.shippingCity      || sd.city       || '',
+    shippingState:     rawOrder.shippingState     || sd.state_region || sd.state   || '',
+    shippingPostcode:  rawOrder.shippingPostcode  || sd.postcode   || sd.pincode   || '',
+    shippingPhone:     rawOrder.shippingPhone     || sd.phone      || '',
+    paymentType:       rawOrder.paymentType       || rawOrder.payment_type || '',
+    shippingCost:      Number(rawOrder.shippingCost ?? rawOrder.shipping_cost ?? 0),
+    total:             Number(rawOrder.total ?? 0),
+    items:             rawOrder.items || rawOrder.products || [],
+  };
 
   const orderStatus = (order?.status || '').toLowerCase();
   const isApprovalPending = orderStatus === 'approval pending';
@@ -75,8 +93,8 @@ const OrderReceipt = () => {
                   </p>
                   <h1 className="text-3xl font-display font-bold text-text-main">
                     {isApprovalPending
-                      ? `Thank You, ${order.shippingFirstName || order.shipping_details?.first_name}!`
-                      : `Review Your Order, ${order.shippingFirstName || order.shipping_details?.first_name}!`}
+                      ? `Thank You, ${order.shippingFirstName || 'Customer'}!`
+                      : `Review Your Order, ${order.shippingFirstName || 'Customer'}!`}
                   </h1>
                 </div>
               </div>
@@ -98,7 +116,7 @@ const OrderReceipt = () => {
                   <p className="text-sm font-bold text-amber-800 mb-3 uppercase tracking-wide">Wire Transfer Instructions</p>
                   <p className="text-sm text-amber-700 mb-4">
                     Please transfer the total amount to the bank account below. Use your order number
-                    <strong> {order.orderNumber || order.order_number}</strong> as the payment reference.
+                    <strong> {order.orderNumber}</strong> as the payment reference.
                   </p>
                   {currencyBankDetails && (currencyBankDetails.name || currencyBankDetails.iban) ? (
                     <div className="space-y-2 text-sm font-body">
@@ -119,7 +137,7 @@ const OrderReceipt = () => {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-5 bg-gray-50 rounded-xl border border-gray-100">
                   <div>
                     <p className="text-[10px] font-bold text-gray-400 uppercase">Order ID</p>
-                    <p className="text-sm font-bold text-text-main">#{order.order_number}</p>
+                    <p className="text-sm font-bold text-text-main">#{order.orderNumber}</p>
                   </div>
                   <div>
                     <p className="text-[10px] font-bold text-gray-400 uppercase">Date</p>
@@ -143,11 +161,11 @@ const OrderReceipt = () => {
                     </h4>
                     <p className="text-sm text-gray-600 leading-relaxed bg-white border border-gray-50 p-4 rounded-lg shadow-sm">
                       <span className="font-bold text-text-main block mb-1">
-                        {order.shipping_details?.first_name} {order.shipping_details?.last_name}
+                        {order.shippingFirstName} {order.shippingLastName}
                       </span>
-                      {order.shipping_details?.address_1}<br />
-                      {order.shipping_details?.city}, {order.shipping_details?.state_region} {order.shipping_details?.postcode}<br />
-                      <span className="text-xs font-medium text-gray-400">{order.shipping_details?.phone}</span>
+                      {order.shippingAddress1}<br />
+                      {order.shippingCity}, {order.shippingState} {order.shippingPostcode}<br />
+                      <span className="text-xs font-medium text-gray-400">{order.shippingPhone}</span>
                     </p>
                   </div>
                   <div className="space-y-3">
@@ -155,7 +173,7 @@ const OrderReceipt = () => {
                       <CreditCard size={14} /> Payment Method
                     </h4>
                     <div className="p-4 bg-white border border-gray-50 rounded-lg shadow-sm">
-                      <p className="text-sm font-bold text-text-main">{order.payment_type}</p>
+                      <p className="text-sm font-bold text-text-main">{order.paymentType}</p>
                       <p className="text-[10px] text-green-600 font-bold mt-1 uppercase italic tracking-tighter">Secure Transaction</p>
                     </div>
                   </div>
@@ -214,17 +232,16 @@ const OrderReceipt = () => {
                   <ShoppingBag size={16} className="text-primary" /> Your Order
                 </h3>
                 <span className="bg-text-main text-white text-[9px] font-bold px-2 py-0.5 rounded-full">
-                  {order.products?.length}
+                  {order.items?.length}
                 </span>
               </div>
               <div className="p-5">
                 <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
-                  {order.products?.map((item, idx) => (
+                  {order.items?.map((item, idx) => (
                     <div key={idx} className="flex gap-4 group">
                       <div className="w-14 h-18 bg-gray-50 border border-gray-100 rounded overflow-hidden shrink-0">
-                        {/* 🟢 IMAGE FIX: Added dynamic image logic */}
                         <img
-                          src={getFullImageUrl(item.image || item.product_id?.default_image)}
+                          src={getFullImageUrl(item.image || item.product?.defaultImage || item.product_id?.default_image)}
                           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                           alt="product"
                         />
@@ -249,13 +266,13 @@ const OrderReceipt = () => {
                     <span>Subtotal</span>
                     <span className="text-text-main">
                       {symbols[order.currency] || symbols[currency]}
-                      {(order.total - (order.shipping_cost || 0)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      {(order.total - order.shippingCost).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </span>                  </div>
                   <div className="flex justify-between text-[11px] font-bold text-gray-400 uppercase tracking-widest">
                     <span>Shipping</span>
-                    <span className="text-text-main">{order.shipping_cost === 0
+                    <span className="text-text-main">{order.shippingCost === 0
                       ? "FREE"
-                      : `${symbols[order.currency] || symbols[currency]}${Number(order.shipping_cost).toFixed(2)}`
+                      : `${symbols[order.currency] || symbols[currency]}${order.shippingCost.toFixed(2)}`
                     }</span>
                   </div>
                   <div className="flex justify-between items-center pt-4 border-t border-gray-200">
