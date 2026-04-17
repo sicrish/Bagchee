@@ -726,18 +726,18 @@ const PremiumHeader = () => {
                 ${isGift ? 'bg-accent/10 border border-accent/20 text-gray-800 hover:bg-accent hover:text-text-main' : ''}
                 
                 /* 🔴 SALE */
-               /* 🔴 SALE (Premium Hot Deal Look) */
-${isSale ? 'bg-gradient-to-r from-red-700 to-red-500 !text-white rounded-full shadow-md hover:shadow-lg hover:from-red-700 hover:to-red-600 border-b-2 border-red-700' : ''}
+             
+                /* 🔴 SALE: Wapas wahi purana logic */
+                ${isSale ? 'bg-red-600 !text-white rounded-full hover:bg-text-main shadow-sm' : ''}
               `}
                   >
                     <span className="relative flex items-center">
+                      {/* Sale Pulse Dot */}
                       {isSale && (
-                        // 🟡 Flame Icon with yellow accent color and pulse animation
-                        <Flame
-                          size={20}
-                          className="mr-1.5 text-accent animate-pulse drop-shadow-md"
-                          fill="currentColor"
-                        />
+                        <span className="flex h-2 w-2 mr-2 relative">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                        </span>
                       )}
                       <span className="z-10">{navName}</span>
                     </span>
