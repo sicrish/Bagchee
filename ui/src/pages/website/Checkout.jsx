@@ -32,6 +32,40 @@ import discoverLogo from "../../assets/images/website/payments/Discover.png";
 import amexLogo from "../../assets/images/website/payments/american.png";
 import paypalLogo from "../../assets/images/website/payments/PayPal.svg";
 
+const SHIPPING_TIERS = {
+  6: [ // Express (3-5 Business Days)
+    { min: 1,   max: 2,        usd: 50  },
+    { min: 3,   max: 6,        usd: 80  },
+    { min: 7,   max: 11,       usd: 110 },
+    { min: 12,  max: 15,       usd: 150 },
+    { min: 16,  max: 20,       usd: 200 },
+    { min: 21,  max: 25,       usd: 280 },
+    { min: 26,  max: 36,       usd: 350 },
+    { min: 37,  max: 50,       usd: 435 },
+    { min: 51,  max: 100,      usd: 550 },
+    { min: 101, max: Infinity, usd: 730 },
+  ],
+  5: [ // Expedited (8-12 Business Days)
+    { min: 1,   max: 2,        usd: 20  },
+    { min: 3,   max: 6,        usd: 35  },
+    { min: 7,   max: 11,       usd: 50  },
+    { min: 12,  max: 15,       usd: 80  },
+    { min: 16,  max: 20,       usd: 120 },
+    { min: 21,  max: 25,       usd: 150 },
+    { min: 26,  max: 36,       usd: 175 },
+    { min: 37,  max: 50,       usd: 222 },
+    { min: 51,  max: 100,      usd: 280 },
+    { min: 101, max: Infinity, usd: 400 },
+  ],
+};
+
+const getTieredShippingUsd = (shippingId, totalBooks) => {
+  const tiers = SHIPPING_TIERS[shippingId];
+  if (!tiers || totalBooks === 0) return 0;
+  const tier = tiers.find(t => totalBooks >= t.min && totalBooks <= t.max);
+  return tier ? tier.usd : tiers[tiers.length - 1].usd;
+};
+
 const Checkout = () => {
   const navigate = useNavigate();
   const {
@@ -284,10 +318,15 @@ const Checkout = () => {
   }, [API_BASE_URL]);
 
   // ─── Helpers ───
+  const totalBooks = cart.reduce((acc, item) => acc + (item.quantity || 1), 0);
+
   const getShippingPrice = (option) => {
     if (!option) return 0;
-    if (currency === "EUR") return option.priceEur || 0;
-    return option.priceUsd || 0;
+    const optId = option.id || option._id;
+    const usd = getTieredShippingUsd(optId, totalBooks);
+    if (currency === 'EUR') return usd * (exchangeRates?.EUR || 0.92);
+    if (currency === 'GBP') return usd * (exchangeRates?.GBP || 0.78);
+    return usd;
   };
 
   // ─── 🟢 STEP 1: RAW PRODUCT SUBTOTAL (Discounted) ───
@@ -316,15 +355,15 @@ const Checkout = () => {
     return Number(settings.membership_cost) || 35;
   }, [membershipAdded, settings, currency, exchangeRates]);
 
-  // ─── 🟢 STEP 3: SHIPPING COST (Fixed - No Ratio) ───
+  // ─── 🟢 STEP 3: SHIPPING COST (Tiered by book count) ───
   const shippingCost = useMemo(() => {
     if (!appliedShipping) return 0;
-    const freeThreshold = Number(settings?.free_shipping_over) || 50;
-    if (freeThreshold > 0 && subtotal >= freeThreshold) return 0;
-    if (currency === 'EUR') return appliedShipping.priceEur || 0;
-    if (currency === 'GBP') return (appliedShipping.priceUsd || 0) * (exchangeRates?.GBP || 0.78);
-    return appliedShipping.priceUsd || 0;
-  }, [appliedShipping, subtotal, currency, settings, exchangeRates]);
+    const optId = appliedShipping.id || appliedShipping._id;
+    const usd = getTieredShippingUsd(optId, totalBooks);
+    if (currency === 'EUR') return usd * (exchangeRates?.EUR || 0.92);
+    if (currency === 'GBP') return usd * (exchangeRates?.GBP || 0.78);
+    return usd;
+  }, [appliedShipping, totalBooks, currency, exchangeRates]);
 
   // 6. Member Discount (11% Logic)
   const memberDiscountPercent = Number(settings?.member_discount) || 11;
