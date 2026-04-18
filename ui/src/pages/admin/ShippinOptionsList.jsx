@@ -71,7 +71,7 @@ const ShippingOptionsList = () => {
         "Option Title": item.title,
         "USD": item.priceUsd,
         "EUR": item.priceEur,
-        "Active": item.isActive ? "Yes" : "No",
+        "Active": item.is_active ? "Yes" : "No",
         "Order": item.order || 0
       }));
 
@@ -86,7 +86,7 @@ const ShippingOptionsList = () => {
   const filteredOptions = useMemo(() => {
     return shippingOptions.filter((item, index) => {
       const displayId = (index + 1).toString();
-      const statusText = item.isActive ? "yes" : "no";
+      const statusText = item.is_active ? "yes" : "no";
 
       return (
         displayId.includes(filters.id) &&
@@ -226,8 +226,8 @@ const ShippingOptionsList = () => {
                     <td className="p-3 border-r border-cream-50 text-text-main">{item.priceUsd || '0'}</td>
                     <td className="p-3 border-r border-cream-50 text-text-main">{item.priceEur || '0'}</td>
                     <td className="p-3 border-r border-cream-50 text-text-main">
-                        <span className={item.isActive ? 'text-green-600 font-bold' : 'text-text-muted'}>
-                            {item.isActive ? 'Yes' : 'No'}
+                        <span className={item.is_active ? 'text-green-600 font-bold' : 'text-text-muted'}>
+                            {item.is_active ? 'Yes' : 'No'}
                         </span>
                     </td>
                     <td className="p-3 border-r border-cream-50 text-text-main">{item.order !== undefined ? item.order : '0'}</td>
