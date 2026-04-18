@@ -56,7 +56,7 @@ const EditTestimonials = () => {
     const toastId = toast.loading("Updating Testimonials...");
 
     try {
-      const payload = { ...formData, page_content: pageContent };
+      const payload = { ...formData, page_content: page_content };
       const API_URL = process.env.REACT_APP_API_URL;
       const res = await axios.patch(`${API_URL}/testimonials/update`, payload);
 
