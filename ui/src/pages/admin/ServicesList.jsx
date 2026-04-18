@@ -17,8 +17,8 @@ const ServicesList = () => {
     const [filters, setFilters] = useState({
         id: "",
         title: "",
-        metaTitle: "",
-        metaDesc: ""
+        meta_title: "",
+        meta_desc: ""
     });
 
     const fetchServices = useCallback(async () => {
@@ -49,8 +49,8 @@ const ServicesList = () => {
             return (
                 displayId.includes(filters.id) &&
                 (item.title || "").toLowerCase().includes(filters.title.toLowerCase()) &&
-                (item.meta_title || "").toLowerCase().includes(filters.metaTitle.toLowerCase()) &&
-                (item.meta_description || "").toLowerCase().includes(filters.metaDesc.toLowerCase())
+                (item.meta_title || "").toLowerCase().includes(filters.meta_title.toLowerCase()) &&
+                (item.meta_description || "").toLowerCase().includes(filters.meta_desc.toLowerCase())
             );
         });
     }, [services, filters]);
@@ -60,7 +60,7 @@ const ServicesList = () => {
     };
 
     const clearFilters = () => {
-        setFilters({ id: "", title: "", metaTitle: "", metaDesc: "" });
+        setFilters({ id: "", title: "", meta_title: "", meta_desc: "" });
         fetchServices();
     };
 
@@ -140,10 +140,10 @@ const ServicesList = () => {
                                     <input name="title" value={filters.title} onChange={handleFilterChange} type="text" className={filterInputClass} placeholder="Filter Title" />
                                 </td>
                                 <td className="p-2 border-r border-white/20">
-                                    <input name="metaTitle" value={filters.metaTitle} onChange={handleFilterChange} type="text" className={filterInputClass} placeholder="Filter Meta Title" />
+                                    <input name="meta_title" value={filters.meta_title} onChange={handleFilterChange} type="text" className={filterInputClass} placeholder="Filter Meta Title" />
                                 </td>
                                 <td className="p-2 border-r border-white/20">
-                                    <input name="metaDesc" value={filters.metaDesc} onChange={handleFilterChange} type="text" className={filterInputClass} placeholder="Filter Meta Desc" />
+                                    <input name="meta_desc" value={filters.meta_desc} onChange={handleFilterChange} type="text" className={filterInputClass} placeholder="Filter Meta Desc" />
                                 </td>
                                 <td className="p-2 text-center">
                                     <button onClick={fetchServices} className="text-white hover:rotate-180 transition-transform duration-500">
