@@ -67,7 +67,7 @@ const PaymentsList = () => {
       const dataToExport = allData.map((item, i) => ({
         "Sr No": i + 1,
         "Method Title": item.title,
-        "Status": item.isActive ? "Active" : "Inactive",
+        "Status": item.is_active ? "Active" : "Inactive",
         "Display Order": item.order || 0,
         "Created Date": new Date(item.createdAt).toLocaleDateString('en-GB')
       }));
@@ -83,7 +83,7 @@ const PaymentsList = () => {
   const filteredPayments = useMemo(() => {
     return payments.filter((item, index) => {
       const displayId = (index + 1).toString();
-      const statusText = item.isActive ? "active" : "inactive";
+      const statusText = item.is_active ? "active" : "inactive";
 
       return (
         displayId.includes(filters.id) &&
@@ -211,8 +211,8 @@ const PaymentsList = () => {
                     </td>
                     <td className="p-3 border-r border-cream-50 text-text-main font-medium">{item.title}</td>
                     <td className="p-3 border-r border-cream-50 text-center">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${item.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                        {item.isActive ? 'active' : 'inactive'}
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${item.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                        {item.is_active ? 'active' : 'inactive'}
                       </span>
                     </td>
                     <td className="p-3 border-r border-cream-50 text-text-main text-center font-bold">{item.order || 0}</td>
