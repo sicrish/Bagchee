@@ -192,6 +192,118 @@ const MobileHtmlAccordion = memo(({ htmlContent, onLinkClick }) => {
 MobileHtmlAccordion.displayName = 'MobileHtmlAccordion';
 
 /* ---------------------------------------------------------
+  🟢 CATEGORIES MEGA DROPDOWN — dynamic, fetched from API
+  --------------------------------------------------------- */
+const CategoriesDropdown = memo(({ onLinkClick }) => {
+  const API_URL = process.env.REACT_APP_API_URL;
+
+  const { data: allCats = [] } = useQuery({
+    queryKey: ['headerCategories'],
+    queryFn: async () => {
+      const res = await axios.get(`${API_URL}/categories/fetch`);
+      return res.data.status ? res.data.data : [];
+    },
+    staleTime: 1000 * 60 * 15,
+    refetchOnWindowFocus: false,
+  });
+
+  // Main categories: non-empty title, parentId 2 (invisible root) or 0 fallback
+  const mainCats = allCats
+    .filter(c => c.title && c.title.trim() && (c.parentId === 2 || c.parent_id === 2))
+    .sort((a, b) => a.title.localeCompare(b.title));
+
+  // Fallback: if parentId=2 yields nothing, show parentId=0 top-level cats
+  const displayCats = mainCats.length > 0
+    ? mainCats
+    : allCats.filter(c => c.title && c.title.trim() && (c.parentId === 0 || c.parent_id === 0))
+        .sort((a, b) => a.title.localeCompare(b.title));
+
+  if (!displayCats.length) {
+    return <div className="p-6 text-sm text-gray-400 text-center">Loading categories…</div>;
+  }
+
+  const half = Math.ceil(displayCats.length / 2);
+  const col1 = displayCats.slice(0, half);
+  const col2 = displayCats.slice(half);
+
+  const catLink = (cat) => {
+    const slug = cat.slug || cat.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    return `/books?category=${cat.id}`;
+  };
+
+  return (
+    <div className="p-5">
+      <div className="grid grid-cols-3 gap-x-6">
+        {/* Column 1 */}
+        <div>
+          <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-3 pb-2 border-b border-primary/20 font-montserrat">Browse Categories</p>
+          <ul className="space-y-1">
+            {col1.map(cat => (
+              <li key={cat.id}>
+                <button
+                  onClick={() => onLinkClick(catLink(cat))}
+                  className="text-sm text-gray-600 hover:text-primary transition-colors text-left w-full py-0.5 font-body"
+                >
+                  {cat.title}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+        {/* Column 2 */}
+        <div>
+          <p className="text-[10px] font-bold text-transparent uppercase tracking-widest mb-3 pb-2 border-b border-transparent font-montserrat">‎</p>
+          <ul className="space-y-1">
+            {col2.map(cat => (
+              <li key={cat.id}>
+                <button
+                  onClick={() => onLinkClick(catLink(cat))}
+                  className="text-sm text-gray-600 hover:text-primary transition-colors text-left w-full py-0.5 font-body"
+                >
+                  {cat.title}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+        {/* Column 3 — quick links */}
+        <div>
+          <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-3 pb-2 border-b border-primary/20 font-montserrat">Quick Links</p>
+          <ul className="space-y-1">
+            {[
+              { label: 'New Arrivals', href: '/new-arrivals' },
+              { label: 'Bestsellers', href: '/bestsellers' },
+              { label: 'Recommended', href: '/recommended' },
+              { label: 'Sale', href: '/sale' },
+              { label: 'All Categories', href: '/allcategories' },
+            ].map(link => (
+              <li key={link.href}>
+                <button
+                  onClick={() => onLinkClick(link.href)}
+                  className="text-sm text-gray-600 hover:text-primary transition-colors text-left w-full py-0.5 font-body"
+                >
+                  {link.label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+      <div className="mt-4 pt-3 border-t border-gray-100 text-center">
+        <button
+          onClick={() => onLinkClick('/allcategories')}
+          className="text-xs font-bold text-primary uppercase tracking-widest hover:underline font-montserrat"
+        >
+          Browse All Categories →
+        </button>
+      </div>
+    </div>
+  );
+});
+
+CategoriesDropdown.displayName = 'CategoriesDropdown';
+
+/* ---------------------------------------------------------
    MAIN HEADER COMPONENT
 --------------------------------------------------------- */
 const PremiumHeader = () => {
@@ -767,13 +879,22 @@ const PremiumHeader = () => {
                       }}
                     >
                       <div className={`h-1 w-full ${isSale ? 'bg-red-600' : 'bg-primary'}`}></div>
-                      <DropdownContent
-                        htmlContent={nav.dropdownContent || nav.dropdown_content}
-                        onLinkClick={(href) => {
-                          handleInternalLink(href);
-                          setActiveDropdown(null);
-                        }}
-                      />
+                      {navName.toLowerCase() === 'categories' ? (
+                        <CategoriesDropdown
+                          onLinkClick={(href) => {
+                            handleInternalLink(href);
+                            setActiveDropdown(null);
+                          }}
+                        />
+                      ) : (
+                        <DropdownContent
+                          htmlContent={nav.dropdownContent || nav.dropdown_content}
+                          onLinkClick={(href) => {
+                            handleInternalLink(href);
+                            setActiveDropdown(null);
+                          }}
+                        />
+                      )}
                     </div>
                   )}
                 </div>
