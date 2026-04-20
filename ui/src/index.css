@@ -69,3 +69,84 @@ img {
   will-change: transform;
   transform: translate3d(0, 0, 0);
 }
+
+/* ── Nav dropdown mega-menu (legacy .submenu HTML stored in DB) ── */
+ul.submenu {
+  display: flex;
+  flex-wrap: wrap;
+  list-style: none;
+  margin: 0;
+  padding: 20px 24px;
+  gap: 0;
+}
+ul.submenu > li {
+  flex: 1;
+  min-width: 160px;
+  padding: 0 16px;
+  border-right: 1px solid #e5e7eb;
+}
+ul.submenu > li:last-child {
+  border-right: none;
+}
+ul.submenu > li > a {
+  display: block;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #0B2F3A;
+  padding: 0 0 8px;
+  margin-bottom: 8px;
+  border-bottom: 2px solid #008DDA;
+  cursor: default;
+  pointer-events: none;
+}
+ul.submenu > li > a[href]:not([href="#"]) {
+  cursor: pointer;
+  pointer-events: auto;
+  color: #008DDA;
+}
+ul.submenu ul.submenu {
+  display: block;
+  padding: 0;
+  flex: none;
+}
+ul.submenu ul.submenu > li {
+  flex: none;
+  min-width: 0;
+  padding: 0;
+  border-right: none;
+}
+ul.submenu ul.submenu > li > a {
+  display: block;
+  font-weight: 400;
+  font-size: 13px;
+  text-transform: none;
+  letter-spacing: normal;
+  color: #4B5563;
+  padding: 3px 0;
+  border-bottom: none;
+  cursor: pointer;
+  pointer-events: auto;
+}
+ul.submenu ul.submenu > li > a:hover {
+  color: #008DDA;
+}
+li.categories-last-li {
+  flex: none !important;
+  width: 100%;
+  border-right: none !important;
+  border-top: 1px solid #e5e7eb;
+  padding: 12px 0 0 !important;
+  margin-top: 8px;
+}
+li.categories-last-li > a {
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  color: #008DDA !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.1em !important;
+  border-bottom: none !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+}
