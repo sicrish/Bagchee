@@ -28,7 +28,7 @@ const EditTerms = () => {
             meta_description: d.meta_description || d.meta_description || '',
             meta_keywords: d.meta_keywords || d.meta_keywords || '',
           });
-          setPageContent(d.page_content || d.page_content || '');
+          setPageContent(d.pageContent || d.page_content || '');
         }
       } catch (error) {
         console.error("Fetch Error");
@@ -44,7 +44,7 @@ const EditTerms = () => {
     setLoading(true);
     const toastId = toast.loading("Updating Terms of Use...");
     try {
-      const payload = { ...formData, page_content: page_content };
+      const payload = { ...formData, page_content: pageContent };
       const API_URL = process.env.REACT_APP_API_URL;
       const res = await axios.patch(`${API_URL}/terms/update`, payload);
 
