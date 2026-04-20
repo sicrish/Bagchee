@@ -1,8 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 
-const CDN = 'https://www.bagchee.com';
-const BOOK_BASE = `${CDN}/assets/images/books`;
-const UPLOAD_BASE = `${CDN}/uploads`;
+const CDN = 'https://www.bagchee.com/assets/images';
 
 const isHttp = (v) => typeof v === 'string' && /^https?:\/\//.test(v);
 
@@ -13,79 +11,103 @@ const yyyymm = (d) => {
     return `${dt.getUTCFullYear()}/${String(dt.getUTCMonth() + 1).padStart(2, '0')}`;
 };
 
-// Prefix a bare filename with the generic /uploads/ CDN path.
-// Skips empty values, already-qualified URLs, and relative/absolute paths starting with '/'.
-const toUploadUrl = (file) => {
+const prefixCdn = (folder, file) => {
     if (!file || typeof file !== 'string') return file;
     if (isHttp(file) || file.startsWith('/')) return file;
-    return `${UPLOAD_BASE}/${file}`;
+    return `${CDN}/${folder}/${file}`;
 };
 
 // Product images live under /assets/images/books/YYYY/MM/PID/<file>
 const toBookUrl = (file, ym, pid) => {
     if (!file || typeof file !== 'string' || isHttp(file)) return file;
     if (!ym || !pid) return file;
-    return `${BOOK_BASE}/${ym}/${pid}/${file}`;
+    return `${CDN}/books/${ym}/${pid}/${file}`;
 };
 
-// --- Model-specific image-field rewrites ------------------------------------
-// Each entry: modelShape → { fields: [...plain image fields to prefix with /uploads/] }
-// Detected heuristically on the result object's keys.
+// Verified CDN paths (scraped from live bagchee.com):
+//   /assets/images/sliders/        — HomeSlider.desktopImage, mobileImage
+//   /assets/images/home/           — MainCategory.image (home_categories table)
+//   /assets/images/categories/     — Category.image
+//   /assets/images/authors/        — Author.picture
+//   /assets/images/books/YYYY/MM/  — Product.defaultImage + ProductImage.file
+// Best-guess (same CodeIgniter layout convention):
+//   /assets/images/actors/, /artists/, /publishers/, /banners/, /socials/
+//   /assets/images/sideBanners/ for SideBannerOne/Two
 
-const simpleUploadFields = {
+// Detect the model by distinctive field shapes on the result object.
+// Returns the CDN folder name, or null if not matched.
+const detectShape = (node) => {
+    if (!node || typeof node !== 'object' || Array.isArray(node)) return null;
     // HomeSlider
-    desktopImage: true,
-    mobileImage: true,
-    // Author / Actor / Artist / User
-    picture: true,
-    profileImage: true,
-    // Banner (home_banners)
-    bgImageName: true,
-    overlayImageName: true,
-    // SideBannerOne / SideBannerTwo
-    image1: true,
-    image2: true,
+    if ('desktopImage' in node && 'mobileImage' in node) return { folder: 'sliders', fields: ['desktopImage', 'mobileImage'] };
+    // SideBannerOne / SideBannerTwo — image1/image2 with link1/link2
+    if (('image1' in node || 'image2' in node) && ('link1' in node || 'link2' in node)) {
+        return { folder: 'sideBanners', fields: ['image1', 'image2'] };
+    }
+    // Banner (home_banners) — bg_image_name, overlay_image_name
+    if ('bgImageName' in node || 'overlayImageName' in node) {
+        return { folder: 'banners', fields: ['bgImageName', 'overlayImageName'] };
+    }
+    // Author/Actor/Artist — picture + firstName/lastName + fullName
+    if ('picture' in node && ('firstName' in node || 'fullName' in node || 'lastName' in node)) {
+        // Can't fully distinguish author vs actor vs artist from result shape.
+        // All three resolve to the same parent folder pattern, just different subfolder.
+        // Default to 'authors' (most common). If you want separate folders per type,
+        // the caller should pass model-specific hints.
+        return { folder: 'authors', fields: ['picture'] };
+    }
+    // User (profile) — profileImage
+    if ('profileImage' in node && 'email' in node) {
+        return { folder: 'avatars', fields: ['profileImage'] };
+    }
     // SubCategory icon
-    iconName: true,
+    if ('iconName' in node && ('categoryId' in node || 'name' in node)) {
+        return { folder: 'subcategories', fields: ['iconName'] };
+    }
+    // MainCategory (home_categories) vs Category — both have `image` + `title` + `active`/`order`.
+    // MainCategory has `link` field; Category has `parentId` / `slug` / `lft` / `rght`.
+    if ('image' in node && typeof node.image === 'string') {
+        if ('parentId' in node || 'lft' in node || 'rght' in node || 'slug' in node) {
+            return { folder: 'categories', fields: ['image'] };
+        }
+        if ('link' in node || 'order' in node) {
+            return { folder: 'home', fields: ['image'] };
+        }
+        // Publisher has `publisher_title` → mapped to `title` in schema but also has `shipInDays`
+        if ('shipInDays' in node) {
+            return { folder: 'publishers', fields: ['image'] };
+        }
+        // Social
+        if ('url' in node || 'platform' in node) {
+            return { folder: 'socials', fields: ['image'] };
+        }
+        return null;
+    }
+    return null;
 };
 
-// Models where `image` means an admin-uploaded CDN file (not a product image).
-// We inspect by the object's field shape to decide if `image` should be prefixed
-// with /uploads/. Product-related structures use their own rewriter.
-const isUploadShape = (node) => {
-    if (!node || typeof node !== 'object') return false;
-    // Product has defaultImage — never treat as upload shape
-    if ('defaultImage' in node || 'defaultTocImage' in node) return false;
-    // One of the explicit plain-upload fields present?
-    for (const k of Object.keys(simpleUploadFields)) {
-        if (k in node) return true;
-    }
-    // Plain `image` field alongside title/order/active/link suggests banner/category/etc.
-    if ('image' in node && typeof node.image === 'string') {
-        if ('title' in node || 'link' in node || 'order' in node || 'active' in node) {
-            return true;
+const rewriteByShape = (node, shape) => {
+    for (const f of shape.fields) {
+        if (f in node && typeof node[f] === 'string') {
+            node[f] = prefixCdn(shape.folder, node[f]);
         }
     }
-    return false;
 };
 
-const rewriteUploadShape = (node) => {
-    for (const k of Object.keys(simpleUploadFields)) {
-        if (k in node && typeof node[k] === 'string') {
-            node[k] = toUploadUrl(node[k]);
-        }
-    }
-    if ('image' in node && typeof node.image === 'string') {
-        node.image = toUploadUrl(node.image);
-    }
-};
+const isProductShape = (node) =>
+    node &&
+    typeof node === 'object' &&
+    !Array.isArray(node) &&
+    'id' in node &&
+    'createdAt' in node &&
+    ('defaultImage' in node || 'images' in node || 'tocImage' in node);
 
-// --- Product rewriting (uses date-based path) -------------------------------
 const rewriteProduct = (p) => {
     const ym = yyyymm(p.createdAt);
     const pid = p.id;
     if (!ym || !pid) return;
     if (p.defaultImage) p.defaultImage = toBookUrl(p.defaultImage, ym, pid);
+    if (p.tocImage) p.tocImage = toBookUrl(p.tocImage, ym, pid);
     if (p.defaultTocImage) p.defaultTocImage = toBookUrl(p.defaultTocImage, ym, pid);
     for (const rel of ['images', 'tocs', 'sampleImages']) {
         if (Array.isArray(p[rel])) {
@@ -96,14 +118,7 @@ const rewriteProduct = (p) => {
     }
 };
 
-const isProductShape = (node) =>
-    node &&
-    typeof node === 'object' &&
-    'id' in node &&
-    'createdAt' in node &&
-    ('defaultImage' in node || 'images' in node || 'defaultTocImage' in node);
-
-// --- Recursive walker -------------------------------------------------------
+// Recursive walker — detects product or upload shapes anywhere in the result tree.
 const walk = (node) => {
     if (!node || typeof node !== 'object') return node;
     if (Array.isArray(node)) {
@@ -112,8 +127,9 @@ const walk = (node) => {
     }
     if (isProductShape(node)) {
         rewriteProduct(node);
-    } else if (isUploadShape(node)) {
-        rewriteUploadShape(node);
+    } else {
+        const shape = detectShape(node);
+        if (shape) rewriteByShape(node, shape);
     }
     for (const k of Object.keys(node)) {
         const v = node[k];
@@ -122,10 +138,11 @@ const walk = (node) => {
     return node;
 };
 
-// --- Auto-inject id+createdAt when caller selects product image fields ------
+// Auto-inject id+createdAt into product selects that request image fields.
 const IMAGE_SELECT_KEYS = new Set([
     'defaultImage',
     'defaultTocImage',
+    'tocImage',
     'images',
     'tocs',
     'sampleImages',
