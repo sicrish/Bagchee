@@ -2,6 +2,7 @@ import prisma from '../lib/prisma.js';
 import crypto from 'crypto';
 import { sendOrderConfirmation, sendOrderShippedEmail, sendOrderStatusEmail, sendPaymentLinkEmail } from './email.controller.js';
 import { calcDiscount } from './coupon.controller.js';
+import { createGiftCardsForOrder, applyWalletBalance } from './giftCard.controller.js';
 
 // Payment type detection helpers
 const isWireTransfer = (title) => {
@@ -82,55 +83,68 @@ export const saveOrder = async (req, res) => {
             return res.status(400).json({ status: false, msg: 'customer_id is required' });
 
         const products = req.body.products || req.body.items || [];
-        if (!products.length)
-            return res.status(400).json({ status: false, msg: 'Order must have at least one product' });
+        const giftCardItems = req.body.giftCardItems || [];
 
-        // Validate all productIds and fetch authoritative prices from DB
-        const productIds = products.map(p => parseInt(p.productId || p.product_id || p.id));
-        if (productIds.some(isNaN))
-            return res.status(400).json({ status: false, msg: 'All products must have a valid productId' });
+        if (!products.length && !giftCardItems.length)
+            return res.status(400).json({ status: false, msg: 'Order must have at least one item' });
+
+        // Validate gift card items (amount range + required fields)
+        for (const gc of giftCardItems) {
+            const amount = parseFloat(gc.amount);
+            if (isNaN(amount) || amount < 10 || amount > 1000)
+                return res.status(400).json({ status: false, msg: 'Gift card amount must be between $10 and $1000' });
+            if (!gc.recipientEmail || !gc.recipientName || !gc.senderName)
+                return res.status(400).json({ status: false, msg: 'Gift card recipient details are required' });
+        }
 
         const currency = req.body.currency || 'USD';
 
-        const dbProducts = await prisma.product.findMany({
-            where: { id: { in: productIds } },
-            select: { id: true, title: true, price: true, defaultImage: true }
-        });
-        if (dbProducts.length !== productIds.length)
-            return res.status(400).json({ status: false, msg: 'One or more products not found' });
+        // Fetch authoritative prices for physical products
+        let itemsData = [];
+        if (products.length > 0) {
+            const productIds = products.map(p => parseInt(p.productId || p.product_id || p.id));
+            if (productIds.some(isNaN))
+                return res.status(400).json({ status: false, msg: 'All products must have a valid productId' });
 
-        const priceMap = Object.fromEntries(dbProducts.map(p => [p.id, p]));
+            const dbProducts = await prisma.product.findMany({
+                where: { id: { in: productIds } },
+                select: { id: true, title: true, price: true, defaultImage: true }
+            });
+            if (dbProducts.length !== productIds.length)
+                return res.status(400).json({ status: false, msg: 'One or more products not found' });
 
-        // Build items using server-side prices — never trust client-sent prices
-        const itemsData = products.map(p => {
-            const pId    = parseInt(p.productId || p.product_id || p.id);
-            const dbProd = priceMap[pId];
-            const dbPrice = dbProd.price;
-            return {
-                productId:    pId,
-                name:         p.name || p.title || dbProd.title || '',
-                image:        dbProd.defaultImage || '',
-                price:        dbPrice,
-                quantity:     Math.min(100, Math.max(1, Number(p.quantity) || 1)),
-                status:       p.status           || '',
-                trackingCode: p.trackingCode || p.tracking_code || '',
-            };
-        });
+            const priceMap = Object.fromEntries(dbProducts.map(p => [p.id, p]));
+            itemsData = products.map(p => {
+                const pId    = parseInt(p.productId || p.product_id || p.id);
+                const dbProd = priceMap[pId];
+                return {
+                    productId:    pId,
+                    name:         p.name || p.title || dbProd.title || '',
+                    image:        dbProd.defaultImage || '',
+                    price:        dbProd.price,
+                    quantity:     Math.min(100, Math.max(1, Number(p.quantity) || 1)),
+                    status:       p.status           || '',
+                    trackingCode: p.trackingCode || p.tracking_code || '',
+                };
+            });
+        }
 
-        // Calculate subtotal from server-side prices
-        const subtotal     = itemsData.reduce((sum, i) => sum + i.price * i.quantity, 0);
+        const physicalSubtotal = itemsData.reduce((sum, i) => sum + i.price * i.quantity, 0);
+        const giftCardSubtotal = giftCardItems.reduce((sum, gc) => sum + parseFloat(gc.amount), 0);
+        const subtotalBeforeGiftWallet = physicalSubtotal + giftCardSubtotal;
+
         const shippingCost = Math.max(0, Number(req.body.shipping_cost || req.body.shippingCost) || 0);
 
-        // Apply coupon discount server-side — never trust client-sent discount
+        // Apply coupon discount server-side — only against physical items subtotal
         const couponId = parseInt(req.body.coupon_id || req.body.couponId) || null;
         let couponDiscount = 0;
-        if (couponId && !isNaN(couponId)) {
+        if (couponId && !isNaN(couponId) && physicalSubtotal > 0) {
             const coupon = await prisma.coupon.findUnique({ where: { id: couponId } });
             if (coupon && coupon.active) {
                 const now = new Date();
-                if (now >= coupon.validFrom && now <= coupon.validTo && subtotal >= (coupon.minimumBuy || 0)) {
+                if (now >= coupon.validFrom && now <= coupon.validTo && physicalSubtotal >= (coupon.minimumBuy || 0)) {
                     const cartItems = itemsData.map(i => ({ price: i.price, quantity: i.quantity }));
-                    couponDiscount = calcDiscount(coupon, subtotal, cartItems);
+                    couponDiscount = calcDiscount(coupon, physicalSubtotal, cartItems);
                 }
             }
         }
@@ -145,11 +159,21 @@ export const saveOrder = async (req, res) => {
             ]);
             if (dbUser?.membership === true) {
                 const memberDiscountPct = Number(dbSettings?.memberDiscount) || 0;
-                serverMembershipDiscount = Math.round((subtotal * memberDiscountPct / 100) * 100) / 100;
+                serverMembershipDiscount = Math.round((physicalSubtotal * memberDiscountPct / 100) * 100) / 100;
             }
         }
 
-        const total = Math.max(0, Math.round((subtotal + shippingCost - couponDiscount - serverMembershipDiscount) * 100) / 100);
+        // Apply gift card wallet balance (server-verified)
+        let giftCardWalletDeduction = 0;
+        const clientRequestsGiftWallet = parseFloat(req.body.giftCardWalletApplied) || 0;
+        if (clientRequestsGiftWallet > 0) {
+            const dbUser = await prisma.user.findUnique({ where: { id: customerId }, select: { giftCardBalance: true } });
+            const available = dbUser?.giftCardBalance || 0;
+            giftCardWalletDeduction = Math.min(available, clientRequestsGiftWallet, subtotalBeforeGiftWallet + shippingCost);
+        }
+
+        const subtotal = subtotalBeforeGiftWallet;
+        const total = Math.max(0, Math.round((subtotal + shippingCost - couponDiscount - serverMembershipDiscount - giftCardWalletDeduction) * 100) / 100);
 
         const orderNumber = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
         const paymentTitle = req.body.payment_type || req.body.paymentType || '';
@@ -201,6 +225,16 @@ export const saveOrder = async (req, res) => {
             },
             include: ORDER_DETAIL_INCLUDE
         });
+
+        // Deduct gift card wallet balance from user's account
+        if (giftCardWalletDeduction > 0) {
+            prisma.user.update({ where: { id: customerId }, data: { giftCardBalance: { decrement: giftCardWalletDeduction } } }).catch(() => {});
+        }
+
+        // Create gift cards and email recipients — fire and forget
+        if (giftCardItems.length > 0) {
+            createGiftCardsForOrder(giftCardItems, order.id).catch(() => {});
+        }
 
         // Send confirmation email — fire and forget, never fail the order
         const customerEmail = order.shippingEmail || order.customer?.email;

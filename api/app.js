@@ -41,6 +41,7 @@ import helpPageRoutes from "./routes/helpPage.routes.js";
 import orderRoutes from "./routes/order.routes.js";
 import orderStatusRoutes from './routes/OrderStatus.routes.js';
 import reviewRoutes from './routes/Review.routes.js';
+import giftCardRoutes from './routes/giftCard.routes.js';
 import courierRoutes from './routes/Courier.routes.js';
 import shippingOptionRoutes from './routes/ShippingOption.route.js';
 import homeSectionRoutes from './routes/homeSectionRoutes.js'
@@ -193,6 +194,7 @@ app.use("/help-pages", helpPageRoutes);
 app.use("/orders", orderRoutes);
 app.use('/order-status', orderStatusRoutes);
 app.use('/reviews', reviewRoutes);
+app.use('/gift-cards', giftCardRoutes);
 app.use('/couriers', courierRoutes);
 app.use('/shipping-options', shippingOptionRoutes);
 app.use('/home-sections', homeSectionRoutes);

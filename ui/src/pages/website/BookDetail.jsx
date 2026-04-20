@@ -711,7 +711,7 @@ const BookDetail = () => {
 
               {/* 🟢 STEP: Top Dynamic Rating Section using Reviews Array */}
               <div className="flex items-center gap-4 mt-4 pb-3 border-b border-gray-100">
-                {((reviews && reviews.length > 0) || (book?.rated_times > 0)) ? (
+                {((reviews && reviews.length > 0) || ((book?.ratedTimes || book?.rated_times) > 0)) ? (
                   <>
                     <div className="flex items-center gap-1">
                       {[...Array(5)].map((_, i) => {
@@ -735,7 +735,7 @@ const BookDetail = () => {
                         ? (reviews.reduce((acc, curr) => acc + curr.rating, 0) / reviews.length).toFixed(1)
                         : (book?.rating || 0).toFixed(1)}
                       {" "}
-                      ({reviews.length > 0 ? reviews.length : (book?.rated_times || 0)} ratings)
+                      ({reviews.length > 0 ? reviews.length : (book?.ratedTimes || book?.rated_times || 0)} ratings)
                     </span>
                   </>
                 ) : ""
@@ -1462,7 +1462,7 @@ const BookDetail = () => {
                 </div>
                 <span className="text-sm text-gray-500 font-montserrat font-semibold">
                   {/* 🟢 Logic: Database se aaye huye active reviews ki total ginti dikhana */}
-                  {reviews.length > 0 ? reviews.length : (book?.rated_times || 0)} Reviews
+                  {reviews.length > 0 ? reviews.length : (book?.ratedTimes || book?.rated_times || 0)} Reviews
                 </span>
               </div>
             </div>
@@ -1545,7 +1545,7 @@ const BookDetail = () => {
           <div className="space-y-6 mt-10">
             {reviews.length > 0 ? (
               reviews.map((rev, idx) => (
-                <div key={rev._id || idx} className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm animate-fadeIn">
+                <div key={rev.id || rev._id || idx} className="bg-white border border-gray-100 rounded-xl p-6 shadow-sm animate-fadeIn">
                   <div className="flex justify-between items-start mb-4">
                     <div>
                       <p className="font-bold text-text-main font-montserrat">{rev.name}</p>

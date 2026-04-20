@@ -178,6 +178,13 @@ const Checkout = () => {
   const [activeCoupons, setActiveCoupons] = useState([]);
   const [applyingCoupon, setApplyingCoupon] = useState(false);
 
+  // ─── Gift card ───
+  const [giftCardInput, setGiftCardInput] = useState('');
+  const [applyingGiftCard, setApplyingGiftCard] = useState(false);
+  const [appliedGiftCard, setAppliedGiftCard] = useState(null); // { code, balance }
+  const [giftCardWalletBalance, setGiftCardWalletBalance] = useState(0);
+  const [useWalletBalance, setUseWalletBalance] = useState(false);
+
   // ─── Account optional ───
   const [createAccount, setCreateAccount] = useState(false);
   const [accountEmail, setAccountEmail] = useState("");
@@ -258,9 +265,14 @@ const Checkout = () => {
     }
   }, [navigate]);
 
-  // ─── Load saved addresses ───
+  // ─── Load saved addresses + gift card wallet balance ───
   useEffect(() => {
-    if (user?.id) fetchAddresses(user.id);
+    if (user?.id) {
+      fetchAddresses(user.id);
+      axios.get(`${process.env.REACT_APP_API_URL}/gift-cards/my-balance`)
+        .then(r => { if (r.data.status) setGiftCardWalletBalance(r.data.balance || 0); })
+        .catch(() => {});
+    }
   }, [user]);
 
   // ─── Fetch payment methods, shipping options, active coupons ───
@@ -371,12 +383,21 @@ const Checkout = () => {
 
   let couponDiscount = 0;
   if (appliedCoupon) {
-    // discount is always a pre-calculated dollar amount from the server
     couponDiscount = Number(appliedCoupon.discount) || 0;
   }
 
-  // 🏆 8. GRAND TOTAL
-  const total = (subtotal + currentMembershipCost - memberDiscount - couponDiscount) + shippingCost;
+  // Gift card code discount (capped at order total)
+  const giftCardDiscount = appliedGiftCard
+    ? Math.min(appliedGiftCard.balance, subtotal + currentMembershipCost - memberDiscount - couponDiscount + shippingCost)
+    : 0;
+
+  // Wallet balance deduction
+  const walletDeduction = useWalletBalance && giftCardWalletBalance > 0
+    ? Math.min(giftCardWalletBalance, Math.max(0, subtotal + currentMembershipCost - memberDiscount - couponDiscount - giftCardDiscount + shippingCost))
+    : 0;
+
+  // 🏆 GRAND TOTAL
+  const total = Math.max(0, (subtotal + currentMembershipCost - memberDiscount - couponDiscount - giftCardDiscount - walletDeduction) + shippingCost);
 
   // UI Display Helper (Symbols ke saath)
   const formatCheckoutDisplay = (val) => {
@@ -564,6 +585,22 @@ const Checkout = () => {
       }
     } catch (err) {
       toast.error("Failed to delete address");
+    }
+  };
+
+  // ─── Gift card handlers ───
+  const handleApplyGiftCard = async () => {
+    if (!giftCardInput.trim()) return toast.error("Please enter a gift card code");
+    setApplyingGiftCard(true);
+    try {
+      const res = await axios.post(`${API_BASE_URL}/gift-cards/validate`, { code: giftCardInput.trim().toUpperCase() });
+      if (!res.data?.status) { toast.error(res.data?.msg || "Invalid gift card"); return; }
+      setAppliedGiftCard({ code: res.data.code, balance: res.data.balance });
+      toast.success(`Gift card applied! Balance: $${res.data.balance.toFixed(2)}`);
+    } catch (err) {
+      toast.error(err.response?.data?.msg || "Invalid gift card code");
+    } finally {
+      setApplyingGiftCard(false);
     }
   };
 
@@ -811,9 +848,12 @@ const Checkout = () => {
       const isLoggedInMember = user && user.membership === "active";
       const paymentTitle = selectedPayment?.title || "Online Payment";
 
+      const physicalItems = cart.filter(i => i.itemType !== 'gift_card');
+      const giftCardCartItems = cart.filter(i => i.itemType === 'gift_card');
+
       const orderData = {
         customer_id: user?.id || "000000000000000000000000",
-        products: cart.map((item) => ({
+        products: physicalItems.map((item) => ({
           product_id: item.id || null,
           name: item.name || item.title || "Book",
           price: item.price || 0,
@@ -824,6 +864,14 @@ const Checkout = () => {
           return_note: "",
           cancel_note: "",
         })),
+        giftCardItems: giftCardCartItems.map(item => ({
+          amount: item.price,
+          recipientEmail: item.recipientEmail,
+          recipientName: item.recipientName,
+          senderName: item.senderName,
+          message: item.message || '',
+        })),
+        giftCardWalletApplied: walletDeduction,
         total: total,
         shipping_cost: shippingCost,
         currency: currency,
@@ -2003,6 +2051,55 @@ const Checkout = () => {
                 </h2>
               </div>
               <div className="p-5 space-y-2">
+
+                {/* ── Gift Card Section (top of payment) ── */}
+                <div className="border border-primary/20 rounded-lg bg-primary/5 p-4 mb-4 space-y-3">
+                  <p className="text-sm font-bold text-text-main font-montserrat uppercase tracking-wide">Redeem E-Gift Card</p>
+
+                  {/* Gift card code input */}
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={giftCardInput}
+                      onChange={e => setGiftCardInput(e.target.value.toUpperCase())}
+                      placeholder="XXXX-XXXX-XXXX-XXXX"
+                      className="flex-1 bg-white border border-gray-200 rounded-lg px-4 py-2.5 text-sm font-mono focus:ring-2 focus:ring-primary outline-none transition-all"
+                    />
+                    {appliedGiftCard ? (
+                      <button
+                        onClick={() => { setAppliedGiftCard(null); setGiftCardInput(''); }}
+                        className="px-4 py-2.5 text-sm font-bold bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-all"
+                      >Remove</button>
+                    ) : (
+                      <button
+                        onClick={handleApplyGiftCard}
+                        disabled={applyingGiftCard}
+                        className="px-4 py-2.5 text-sm font-bold bg-primary text-white rounded-lg hover:bg-primary-dark transition-all disabled:opacity-50"
+                      >{applyingGiftCard ? '...' : 'Apply'}</button>
+                    )}
+                  </div>
+                  {appliedGiftCard && (
+                    <p className="text-xs text-green-700 font-medium">
+                      ✓ Gift card applied — ${appliedGiftCard.balance.toFixed(2)} available
+                    </p>
+                  )}
+
+                  {/* Wallet balance */}
+                  {giftCardWalletBalance > 0 && (
+                    <label className="flex items-center gap-2 cursor-pointer mt-1">
+                      <input
+                        type="checkbox"
+                        checked={useWalletBalance}
+                        onChange={e => setUseWalletBalance(e.target.checked)}
+                        className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                      />
+                      <span className="text-sm text-text-main">
+                        Use my gift card wallet balance (<span className="font-bold text-primary">${giftCardWalletBalance.toFixed(2)}</span>)
+                      </span>
+                    </label>
+                  )}
+                </div>
+
                 {loadingPayments ? (
                   <p className="text-sm text-gray-400 text-center py-2">
                     Loading payment methods...
@@ -2712,6 +2809,18 @@ const Checkout = () => {
                     <div className="flex justify-between text-xs text-green-600 mb-1">
                       <span>Discount</span>
                       <span>-{formatPrice(couponDiscount)}</span>
+                    </div>
+                  )}
+                  {giftCardDiscount > 0 && (
+                    <div className="flex justify-between text-xs text-green-600 mb-1">
+                      <span>Gift Card</span>
+                      <span>-${giftCardDiscount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {walletDeduction > 0 && (
+                    <div className="flex justify-between text-xs text-green-600 mb-1">
+                      <span>Wallet Balance</span>
+                      <span>-${walletDeduction.toFixed(2)}</span>
                     </div>
                   )}
                   <div className="flex justify-between items-center">

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { Menu, X, Home, User, Package, MapPin, Heart, LogOut, ChevronLeft, ChevronRight, ShoppingBag } from 'lucide-react';
+import { Menu, X, Home, User, Package, MapPin, Heart, LogOut, ChevronLeft, ChevronRight, ShoppingBag, Gift } from 'lucide-react';
 import toast from 'react-hot-toast';
 import LogoBlue from '../components/common/LogoBlue';
 
@@ -36,7 +36,8 @@ const AccountLayout = ({ children }) => {
         { icon: Package, label: 'Orders', hint: 'Track purchases', path: '/account/orders' },
         { icon: Heart, label: 'Wishlist', hint: 'Saved books', path: '/account/wishlist' },
         { icon: MapPin, label: 'Addresses', hint: 'Shipping details', path: '/account/address' },
-        { icon: User, label: 'Profile', hint: 'Personal info', path: '/account/profile' }
+        { icon: User, label: 'Profile', hint: 'Personal info', path: '/account/profile' },
+        { icon: Gift, label: 'Gift Cards', hint: 'Redeem & balance', path: '/account/gift-cards' }
     ];
 
     if (!user) {

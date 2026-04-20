@@ -152,8 +152,8 @@ const Cart = () => {
 
   // ─── 🟢 STEP 1: MNC DISCOUNT-SAFE CALCULATIONS (REPLACE LINE 114-124) ───
 
-  // Total number of books across all cart items (drives shipping tier)
-  const totalBooks = cart.reduce((acc, item) => acc + item.quantity, 0);
+  // Total number of physical books (excludes gift cards — they don't ship)
+  const totalBooks = cart.reduce((acc, item) => item.itemType === 'gift_card' ? acc : acc + item.quantity, 0);
 
   // 1. Original Base Totals (MNC logic ke liye zaroori hai)
   const originalBaseUSD = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
@@ -355,6 +355,28 @@ const Cart = () => {
               <div className="divide-y divide-gray-100">
                 {cart.map((item) => (
                   <div key={item.id || item._id} className="p-5">
+                    {item.itemType === 'gift_card' ? (
+                      /* ── Gift Card item ── */
+                      <div className="flex gap-4">
+                        <div className="shrink-0 w-20 h-28 rounded-lg bg-gradient-to-br from-primary via-primary to-secondary flex flex-col items-center justify-center shadow">
+                          <span className="text-white font-display font-bold text-xs">BAGCHEE</span>
+                          <span className="text-white text-[10px] mt-1 opacity-80">Gift Card</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between gap-2 mb-2">
+                            <p className="font-semibold text-text-main">{item.title}</p>
+                            <p className="text-xl font-bold text-text-main shrink-0">${parseFloat(item.price).toFixed(2)}</p>
+                          </div>
+                          <p className="text-xs text-gray-500">To: <span className="font-medium text-text-main">{item.recipientName}</span> ({item.recipientEmail})</p>
+                          <p className="text-xs text-gray-500">From: <span className="font-medium text-text-main">{item.senderName}</span></p>
+                          {item.message && <p className="text-xs text-gray-400 italic mt-1">"{item.message}"</p>}
+                          <button
+                            onClick={() => removeFromCart(item.id)}
+                            className="mt-3 text-xs text-red-500 hover:text-red-700 transition-colors"
+                          >Remove</button>
+                        </div>
+                      </div>
+                    ) : (
                     <div className="flex gap-4">
                       {/* Book cover */}
                       <Link
@@ -447,6 +469,7 @@ const Cart = () => {
                         </div>
                       </div>
                     </div>
+                    )}
                   </div>
                 ))}
               </div>

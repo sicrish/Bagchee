@@ -152,6 +152,8 @@ const Profile = lazy(() => import('./pages/website/Account/Profile.jsx'));
 // import Address from './pages/website/Account/Address.jsx';
 const Address = lazy(() => import('./pages/website/Account/Address.jsx'));
 
+const GiftCards = lazy(() => import('./pages/website/Account/GiftCards.jsx'));
+
 // import Wishlist from './pages/website/Account/Wishlist.jsx';
 const Wishlist = lazy(() => import('./pages/website/Account/Wishlist.jsx'));
 
@@ -653,6 +655,7 @@ function App() {
                 <Route path="account/orders" element={<Orders />} />
                 <Route path="account/order-status/:orderId" element={<OrderStatus />} />
                 <Route path="account/wishlist" element={<Wishlist />} />
+                <Route path="account/gift-cards" element={<GiftCards />} />
               </Route>
 
               {/* Company Pages */}

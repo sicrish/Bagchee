@@ -514,6 +514,7 @@ const navigate = useNavigate();
               }`}
               title="Last Page"
             >
+
               <ChevronRight size={18} strokeWidth={3} />
               <ChevronRight size={18} strokeWidth={3} className="-ml-2" />
             </button>
