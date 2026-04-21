@@ -62,12 +62,20 @@ export const getTestimonialById = async (req, res) => {
 export const updateTestimonial = async (req, res) => {
     try {
         const id = req.params.id ? parseInt(req.params.id) : undefined;
-        const { title, madeBy, content, active } = req.body;
+        const { title, madeBy, content, active, pageContent, page_content, metaTitle, meta_title, metaDesc, meta_description, metaKeywords, meta_keywords } = req.body;
         const updatePayload = {};
         if (title !== undefined) updatePayload.title = title;
         if (madeBy !== undefined) updatePayload.madeBy = madeBy;
         if (content !== undefined) updatePayload.content = content;
         if (active !== undefined) updatePayload.active = (active === true || active === 'true');
+        const pc = pageContent || page_content;
+        if (pc !== undefined) updatePayload.pageContent = pc || '';
+        const mt = metaTitle || meta_title;
+        if (mt !== undefined) updatePayload.metaTitle = mt || '';
+        const md = metaDesc || meta_description;
+        if (md !== undefined) updatePayload.metaDesc = md || '';
+        const mk = metaKeywords || meta_keywords;
+        if (mk !== undefined) updatePayload.metaKeywords = mk || '';
         if (id) {
             const updated = await prisma.testimonial.update({ where: { id }, data: updatePayload });
             return res.status(200).json({ status: true, msg: 'Testimonial updated!', data: updated });

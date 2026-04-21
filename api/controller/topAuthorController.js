@@ -51,8 +51,8 @@ export const listTopAuthors = async (req, res) => {
 
         let data = items.map(item => ({
             ...item,
-            authorData: authorMap[item.authorId] || null,
-            bookData: item.bookId ? (bookMap[item.bookId] || null) : null
+            authorId: authorMap[item.authorId] || null,
+            bookId: item.bookId ? (bookMap[item.bookId] || null) : null
         }));
 
         // Author name filter (post-query since no DB relation)
@@ -94,7 +94,7 @@ export const getTopAuthor = async (req, res) => {
             prisma.author.findUnique({ where: { id: item.authorId } }),
             item.bookId ? prisma.product.findUnique({ where: { id: item.bookId } }) : Promise.resolve(null)
         ]);
-        res.status(200).json({ status: true, data: { ...item, authorData: author, bookData: book } });
+        res.status(200).json({ status: true, data: { ...item, authorId: author, bookId: book } });
     } catch (error) {
         res.status(500).json({ status: false, msg: 'Server Error' });
     }

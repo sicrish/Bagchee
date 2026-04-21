@@ -5,8 +5,12 @@ import prisma from '../lib/prisma.js';
 
 export const getData = async (req, res) => {
     try {
-        const data = await prisma.authorsPublishers.findFirst();
-        if (!data) return res.status(404).json({ status: false, msg: 'No record found' });
+        let data = await prisma.authorsPublishers.findFirst();
+        if (!data) {
+            data = await prisma.authorsPublishers.create({
+                data: { title: 'Authors & Publishers', pageContent: '', metaTitle: '', metaDesc: '', metaKeywords: '' }
+            });
+        }
         res.status(200).json({ status: true, data });
     } catch (error) {
         res.status(500).json({ status: false, msg: 'Server Error' });

@@ -7,10 +7,14 @@ import prisma from '../lib/prisma.js';
 
 const fetchSectionDataByName = async (sectionName, res) => {
     try {
-        const sectionInfo = await prisma.homeSection.findFirst({
+        let sectionInfo = await prisma.homeSection.findFirst({
             where: { section: { equals: sectionName, mode: 'insensitive' } }
         });
-        if (!sectionInfo) return res.status(404).json({ status: false, msg: `${sectionName} not found` });
+        if (!sectionInfo) {
+            sectionInfo = await prisma.homeSection.create({
+                data: { section: sectionName, title: '', tagline: '' }
+            });
+        }
 
         const entries = await prisma.homeSectionProduct.findMany({
             where: { homeSectionId: sectionInfo.id },

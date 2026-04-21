@@ -1164,6 +1164,7 @@ model Settings {
   // "deferred" = admin reviews first, then sends payment link
   // "direct"   = customer goes straight to payment gateway
   paymentGatewayMode     String  @default("deferred") @map("payment_gateway_mode")
+  newArrivalTime         String  @default("") @map("new_arrival_time")
 
   // Per-currency wire transfer bank details
   bankNameUsd            String  @default("") @map("bank_name_usd")
@@ -1235,12 +1236,16 @@ model Social {
 // Customer testimonials
 // Old DB: testemonials (note: typo in old DB — we keep same table name for migration)
 model Testimonial {
-  id        Int      @id @default(autoincrement())
-  title     String
-  madeBy    String   @default("") @map("made_by")  // customer name
-  content   String?
-  active    Boolean  @default(false)
-  createdAt DateTime @default(now()) @map("created_at")
+  id           Int      @id @default(autoincrement())
+  title        String
+  madeBy       String   @default("") @map("made_by")  // customer name
+  content      String?
+  active       Boolean  @default(false)
+  createdAt    DateTime @default(now()) @map("created_at")
+  pageContent  String   @default("") @map("page_content")
+  metaTitle    String   @default("") @map("meta_title")
+  metaDesc     String   @default("") @map("meta_desc")
+  metaKeywords String   @default("") @map("meta_keywords")
 
   @@map("testemonials")
 }

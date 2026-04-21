@@ -78,6 +78,9 @@ const mapBody = (b) => {
     const emailsCopy = f('emailsCopy','emails_copy');
     if (emailsCopy !== undefined) d.emailsCopy = emailsCopy || '';
 
+    const nat = f('newArrivalTime','new_arrival_time');
+    if (nat !== undefined) d.newArrivalTime = nat || '';
+
     // Payment gateway mode
     const pgm = f('paymentGatewayMode','payment_gateway_mode');
     if (pgm !== undefined) d.paymentGatewayMode = pgm || 'deferred';

@@ -10,7 +10,7 @@ router.get('/get/:id', HomeSliderController.getOne);
 
 // ADMIN — management
 router.post('/save',         adminAuth, HomeSliderController.save);
-router.put('/update/:id',    adminAuth, HomeSliderController.update);
+router.patch('/update/:id',  adminAuth, HomeSliderController.update);
 router.delete('/delete/:id', adminAuth, HomeSliderController.remove);
 
 export default router;
