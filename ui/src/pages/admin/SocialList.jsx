@@ -67,7 +67,7 @@ const SocialsList = () => {
         "Title": item.title,
         "Link URL": item.link,
         "Order": item.order || 0,
-        "Status": item.is_active ? "Active" : "Inactive",
+        "Status": item.active ? "Active" : "Inactive",
         "Show in Footer": item.showInFooter ? "Yes" : "No",
         "Show in Product": item.showInProduct ? "Yes" : "No"
       }));
@@ -86,7 +86,7 @@ const SocialsList = () => {
   const filteredSocials = useMemo(() => {
     return socials.filter((item, index) => {
       const displayId = (index + 1).toString();
-      const statusText = item.is_active ? "active" : "inactive";
+      const statusText = item.active ? "active" : "inactive";
 
       // User input for status
       const searchStatus = filters.status.toLowerCase();
@@ -232,8 +232,8 @@ const SocialsList = () => {
                     </td>
                     <td className="p-3 border-r border-cream-50 text-text-main font-medium">{item.title}</td>
                     <td className="p-3 border-r border-cream-50 text-text-main">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${item.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                        {item.is_active ? 'active' : 'inactive'}
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${item.active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                        {item.active ? 'active' : 'inactive'}
                       </span>
                     </td>
                     <td className="p-3">

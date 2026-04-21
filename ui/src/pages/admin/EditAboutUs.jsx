@@ -28,11 +28,13 @@ const EditAboutUs = () => {
         const res = await axios.get(`${API_URL}/about-us/get`); 
         if (res.data.status && res.data.data) {
           const d = res.data.data;
+          // console.log("data",d)
+
           setFormData({
             title: d.title || '',
-            meta_title: d.meta_title || d.meta_title || '',
-            meta_description: d.meta_description || d.meta_description || '',
-            meta_keywords: d.meta_keywords || d.meta_keywords || '',
+            meta_title: d.metaTitle || d.meta_title || '',
+            meta_description: d.metaDesc || d.meta_description || '',
+            meta_keywords: d.metaKeywords || d.meta_keywords || '',
           });
           setPageContent(d.pageContent || d.content || '');
         }

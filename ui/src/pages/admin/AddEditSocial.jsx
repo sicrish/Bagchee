@@ -21,14 +21,12 @@ const AddSocial = () => {
     title: '',
     link: '',
     order: '',
-    icon_image: null,
-    
-    // Flags (Default strings for Radio logic)
-    is_active: 'true',
-    is_share_active: 'false',
-    show_in_footer: 'true',
-    show_in_product: 'false',
-    show_in_category: 'false'
+    icon_image: null,          
+  active: 'true',        // active (Not isActive/is_active)
+  share: 'false',        // share (Not isShareActive)
+  showInFooter: 'true',  // CamelCase as per Console
+  showInProduct: 'false',
+  showInCategory: 'false'
   });
 
   // 🚀 OPTIMIZATION 1: Fetch Existing Data with React Query
@@ -53,19 +51,19 @@ const AddSocial = () => {
         title: d.title || '',
         link: d.link || '',
         order: d.order || '',
-        is_active: d.is_active ? 'true' : 'false',
-        is_share_active: d.is_share_active ? 'true' : 'false',
-        show_in_footer: d.show_in_footer ? 'true' : 'false',
-        show_in_product: d.show_in_product ? 'true' : 'false',
-        show_in_category: d.show_in_category ? 'true' : 'false',
-        icon_image: null 
+        active: d.active ? 'true' : 'false',
+      share: d.share ? 'true' : 'false',
+      showInFooter: d.showInFooter ? 'true' : 'false',
+      showInProduct: d.showInProduct ? 'true' : 'false',
+      showInCategory: d.showInCategory ? 'true' : 'false',
+      icon_image: null
       });
 
       // Set Preview from Server
-      if (d.icon_image) {
-          const imgUrl = d.icon_image.startsWith('http') 
-              ? d.icon_image 
-              : `${process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5000'}${d.icon_image}`;
+      if (d.image) {
+          const imgUrl = d.image.startsWith('http') 
+              ? d.image 
+              : `${process.env.REACT_APP_API_URL?.replace('/api', '')}${d.image}`;
           setImagePreview(imgUrl);
       }
       
@@ -119,9 +117,17 @@ const AddSocial = () => {
     const toastId = toast.loading(isEdit ? "Updating..." : "Saving...");
 
     const data = new FormData();
-    Object.keys(formData).forEach(key => {
-      if (key !== 'icon_image') data.append(key, formData[key]);
-    });
+   data.append('title', formData.title);
+data.append('link', formData.link);
+
+// 🔥 IMPORTANT MAPPING
+data.append('isActive', formData.active);
+data.append('isShareActive', formData.share);
+
+// direct fields (correct already)
+data.append('showInFooter', formData.showInFooter);
+data.append('showInProduct', formData.showInProduct);
+data.append('showInCategory', formData.showInCategory);
     
     // Append Image only if new one selected
     if (formData.icon_image) {
@@ -142,9 +148,12 @@ const AddSocial = () => {
           } else if (!isEdit) {
              // Reset only if adding new and staying on page
              setFormData({
-                 title: '', link: '', order: '', icon_image: null,
-                 is_active: 'true', is_share_active: 'false', show_in_footer: 'true',
-                 show_in_product: 'false', show_in_category: 'false'
+                 title: '', link: '', order: '', icon_image: null,         
+        active: 'true',        // is_active -> active
+        share: 'false',        // is_share_active -> share
+        showInFooter: 'true',  // show_in_footer -> showInFooter
+        showInProduct: 'false',// show_in_product -> showInProduct
+        showInCategory: 'false'
              });
              setImagePreview(null);
              const fileInput = document.getElementById('social-file-input');
@@ -255,11 +264,12 @@ const AddSocial = () => {
             </div>
 
             {/* Flags */}
-            {renderRadioGroup("Share", "is_share_active", formData.is_share_active)}
-            {renderRadioGroup("Active", "is_active", formData.is_active)}
-            {renderRadioGroup("Show in Product", "show_in_product", formData.show_in_product)}
-            {renderRadioGroup("Show in Category", "show_in_category", formData.show_in_category)}
-            {renderRadioGroup("Show in Footer", "show_in_footer", formData.show_in_footer)}
+            {/* Change these calls in your return statement */}
+{renderRadioGroup("Share", "share", formData.share)}
+{renderRadioGroup("Active", "active", formData.active)}
+{renderRadioGroup("Show in Product", "showInProduct", formData.showInProduct)}
+{renderRadioGroup("Show in Category", "showInCategory", formData.showInCategory)}
+{renderRadioGroup("Show in Footer", "showInFooter", formData.showInFooter)}
 
             {/* Action Buttons */}
             {/* 🟢 Bound dynamically to saveSocialMutation.isPending */}

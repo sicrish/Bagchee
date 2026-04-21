@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet-async';
 import { createSafeHtml } from '../../utils/sanitize';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
-import { ChevronRight, MapPin, BookOpen, Star, Award, ArrowRight,ChevronLeft } from 'lucide-react';
+import { ChevronRight, MapPin, BookOpen, Star, Award, ArrowRight, ChevronLeft } from 'lucide-react';
 import ProductCardGrid from '../../components/website/ProductCardGrid';
 
 const AuthorDetail = () => {
@@ -82,7 +82,7 @@ const AuthorDetail = () => {
     };
 
     if (slug) fetchAuthorData();
-  }, [slug, navigate,currentPage]);
+  }, [slug, navigate, currentPage]);
 
   // Calculate statistics
   const calculateStats = () => {
@@ -179,7 +179,7 @@ const AuthorDetail = () => {
                   <MapPin size={12} /> {author.origin}
                 </span>
               )}
-              <h1 className="text-4xl lg:text-7xl font-display font-black text-text-main leading-none tracking-tightest">
+              <h1 className="text-3xl sm:text-4xl lg:text-7xl font-display font-black text-text-main leading-tight break-words">
                 {author.firstName} {author.lastName}
               </h1>
               <div className="h-1.5 w-24 bg-primary rounded-full mt-4 mx-auto md:mx-0"></div>
@@ -212,7 +212,7 @@ const AuthorDetail = () => {
           </div>
 
           {books.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 lg:gap-10">
+           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-6 lg:gap-10">
               {books.map(book => (
                 <div key={book.id || book._id} className="transition-transform duration-500 hover:-translate-y-2">
                   <ProductCardGrid data={book} />
@@ -231,7 +231,7 @@ const AuthorDetail = () => {
 
         {/* 🟢 PAGINATION BUTTONS SECTION */}
         {!loading && books.length > 0 && totalPages > 1 && (
-          <div className="flex justify-center items-center mt-20 mb-10 gap-3 font-montserrat">
+          <div className="flex flex-wrap px-4 justify-center items-center mt-20 mb-10 gap-3 font-montserrat">
             {/* FIRST PAGE */}
             <button
               disabled={currentPage === 1}
