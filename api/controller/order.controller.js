@@ -75,12 +75,14 @@ const extractBilling = (body) => {
 // POST /orders
 export const saveOrder = async (req, res) => {
     try {
-        // Admins can place orders on behalf of any user; regular users are bound to their own userId
-        const customerId = req.user.role === 'admin'
-            ? parseInt(req.body.customer_id || req.body.customerId || req.user.userId)
-            : parseInt(req.user.userId);
-        if (!customerId || isNaN(customerId))
-            return res.status(400).json({ status: false, msg: 'customer_id is required' });
+        // Resolve customerId — null for guests
+        let customerId = null;
+        if (req.user) {
+            customerId = req.user.role === 'admin'
+                ? parseInt(req.body.customer_id || req.body.customerId || req.user.userId)
+                : parseInt(req.user.userId);
+            if (isNaN(customerId)) customerId = null;
+        }
 
         const products = req.body.products || req.body.items || [];
         const giftCardItems = req.body.giftCardItems || [];
@@ -149,27 +151,28 @@ export const saveOrder = async (req, res) => {
             }
         }
 
-        // Validate membership discount server-side — never trust client-sent value
+        // Membership and gift card wallet only apply to logged-in users
         let serverMembershipDiscount = 0;
-        const clientRequestsMembership = req.body.membership === 'Yes' || req.body.membership === true;
-        if (clientRequestsMembership) {
-            const [dbUser, dbSettings] = await Promise.all([
-                prisma.user.findUnique({ where: { id: customerId }, select: { membership: true } }),
-                prisma.settings.findFirst({ orderBy: { id: 'desc' }, select: { memberDiscount: true } })
-            ]);
-            if (dbUser?.membership === true) {
-                const memberDiscountPct = Number(dbSettings?.memberDiscount) || 0;
-                serverMembershipDiscount = Math.round((physicalSubtotal * memberDiscountPct / 100) * 100) / 100;
-            }
-        }
-
-        // Apply gift card wallet balance (server-verified)
         let giftCardWalletDeduction = 0;
-        const clientRequestsGiftWallet = parseFloat(req.body.giftCardWalletApplied) || 0;
-        if (clientRequestsGiftWallet > 0) {
-            const dbUser = await prisma.user.findUnique({ where: { id: customerId }, select: { giftCardBalance: true } });
-            const available = dbUser?.giftCardBalance || 0;
-            giftCardWalletDeduction = Math.min(available, clientRequestsGiftWallet, subtotalBeforeGiftWallet + shippingCost);
+        if (customerId) {
+            const clientRequestsMembership = req.body.membership === 'Yes' || req.body.membership === true;
+            if (clientRequestsMembership) {
+                const [dbUser, dbSettings] = await Promise.all([
+                    prisma.user.findUnique({ where: { id: customerId }, select: { membership: true } }),
+                    prisma.settings.findFirst({ orderBy: { id: 'desc' }, select: { memberDiscount: true } })
+                ]);
+                if (dbUser?.membership === true) {
+                    const memberDiscountPct = Number(dbSettings?.memberDiscount) || 0;
+                    serverMembershipDiscount = Math.round((physicalSubtotal * memberDiscountPct / 100) * 100) / 100;
+                }
+            }
+
+            const clientRequestsGiftWallet = parseFloat(req.body.giftCardWalletApplied) || 0;
+            if (clientRequestsGiftWallet > 0) {
+                const dbUser = await prisma.user.findUnique({ where: { id: customerId }, select: { giftCardBalance: true } });
+                const available = dbUser?.giftCardBalance || 0;
+                giftCardWalletDeduction = Math.min(available, clientRequestsGiftWallet, subtotalBeforeGiftWallet + shippingCost);
+            }
         }
 
         const subtotal = subtotalBeforeGiftWallet;
@@ -187,7 +190,7 @@ export const saveOrder = async (req, res) => {
         } else if (isCardOrPayPal(paymentTitle)) {
             const [settings, customer] = await Promise.all([
                 prisma.settings.findFirst({ orderBy: { id: 'desc' }, select: { paymentGatewayMode: true } }),
-                prisma.user.findUnique({ where: { id: customerId }, select: { forceDirectPayment: true } })
+                customerId ? prisma.user.findUnique({ where: { id: customerId }, select: { forceDirectPayment: true } }) : Promise.resolve(null)
             ]);
             const mode = settings?.paymentGatewayMode || 'deferred';
             const forcesDirect = customer?.forceDirectPayment === true;

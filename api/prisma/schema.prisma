@@ -425,7 +425,7 @@ model ProductSampleImage {
 model Order {
   id                  Int       @id @default(autoincrement())
   orderNumber         String    @unique @map("order_number")
-  customerId          Int       @map("customer_id")
+  customerId          Int?      @map("customer_id")
 
   // Financials
   total               Float     @default(0)
@@ -481,7 +481,7 @@ model Order {
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
 
-  customer            User      @relation(fields: [customerId], references: [id])
+  customer            User?     @relation(fields: [customerId], references: [id])
   coupon              Coupon?   @relation(fields: [couponId], references: [id])
   items               OrderItem[]
 

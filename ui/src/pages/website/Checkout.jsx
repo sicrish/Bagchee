@@ -259,9 +259,6 @@ const Checkout = () => {
       } catch (e) {
         /* ignore */
       }
-    } else {
-      // Orders require authentication — redirect to login
-      navigate('/login', { state: { returnTo: '/checkout' } });
     }
   }, [navigate]);
 
@@ -431,8 +428,8 @@ const Checkout = () => {
       toast.error("Please login to save address");
       return;
     }
-    const { name, phone, houseNo, street, city, state, pincode } = newAddress;
-    if (!name || !phone || !houseNo || !street || !city || !state || !pincode) {
+    const { name, phone, houseNo, city, state, pincode } = newAddress;
+    if (!name || !phone || !houseNo || !city || !state || !pincode) {
       toast.error("Please fill all required fields");
       return;
     }
@@ -512,9 +509,8 @@ const Checkout = () => {
       toast.error("Please login to save address");
       return;
     }
-    const { name, phone, houseNo, street, city, state, pincode } =
-      newBillingAddress;
-    if (!name || !phone || !houseNo || !street || !city || !state || !pincode) {
+    const { name, phone, houseNo, city, state, pincode } = newBillingAddress;
+    if (!name || !phone || !houseNo || !city || !state || !pincode) {
       toast.error("Please fill all required fields");
       return;
     }
@@ -729,11 +725,6 @@ const Checkout = () => {
         toast.error("Please enter a valid phone number");
         return;
       }
-    }
-    if (!user) {
-      toast.error("Please login to place your order");
-      setShowLoginDropdown(true);
-      return;
     }
     if (cart.length === 0) {
       toast.error("Your cart is empty");
@@ -1173,53 +1164,50 @@ const Checkout = () => {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    House / Flat No. *
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="House/Flat No."
-                    required
-                    value={newAddress.houseNo}
-                    onChange={(e) =>
-                      setNewAddress({ ...newAddress, houseNo: e.target.value })
-                    }
-                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    Street / Area *
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Street/Area"
-                    required
-                    value={newAddress.street}
-                    onChange={(e) =>
-                      setNewAddress({ ...newAddress, street: e.target.value })
-                    }
-                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
-                  />
-                </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                  Address Line 1 *
+                </label>
+                <input
+                  type="text"
+                  placeholder="Street address, P.O. box"
+                  required
+                  value={newAddress.houseNo}
+                  onChange={(e) =>
+                    setNewAddress({ ...newAddress, houseNo: e.target.value })
+                  }
+                  className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                  Address Line 2 (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Apartment, suite, unit, building, floor"
+                  value={newAddress.street}
+                  onChange={(e) =>
+                    setNewAddress({ ...newAddress, street: e.target.value })
+                  }
+                  className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                  Company (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Company name"
+                  value={newAddress.landmark}
+                  onChange={(e) =>
+                    setNewAddress({ ...newAddress, landmark: e.target.value })
+                  }
+                  className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
+                />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    Landmark (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Near, Opposite to..."
-                    value={newAddress.landmark}
-                    onChange={(e) =>
-                      setNewAddress({ ...newAddress, landmark: e.target.value })
-                    }
-                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
-                  />
-                </div>
                 <div>
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
                     City *
@@ -1235,15 +1223,13 @@ const Checkout = () => {
                     className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
                   />
                 </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 <div>
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    State *
+                    State / Province *
                   </label>
                   <input
                     type="text"
-                    placeholder="State"
+                    placeholder="State / Province / Region"
                     required
                     value={newAddress.state}
                     onChange={(e) =>
@@ -1252,13 +1238,15 @@ const Checkout = () => {
                     className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
                   />
                 </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 <div>
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    Pincode *
+                    ZIP / Postal Code *
                   </label>
                   <input
                     type="text"
-                    placeholder="Pincode"
+                    placeholder="ZIP / Postal Code"
                     required
                     value={newAddress.pincode}
                     onChange={(e) =>
@@ -1269,11 +1257,27 @@ const Checkout = () => {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                    Country *
+                  </label>
+                  <select
+                    value={newAddress.country}
+                    onChange={(e) =>
+                      setNewAddress({ ...newAddress, country: e.target.value })
+                    }
+                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary bg-white"
+                  >
+                    {countries.map((c) => (
+                      <option key={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
                     Phone *
                   </label>
                   <input
                     type="tel"
-                    placeholder="Mobile Number"
+                    placeholder="Phone number"
                     required
                     value={newAddress.phone}
                     onChange={(e) =>
@@ -1374,62 +1378,59 @@ const Checkout = () => {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    House / Flat No. *
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="House/Flat No."
-                    required
-                    value={newBillingAddress.houseNo}
-                    onChange={(e) =>
-                      setNewBillingAddress({
-                        ...newBillingAddress,
-                        houseNo: e.target.value,
-                      })
-                    }
-                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    Street / Area *
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Street/Area"
-                    required
-                    value={newBillingAddress.street}
-                    onChange={(e) =>
-                      setNewBillingAddress({
-                        ...newBillingAddress,
-                        street: e.target.value,
-                      })
-                    }
-                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
-                  />
-                </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                  Address Line 1 *
+                </label>
+                <input
+                  type="text"
+                  placeholder="Street address, P.O. box"
+                  required
+                  value={newBillingAddress.houseNo}
+                  onChange={(e) =>
+                    setNewBillingAddress({
+                      ...newBillingAddress,
+                      houseNo: e.target.value,
+                    })
+                  }
+                  className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                  Address Line 2 (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Apartment, suite, unit, building, floor"
+                  value={newBillingAddress.street}
+                  onChange={(e) =>
+                    setNewBillingAddress({
+                      ...newBillingAddress,
+                      street: e.target.value,
+                    })
+                  }
+                  className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                  Company (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Company name"
+                  value={newBillingAddress.landmark}
+                  onChange={(e) =>
+                    setNewBillingAddress({
+                      ...newBillingAddress,
+                      landmark: e.target.value,
+                    })
+                  }
+                  className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
+                />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    Landmark (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Near, Opposite to..."
-                    value={newBillingAddress.landmark}
-                    onChange={(e) =>
-                      setNewBillingAddress({
-                        ...newBillingAddress,
-                        landmark: e.target.value,
-                      })
-                    }
-                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
-                  />
-                </div>
                 <div>
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
                     City *
@@ -1448,15 +1449,13 @@ const Checkout = () => {
                     className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
                   />
                 </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 <div>
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    State *
+                    State / Province *
                   </label>
                   <input
                     type="text"
-                    placeholder="State"
+                    placeholder="State / Province / Region"
                     required
                     value={newBillingAddress.state}
                     onChange={(e) =>
@@ -1468,13 +1467,15 @@ const Checkout = () => {
                     className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
                   />
                 </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 <div>
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    Pincode *
+                    ZIP / Postal Code *
                   </label>
                   <input
                     type="text"
-                    placeholder="Pincode"
+                    placeholder="ZIP / Postal Code"
                     required
                     value={newBillingAddress.pincode}
                     onChange={(e) =>
@@ -1488,11 +1489,30 @@ const Checkout = () => {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                    Country *
+                  </label>
+                  <select
+                    value={newBillingAddress.country}
+                    onChange={(e) =>
+                      setNewBillingAddress({
+                        ...newBillingAddress,
+                        country: e.target.value,
+                      })
+                    }
+                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary bg-white"
+                  >
+                    {countries.map((c) => (
+                      <option key={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
                     Phone *
                   </label>
                   <input
                     type="tel"
-                    placeholder="Mobile Number"
+                    placeholder="Phone number"
                     required
                     value={newBillingAddress.phone}
                     onChange={(e) =>
@@ -1686,15 +1706,15 @@ const Checkout = () => {
                                 />
                                 <div>
                                   <span className="block text-gray-700">
-                                    {addr.houseNo}, {addr.street}
+                                    {addr.houseNo}
                                   </span>
-                                  {addr.landmark && (
-                                    <span className="block text-xs text-gray-500 italic mt-0.5">
-                                      ({addr.landmark})
+                                  {addr.street && (
+                                    <span className="block text-gray-700">
+                                      {addr.street}
                                     </span>
                                   )}
                                   <p className="text-gray-700 mt-0.5">
-                                    {addr.city}, {addr.state} -{" "}
+                                    {addr.city}, {addr.state}{" "}
                                     <span className="font-bold">
                                       {addr.pincode}
                                     </span>

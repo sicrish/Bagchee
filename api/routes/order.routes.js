@@ -1,6 +1,7 @@
 import express from "express";
 import * as OrderController from "../controller/order.controller.js";
 import authMiddleware from '../middleware/auth.middleware.js';
+import optionalAuth from '../middleware/optionalAuth.middleware.js';
 import adminAuth from '../middleware/adminAuth.middleware.js';
 
 const router = express.Router();
@@ -11,8 +12,8 @@ router.get("/pay/:orderId/:token", OrderController.getOrderForPayment);
 // PUBLIC — guest order lookup by order number + shipping email
 router.post("/guest-track", OrderController.guestTrackOrder);
 
-// AUTH — any logged-in user can create an order or view own orders
-router.post("/save",       authMiddleware, OrderController.saveOrder);
+// AUTH — logged-in or guest can create an order; optionalAuth populates req.user if token present
+router.post("/save",       optionalAuth, OrderController.saveOrder);
 router.get("/my-orders",   authMiddleware, OrderController.getUserOrders);
 router.get("/get/:id",     authMiddleware, OrderController.getOrderById);
 

@@ -37,6 +37,7 @@ const OrderStatus = () => {
     const estDelivery = order.estimatedDelivery || order.estimated_delivery;
     const orderStatus = (order.status || '').toLowerCase();
     const payStatus   = order.paymentStatus || order.payment_status || '';
+    const paymentMethod = order.paymentType || order.payment_type || '';
 
     const shippingName = order.shippingFirstName
         ? `${order.shippingFirstName} ${order.shippingLastName}`.trim()
@@ -477,6 +478,12 @@ const OrderStatus = () => {
                                 <p className="text-sm font-black text-text-main">{formatDate(placedAt) || '—'}</p>
                             </div>
                         </div>
+                        {paymentMethod && (
+                            <div className="text-center">
+                                <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Payment Method</p>
+                                <p className="text-sm font-black text-text-main">{paymentMethod}</p>
+                            </div>
+                        )}
                         <div className="text-right">
                             <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Total Amount</p>
                             <p className="text-2xl font-black text-primary">
