@@ -63,6 +63,7 @@ const HomeSectionTwoProducts = () => {
   };
 
   const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure?")) return;
     const toastId = toast.loading("Removing...");
     try {
       const API_URL = process.env.REACT_APP_API_URL;

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  Plus, Download, Printer, Search, RotateCw, 
-  Edit, Trash2, ChevronLeft, ChevronRight, 
-  ChevronsLeft, ChevronsRight, Settings, Loader2 
+import {
+  Plus, Download, Printer, Search, RotateCw,
+  Edit, Trash2, ChevronLeft, ChevronRight,
+  ChevronsLeft, ChevronsRight, Settings, Loader2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
@@ -12,7 +12,7 @@ const HomeSectionOneProducts = () => {
   const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  
+
   const [filters, setFilters] = useState({
     productId: "",
     title: "",
@@ -26,8 +26,8 @@ const HomeSectionOneProducts = () => {
       const API_URL = process.env.REACT_APP_API_URL;
 
       // 🟢 API URL for Section 1
-      const res = await axios.get(`${API_URL}/home-sections/products/section-one/list`); 
-      
+      const res = await axios.get(`${API_URL}/home-sections/products/section-one/list`);
+
       if (res.data.status) {
         setProducts(res.data.data);
       }
@@ -48,7 +48,7 @@ const HomeSectionOneProducts = () => {
     return products.filter((item) => {
       // Safe check: agar productId object hai to ._id lo, nahi to direct string
       const pId = typeof item.productId === 'object' ? item.productId?._id : item.productId;
-      
+
       return (
         (pId || "").toString().includes(filters.productId) &&
         (item.title || "").toLowerCase().includes(filters.title.toLowerCase()) &&
@@ -63,14 +63,18 @@ const HomeSectionOneProducts = () => {
   };
 
   const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure?")) return;
     const toastId = toast.loading("Removing...");
     try {
       const API_URL = process.env.REACT_APP_API_URL;
       const res = await axios.delete(`${API_URL}/home-sections/products/delete/${id}`);
-      
+
       if (res.data.status) {
         toast.success("Removed successfully!", { id: toastId });
-        fetchSectionProducts(); 
+        fetchSectionProducts();
+      }
+      else {
+        toast.error(res.data.msg || "Could not remove product", { id: toastId });
       }
     } catch (error) {
       toast.error("Operation failed", { id: toastId });
@@ -81,11 +85,11 @@ const HomeSectionOneProducts = () => {
 
   return (
     <div className="bg-cream-50 min-h-screen p-4 md:p-6 font-body text-text-main">
-      
+
       {/* --- TOP TOOLBAR --- */}
       <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4 font-montserrat">
-        <button 
-          onClick={() => navigate('/admin/add-home-section-1-product')} 
+        <button
+          onClick={() => navigate('/admin/add-home-section-1-product')}
           className="bg-white border border-cream-200 text-text-main hover:bg-cream-100 px-4 py-2 rounded shadow-sm flex items-center gap-2 font-bold text-xs uppercase transition-all active:scale-95"
         >
           <Plus size={14} className="text-red-600" /> Add Home section 1 products
@@ -98,8 +102,8 @@ const HomeSectionOneProducts = () => {
           <button className="bg-white border border-cream-200 text-text-main px-4 py-1.5 rounded shadow-sm hover:bg-cream-100 flex items-center gap-2 text-xs font-bold transition-colors">
             <Printer size={14} className="text-green-600" /> Print
           </button>
-          <button 
-            onClick={() => {setFilters({productId: "", title: "", active: "", order: ""}); fetchSectionProducts();}}
+          <button
+            onClick={() => { setFilters({ productId: "", title: "", active: "", order: "" }); fetchSectionProducts(); }}
             className="bg-white border border-cream-200 text-text-main px-4 py-1.5 rounded shadow-sm hover:text-primary flex items-center gap-2 text-xs font-bold transition-all"
           >
             Clear filters
@@ -120,7 +124,7 @@ const HomeSectionOneProducts = () => {
               {/* Header Titles */}
               <tr className="bg-primary text-white border-b border-white/10 font-montserrat font-bold uppercase tracking-wider text-[11px]">
                 <th className="p-3 text-center w-24 border-r border-white/20">
-                   <input type="checkbox" className="accent-white h-4 w-4 rounded cursor-pointer" />
+                  <input type="checkbox" className="accent-white h-4 w-4 rounded cursor-pointer" />
                 </th>
                 <th className="p-3 text-left border-r border-white/20">Product id</th>
                 <th className="p-3 text-left border-r border-white/20">Title</th>
@@ -132,9 +136,9 @@ const HomeSectionOneProducts = () => {
               {/* Filter Row */}
               <tr className="bg-primary border-b border-cream-200">
                 <td className="p-2 border-r border-white/20 text-center">
-                   <div className="w-full flex justify-center">
-                     <input type="checkbox" className="accent-primary bg-white h-4 w-4 shrink-0" />
-                   </div>
+                  <div className="w-full flex justify-center">
+                    <input type="checkbox" className="accent-primary bg-white h-4 w-4 shrink-0" />
+                  </div>
                 </td>
                 <td className="p-2 border-r border-white/20">
                   <input name="productId" value={filters.productId} onChange={handleFilterChange} type="text" className={filterInputClass} placeholder="ID" />
@@ -167,26 +171,26 @@ const HomeSectionOneProducts = () => {
                 filteredData.map((item) => (
                   <tr key={item.id || item._id} className="hover:bg-primary/5 transition-colors text-[13px]">
                     <td className="p-3 border-r border-cream-50 text-center">
-                       <input type="checkbox" className="h-4 w-4 rounded accent-primary cursor-pointer shrink-0" />
+                      <input type="checkbox" className="h-4 w-4 rounded accent-primary cursor-pointer shrink-0" />
                     </td>
-                    
+
                     {/* 🟢 Fix: Handle Product ID safely (Object vs String) */}
                     <td className="p-3 border-r border-cream-50 text-text-main font-medium">
-                        {typeof item.productId === 'object' ? item.productId?._id : item.productId}
+                      {typeof item.productId === 'object' ? item.productId?._id : item.productId}
                     </td>
-                    
+
                     <td className="p-3 border-r border-cream-50 text-text-main font-medium">{item.title}</td>
                     <td className="p-3 border-r border-cream-50 font-bold text-text-muted">{item.active}</td>
                     <td className="p-3 border-r border-cream-50 text-text-main font-medium">{item.order}</td>
                     <td className="p-3 text-center">
                       <div className="flex justify-center gap-2">
-                        <button 
-                          onClick={() => navigate(`/admin/edit-home-section-1/${item.id || item._id}`)} 
+                        <button
+                          onClick={() => navigate(`/admin/edit-home-section-1/${item.id || item._id}`)}
                           className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary transition-all shadow-sm"
                         >
                           <Edit size={14} />
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleDelete(item.id || item._id)}
                           className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 transition-all shadow-sm"
                         >
@@ -222,13 +226,13 @@ const HomeSectionOneProducts = () => {
           </div>
 
           <div className="flex items-center gap-1">
-            <button className="p-1.5 border border-cream-200 rounded text-text-muted hover:text-primary transition-all"><ChevronsLeft size={16}/></button>
-            <button className="p-1.5 border border-cream-200 rounded text-text-muted hover:text-primary transition-all"><ChevronLeft size={16}/></button>
+            <button className="p-1.5 border border-cream-200 rounded text-text-muted hover:text-primary transition-all"><ChevronsLeft size={16} /></button>
+            <button className="p-1.5 border border-cream-200 rounded text-text-muted hover:text-primary transition-all"><ChevronLeft size={16} /></button>
             <div className="flex items-center mx-1 border border-cream-200 rounded overflow-hidden">
               <input type="text" value="1" readOnly className="w-8 text-center text-xs border-none p-1.5 font-bold bg-cream-50 text-text-main" />
             </div>
-            <button className="p-1.5 border border-cream-200 rounded text-text-muted hover:text-primary transition-all"><ChevronRight size={16}/></button>
-            <button className="p-1.5 border border-cream-200 rounded text-text-muted hover:text-primary transition-all"><ChevronsRight size={16}/></button>
+            <button className="p-1.5 border border-cream-200 rounded text-text-muted hover:text-primary transition-all"><ChevronRight size={16} /></button>
+            <button className="p-1.5 border border-cream-200 rounded text-text-muted hover:text-primary transition-all"><ChevronsRight size={16} /></button>
             <div className="ml-2">
               <button className="p-1.5 border border-cream-200 rounded text-text-muted hover:bg-cream-50 transition-colors">
                 <Settings size={16} />

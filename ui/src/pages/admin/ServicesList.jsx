@@ -65,7 +65,7 @@ const ServicesList = () => {
     };
 
     const handleDelete = async (id) => {
-       
+       if (!window.confirm("Are you sure?")) return;
         const toastId = toast.loading("Removing service...");
         try {
             const API_URL = process.env.REACT_APP_API_URL;
@@ -73,7 +73,9 @@ const ServicesList = () => {
             if (res.data.status) {
                 toast.success("Service deleted successfully!", { id: toastId });
                 fetchServices();
-            }
+            }else {
+            toast.error(res.data.msg || "Could not delete service", { id: toastId });
+        }
         } catch (error) {
             toast.error("Delete failed", { id: toastId });
         }

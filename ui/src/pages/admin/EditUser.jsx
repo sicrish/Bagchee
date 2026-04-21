@@ -180,12 +180,17 @@ const EditUser = () => {
 
   // DELETE ADDRESS
   const handleDeleteAddress = async (addressId) => {
+    if (!window.confirm("Are you sure you want to delete this address?")) return;
+    const toastId = toast.loading("Deleting address...");
     
     try {
         const res = await axios.post(`${API_BASE_URL}/user/delete-address`, { userId: id, addressId });
         if(res.data.status) {
             setAddresses(res.data.addresses);
-            toast.success("Address Deleted");
+            toast.success("Address Deleted Successfully", { id: toastId });
+        }
+        else {
+            toast.error(res.data.msg || "Could not delete address", { id: toastId });
         }
     } catch (error) {
         toast.error("Delete failed");

@@ -108,7 +108,7 @@ const SocialsList = () => {
   };
 
   const handleDelete = async (id) => {
-
+if (!window.confirm("Are you sure?")) return;
     const toastId = toast.loading("Deleting...");
     try {
       const API_URL = process.env.REACT_APP_API_URL;
@@ -116,6 +116,9 @@ const SocialsList = () => {
       if (res.data.status) {
         toast.success("Social link deleted successfully!", { id: toastId });
         fetchSocials();
+      }
+      else {
+        toast.error(res.data.msg || "Could not delete social link", { id: toastId });
       }
     } catch (error) {
       toast.error("Delete failed", { id: toastId });

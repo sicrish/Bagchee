@@ -35,6 +35,7 @@ const ActorsList = () => {
   }, []);
 
   const handleDelete = async (id) => {
+   if (!window.confirm("Are you sure you want to delete this actor?")) return;
    
       const toastId = toast.loading("Deleting...");
       try {

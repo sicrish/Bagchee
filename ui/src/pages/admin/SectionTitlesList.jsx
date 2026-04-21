@@ -83,6 +83,7 @@ const SectionTitlesList = () => {
 
  // 🟢 4. Delete Logic
  const handleDelete = async (id) => {
+  if (!window.confirm("WARNING: Are you sure?")) return;
   const toastId = toast.loading("Deleting...");
   try {
     const API_URL = process.env.REACT_APP_API_URL;
@@ -90,6 +91,8 @@ const SectionTitlesList = () => {
     if (res.data.status) {
       toast.success("Deleted successfully!", { id: toastId });
       fetchSections(); // Refresh list
+    }else {
+      toast.error(res.data.msg || "Could not delete section", { id: toastId });
     }
   } catch (error) {
     toast.error("Delete failed", { id: toastId });

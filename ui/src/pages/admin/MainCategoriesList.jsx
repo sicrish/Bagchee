@@ -62,7 +62,7 @@ const filteredData = useMemo(() => {
 
   const handleDelete = async (id) => {
 
-
+if (!window.confirm("WARNING: Are you sure you want to delete this Main Category? This might affect linked products.")) return;
     const toastId = toast.loading("Deleting...");
     try {
       const API_URL = process.env.REACT_APP_API_URL;
@@ -70,6 +70,9 @@ const filteredData = useMemo(() => {
       if (res.data.status) {
         toast.success("Category deleted successfully!", { id: toastId });
         fetchCategories();
+      }
+      else {
+        toast.error(res.data.msg || "Could not delete category", { id: toastId });
       }
     } catch (error) {
       toast.error("Delete failed", { id: toastId });
