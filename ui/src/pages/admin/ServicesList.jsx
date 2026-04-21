@@ -17,8 +17,8 @@ const ServicesList = () => {
     const [filters, setFilters] = useState({
         id: "",
         title: "",
-        meta_title: "",
-        meta_desc: ""
+        metaTitle: "",
+        metaDesc: ""
     });
 
     const fetchServices = useCallback(async () => {
@@ -49,8 +49,8 @@ const ServicesList = () => {
             return (
                 displayId.includes(filters.id) &&
                 (item.title || "").toLowerCase().includes(filters.title.toLowerCase()) &&
-                (item.meta_title || "").toLowerCase().includes(filters.meta_title.toLowerCase()) &&
-                (item.meta_description || "").toLowerCase().includes(filters.meta_desc.toLowerCase())
+                (item.metaTitle  || "").toLowerCase().includes(filters.metaTitle.toLowerCase()) &&
+                (item.metaDesc  || "").toLowerCase().includes(filters.metaDesc.toLowerCase())
             );
         });
     }, [services, filters]);
@@ -142,10 +142,10 @@ const ServicesList = () => {
                                     <input name="title" value={filters.title} onChange={handleFilterChange} type="text" className={filterInputClass} placeholder="Filter Title" />
                                 </td>
                                 <td className="p-2 border-r border-white/20">
-                                    <input name="meta_title" value={filters.meta_title} onChange={handleFilterChange} type="text" className={filterInputClass} placeholder="Filter Meta Title" />
+                                    <input name="metaTitle" value={filters.metaTitle} onChange={handleFilterChange} type="text" className={filterInputClass} placeholder="Filter Meta Title" />
                                 </td>
                                 <td className="p-2 border-r border-white/20">
-                                    <input name="meta_desc" value={filters.meta_desc} onChange={handleFilterChange} type="text" className={filterInputClass} placeholder="Filter Meta Desc" />
+                                    <input name="metaDesc" value={filters.metaDesc} onChange={handleFilterChange} type="text" className={filterInputClass} placeholder="Filter Meta Desc" />
                                 </td>
                                 <td className="p-2 text-center">
                                     <button onClick={fetchServices} className="text-white hover:rotate-180 transition-transform duration-500">
@@ -175,9 +175,9 @@ const ServicesList = () => {
                                         </td>
                                         {/* 🟢 Fields based on image_150c3a.png */}
                                         <td className="p-3 border-r border-cream-50 text-text-main font-medium">{item.title}</td>
-                                        <td className="p-3 border-r border-cream-50 text-text-main text-xs italic">{item.meta_title || '-'}</td>
+                                        <td className="p-3 border-r border-cream-50 text-text-main text-xs italic">{item.metaTitle  || '-'}</td>
                                         <td className="p-3 border-r border-cream-50 text-text-main text-[11px] leading-relaxed max-w-xs truncate">
-                                            {item.meta_description || '-'}
+                                            {item.metaDesc  || '-'}
                                         </td>
                                         <td className="p-3">
                                             <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300">

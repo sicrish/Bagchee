@@ -72,7 +72,7 @@ const ReviewsList = () => {
                 "User Name": item.name,
                 "Rating": `${item.rating} Stars`,
                 "Review": item.review?.replace(/<[^>]*>?/gm, '') || "-", // HTML tags remove
-                "Status": item.isActive ? "Active" : "Inactive",
+                "Status": item.active  ? "Active" : "Inactive",
                 "Date": new Date(item.createdAt).toLocaleDateString('en-GB')
             }));
 
@@ -87,8 +87,8 @@ const ReviewsList = () => {
     const filteredReviews = useMemo(() => {
         return reviews.filter((item, index) => {
             const displayId = (index + 1).toString();
-            const itemIdStr = item.itemId?._id || "";
-            const statusText = item.isActive ? "active" : "inactive";
+            const itemIdStr = item.product?._id || "";
+            const statusText = item.active? "active" : "inactive";
             const dateStr = item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-GB') : "";
 
             return (
@@ -139,7 +139,7 @@ const ReviewsList = () => {
     };
 
     const renderItemInfo = (review) => {
-        const itemData = review.itemId;
+        const itemData = review.product;
         if (itemData && itemData.title) {
             return (
                 <div className="flex flex-col">
@@ -269,9 +269,9 @@ const ReviewsList = () => {
                                         </td>
                                         <td className="p-3 border-r border-cream-50 text-center">
                                             <span
-                                                className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${item.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}
+                                                className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${item.active  ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}
                                             >
-                                                {item.isActive ? 'Active' : 'Inactive'}
+                                                {item.active  ? 'Active' : 'Inactive'}
                                             </span>
                                         </td>
                                         <td className="p-3 border-r border-cream-50 text-text-main">
