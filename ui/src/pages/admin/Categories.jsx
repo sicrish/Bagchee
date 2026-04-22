@@ -277,11 +277,11 @@ const Categories = () => {
                                     <td className="p-3 border-r border-gray-200">{item.slug}</td>
 
                                     <td className="p-3 border-r border-gray-200 text-gray-500">
-                                        {item.parentslug || "root-category"}
+                                        {item.parentslug || item.parentSlug|| "root-category"}
                                     </td>
 
                                     <td className="p-3 border-r border-gray-200 text-gray-500">
-                                        {item.metatitle || item.categorytitle}
+                                        {item.metaTitle ||item.metatitle || item.categorytitle}
                                     </td>
 
                                     <td className="p-3 border-r border-gray-200">

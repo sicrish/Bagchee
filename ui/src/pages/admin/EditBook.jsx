@@ -185,6 +185,13 @@ const EditBook = () => {
             setPublishers(publishers);
             setArrivalDays(arrivalDays);
 
+            // 🔍 DEBUG: Publisher check
+            // console.log("=== PUBLISHER DEBUG ===");
+            // console.log("1. Book publisher object:", book.publisher);
+            // console.log("2. Book publisherId:", book.publisherId);
+            // console.log("3. Publishers list (first 3):", publishers.slice(0, 3));
+            // console.log("4. Publisher ID jo store hoga:", book.publisher ? String(book.publisher.id || book.publisher._id || book.publisher) : String(book.publisherId || ''));
+
             setFormData({
                 title: book.title || '',
                 product_type: book.productType || book.product_type || 'book',
@@ -211,7 +218,7 @@ const EditBook = () => {
                 series: book.series
                     ? [book.series.id || book.series._id]
                     : [],
-                publisher: book.publisher ? (book.publisher.id || book.publisher._id || book.publisher) : (book.publisherId || ''),
+                publisher: book.publisher ? String(book.publisher.id) : String(book.publisherId || ''),
                 volume: book.volume || '',
                 edition: book.edition || '',
                 isbn10: book.isbn10 || '',
@@ -246,6 +253,8 @@ const EditBook = () => {
                 ordered_items_count: book.soldCount || 0,
             });
 
+            // console.log("5. formData.publisher set to:", book.publisher ? String(book.publisher.id || book.publisher._id || book.publisher) : String(book.publisherId || ''));
+
             if (book.newReleaseUntil || book.new_release_until) {
                 setUserSelectedDate(new Date(book.newReleaseUntil || book.new_release_until).toISOString().split('T')[0]);
             }
@@ -279,7 +288,7 @@ const EditBook = () => {
 
             setSynopsis(book.synopsis || book.description || '');
             setCriticsNote(book.criticsNote || book.critics_note || '');
-            setSearchText(book.aboutAuthorText || book.search_text || '');
+            setSearchText(book.searchText || book.search_text || '');
 
             if (book.related_products) {
                 const ids = book.related_products.split(',').map(s => s.trim()).filter(Boolean);
@@ -479,7 +488,7 @@ const EditBook = () => {
                 if (res.status) {
                     toast.success("Publisher added!", { id: toastId });
                     setPublishers(prev => [...prev, res.data]);
-                    setFormData(prev => ({ ...prev, publisher: res.data.id || data._id }));
+                    setFormData(prev => ({ ...prev, publisher: String(res.data.id || data._id) }));
                     setIsPubPanelOpen(false);
                     setNewPubData({ category: '', title: '', company: '', address: '', place: '', email: '', phone: '', order: '', slug: '' });
                     setNewPubImage(null);
@@ -638,7 +647,7 @@ const EditBook = () => {
     };
 
     const handlePublisherSelect = (pub) => {
-        setFormData(prev => ({ ...prev, publisher: pub.id || pub._id }));
+        setFormData(prev => ({ ...prev, publisher: String(pub.id || pub._id) }));
         setIsPublisherDropdownOpen(false); setPublisherSearch("");
     };
 
@@ -1203,83 +1212,83 @@ const EditBook = () => {
 
                         {/* 13. Series Section */}
                         <div className="grid grid-cols-12 gap-4 items-start border-b border-gray-50 pb-4">
-    <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight pt-3">Series</label>
-    <div className="col-span-9 space-y-3">
-        <div className="relative">
-            {/* Selected Series Display (Clickable to open dropdown) */}
-            <div 
-                className="border border-gray-300 rounded p-2 bg-white cursor-pointer min-h-[38px] flex flex-wrap gap-2 items-center hover:border-primary transition-colors theme-input w-full md:w-1/2" 
-                onClick={() => setIsSeriesDropdownOpen(!isSeriesDropdownOpen)}
-            >
-                {formData.series && formData.series.length > 0 ? (
-                    formData.series.map((serId) => {
-                        // list mein se series ka naam dhoondhna
-                        const seriesObj = seriesList.find(s => (s.id || s._id) === serId);
-                        return seriesObj ? (
-                            <span key={serId} className="bg-purple-50 text-purple-700 text-[10px] font-bold px-2 py-0.5 rounded border border-purple-100 flex items-center gap-1">
-                                {seriesObj.title}
-                                <button 
-                                    type="button" 
-                                    onClick={(e) => { 
-                                        e.stopPropagation(); 
-                                        handleCheckboxChange('series', serId); 
-                                    }} 
-                                    className="hover:text-red-500 font-bold ml-1"
-                                >
-                                    ×
-                                </button>
-                            </span>
-                        ) : null;
-                    })
-                ) : (
-                    <span className="text-gray-400 text-sm">Select one or more series...</span>
-                )}
-                <div className="ml-auto text-gray-400 text-[10px]">▼</div>
-            </div>
+                            <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight pt-3">Series</label>
+                            <div className="col-span-9 space-y-3">
+                                <div className="relative">
+                                    {/* Selected Series Display (Clickable to open dropdown) */}
+                                    <div
+                                        className="border border-gray-300 rounded p-2 bg-white cursor-pointer min-h-[38px] flex flex-wrap gap-2 items-center hover:border-primary transition-colors theme-input w-full md:w-1/2"
+                                        onClick={() => setIsSeriesDropdownOpen(!isSeriesDropdownOpen)}
+                                    >
+                                        {formData.series && formData.series.length > 0 ? (
+                                            formData.series.map((serId) => {
+                                                // list mein se series ka naam dhoondhna
+                                                const seriesObj = seriesList.find(s => (s.id || s._id) === serId);
+                                                return seriesObj ? (
+                                                    <span key={serId} className="bg-purple-50 text-purple-700 text-[10px] font-bold px-2 py-0.5 rounded border border-purple-100 flex items-center gap-1">
+                                                        {seriesObj.title}
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleCheckboxChange('series', serId);
+                                                            }}
+                                                            className="hover:text-red-500 font-bold ml-1"
+                                                        >
+                                                            ×
+                                                        </button>
+                                                    </span>
+                                                ) : null;
+                                            })
+                                        ) : (
+                                            <span className="text-gray-400 text-sm">Select one or more series...</span>
+                                        )}
+                                        <div className="ml-auto text-gray-400 text-[10px]">▼</div>
+                                    </div>
 
-            {/* Dropdown Menu */}
-            {isSeriesDropdownOpen && (
-                <div className="absolute z-50 top-full left-0 w-full md:w-1/2 bg-white border border-gray-300 rounded shadow-lg mt-1 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                    <div className="p-2 border-b border-gray-100 bg-gray-50">
-                        <input 
-                            type="text" 
-                            placeholder="Search series..." 
-                            value={seriesSearch} 
-                            onChange={(e) => setSeriesSearch(e.target.value)} 
-                            onClick={(e) => e.stopPropagation()} 
-                            className="w-full text-xs p-1.5 border border-gray-200 rounded focus:border-primary outline-none" 
-                            autoFocus 
-                        />
-                    </div>
-                    <div className="max-h-48 overflow-y-auto p-1 scrollbar-thin">
-                        {seriesList.filter(s => s.title.toLowerCase().includes(seriesSearch.toLowerCase())).map(s => {
-                            
-                            const isSelected = Array.isArray(formData.series) && formData.series.includes(s.id || s._id);
-                            return (
-                                <div 
-                                    key={s.id || s.id || s._id} 
-                                    onClick={() => handleSeriesSelect(s)} 
-                                    className={`px-3 py-2 text-sm cursor-pointer rounded hover:bg-blue-50 flex justify-between items-center ${isSelected ? "bg-blue-50 text-primary font-bold" : "text-gray-600"}`}
-                                >
-                                    {s.title}
-                                    {isSelected && <Check size={14} />}
+                                    {/* Dropdown Menu */}
+                                    {isSeriesDropdownOpen && (
+                                        <div className="absolute z-50 top-full left-0 w-full md:w-1/2 bg-white border border-gray-300 rounded shadow-lg mt-1 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                                            <div className="p-2 border-b border-gray-100 bg-gray-50">
+                                                <input
+                                                    type="text"
+                                                    placeholder="Search series..."
+                                                    value={seriesSearch}
+                                                    onChange={(e) => setSeriesSearch(e.target.value)}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    className="w-full text-xs p-1.5 border border-gray-200 rounded focus:border-primary outline-none"
+                                                    autoFocus
+                                                />
+                                            </div>
+                                            <div className="max-h-48 overflow-y-auto p-1 scrollbar-thin">
+                                                {seriesList.filter(s => s.title.toLowerCase().includes(seriesSearch.toLowerCase())).map(s => {
+
+                                                    const isSelected = Array.isArray(formData.series) && formData.series.includes(s.id || s._id);
+                                                    return (
+                                                        <div
+                                                            key={s.id || s.id || s._id}
+                                                            onClick={() => handleSeriesSelect(s)}
+                                                            className={`px-3 py-2 text-sm cursor-pointer rounded hover:bg-blue-50 flex justify-between items-center ${isSelected ? "bg-blue-50 text-primary font-bold" : "text-gray-600"}`}
+                                                        >
+                                                            {s.title}
+                                                            {isSelected && <Check size={14} />}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {/* Background click to close dropdown */}
+                                    {isSeriesDropdownOpen && <div className="fixed inset-0 z-10" onClick={() => setIsSeriesDropdownOpen(false)}></div>}
                                 </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            )}
-            {/* Background click to close dropdown */}
-            {isSeriesDropdownOpen && <div className="fixed inset-0 z-10" onClick={() => setIsSeriesDropdownOpen(false)}></div>}
-        </div>
 
-        <div className="flex justify-start">
-            <button type="button" onClick={() => setIsSeriesPanelOpen(!isSeriesPanelOpen)} className="bg-gray-100 border border-gray-300 px-4 py-1.5 rounded text-[11px] font-bold uppercase text-gray-700 hover:bg-gray-200 shadow-sm flex items-center gap-2">
-                {isSeriesPanelOpen ? <X size={14} /> : <Plus size={14} />} Add new series
-            </button>
-        </div>
-    </div>
-</div>
+                                <div className="flex justify-start">
+                                    <button type="button" onClick={() => setIsSeriesPanelOpen(!isSeriesPanelOpen)} className="bg-gray-100 border border-gray-300 px-4 py-1.5 rounded text-[11px] font-bold uppercase text-gray-700 hover:bg-gray-200 shadow-sm flex items-center gap-2">
+                                        {isSeriesPanelOpen ? <X size={14} /> : <Plus size={14} />} Add new series
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
 
                         <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight">Series number</label><div className="col-span-9"><input name="series_number" type="number" value={formData.series_number || ""} onChange={handleChange} className="theme-input w-full md:w-1/3" /></div></div>
                         {/* 14. Pricing, Stock & Rich Text */}
@@ -1347,8 +1356,21 @@ const EditBook = () => {
                             <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight pt-3">Publisher</label>
                             <div className="col-span-9 space-y-3">
                                 <div className="relative">
+                                    {/* DEBUG */}
+                                    {/* {console.log("6. publishers state:", publishers)} */}
+                                    {/* {console.log("7. formData.publisher:", formData.publisher)} */}
+                                    {/* {console.log("8. find result:", publishers.find(p => String(p.id) === String(formData.publisher)))} */}
+                                    {/* {console.log("9. First publisher object FULL:", JSON.stringify(publishers[0]))} */}
                                     <div className="border border-gray-300 rounded p-2 bg-white cursor-pointer min-h-[38px] flex justify-between items-center hover:border-primary transition-colors theme-input w-full md:w-1/2" onClick={() => setIsPublisherDropdownOpen(!isPublisherDropdownOpen)}>
-                                        <span className={formData.publisher ? "text-gray-700 font-medium" : "text-gray-400 text-sm"}>{formData.publisher ? (publishers.find(p => (p.id || p._id) === formData.publisher)?.name || publishers.find(p => (p.id || p._id) === formData.publisher)?.title || "Unknown Publisher") : "Select Publisher"}</span>
+                                        <span className={formData.publisher ? "text-gray-700 font-medium" : "text-gray-400 text-sm"}>
+                                            {formData.publisher
+                                                ? (() => {
+                                                    const publisher = publishers.find(p => String(p.id) === String(formData.publisher));
+                                                    return publisher ? publisher.title : "Unknown Publisher";
+                                                })()
+                                                : "Select Publisher"
+                                            }
+                                        </span>
                                         <ChevronDown size={14} className="text-gray-400" />
                                     </div>
                                     {isPublisherDropdownOpen && (
@@ -1357,8 +1379,8 @@ const EditBook = () => {
                                                 <input type="text" placeholder="Search..." value={publisherSearch} onChange={(e) => setPublisherSearch(e.target.value)} onClick={(e) => e.stopPropagation()} className="w-full text-xs p-1.5 border rounded outline-none bg-white" autoFocus />
                                             </div>
                                             <div className="max-h-48 overflow-y-auto">
-                                                {publishers.filter(p => (p.name || p.title || "").toLowerCase().includes(publisherSearch.toLowerCase())).map(p => (
-                                                    <div key={p.id || p.id || p._id} onClick={() => handlePublisherSelect(p)} className="px-3 py-2 text-sm hover:bg-primary/5 cursor-pointer text-gray-600 hover:text-primary transition-colors">{p.name || p.title}</div>
+                                                {publishers.filter(p => (p.title || "").toLowerCase().includes(publisherSearch.toLowerCase())).map(p => (
+                                                    <div key={p.id || p.id || p._id} onClick={() => handlePublisherSelect(p)} className="px-3 py-2 text-sm hover:bg-primary/5 cursor-pointer text-gray-600 hover:text-primary transition-colors">{p.title}</div>
                                                 ))}
                                             </div>
                                         </div>

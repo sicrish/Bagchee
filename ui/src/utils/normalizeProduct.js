@@ -58,6 +58,9 @@ export const normalizeProduct = (p) => {
         ratedTimes:  p.ratedTimes   ?? p.rated_times  ?? 0,
         rated_times: p.ratedTimes   ?? p.rated_times  ?? 0,
 
+        // --- Physical Details ---
+        weight:       p.weight       || '',
+
         // --- Shipping ---
         shipDays:    p.shipDays     ?? p.ship_days    ?? 1,
         ship_days:   p.shipDays     ?? p.ship_days    ?? 1,
@@ -77,6 +80,10 @@ export const normalizeProduct = (p) => {
         table_of_contents: p.tableOfContents || p.table_of_contents || '',
         criticsNote:      p.criticsNote      || p.critics_note      || '',
         critics_note:     p.criticsNote      || p.critics_note      || '',
+
+        // --- Category (extract first category ID for legacy UI) ---
+        categoryId: p.leadingCategoryId || (Array.isArray(p.categories) && p.categories.length > 0 ? p.categories[0].categoryId || p.categories[0].category?.id : undefined),
+        leadingCategoryId: p.leadingCategoryId,
 
         // --- Author (flattened for legacy UI) ---
         author: authorObj,

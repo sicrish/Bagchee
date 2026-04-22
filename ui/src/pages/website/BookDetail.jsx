@@ -135,12 +135,17 @@ const BookDetail = () => {
           setBook(bookData);
 
           // Find root category ID by walking up the parentid chain
+          // Check multiple possible fields for category
           const leafCategoryId = typeof bookData.categoryId === 'object'
             ? bookData.categoryId?._id
-            : bookData.categoryId;
+            : bookData.categoryId || bookData.leadingCategoryId || bookData.leading_category;
 
           const rootCategoryId = findRootCategoryId(leafCategoryId, categoryMap);
-
+// console.log("=== You May Also Like Debug ===");
+// console.log("1. bookData.categoryId:", bookData.categoryId);
+// console.log("2. leafCategoryId:", leafCategoryId);
+// console.log("3. rootCategoryId:", rootCategoryId);
+// console.log("4. categoryMap keys:", Object.keys(categoryMap));
           if (rootCategoryId) {
             try {
               // Use `categories` param which matches both categoryId AND product_categories (broad match)
@@ -232,7 +237,17 @@ const BookDetail = () => {
 
 
       // Series Books
-      const seriesId = typeof book.series === 'object' ? book.series?._id : book.series;
+      console.log("=== Series Books Debug ===");
+      console.log("1. book.series:", book.series);
+      console.log("2. typeof book.series:", typeof book.series);
+      
+      const seriesId = typeof book.series === 'object' 
+        ? book.series?.id || book.series?._id 
+        : book.series;
+      
+      console.log("3. seriesId:", seriesId);
+      console.log("4. book.series?.id:", book.series?.id);
+      console.log("5. book.series?._id:", book.series?._id);
       if (seriesId) {
         try {
           const seriesRes = await axios.get(
@@ -249,7 +264,17 @@ const BookDetail = () => {
       // Also Bought — proxy: same publisher, bestsellers
       // Uses 'publishers' (plural) param as required by the product fetch controller
       try {
-        const publisherId = typeof book.publisher === 'object' ? book.publisher?._id : book.publisher;
+        console.log("=== Also Bought Debug ===");
+        console.log("1. book.publisher:", book.publisher);
+        console.log("2. typeof book.publisher:", typeof book.publisher);
+        
+        const publisherId = typeof book.publisher === 'object' 
+          ? book.publisher?.id || book.publisher?._id 
+          : book.publisher;
+        
+        console.log("3. publisherId:", publisherId);
+        console.log("4. book.publisher?.id:", book.publisher?.id);
+        console.log("5. book.publisher?._id:", book.publisher?._id);
         if (publisherId) {
           const abRes = await axios.get(
             `${process.env.REACT_APP_API_URL}/product/fetch?publishers=${publisherId}&sort=bestseller&limit=20`
@@ -1030,11 +1055,11 @@ const BookDetail = () => {
                       { label: "Series Number", value: book.series_number ? `#${book.series_number}` : null },
                       { label: "Format", value: book.binding },
                       { label: "Language", value: getDisplayValue(book.language) },
-                      { label: "ISBN", value: book.isbn10 ? book.isbn10 : book.isbn13 },
+                      { label: "ISBN", value: [book.isbn10, book.isbn13].filter(Boolean).join(" , ") },
                       { label: "Release Date", value: book.pub_date },
                       { label: "Publisher", value: getDisplayValue(book.publisher) },
-                      { label: "Length", value: book.total_pages || book.pages ? `${book.total_pages || book.pages} Pages` : null },
-                      { label: "Weight", value: book.weight },
+                      { label: "Length", value: book.total_pages || book.pages ? `${book.total_pages || book.pages}` : null },
+                      { label: "Weight", value: book.weight && String(book.weight).trim() !== '0' && String(book.weight).trim() !== '' ? book.weight : null },
                     ]
                       .filter((row) => row.value)
                       .map((row) => (
@@ -1212,17 +1237,23 @@ const BookDetail = () => {
                     </div>
                     <div className="p-2">
                       <p className="text-sm font-bold text-gray-900">
-                        {/* 🟢 FIXED: Using formatPrice for Currency Support */}
-                        {formatPrice(relatedBook.price)}
+                        {(() => {
+                          const mPrice = Number(relatedBook.price || 0);
+                          const rPrice = Number(relatedBook.realPrice || relatedBook.real_price || 0);
+                          const iPrice = Number(relatedBook.inrPrice || relatedBook.inr_price || 0);
+                          return formatPrice(mPrice, iPrice, rPrice);
+                        })()}
                       </p>
                       {hasRelatedDiscount && (
                         <span className="text-xs text-gray-400 line-through block">
-                          {formatPrice(relatedBook.real_price)}
+                          {(() => {
+                          const mPrice = Number(relatedBook.price || 0);
+                          const iPrice = Number(relatedBook.inrPrice || relatedBook.inr_price || 0);
+                          return formatPrice(mPrice, iPrice, mPrice);
+                        })()}
                         </span>
                       )}
-                      {relatedBook.weight && (
-                        <p className="text-[10px] text-gray-500 mt-1">{relatedBook.weight}</p>
-                      )}
+                     
                     </div>
                   </Link>
                 );
@@ -1421,7 +1452,14 @@ const BookDetail = () => {
                       <p className="text-xs font-medium text-gray-800 line-clamp-2 mb-1">{sb.title}</p>
                       {sb.series_number && <p className="text-[10px] text-gray-500">#{sb.series_number}</p>}
                       {/* 🟢 FIXED: Using formatPrice for proper currency display */}
-                      <p className="text-sm font-bold text-primary">{formatPrice(sb.price)}</p>
+                      <p className="text-sm font-bold text-primary">
+                        {(() => {
+                          const mPrice = Number(sb.price || 0);
+                          const rPrice = Number(sb.realPrice || sb.real_price || 0);
+                          const iPrice = Number(sb.inrPrice || sb.inr_price || 0);
+                          return formatPrice(mPrice, iPrice, rPrice);
+                        })()}
+                      </p>
                     </div>
                   </Link>
                 );
@@ -1743,9 +1781,24 @@ const BookDetail = () => {
                     </div>
                     <div className="p-2">
                       <p className="text-xs font-medium text-gray-800 line-clamp-2 mb-1">{ab.title}</p>
-                      {/* 🟢 FIXED: Using formatPrice for proper currency display */}
-                      <p className="text-sm font-bold text-primary">{formatPrice(ab.price)}</p>
-                      {abHasDiscount && <span className="text-[10px] text-gray-400 line-through">{formatPrice(ab.real_price)}</span>}
+                      {/* 🟢 FIXED: Using formatPrice with proper currency conversion like homepage */}
+                      <p className="text-sm font-bold text-primary">
+                        {(() => {
+                          const mPrice = Number(ab.price || 0);
+                          const rPrice = Number(ab.realPrice || ab.real_price || 0);
+                          const iPrice = Number(ab.inrPrice || ab.inr_price || 0);
+                          return formatPrice(mPrice, iPrice, rPrice);
+                        })()}
+                      </p>
+                      {abHasDiscount && (
+                        <span className="text-[10px] text-gray-400 line-through">
+                          {(() => {
+                            const mPrice = Number(ab.price || 0);
+                            const iPrice = Number(ab.inrPrice || ab.inr_price || 0);
+                            return formatPrice(mPrice, iPrice, mPrice);
+                          })()}
+                        </span>
+                      )}
                     </div>
                   </Link>
                 );
