@@ -141,11 +141,11 @@ const BookDetail = () => {
             : bookData.categoryId || bookData.leadingCategoryId || bookData.leading_category;
 
           const rootCategoryId = findRootCategoryId(leafCategoryId, categoryMap);
-// console.log("=== You May Also Like Debug ===");
-// console.log("1. bookData.categoryId:", bookData.categoryId);
-// console.log("2. leafCategoryId:", leafCategoryId);
-// console.log("3. rootCategoryId:", rootCategoryId);
-// console.log("4. categoryMap keys:", Object.keys(categoryMap));
+          // console.log("=== You May Also Like Debug ===");
+          // console.log("1. bookData.categoryId:", bookData.categoryId);
+          // console.log("2. leafCategoryId:", leafCategoryId);
+          // console.log("3. rootCategoryId:", rootCategoryId);
+          // console.log("4. categoryMap keys:", Object.keys(categoryMap));
           if (rootCategoryId) {
             try {
               // Use `categories` param which matches both categoryId AND product_categories (broad match)
@@ -240,11 +240,11 @@ const BookDetail = () => {
       console.log("=== Series Books Debug ===");
       console.log("1. book.series:", book.series);
       console.log("2. typeof book.series:", typeof book.series);
-      
-      const seriesId = typeof book.series === 'object' 
-        ? book.series?.id || book.series?._id 
+
+      const seriesId = typeof book.series === 'object'
+        ? book.series?.id || book.series?._id
         : book.series;
-      
+
       console.log("3. seriesId:", seriesId);
       console.log("4. book.series?.id:", book.series?.id);
       console.log("5. book.series?._id:", book.series?._id);
@@ -267,11 +267,11 @@ const BookDetail = () => {
         console.log("=== Also Bought Debug ===");
         console.log("1. book.publisher:", book.publisher);
         console.log("2. typeof book.publisher:", typeof book.publisher);
-        
-        const publisherId = typeof book.publisher === 'object' 
-          ? book.publisher?.id || book.publisher?._id 
+
+        const publisherId = typeof book.publisher === 'object'
+          ? book.publisher?.id || book.publisher?._id
           : book.publisher;
-        
+
         console.log("3. publisherId:", publisherId);
         console.log("4. book.publisher?.id:", book.publisher?.id);
         console.log("5. book.publisher?._id:", book.publisher?._id);
@@ -684,12 +684,12 @@ const BookDetail = () => {
                 )}
 
                 {/* 2. Recommended */}
-                {/* {book.isRecommended === true && (
+                {book.isRecommended === true && (
                   <div className="inline-flex items-center gap-1.5 bg-accent text-white text-[10px] font-bold px-3 py-1 rounded-full font-montserrat uppercase tracking-wide shadow-sm">
                     <ThumbsUp className="w-3 h-3 fill-white" />
                     Recommended
                   </div>
-                )} */}
+                )}
 
                 {/* 3. Exclusive */}
                 {book.isExclusive === true && (
@@ -763,7 +763,15 @@ const BookDetail = () => {
                       ({reviews.length > 0 ? reviews.length : (book?.ratedTimes || book?.rated_times || 0)} ratings)
                     </span>
                   </>
-                ) : ""
+                ) : <div className="flex items-center gap-1">
+                  {[...Array(5)].map((_, i) => (
+                    <Star
+                      key={i}
+                      size={16}
+                      className="w-4 h-4 text-gray-300" // Khali star ka color gray-300 (outline)
+                    />
+                  ))}
+                </div>
 
                 }
 
@@ -1053,10 +1061,11 @@ const BookDetail = () => {
                       },
                       // 🟢 Series Number Logic
                       { label: "Series Number", value: book.series_number ? `#${book.series_number}` : null },
-                      { label: "Format", value: book.binding },
+                      { label: "Format", value: book.formats?.map(f => f.format?.title || f.title || f)},
                       { label: "Language", value: getDisplayValue(book.language) },
                       { label: "ISBN", value: [book.isbn10, book.isbn13].filter(Boolean).join(" , ") },
                       { label: "Release Date", value: book.pub_date },
+                      { label: "Edition", value: book.edition },
                       { label: "Publisher", value: getDisplayValue(book.publisher) },
                       { label: "Length", value: book.total_pages || book.pages ? `${book.total_pages || book.pages}` : null },
                       { label: "Weight", value: book.weight && String(book.weight).trim() !== '0' && String(book.weight).trim() !== '' ? book.weight : null },
@@ -1247,13 +1256,13 @@ const BookDetail = () => {
                       {hasRelatedDiscount && (
                         <span className="text-xs text-gray-400 line-through block">
                           {(() => {
-                          const mPrice = Number(relatedBook.price || 0);
-                          const iPrice = Number(relatedBook.inrPrice || relatedBook.inr_price || 0);
-                          return formatPrice(mPrice, iPrice, mPrice);
-                        })()}
+                            const mPrice = Number(relatedBook.price || 0);
+                            const iPrice = Number(relatedBook.inrPrice || relatedBook.inr_price || 0);
+                            return formatPrice(mPrice, iPrice, mPrice);
+                          })()}
                         </span>
                       )}
-                     
+
                     </div>
                   </Link>
                 );
@@ -1887,17 +1896,17 @@ const NewsletterBox = ({ email, setEmail, onSubmit, message, bookTitle }) => (
   </div>
 );
 const MembershipPromoBox = ({ formatPrice, isChecked, onToggle, settingsData }) => {
-  const usdCost = settingsData?.membership_cost || 35;
+  const usdCost = settingsData?.membership_cost;
   return (
     <label className="bg-gray-50 border border-gray-100 rounded p-4 mb-4 flex items-start gap-3 shadow-sm cursor-pointer group hover:border-primary/30 transition-all block">
       <div className="relative flex items-center mt-1">
-        <input
+        {/* <input
           type="checkbox"
           checked={isChecked}
           onChange={onToggle}
           className="peer h-5 w-5 cursor-pointer appearance-none rounded border-2 border-gray-300 bg-white checked:bg-primary checked:border-primary transition-all"
         />
-        <Check size={14} strokeWidth={4} className="absolute text-white opacity-0 peer-checked:opacity-100 left-0.5 pointer-events-none" />
+        <Check size={14} strokeWidth={4} className="absolute text-white opacity-0 peer-checked:opacity-100 left-0.5 pointer-events-none" /> */}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex justify-between items-start gap-2">
@@ -1906,7 +1915,7 @@ const MembershipPromoBox = ({ formatPrice, isChecked, onToggle, settingsData }) 
         </div>
         <div className="flex items-center gap-2 mt-1">
           <span className="text-[12px] text-gray-500 font-medium">
-            {formatPrice(usdCost, settingsData?.membership_cart_price || 2500, usdCost)}/year |{" "} <Link to="/membership" onClick={(e) => e.stopPropagation()} className="text-primary hover:underline">Learn More</Link>
+            <Link to="/membership" onClick={(e) => e.stopPropagation()} className="text-primary hover:underline">Learn More</Link>
           </span>
         </div>
       </div>

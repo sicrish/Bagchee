@@ -89,7 +89,7 @@ const FeaturedAuthors = () => {
               </h3>
             </Link>
             <p className="text-[10px] sm:text-xs text-primary font-bold mb-1 font-montserrat uppercase tracking-wider">
-              {item.role || "Featured Legend"}
+              {item.role}
             </p>
 
             <div className="flex items-center gap-2">

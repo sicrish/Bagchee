@@ -1,35 +1,65 @@
 import React from 'react';
-import { Link } from 'react-router-dom'; 
-
-// ✅ Images Import
-import desktopImg from '../../../assets/images/website/E-gift card banner/E-Gift_card.jpeg';
-
+import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import axios from '../../../utils/axiosConfig.js'
+import { Loader2 } from 'lucide-react';
 
 const EGiftcardBanner = () => {
+  // 1. Fetch Data from API
+  const { data: bannerList, isLoading } = useQuery({
+    queryKey: ['eGiftCardBannerWebsite'],
+    queryFn: async () => {
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/e-gift-card-banner/list`, {
+        params: { isActive: 'yes' } // Sirf active banners mangwa rahe hain
+      });
+      return response.data.data;
+    },
+    staleTime: 1000 * 60 * 10, // 10 mins cache
+  });
+
+  // Helper to get full image path
+  const getFullImageUrl = (path) => {
+    if (!path) return "";
+    if (path.startsWith('http')) return path;
+    const API_BASE = process.env.REACT_APP_API_URL?.replace('/api', '') || "http://localhost:5000";
+    return `${API_BASE}/${path.replace(/^\//, '')}`;
+  };
+
+  if (isLoading) return null; // Background mein load hone do ya loader dikhao
+
+  // 2. Filter Active and Sort by Order
+  const activeBanners = bannerList
+    ?.filter(b => b.isActive)
+    ?.sort((a, b) => (a.order || 0) - (b.order || 0));
+
+  if (!activeBanners || activeBanners.length === 0) return null;
+
+  // Filhal hum pehla (top priority) banner dikha rahe hain
+  const banner = activeBanners[0];
+
   return (
-  <div className="w-full bg-cream-50 py-8 flex items-center justify-center">
-      
+    <div className="w-full bg-cream-50 py-4 md:py-8 flex items-center justify-center">
       <Link 
         to="/gift-card-detail" 
         className="block w-full cursor-pointer group overflow-hidden"
       >
-        
         <picture className="block w-full">
-  <img 
-    src={desktopImg}  
-    alt="E-Gift Card Banner" 
-    /* 🟢 MAGIC YAHAN HAI: 
-      - w-full h-auto: Mobile aur Tablet me image apne natural ratio me 100% width legi (left/right se bilkul cut nahi hogi aur height khud set karegi).
-      - lg:h-[400px] xl:h-[500px]: Sirf Desktop par height fix rahegi.
-      - object-cover: Isse image height kam hone par width kam nahi karegi, balki pura container (left-to-right) bharegi (haan, desktop pe top/bottom thoda cut ho sakta hai jo banners ke liye normal hai).
-    */
-    className="block w-full h-auto lg:h-[250px] xl:h-[300px] object-cover object-center transition-transform duration-500 ease-in-out "
-    loading="lazy" 
-    width="1920" 
-    height="600"
-  />
-</picture>
+          {/* 🟢 Mobile Image (Screen < 1024px) */}
+          {banner.mobileImage && (
+            <source 
+              media="(max-width: 1023px)" 
+              srcSet={getFullImageUrl(banner.mobileImage)} 
+            />
+          )}
 
+          {/* 🟢 Desktop Image (Default / Screen >= 1024px) */}
+          <img 
+            src={getFullImageUrl(banner.desktopImage)}  
+            alt="E-Gift Card Banner" 
+            className="block w-full h-auto lg:max-h-[400px] object-cover object-center transition-transform duration-700 group-hover:scale-105"
+            loading="lazy" 
+          />
+        </picture>
       </Link>
     </div>
   );

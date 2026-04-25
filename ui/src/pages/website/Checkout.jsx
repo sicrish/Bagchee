@@ -34,27 +34,27 @@ import paypalLogo from "../../assets/images/website/payments/PayPal.svg";
 
 const SHIPPING_TIERS = {
   6: [ // Express (3-5 Business Days)
-    { min: 1,   max: 2,        usd: 50  },
-    { min: 3,   max: 6,        usd: 80  },
-    { min: 7,   max: 11,       usd: 110 },
-    { min: 12,  max: 15,       usd: 150 },
-    { min: 16,  max: 20,       usd: 200 },
-    { min: 21,  max: 25,       usd: 280 },
-    { min: 26,  max: 36,       usd: 350 },
-    { min: 37,  max: 50,       usd: 435 },
-    { min: 51,  max: 100,      usd: 550 },
+    { min: 1, max: 2, usd: 50 },
+    { min: 3, max: 6, usd: 80 },
+    { min: 7, max: 11, usd: 110 },
+    { min: 12, max: 15, usd: 150 },
+    { min: 16, max: 20, usd: 200 },
+    { min: 21, max: 25, usd: 280 },
+    { min: 26, max: 36, usd: 350 },
+    { min: 37, max: 50, usd: 435 },
+    { min: 51, max: 100, usd: 550 },
     { min: 101, max: Infinity, usd: 730 },
   ],
   5: [ // Expedited (8-12 Business Days)
-    { min: 1,   max: 2,        usd: 20  },
-    { min: 3,   max: 6,        usd: 35  },
-    { min: 7,   max: 11,       usd: 50  },
-    { min: 12,  max: 15,       usd: 80  },
-    { min: 16,  max: 20,       usd: 120 },
-    { min: 21,  max: 25,       usd: 150 },
-    { min: 26,  max: 36,       usd: 175 },
-    { min: 37,  max: 50,       usd: 222 },
-    { min: 51,  max: 100,      usd: 280 },
+    { min: 1, max: 2, usd: 20 },
+    { min: 3, max: 6, usd: 35 },
+    { min: 7, max: 11, usd: 50 },
+    { min: 12, max: 15, usd: 80 },
+    { min: 16, max: 20, usd: 120 },
+    { min: 21, max: 25, usd: 150 },
+    { min: 26, max: 36, usd: 175 },
+    { min: 37, max: 50, usd: 222 },
+    { min: 51, max: 100, usd: 280 },
     { min: 101, max: Infinity, usd: 400 },
   ],
 };
@@ -105,6 +105,8 @@ const Checkout = () => {
     houseNo: "",
     street: "",
     landmark: "",
+    address2: "",
+    company: "",
     city: "",
     state: "",
     pincode: "",
@@ -153,6 +155,8 @@ const Checkout = () => {
     houseNo: "",
     street: "",
     landmark: "",
+    address2: "",
+    company: "",
     city: "",
     state: "",
     pincode: "",
@@ -196,6 +200,7 @@ const Checkout = () => {
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [placedOrderDetails, setPlacedOrderDetails] = useState(null);
   const [purchaseOrderNumber, setPurchaseOrderNumber] = useState('');
+  const [orderNotes, setOrderNotes] = useState('');
 
   const [membershipPrice, setMembershipPrice] = useState(0);
 
@@ -222,23 +227,29 @@ const Checkout = () => {
 
   // ─── Country list ───
   const countries = [
-    "India",
-    "United States",
-    "United Kingdom",
-    "Australia",
-    "Canada",
-    "Germany",
-    "France",
-    "Singapore",
-    "UAE",
-    "Japan",
-    "South Korea",
-    "New Zealand",
-    "Netherlands",
-    "Italy",
-    "Spain",
-    "Brazil",
-    "Other",
+    "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda", "Argentina", "Armenia",
+    "Australia", "Austria", "Azerbaijan", "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus",
+    "Belgium", "Belize", "Benin", "Bhutan", "Bolivia", "Bosnia and Herzegovina", "Botswana", "Brazil",
+    "Brunei", "Bulgaria", "Burkina Faso", "Burundi", "Cambodia", "Cameroon", "Canada", "Cape Verde",
+    "Central African Republic", "Chad", "Chile", "China", "Colombia", "Comoros", "Congo", "Costa Rica",
+    "Croatia", "Cuba", "Cyprus", "Czech Republic", "Denmark", "Djibouti", "Dominica", "Dominican Republic",
+    "East Timor", "Ecuador", "Egypt", "El Salvador", "Equatorial Guinea", "Eritrea", "Estonia", "Ethiopia",
+    "Fiji", "Finland", "France", "Gabon", "Gambia", "Georgia", "Germany", "Ghana", "Greece", "Grenada",
+    "Guatemala", "Guinea", "Guinea-Bissau", "Guyana", "Haiti", "Honduras", "Hungary", "Iceland", "India",
+    "Indonesia", "Iran", "Iraq", "Ireland", "Israel", "Italy", "Jamaica", "Japan", "Jordan", "Kazakhstan",
+    "Kenya", "Kiribati", "Kuwait", "Kyrgyzstan", "Laos", "Latvia", "Lebanon", "Lesotho", "Liberia", "Libya",
+    "Liechtenstein", "Lithuania", "Luxembourg", "Macedonia", "Madagascar", "Malawi", "Malaysia", "Maldives",
+    "Mali", "Malta", "Marshall Islands", "Mauritania", "Mauritius", "Mexico", "Micronesia", "Moldova", "Monaco",
+    "Mongolia", "Montenegro", "Morocco", "Mozambique", "Myanmar", "Namibia", "Nauru", "Nepal", "Netherlands",
+    "New Zealand", "Nicaragua", "Niger", "Nigeria", "North Korea", "Norway", "Oman", "Pakistan", "Palau",
+    "Panama", "Papua New Guinea", "Paraguay", "Peru", "Philippines", "Poland", "Portugal", "Qatar", "Romania",
+    "Russia", "Rwanda", "Saint Kitts and Nevis", "Saint Lucia", "Saint Vincent", "Samoa", "San Marino",
+    "Saudi Arabia", "Senegal", "Serbia", "Seychelles", "Sierra Leone", "Singapore", "Slovakia", "Slovenia",
+    "Solomon Islands", "Somalia", "South Africa", "South Korea", "Spain", "Sri Lanka", "Sudan", "Suriname",
+    "Swaziland", "Sweden", "Switzerland", "Syria", "Taiwan", "Tajikistan", "Tanzania", "Thailand", "Togo",
+    "Tonga", "Trinidad and Tobago", "Tunisia", "Turkey", "Turkmenistan", "Tuvalu", "Uganda", "Ukraine",
+    "United Arab Emirates", "United Kingdom", "United States", "Uruguay", "Uzbekistan", "Vanuatu",
+    "Vatican City", "Venezuela", "Vietnam", "Yemen", "Zambia", "Zimbabwe"
   ];
 
   // ─── Load user — redirect to login if not authenticated ───
@@ -268,7 +279,7 @@ const Checkout = () => {
       fetchAddresses(user.id);
       axios.get(`${process.env.REACT_APP_API_URL}/gift-cards/my-balance`)
         .then(r => { if (r.data.status) setGiftCardWalletBalance(r.data.balance || 0); })
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [user]);
 
@@ -417,8 +428,8 @@ const Checkout = () => {
           setSelectedBillingAddress(res.data.addresses[0]);
         }
       }
-    } catch (err) {
-      console.error("Address fetch error:", err);
+    } catch (error) {
+      console.error("Failed to fetch addresses:", error);
     }
   };
 
@@ -441,9 +452,16 @@ const Checkout = () => {
           addressId: editAddressId,
         });
       }
+      // Split full name into firstName and lastName
+      const nameParts = newAddress.name.trim().split(" ");
+      const firstName = nameParts[0] || "";
+      const lastName = nameParts.slice(1).join(" ") || "";
+
       const res = await axios.post(`${API_BASE_URL}/user/add-address`, {
         userId: user.id,
         ...newAddress,
+        firstName,
+        lastName,
       });
       if (res.data?.status) {
         toast.success(
@@ -478,7 +496,12 @@ const Checkout = () => {
   };
 
   const handleEditAddress = (addr) => {
-    setNewAddress({ ...addr });
+    setNewAddress({
+      ...addr,
+      name: addr.firstName && addr.lastName
+        ? `${addr.firstName} ${addr.lastName}`
+        : addr.firstName || addr.lastName || `${addr.city || ""} Address` || "Address"
+    });
     setIsEditingAddress(true);
     setEditAddressId(addr.id);
     setShowAddressModal(true);
@@ -522,9 +545,16 @@ const Checkout = () => {
           addressId: editBillingId,
         });
       }
+      // Split full name into firstName and lastName
+      const nameParts = newBillingAddress.name.trim().split(" ");
+      const firstName = nameParts[0] || "";
+      const lastName = nameParts.slice(1).join(" ") || "";
+
       const res = await axios.post(`${API_BASE_URL}/user/add-address`, {
         userId: user.id,
         ...newBillingAddress,
+        firstName,
+        lastName,
       });
       if (res.data?.status) {
         toast.success(
@@ -559,7 +589,12 @@ const Checkout = () => {
   };
 
   const handleEditBillingAddress = (addr) => {
-    setNewBillingAddress({ ...addr });
+    setNewBillingAddress({
+      ...addr,
+      name: addr.firstName && addr.lastName
+        ? `${addr.firstName} ${addr.lastName}`
+        : addr.firstName || addr.lastName || `${addr.city || ""} Address` || "Address"
+    });
     setIsEditingBilling(true);
     setEditBillingId(addr.id);
     setShowBillingModal(true);
@@ -754,19 +789,19 @@ const Checkout = () => {
       if (user && selectedAddress) {
         const addr = selectedAddress;
         const addrFirst = addr.firstName || addr.name?.split(" ")[0] || "";
-        const addrLast  = addr.lastName  || addr.name?.split(" ").slice(1).join(" ") || "";
+        const addrLast = addr.lastName || addr.name?.split(" ").slice(1).join(" ") || "";
         shippingDetails = {
           email: user.email || "",
-          first_name: addrFirst,
-          last_name: addrLast,
-          address_1:
+          firstName: addrFirst,
+          lastName: addrLast,
+          address1:
             addr.houseNo && addr.street
               ? `${addr.houseNo}, ${addr.street}`
               : addr.houseNo || addr.street || "",
-          address_2: addr.landmark || "",
-          company: "",
+          address2: addr.address2 || "",
+          company: addr.company || "",
           country: addr.country || "",
-          state_region: addr.state || "",
+          state: addr.state || "",
           city: addr.city || "",
           postcode: addr.pincode || "",
           phone: addr.phone || "",
@@ -774,13 +809,13 @@ const Checkout = () => {
       } else {
         shippingDetails = {
           email: guestAddress.email,
-          first_name: guestAddress.firstName,
-          last_name: guestAddress.lastName,
-          address_1: guestAddress.address1,
-          address_2: guestAddress.address2 || "",
+          firstName: guestAddress.firstName,
+          lastName: guestAddress.lastName,
+          address1: guestAddress.address1,
+          address2: guestAddress.address2 || "",
           company: guestAddress.company || "",
           country: guestAddress.country,
-          state_region: guestAddress.state,
+          state: guestAddress.state,
           city: guestAddress.city,
           postcode: guestAddress.postalCode,
           phone: guestAddress.phone,
@@ -792,44 +827,44 @@ const Checkout = () => {
       if (user) {
         const bAddr = sameAsShipping ? selectedAddress : selectedBillingAddress;
         const bFirst = bAddr.firstName || bAddr.name?.split(" ")[0] || "";
-        const bLast  = bAddr.lastName  || bAddr.name?.split(" ").slice(1).join(" ") || "";
+        const bLast = bAddr.lastName || bAddr.name?.split(" ").slice(1).join(" ") || "";
         billingDetails = {
-          first_name: bFirst,
-          last_name: bLast,
-          address_1:
+          firstName: bFirst,
+          lastName: bLast,
+          address1:
             bAddr.houseNo && bAddr.street
               ? `${bAddr.houseNo}, ${bAddr.street}`
               : bAddr.houseNo || bAddr.street || "",
-          address_2: bAddr.landmark || "",
-          company: "",
+          address2: bAddr.address2 || "",
+          company: bAddr.company || "",
           country: bAddr.country || "",
-          state_region: bAddr.state || "",
+          state: bAddr.state || "",
           city: bAddr.city || "",
           postcode: bAddr.pincode || "",
           phone: bAddr.phone || "",
         };
       } else if (guestBillingSame) {
         billingDetails = {
-          first_name: guestAddress.firstName,
-          last_name: guestAddress.lastName,
-          address_1: guestAddress.address1,
-          address_2: guestAddress.address2 || "",
+          firstName: guestAddress.firstName,
+          lastName: guestAddress.lastName,
+          address1: guestAddress.address1,
+          address2: guestAddress.address2 || "",
           company: guestAddress.company || "",
           country: guestAddress.country,
-          state_region: guestAddress.state,
+          state: guestAddress.state,
           city: guestAddress.city,
           postcode: guestAddress.postalCode,
           phone: guestAddress.phone,
         };
       } else {
         billingDetails = {
-          first_name: guestBilling.firstName,
-          last_name: guestBilling.lastName,
-          address_1: guestBilling.address1,
-          address_2: guestBilling.address2 || "",
+          firstName: guestBilling.firstName,
+          lastName: guestBilling.lastName,
+          address1: guestBilling.address1,
+          address2: guestBilling.address2 || "",
           company: guestBilling.company || "",
           country: guestBilling.country,
-          state_region: guestBilling.state,
+          state: guestBilling.state,
           city: guestBilling.city,
           postcode: guestBilling.postalCode,
           phone: guestBilling.phone,
@@ -875,7 +910,7 @@ const Checkout = () => {
         coupon_id: appliedCoupon?.couponId || null,
         shipping_details: shippingDetails,
         billing_details: billingDetails,
-        comment: "",
+        comment: orderNotes,
         ...(isPurchaseOrderMethod(selectedPayment) && { purchaseOrderNumber }),
       };
 
@@ -951,7 +986,7 @@ const Checkout = () => {
         description: `Order #${savedOrder.orderNumber}`,
         order_id: razorpayOrderId,
         prefill: {
-          name: `${shippingDetails.first_name} ${shippingDetails.last_name}`.trim(),
+          name: `${shippingDetails.firstName} ${shippingDetails.lastName}`.trim(),
           email: shippingDetails.email,
           contact: shippingDetails.phone,
         },
@@ -1113,7 +1148,7 @@ const Checkout = () => {
     <div className="min-h-screen bg-cream-50">
       {/* ─── Add/Edit Address Modal ─── */}
       {showAddressModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
             <div className="bg-primary px-6 py-4 flex justify-between items-center text-white sticky top-0">
               <h3 className="font-bold text-lg tracking-wide">
@@ -1181,28 +1216,28 @@ const Checkout = () => {
               </div>
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                  Address Line 2 (Optional)
+                  Company (Optional)
                 </label>
                 <input
                   type="text"
-                  placeholder="Apartment, suite, unit, building, floor"
-                  value={newAddress.street}
+                  placeholder="Company name"
+                  value={newAddress.company || ""}
                   onChange={(e) =>
-                    setNewAddress({ ...newAddress, street: e.target.value })
+                    setNewAddress({ ...newAddress, company: e.target.value })
                   }
                   className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
                 />
               </div>
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                  Company (Optional)
+                  Address Line 2 (Optional)
                 </label>
                 <input
                   type="text"
-                  placeholder="Company name"
-                  value={newAddress.landmark}
+                  placeholder="Apartment, suite, etc."
+                  value={newAddress.address2 || ""}
                   onChange={(e) =>
-                    setNewAddress({ ...newAddress, landmark: e.target.value })
+                    setNewAddress({ ...newAddress, address2: e.target.value })
                   }
                   className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
                 />
@@ -1318,7 +1353,7 @@ const Checkout = () => {
 
       {/* ─── Add/Edit Billing Address Modal ─── */}
       {showBillingModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
             <div className="bg-primary px-6 py-4 flex justify-between items-center text-white sticky top-0">
               <h3 className="font-bold text-lg tracking-wide">
@@ -1398,16 +1433,16 @@ const Checkout = () => {
               </div>
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                  Address Line 2 (Optional)
+                  Company (Optional)
                 </label>
                 <input
                   type="text"
-                  placeholder="Apartment, suite, unit, building, floor"
-                  value={newBillingAddress.street}
+                  placeholder="Company name"
+                  value={newBillingAddress.company || ""}
                   onChange={(e) =>
                     setNewBillingAddress({
                       ...newBillingAddress,
-                      street: e.target.value,
+                      company: e.target.value,
                     })
                   }
                   className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
@@ -1415,16 +1450,16 @@ const Checkout = () => {
               </div>
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                  Company (Optional)
+                  Address Line 2 (Optional)
                 </label>
                 <input
                   type="text"
-                  placeholder="Company name"
-                  value={newBillingAddress.landmark}
+                  placeholder="Apartment, suite, etc."
+                  value={newBillingAddress.address2 || ""}
                   onChange={(e) =>
                     setNewBillingAddress({
                       ...newBillingAddress,
-                      landmark: e.target.value,
+                      address2: e.target.value,
                     })
                   }
                   className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
@@ -2626,6 +2661,35 @@ const Checkout = () => {
               </div>
             </div>
 
+
+            {/* ─── 6. ORDER NOTES (Hamesha Open) ─── */}
+{/* ─── 6. ORDER NOTES (Hamesha Open - Same PO Theme) ─── */}
+<div className="bg-cream-100 border border-primary/30 shadow-sm rounded-lg overflow-hidden mt-5">
+  <div className="px-5 py-4 border-b border-primary/20 bg-primary/5">
+    <h2 className="text-sm font-display font-bold text-primary uppercase tracking-wide flex items-center gap-3">
+      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center">
+        6
+      </span>
+      NOTES    (optional)
+    </h2>
+  </div>
+  <div className="p-5">
+    <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2 font-montserrat">
+      Add a note to your order (Optional)
+    </label>
+    <textarea
+      rows="3"
+      value={orderNotes}
+      onChange={(e) => setOrderNotes(e.target.value)}
+      placeholder="e.g. Special instructions for delivery, landmark etc."
+      className="w-full border border-gray-300 rounded px-4 py-2.5 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 bg-white font-body transition-all resize-none"
+    ></textarea>
+    {/* <p className="text-[10px] text-gray-400 mt-2 italic">
+      * This note will be saved with your order details.
+    </p> */}
+  </div>
+</div>
+
             {/* ─── CONTINUE TO PAY ─── */}
             <div className="bg-cream-100 border border-gray-200 shadow-sm p-5 text-center space-y-3">
               <button
@@ -2861,35 +2925,35 @@ const Checkout = () => {
                   <div className="flex items-center justify-center gap-1.5">
                     <div className="h-5 w-8 bg-white border border-gray-200 rounded flex items-center justify-center overflow-hidden">
                       <img
-                        src="https://upload.wikimedia.org/wikipedia/commons/4/41/Visa_Logo.png"
+                        src={visaLogo}
                         alt="Visa"
                         className="h-2.5 object-contain"
                       />
                     </div>
                     <div className="h-5 w-8 bg-white border border-gray-200 rounded flex items-center justify-center overflow-hidden">
                       <img
-                        src="https://upload.wikimedia.org/wikipedia/commons/b/b7/MasterCard_Logo.svg"
-                        alt="MC"
+                        src={mastercardLogo}
+                        alt="Mastercard"
                         className="h-2.5 object-contain"
                       />
                     </div>
                     <div className="h-5 w-8 bg-white border border-gray-200 rounded flex items-center justify-center overflow-hidden">
                       <img
-                        src="https://upload.wikimedia.org/wikipedia/commons/5/57/Discover_Card_logo.svg"
+                        src={discoverLogo}
                         alt="Discover"
                         className="h-2.5 object-contain"
                       />
                     </div>
                     <div className="h-5 w-8 bg-white border border-gray-200 rounded flex items-center justify-center overflow-hidden">
                       <img
-                        src="https://upload.wikimedia.org/wikipedia/commons/f/fa/American_Express_logo_%282018%29.svg"
+                        src={amexLogo}
                         alt="Amex"
                         className="h-2.5 object-contain"
                       />
                     </div>
                     <div className="h-5 w-8 bg-white border border-gray-200 rounded flex items-center justify-center overflow-hidden">
                       <img
-                        src="https://upload.wikimedia.org/wikipedia/commons/b/b5/PayPal.svg"
+                        src={paypalLogo}
                         alt="PayPal"
                         className="h-2.5 object-contain"
                       />

@@ -203,7 +203,7 @@ const AuthorDetail = () => {
           <div className="flex flex-col md:flex-row items-end justify-between mb-12 gap-6">
             <div className="space-y-2 text-center md:text-left">
               <h2 className="text-3xl lg:text-5xl font-display font-black text-text-main tracking-tight">
-                Collection by {author.firstName}
+                Collection by {author.firstName} {author.lastName}
               </h2>
 
             </div>

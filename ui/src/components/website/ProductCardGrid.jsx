@@ -105,7 +105,7 @@ const ProductCardGrid = ({ data }) => {
                         alt={data.title}
                         loading="lazy"
                         decoding="async"
-                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                        className="w-full h-full object-contain transition-transform duration-700 group-hover:scale-105"
                         style={{ willChange: 'transform' }}
                         onError={(e) => { e.target.src = "https://placehold.co/300x400?text=No+Image" }}
                     />

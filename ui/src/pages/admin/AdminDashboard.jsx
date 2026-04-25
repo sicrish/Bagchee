@@ -35,6 +35,7 @@ const AdminDashboard = () => {
     // 🟢 BUG FIX: Yahan 'Image' ki jagah 'ImageIcon' use kiya gaya hai
     { title: "side banner1", icon: ImageIcon, link: "/admin/side-banner-one" }, 
     { title: "side banner2", icon: ImageIcon, link: "/admin/side-banner-two" },
+    { title: "E-gift card banner", icon: ImageIcon, link: "/admin/e-gift-card-banner" },
 
     { title: "CATEGORIES", icon: List, link: "/admin/main-categories" }, 
     { title: "TOP AUTHORS", icon: Users, link: "/admin/top-authors" },

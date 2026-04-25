@@ -5,6 +5,12 @@ import { useCart } from '../../context/CartContext';
 import { CurrencyContext } from '../../context/CurrencyContext';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
+// Import payment icons like footer
+import visaImg from '../../assets/images/website/payments/Visa.svg';
+import amexImg from '../../assets/images/website/payments/american.png';
+import discoverImg from '../../assets/images/website/payments/Discover.png';
+import mastercardImg from '../../assets/images/website/payments/MasterCard.svg';
+import paypalImg from '../../assets/images/website/payments/PayPal.svg';
 
 // ─── Tiered shipping prices (USD) by shipping DB id ───
 const SHIPPING_TIERS = {
@@ -312,8 +318,8 @@ const Cart = () => {
   // --- Empty cart ---
   if (cart.length === 0) {
     return (
-      <div className="min-h-screen bg-cream-50 pt-10 md:pt-16 lg:pt-24">
-        <div className="max-w-full mx-auto px-4 pt-[90px] md:pt-[120px] lg:pt-[170px] text-center">
+      <div className="min-h-screen bg-cream-50 pt-10 md:pt-16 lg:pt-24 w-full overflow-x-hidden">
+        <div className="w-full  mx-auto px-3 pt-[90px] md:pt-[120px] lg:pt-[170px] text-center">
           <div className="bg-white rounded-lg p-12 border border-gray-200">
             <div className="w-24 h-24 bg-gray-100 rounded-full mx-auto mb-6 flex items-center justify-center">
               <ShoppingBag className="text-gray-400" size={48} />
@@ -338,11 +344,11 @@ const Cart = () => {
   }
 
   return (
-    <div className="min-h-screen bg-cream-50">
+    <div className="min-h-screen bg-cream-50 w-full overflow-x-hidden relative">
 
 
-      <div className="max-w-full mx-auto px-4 pb-6">
-        <div className="grid lg:grid-cols-3 gap-6 pt-5">
+      <div className="w-full mx-auto px-3 sm:px-4 pb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-5">
           {/* ─────────────────────────────── LEFT: CART ITEMS ─────────────────────────────── */}
           <div className="lg:col-span-2 space-y-5">
             <h1 className="text-2xl font-display font-bold text-text-main uppercase tracking-wide text-left mb-4 ">
@@ -399,7 +405,7 @@ const Cart = () => {
                       {/* Details */}
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between gap-2 mb-1">
-                          <div className="flex-1">
+                          <div className="flex-1 min-w-0">
                             <Link
                               to={`/books/${item.bagcheeId || item._id}/${item.slug || "book"}`}
                               className="font-semibold text-text-main hover:text-primary transition-colors leading-snug block"
@@ -433,40 +439,43 @@ const Cart = () => {
                         </div>
 
                         {/* Quantity dropdown + Actions */}
-                        <div className="flex items-center gap-3 flex-wrap">
-                          {/* Qty dropdown — matches reference image */}
-                          <select
-                            value={item.quantity}
-                            onChange={(e) =>
-                              handleQuantityChange(
-                                item.id || item._id,
-                                parseInt(e.target.value, 10),
-                              )
-                            }
-                            className="border border-gray-300 rounded px-2 py-1 text-sm text-text-main bg-white focus:outline-none focus:border-primary cursor-pointer"
-                          >
-                            {Array.from(
-                              { length: Math.min(item.stock || 10, 10) },
-                              (_, i) => i + 1,
-                            ).map((n) => (
-                              <option key={n} value={n}>
-                                {n}
-                              </option>
-                            ))}
-                          </select>
-
-                          {/* Action buttons */}
-                          <button
-                            onClick={() => handleRemoveItem(item.id || item._id)}
-                            className="flex items-center gap-1 border border-gray-400 text-gray-700 text-xs font-bold uppercase px-4 py-1.5 hover:bg-gray-100 transition-colors font-montserrat"
-                          >
-                            <X size={12} />
-                            REMOVE
-                          </button>
-                          <button className="border border-gray-400 text-gray-700 text-xs font-bold uppercase px-4 py-1.5 hover:bg-gray-100 transition-colors font-montserrat">
-                            SAVE FOR LATER
-                          </button>
-                        </div>
+<div className="flex items-center gap-4 mt-4 pt-3 border-t border-gray-100 flex-wrap">
+  <div className="flex items-center gap-2 shrink-0">
+    <span className="text-[10px] font-bold text-text-muted uppercase font-montserrat">Qty:</span>
+    <select
+      value={item.quantity}
+      onChange={(e) =>
+        handleQuantityChange(
+          item.id || item._id,
+          parseInt(e.target.value, 10),
+        )
+      }
+      className="border border-gray-200 rounded-md px-2 py-1 text-sm font-bold text-text-main bg-white focus:outline-none focus:border-primary cursor-pointer hover:border-gray-300 transition-colors"
+    >
+      {Array.from(
+        { length: Math.min(item.stock || 10, 10) },
+        (_, i) => i + 1,
+      ).map((n) => (
+        <option key={n} value={n}>{n}</option>
+      ))}
+    </select>
+  </div>
+  <div className="flex items-center gap-2 ml-0 sm:ml-auto w-full sm:w-auto justify-start sm:justify-end">
+    {/* REMOVE BUTTON: Styled with Red-50 bg and transition */}
+    <button
+      onClick={() => handleRemoveItem(item.id || item._id)}
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-red-50 text-red-600 hover:bg-red-600 hover:text-white transition-all duration-300 text-[11px] font-bold uppercase font-montserrat group shadow-sm active:scale-95"
+    >
+      <X size={14} className="group-hover:rotate-90 transition-transform duration-300" />
+      REMOVE
+    </button>
+    {/* SAVE FOR LATER: Styled with subtle Blue/Primary theme */}
+    <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-50 text-primary hover:bg-primary hover:text-white transition-all duration-300 text-[11px] font-bold uppercase font-montserrat shadow-sm active:scale-95">
+      <Award size={14} />
+      SAVE FOR LATER
+    </button>
+  </div>
+</div>
                       </div>
                     </div>
                     )}
@@ -478,10 +487,10 @@ const Cart = () => {
             {/* ─── MEMBERSHIP ROW ─── */}
             {/* Show only if logged in and membership is not already active */}
             {user && user.membership !== "active" && settings && (
-              <div className="bg-cream-100 border border-gray-200 shadow-sm">
+              <div className="bg-cream-100 border border-gray-200 shadow-sm overflow-hidden">
                 <div className="p-4 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
                   {/* Membership badge */}
-                  <div className="bg-primary text-white text-xs font-bold uppercase px-4 py-2 font-montserrat tracking-wider shrink-0 self-start sm:self-auto">
+                  <div className="bg-primary text-white text-[10px] font-bold uppercase px-3 py-2 font-montserrat tracking-wider shrink-0 self-start sm:self-auto">
                     MEMBERSHIP
                   </div>
 
@@ -500,7 +509,7 @@ const Cart = () => {
                   </label>
 
                   {/* Price + button row on mobile */}
-                  <div className="flex items-center justify-between sm:contents gap-3">
+                  <div className="flex items-center justify-between w-full sm:contents gap-3">
                     {/* Price */}
 
                     <span className="text-xl font-bold text-text-main">
@@ -651,17 +660,17 @@ const Cart = () => {
 
     return (
       <label key={optId} className={`flex items-start justify-between p-3 cursor-pointer rounded border transition-colors ${isSelected ? 'bg-primary/5 border-primary/30' : 'border-gray-100 hover:border-gray-200'}`}>
-        <div className="flex items-start gap-2">
+        <div className="flex items-start gap-2 min-w-0 flex-1">
           <input
             type="radio"
             name="shipping"
             checked={isSelected}
             onChange={() => setAppliedShipping(option)}
-            className="w-4 h-4 text-primary mt-0.5"
+            className="w-4 h-4 text-primary mt-1 shrink-0"
           />
-          <div>
-            <span className="text-sm font-semibold text-text-main block">{option.title}</span>
-            {tieredUsd === 0 && <span className="text-xs text-green-600 font-bold">FREE</span>}
+          <div className='min-w-0 flex-1'>
+            <span className="text-sm font-semibold text-text-main block truncate sm:whitespace-normal">{option.title}</span>
+            {tieredUsd === 0 && <span className="text-[10px] text-green-600 font-bold">FREE</span>}
           </div>
         </div>
         <span className="text-sm font-bold text-primary shrink-0 ml-2">
@@ -736,41 +745,41 @@ const Cart = () => {
 
             {/* 100% Secure Payment — outside/below the card, matching reference */}
             <div className="mt-4 text-center">
-              <p className="text-sm text-gray-600 mb-2 flex items-center justify-center gap-1.5">
+              <p className="text-sm text-gray-600 mb-2 flex items-center justify-center gap-1.5 flex-wrap px-2">
                 <span>🔒</span> 100% Secure Payment
               </p>
               <div className="flex items-center justify-center gap-2">
                 <div className="h-7 w-11 bg-white border border-gray-200 rounded flex items-center justify-center overflow-hidden shadow-sm">
                   <img
-                    src="https://upload.wikimedia.org/wikipedia/commons/4/41/Visa_Logo.png"
+                    src={visaImg}
                     alt="Visa"
                     className="h-3.5 object-contain"
                   />
                 </div>
                 <div className="h-7 w-11 bg-white border border-gray-200 rounded flex items-center justify-center overflow-hidden shadow-sm">
                   <img
-                    src="https://upload.wikimedia.org/wikipedia/commons/b/b7/MasterCard_Logo.svg"
-                    alt="MC"
+                    src={mastercardImg}
+                    alt="Mastercard"
                     className="h-3.5 object-contain"
                   />
                 </div>
                 <div className="h-7 w-11 bg-white border border-gray-200 rounded flex items-center justify-center overflow-hidden shadow-sm">
                   <img
-                    src="https://upload.wikimedia.org/wikipedia/commons/5/57/Discover_Card_logo.svg"
+                    src={discoverImg}
                     alt="Discover"
                     className="h-3.5 object-contain"
                   />
                 </div>
                 <div className="h-7 w-11 bg-white border border-gray-200 rounded flex items-center justify-center overflow-hidden shadow-sm">
                   <img
-                    src="https://upload.wikimedia.org/wikipedia/commons/f/fa/American_Express_logo_%282018%29.svg"
+                    src={amexImg}
                     alt="Amex"
                     className="h-3.5 object-contain"
                   />
                 </div>
                 <div className="h-7 w-11 bg-white border border-gray-200 rounded flex items-center justify-center overflow-hidden shadow-sm">
                   <img
-                    src="https://upload.wikimedia.org/wikipedia/commons/b/b5/PayPal.svg"
+                    src={paypalImg}
                     alt="PayPal"
                     className="h-3.5 object-contain"
                   />

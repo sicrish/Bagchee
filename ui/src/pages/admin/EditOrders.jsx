@@ -10,6 +10,33 @@ const EditOrders = () => {
   const { id } = useParams(); // URL se Order ID lene ke liye
   const editor = useRef(null);
 
+  // Comprehensive countries list
+  const countries = [
+    "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda", "Argentina", "Armenia", 
+    "Australia", "Austria", "Azerbaijan", "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus", 
+    "Belgium", "Belize", "Benin", "Bhutan", "Bolivia", "Bosnia and Herzegovina", "Botswana", "Brazil", 
+    "Brunei", "Bulgaria", "Burkina Faso", "Burundi", "Cambodia", "Cameroon", "Canada", "Cape Verde", 
+    "Central African Republic", "Chad", "Chile", "China", "Colombia", "Comoros", "Congo", "Costa Rica", 
+    "Croatia", "Cuba", "Cyprus", "Czech Republic", "Denmark", "Djibouti", "Dominica", "Dominican Republic", 
+    "East Timor", "Ecuador", "Egypt", "El Salvador", "Equatorial Guinea", "Eritrea", "Estonia", "Ethiopia", 
+    "Fiji", "Finland", "France", "Gabon", "Gambia", "Georgia", "Germany", "Ghana", "Greece", "Grenada", 
+    "Guatemala", "Guinea", "Guinea-Bissau", "Guyana", "Haiti", "Honduras", "Hungary", "Iceland", "India", 
+    "Indonesia", "Iran", "Iraq", "Ireland", "Israel", "Italy", "Jamaica", "Japan", "Jordan", "Kazakhstan", 
+    "Kenya", "Kiribati", "Kuwait", "Kyrgyzstan", "Laos", "Latvia", "Lebanon", "Lesotho", "Liberia", "Libya", 
+    "Liechtenstein", "Lithuania", "Luxembourg", "Macedonia", "Madagascar", "Malawi", "Malaysia", "Maldives", 
+    "Mali", "Malta", "Marshall Islands", "Mauritania", "Mauritius", "Mexico", "Micronesia", "Moldova", "Monaco", 
+    "Mongolia", "Montenegro", "Morocco", "Mozambique", "Myanmar", "Namibia", "Nauru", "Nepal", "Netherlands", 
+    "New Zealand", "Nicaragua", "Niger", "Nigeria", "North Korea", "Norway", "Oman", "Pakistan", "Palau", 
+    "Panama", "Papua New Guinea", "Paraguay", "Peru", "Philippines", "Poland", "Portugal", "Qatar", "Romania", 
+    "Russia", "Rwanda", "Saint Kitts and Nevis", "Saint Lucia", "Saint Vincent", "Samoa", "San Marino", 
+    "Saudi Arabia", "Senegal", "Serbia", "Seychelles", "Sierra Leone", "Singapore", "Slovakia", "Slovenia", 
+    "Solomon Islands", "Somalia", "South Africa", "South Korea", "Spain", "Sri Lanka", "Sudan", "Suriname", 
+    "Swaziland", "Sweden", "Switzerland", "Syria", "Taiwan", "Tajikistan", "Tanzania", "Thailand", "Togo", 
+    "Tonga", "Trinidad and Tobago", "Tunisia", "Turkey", "Turkmenistan", "Tuvalu", "Uganda", "Ukraine", 
+    "United Arab Emirates", "United Kingdom", "United States", "Uruguay", "Uzbekistan", "Vanuatu", 
+    "Vatican City", "Venezuela", "Vietnam", "Yemen", "Zambia", "Zimbabwe"
+  ];
+
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [approving, setApproving] = useState(false);
@@ -103,7 +130,7 @@ const EditOrders = () => {
           axios.get(`${API_URL}/payments/list`),
           axios.get(`${API_URL}/shipping-options/list`),
           axios.get(`${API_URL}/couriers/list`),
-          axios.get(`${API_URL}/order-status/list`)
+          axios.get(`${API_URL}/order-status/list?limit=1000`)
         ]);
 
         // Set Dropdowns (only if request succeeded)
@@ -139,30 +166,30 @@ const EditOrders = () => {
             membership_discount: d.membershipDiscount ?? d.membership_discount ?? '',
             coupon_id: d.couponId || d.coupon?.id || d.coupon_id || '',
 
-            // Shipping (Prisma flat camelCase fields)
-            shipping_email:        d.shippingEmail       || '',
-            shipping_first_name:   d.shippingFirstName   || '',
-            shipping_last_name:    d.shippingLastName     || '',
-            shipping_address_1:    d.shippingAddress1     || '',
-            shipping_address_2:    d.shippingAddress2     || '',
-            shipping_company:      d.shippingCompany      || '',
-            shipping_country:      d.shippingCountry      || 'India',
-            shipping_state_region: d.shippingState        || '',
-            shipping_city:         d.shippingCity         || '',
-            shipping_postcode:     d.shippingPostcode     || '',
-            shipping_phone:        d.shippingPhone        || '',
+            // Shipping (Prisma flat camelCase fields with fallback from nested objects)
+            shipping_email:        d.shippingEmail       || d.shipping_details?.email || '',
+            shipping_first_name:   d.shippingFirstName   || d.shipping_details?.firstName || '',
+            shipping_last_name:    d.shippingLastName     || d.shipping_details?.lastName || '',
+            shipping_address_1:    d.shippingAddress1     || d.shipping_details?.address1 || '',
+            shipping_address_2:    d.shippingAddress2     || d.shipping_details?.address2 || '',
+            shipping_company:      d.shippingCompany      || d.shipping_details?.company || '',
+            shipping_country:      d.shippingCountry      || d.shipping_details?.country || 'India',
+            shipping_state_region: d.shippingState        || d.shipping_details?.state || '',
+            shipping_city:         d.shippingCity         || d.shipping_details?.city || '',
+            shipping_postcode:     d.shippingPostcode     || d.shipping_details?.postcode || '',
+            shipping_phone:        d.shippingPhone        || d.shipping_details?.phone || '',
 
-            // Billing (Prisma flat camelCase fields)
-            billing_first_name:   d.billingFirstName  || '',
-            billing_last_name:    d.billingLastName    || '',
-            billing_address_1:    d.billingAddress1    || '',
-            billing_address_2:    d.billingAddress2    || '',
-            billing_company:      d.billingCompany     || '',
-            billing_country:      d.billingCountry     || 'India',
-            billing_state_region: d.billingState       || '',
-            billing_city:         d.billingCity        || '',
-            billing_postcode:     d.billingPostcode    || '',
-            billing_phone:        d.billingPhone       || '',
+            // Billing (Prisma flat camelCase fields with fallback from nested objects)
+            billing_first_name:   d.billingFirstName  || d.billing_details?.firstName || '',
+            billing_last_name:    d.billingLastName    || d.billing_details?.lastName || '',
+            billing_address_1:    d.billingAddress1    || d.billing_details?.address1 || '',
+            billing_address_2:    d.billingAddress2    || d.billing_details?.address2 || '',
+            billing_company:      d.billingCompany     || d.billing_details?.company || '',
+            billing_country:      d.billingCountry     || d.billing_details?.country || 'India',
+            billing_state_region: d.billingState       || d.billing_details?.state || '',
+            billing_city:         d.billingCity        || d.billing_details?.city || '',
+            billing_postcode:     d.billingPostcode    || d.billing_details?.postcode || '',
+            billing_phone:        d.billingPhone       || d.billing_details?.phone || '',
 
             payment_status: d.paymentStatus  || d.payment_status  || '',
             transaction_id: d.transactionId  || d.transaction_id  || ''
@@ -260,6 +287,38 @@ const EditOrders = () => {
     list[index][field] = value;
     setOrderProducts(list);
     
+  };
+
+  const handleProductClick = (product) => {
+    console.log("DEBUG - Product data:", product);
+    
+    // Check if product has nested product object
+    const nestedProduct = product.product || product;
+    console.log("DEBUG - Nested product:", nestedProduct);
+    
+    // Get bagceeId and title from nested product
+    const bagceeId = nestedProduct.bagcheeId || nestedProduct.bagcee_id;
+    const title = nestedProduct.title || nestedProduct.name;
+    
+    console.log("DEBUG - Using:", {
+      bagceeId,
+      title
+    });
+    
+    if (bagceeId && title) {
+      // Create URL like /books/BB139675/early-north-india-and-its-coinage
+      const slug = title.toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .trim('-');
+      const url = `/books/${bagceeId}/${slug}`;
+      console.log("DEBUG - Opening URL:", url);
+      window.open(url, '_blank');
+    } else {
+      console.log("DEBUG - Missing bagceeId or title");
+      toast.error('Product details not available');
+    }
   };
 
   // --- Submit Logic (Update) ---
@@ -530,7 +589,15 @@ const EditOrders = () => {
         <tbody>
           {orderProducts.map((row, index) => (
             <tr key={index}>
-              <td className="border p-1"><input type="text" value={row.name} onChange={(e) => handleProductChange(index, 'name', e.target.value)} className="w-full outline-none bg-transparent" /></td>
+              <td className="border p-1">
+                <div 
+                  className="text-blue-600 hover:text-blue-800 cursor-pointer underline hover:bg-blue-50 px-1 py-0.5 rounded transition-colors"
+                  onClick={() => handleProductClick(row)}
+                  title="Click to view product details"
+                >
+                  {row.name}
+                </div>
+              </td>
               <td className="border p-1"><input type="number" value={row.price} onChange={(e) => handleProductChange(index, 'price', e.target.value)} className="w-full outline-none bg-transparent" /></td>
               <td className="border p-1"><input type="number" value={row.quantity} onChange={(e) => handleProductChange(index, 'quantity', e.target.value)} className="w-full outline-none bg-transparent" /></td>
               <td className="border-b p-1">
@@ -673,9 +740,9 @@ const EditOrders = () => {
               <div className="col-span-9">
                 <select name="shipping_country" value={formData.shipping_country} onChange={handleChange} className={dropdownClass}>
                   <option value="">Select Shipping country</option>
-                  <option value="India">India</option>
-                  <option value="USA">USA</option>
-                  <option value="UK">UK</option>
+                  {countries.map((country) => (
+                    <option key={country} value={country}>{country}</option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -722,9 +789,9 @@ const EditOrders = () => {
               <div className="col-span-9">
                 <select name="billing_country" value={formData.billing_country} onChange={handleChange} className={dropdownClass}>
                   <option value="">Select Billing country</option>
-                  <option value="India">India</option>
-                  <option value="USA">USA</option>
-                  <option value="UK">UK</option>
+                  {countries.map((country) => (
+                    <option key={country} value={country}>{country}</option>
+                  ))}
                 </select>
               </div>
             </div>

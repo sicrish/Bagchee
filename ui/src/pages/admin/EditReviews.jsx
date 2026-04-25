@@ -5,6 +5,17 @@ import JoditEditor from 'jodit-react';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
 
+// Slug generation function
+const createBookSlug = (bookName) => {
+  if (!bookName) return 'book';
+  return bookName
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+};
+
 const EditReviews = () => {
   const navigate = useNavigate();
   const { id } = useParams(); // URL se ID lene ke liye
@@ -23,6 +34,7 @@ const EditReviews = () => {
   // Dropdown Data States
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]); // 🟢 Added Products State
+  const [selectedProduct, setSelectedProduct] = useState(null); // 🟢 Track selected book details
 
   // Form State
   const [formData, setFormData] = useState({
@@ -68,7 +80,6 @@ const EditReviews = () => {
         if (reviewRes.data.status) {
           const data = reviewRes.data.data;
 
-
           const currentItemId = data.item_id && typeof data.item_id === 'object'
             ? data.item_id._id
             : data.item_id;
@@ -87,11 +98,27 @@ const EditReviews = () => {
           if (data.item_id && typeof data.item_id === 'object') {
             const prodName = data.item_id.title || data.item_id.name || "";
             const bagcheeId = data.item_id.bagchee_id || "";
-            setSearchQuery(`${bagcheeId} - ${prodName}`); 
-        } else if (data.item_id) {
-            // Agar backend se sirf ID aa rahi hai
-            setSearchQuery(data.item_id); 
-        }
+            setSearchQuery(`${bagcheeId} - ${prodName}`);
+            setSelectedProduct(data.item_id); // Set selected product for display
+          } else if (data.item_id) {
+            // Backend se sirf ID aa rahi hai, product details fetch karo
+            const fetchProductDetails = async () => {
+              try {
+                const productRes = await axios.get(`${API_URL}/product/get/${data.item_id}`);
+                if (productRes.data.status && productRes.data.data) {
+                  const product = productRes.data.data;
+                  const prodName = product.title || product.name || "";
+                  const bagcheeId = product.bagchee_id || product.bagcheeId || "";
+                  setSearchQuery(`${bagcheeId} - ${prodName}`);
+                  setSelectedProduct(product); // Set selected product for display
+                }
+              } catch (error) {
+                console.error("Failed to fetch product details:", error);
+                setSearchQuery(`Product ID: ${data.item_id}`);
+              }
+            };
+            fetchProductDetails();
+          }
         }
 
       } catch (error) {
@@ -139,6 +166,7 @@ const EditReviews = () => {
   const handleSelectProduct = (product) => {
     setFormData({ ...formData, item_id: product.id || product._id }); // Database ID
     setSearchQuery(`${product.bagchee_id || ""} - ${product.title || ""}`); // UI Display Text
+    setSelectedProduct(product); // Store full product details
     setIsDropdownOpen(false);
   };
 
@@ -212,6 +240,26 @@ const EditReviews = () => {
       </div>
 
       <div className="max-w-6xl mx-auto p-6 mt-4">
+        
+        {/* 🟢 Book Display Section */}
+        {selectedProduct && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-bold text-blue-800 uppercase">Review Book:</span>
+                <a 
+                  href={`/books/${selectedProduct.bagchee_id || selectedProduct.bagcheeId}/${createBookSlug(selectedProduct.title || selectedProduct.name)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-lg font-bold text-primary hover:text-primary-dark underline transition-colors"
+                >
+                  {selectedProduct.title || selectedProduct.name}
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
+        
         <form className="bg-white rounded border border-cream-200 shadow-sm overflow-hidden">
 
           <div className="bg-cream-100 px-6 py-2 border-b border-cream-200">

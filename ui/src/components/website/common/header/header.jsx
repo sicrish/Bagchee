@@ -540,11 +540,11 @@ const PremiumHeader = () => {
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search by title, author, keyword or ISBN"
+                  placeholder="Search by title, author, keyword, categories, publisher or ISBN"
                       className="flex-1 pl-6 pr-36 py-4 text-base font-body text-gray-800 
   placeholder:font-montserrat 
   placeholder:tracking-[0.15em] 
-  placeholder:text-[9px] 
+  placeholder:text-[11px] 
   placeholder:text-gray-400
   bg-transparent border-0 focus:outline-none focus:ring-0"
                   autoComplete="off"

@@ -89,9 +89,9 @@ const NewsletterForm = memo(({ mobile }) => {
 
 const renderSocialIcon = (social) => {
   // 1. Agar Image maujood hai (image path mil raha hai)
-  if (social.icon_image) {
+  if (social.image) {
     const API_BASE = process.env.REACT_APP_API_URL?.replace('/api', '');
-    const imageUrl = social.icon_image.startsWith('http') ? social.icon_image : `${API_BASE}${social.icon_image}`;
+    const imageUrl = social.image.startsWith('http') ? social.image : `${API_BASE}${social.image}`;
     return <img src={imageUrl} alt={social.title} className="w-4 h-4 object-contain" />;
   }
 
@@ -181,8 +181,7 @@ const Footer = () => {
     queryFn: async () => {
       const API_URL = process.env.REACT_APP_API_URL;
       const res = await axios.get(`${API_URL}/socials/list`);
-      // Filter wahi karein jo 'showInFooter' aur 'isActive' hain
-      return res.data.status ? res.data.data.filter(s => s.showInFooter && s.isActive) : [];
+      return res.data.status ? res.data.data.filter(s => s.showInFooter && s.active) : [];
     },
     staleTime: 600000,
   });
@@ -350,10 +349,10 @@ const Footer = () => {
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-3 text-gray-300 hover:text-[#25D366] transition-colors duration-300"
                 >
-                  {whatsappLink.icon_image ? (
+                  {whatsappLink.image ? (
                     <div className="flex items-center justify-center w-6 h-6 rounded-full overflow-hidden bg-white/10 shrink-0">
                       <img 
-                        src={whatsappLink.icon_image.startsWith('http') ? whatsappLink.icon_image : `${process.env.REACT_APP_API_URL?.replace('/api', '')}${whatsappLink.icon_image}`} 
+                        src={whatsappLink.image.startsWith('http') ? whatsappLink.image : `${process.env.REACT_APP_API_URL?.replace('/api', '')}${whatsappLink.image}`} 
                         alt="WhatsApp" 
                         className="w-full h-full object-cover" 
                       />
@@ -416,7 +415,7 @@ const Footer = () => {
 
         {/* --- BOTTOM BAR --- */}
         <div className="flex flex-col lg:flex-row justify-between items-center gap-6 text-center lg:text-left pt-2">
-          <p className="text-xs text-gray-400">© {new Date().getFullYear()} Bagchee. All rights reserved.</p>
+          <p className="text-xs text-gray-400">© 1996-{new Date().getFullYear()} Bagchee. All rights reserved.</p>
           <div className="flex flex-col items-center lg:items-end gap-3">
             <span className="text-[10px] text-accent font-bold uppercase tracking-widest font-montserrat">We Accept</span>
             <div className="flex flex-wrap justify-center items-center gap-2">
@@ -435,7 +434,6 @@ const Footer = () => {
         .footer-dynamic-content li { margin-bottom: 4px; }
         .footer-dynamic-content a { color: #d1d5db; transition: color 0.3s ease; display: inline-block; width: 100%; }
         .footer-dynamic-content a:hover { color: #FFC107; }
-        
         /* 📱 Mobile Specific content padding inside accordion */
         @media (max-width: 1023px) {
            .footer-dynamic-content li { 

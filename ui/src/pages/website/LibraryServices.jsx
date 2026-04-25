@@ -37,7 +37,7 @@ const LibraryServices = () => {
     if (activeService) {
       // Yahan aap apne route ke hisaab se URL set karein
       // Example: /service-details/12345
-      navigate(`/service-details/${activeService._id}`); 
+      navigate(`/service-details/${activeService.id}`); 
     }
   };
 
@@ -92,12 +92,12 @@ const LibraryServices = () => {
       {/* ─── 🔵 STICKY TAB NAVIGATION ─── */}
       <nav className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="flex justify-center overflow-x-auto scrollbar-hide">
+          <div className="flex justify-start lg:justify-center overflow-x-auto scrollbar-hide px-3">
             {services.map((service, index) => (
               <button
-                key={service._id}
+                key={service.id}
                 onClick={() => setActiveTab(index)}
-                className={`group relative px-8 py-6 text-xs font-bold uppercase tracking-[0.2em] transition-all whitespace-nowrap
+                className={`group relative px-8 py-6 text-xs font-bold uppercase tracking-[0.2em] transition-all whitespace-nowrap shrink-0
                   ${activeTab === index ? "text-primary" : "text-gray-400 hover:text-gray-700"}`}
               >
                 {service.title}
@@ -131,7 +131,7 @@ const LibraryServices = () => {
                 {/* Box Description */}
                 <div
                   className="prose prose-lg max-w-none font-body text-gray-600 leading-relaxed mb-8 line-clamp-4"
-                  dangerouslySetInnerHTML={createSafeHtml(activeService.box_description)}
+                  dangerouslySetInnerHTML={createSafeHtml(activeService.boxDesc)}
                 />
 
                 {/* Explore Button */}

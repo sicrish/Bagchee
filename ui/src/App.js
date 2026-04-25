@@ -579,7 +579,9 @@ const FooterList = lazy(() => import('./pages/admin/FooterList.jsx'));
 // import AddEditFooter from './pages/admin/AddEditFooter';
 const AddEditFooter = lazy(() => import('./pages/admin/AddEditFooter.jsx'));
 
-
+//e gift card banner mangement
+const EGiftCardBannerList = lazy(() => import('./pages/admin/EGiftCardBannerList.jsx'));
+const AddEditEGiftCardBanner = lazy(() => import('./pages/admin/AddEditEGiftCardBanner.jsx'));
 
 
 //titles
@@ -910,6 +912,10 @@ function App() {
 
                 <Route path="edit-footer/:id" element={<AddEditFooter />} />
 
+{/* e gift card banner management routes */}
+                <Route path="e-gift-card-banner" element={<EGiftCardBannerList />} />
+                <Route path="/admin/add-e-gift-card-banner" element={<AddEditEGiftCardBanner />} />
+<Route path="/admin/edit-e-gift-card-banner/:id" element={<AddEditEGiftCardBanner />} />
 
               </Route>
             </Route>
