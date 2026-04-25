@@ -26,7 +26,7 @@ export const saveService = async (req, res) => {
 
 export const listServices = async (req, res) => {
     try {
-        const data = await prisma.service.findMany({ orderBy: { id: 'desc' } });
+        const data = await prisma.service.findMany({ orderBy: { id: 'asc' } });
         res.status(200).json({ status: true, data });
     } catch (error) {
         res.status(500).json({ status: false, msg: 'Server Error' });

@@ -246,7 +246,7 @@ const Membership = () => {
             <div className="p-8 text-center space-y-4">
               <h3 className="text-2xl font-bold text-gray-800 font-display">Free Worldwide <br /> Delivery</h3>
               <p className="text-gray-500 text-sm leading-relaxed">
-                Members get free air delivery worldwide on orders over $4697.66 via Airmail. Orders over $500 shipped via courier.
+                Members get free air delivery worldwide on orders over $35 via Air. Orders over $250 shipped via courier.
               </p>
             </div>
           </div>

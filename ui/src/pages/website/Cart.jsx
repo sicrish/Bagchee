@@ -460,17 +460,17 @@ const Cart = () => {
       ))}
     </select>
   </div>
-  <div className="flex items-center gap-2 ml-0 sm:ml-auto w-full sm:w-auto justify-start sm:justify-end">
+  <div className="flex flex-wrap items-center gap-2 ml-0 sm:ml-auto w-full sm:w-auto justify-start sm:justify-end">
     {/* REMOVE BUTTON: Styled with Red-50 bg and transition */}
     <button
       onClick={() => handleRemoveItem(item.id || item._id)}
-      className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-red-50 text-red-600 hover:bg-red-600 hover:text-white transition-all duration-300 text-[11px] font-bold uppercase font-montserrat group shadow-sm active:scale-95"
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-red-50 text-red-600 hover:bg-red-600 hover:text-white transition-all duration-300 text-[11px] font-bold uppercase font-montserrat group shadow-sm active:scale-95 whitespace-nowrap"
     >
       <X size={14} className="group-hover:rotate-90 transition-transform duration-300" />
       REMOVE
     </button>
     {/* SAVE FOR LATER: Styled with subtle Blue/Primary theme */}
-    <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-50 text-primary hover:bg-primary hover:text-white transition-all duration-300 text-[11px] font-bold uppercase font-montserrat shadow-sm active:scale-95">
+    <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-50 text-primary hover:bg-primary hover:text-white transition-all duration-300 text-[11px] font-bold uppercase font-montserrat shadow-sm active:scale-95 whitespace-nowrap">
       <Award size={14} />
       SAVE FOR LATER
     </button>

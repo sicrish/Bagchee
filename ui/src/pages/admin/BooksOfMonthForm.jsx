@@ -224,7 +224,7 @@ const BooksOfMonthForm = () => {
                             <div key={bookId} className="flex items-center justify-between p-2 bg-cream-50 border border-cream-200 rounded">
                                 <div className="flex items-center gap-3">
                                     <div className="w-8 h-10 bg-gray-200 rounded overflow-hidden">
-                                        {img && <img src={`${process.env.REACT_APP_API_URL}${img}`} alt="" className="w-full h-full object-cover" />}
+                                        {img && <img src={img.startsWith('http') ? img : `${process.env.REACT_APP_API_URL}${img}`} alt="" className="w-full h-full object-cover" />}
                                     </div>
                                     <p className="text-xs font-bold text-text-main line-clamp-1 truncate w-40">{book.title}</p>
                                 </div>

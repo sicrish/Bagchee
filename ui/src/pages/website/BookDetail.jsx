@@ -921,7 +921,7 @@ const BookDetail = () => {
                       </div>
                       <div className="flex items-center gap-2">
                         <Truck className="w-4 h-4 text-primary shrink-0" />
-                        <p className="text-xs text-gray-700">Ships in {book.shipDays || book.ship_days || 1}-{book.deliverDays || book.deliver_days || 10} days from New Delhi</p>
+                        <p className="text-xs text-gray-700">Ships in {book.shipDays || book.ship_days || '2-10'} days from New Delhi</p>
                       </div>
                     </div>
                   )}

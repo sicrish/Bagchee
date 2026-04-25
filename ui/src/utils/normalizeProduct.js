@@ -62,10 +62,10 @@ export const normalizeProduct = (p) => {
         weight:       p.weight       || '',
 
         // --- Shipping ---
-        shipDays:    p.shipDays     ?? p.ship_days    ?? 1,
-        ship_days:   p.shipDays     ?? p.ship_days    ?? 1,
-        deliverDays: p.deliverDays  ?? p.deliver_days ?? 10,
-        deliver_days: p.deliverDays ?? p.deliver_days ?? 10,
+        shipDays:    (p.shipDays    || p.ship_days)    || 3,
+        ship_days:   (p.shipDays    || p.ship_days)    || 3,
+        deliverDays: (p.deliverDays || p.deliver_days) || 7,
+        deliver_days:(p.deliverDays || p.deliver_days) || 7,
 
         // --- Content ---
         metaTitle:        p.metaTitle        || p.meta_title        || '',

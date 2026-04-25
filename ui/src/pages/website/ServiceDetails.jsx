@@ -13,13 +13,9 @@ const ServiceDetails = () => {
     const fetchServiceDetails = async () => {
       try {
         setLoading(true);
-        // Hum list ko call karke specific ID filter kar rahe hain 
-        // (Agar aapke backend me direct '/services/:id' API hai, toh use call kar lena)
-        const res = await axios.get(`${process.env.REACT_APP_API_URL}/services/list`);
-        
+        const res = await axios.get(`${process.env.REACT_APP_API_URL}/services/get/${id}`);
         if (res.data.status) {
-          const foundService = res.data.data.find((item) => item._id === id);
-          setService(foundService);
+          setService(res.data.data);
         }
       } catch (error) {
         console.error("Failed to load service details", error);
@@ -89,7 +85,7 @@ const ServiceDetails = () => {
             {/* Box description as short intro */}
             <div 
               className="text-lg text-gray-600 leading-relaxed max-w-3xl"
-              dangerouslySetInnerHTML={createSafeHtml(service.box_description)}
+              dangerouslySetInnerHTML={createSafeHtml(service.boxDesc || service.box_description)}
             />
           </div>
         </div>
@@ -105,7 +101,7 @@ const ServiceDetails = () => {
         <div className="bg-white p-8 md:p-12 lg:p-16 rounded-3xl shadow-xl border border-gray-100">
           <div 
             className="prose prose-lg prose-blue max-w-none font-body text-gray-700 service-rich-content"
-            dangerouslySetInnerHTML={createSafeHtml(service.page_content)}
+            dangerouslySetInnerHTML={createSafeHtml(service.pageContent || service.page_content)}
           />
         </div>
       </main>

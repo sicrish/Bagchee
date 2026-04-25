@@ -26,10 +26,10 @@ export const saveHelpPage = async (req, res) => {
 export const getAllHelpPages = async (req, res) => {
     try {
         const pageNum = parseInt(req.query.page) || 1;
-        const pageSize = parseInt(req.query.limit) || 10;
+        const pageSize = parseInt(req.query.limit) || 100;
         const skip = (pageNum - 1) * pageSize;
         const [pages, total] = await Promise.all([
-            prisma.helpPage.findMany({ orderBy: { id: 'desc' }, skip, take: pageSize }),
+            prisma.helpPage.findMany({ orderBy: { id: 'asc' }, skip, take: pageSize }),
             prisma.helpPage.count()
         ]);
         res.status(200).json({ status: true, data: pages, total, totalPages: Math.ceil(total / pageSize), page: pageNum });

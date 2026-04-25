@@ -95,7 +95,7 @@ const buildWhereClause = (query, { includeInactive = false } = {}) => {
     if (title)     conditions.push({ title:     { contains: title,     mode: 'insensitive' } });
     if (isbn10)    conditions.push({ isbn10:    { contains: isbn10,    mode: 'insensitive' } });
     if (isbn13)    conditions.push({ isbn13:    { contains: isbn13,    mode: 'insensitive' } });
-    if (bagchee_id) conditions.push({ bagcheeId: { contains: bagchee_id, mode: 'insensitive' } });
+    if (bagchee_id) conditions.push({ bagcheeId: { equals: bagchee_id, mode: 'insensitive' } });
     if (product_type) conditions.push({ productType: product_type });
 
     if (categories) {

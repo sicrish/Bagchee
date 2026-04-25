@@ -595,7 +595,7 @@ const EditOrders = () => {
                   onClick={() => handleProductClick(row)}
                   title="Click to view product details"
                 >
-                  {row.name}
+                  {row.name || row.product?.title || row.title || '—'}
                 </div>
               </td>
               <td className="border p-1"><input type="number" value={row.price} onChange={(e) => handleProductChange(index, 'price', e.target.value)} className="w-full outline-none bg-transparent" /></td>

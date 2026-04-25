@@ -37,7 +37,7 @@ const LibraryServices = () => {
     if (activeService) {
       // Yahan aap apne route ke hisaab se URL set karein
       // Example: /service-details/12345
-      navigate(`/service-details/${activeService.id}`); 
+      navigate(`/service-details/${activeService.id || activeService._id}`);
     }
   };
 

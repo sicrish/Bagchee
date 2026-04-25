@@ -237,66 +237,76 @@ const SidebarFilter = ({
 
               {/* 🟢 Authors Mobile */}
               {activeTab === "authors" &&
-                authors?.map((auth) => (
+                authors?.map((auth) => {
+                  const authId = auth.id || auth._id;
+                  const authName = auth.fullName || `${auth.firstName || auth.first_name || ''} ${auth.lastName || auth.last_name || ''}`.trim();
+                  return (
                   <label
-                    key={auth._id}
+                    key={authId}
                     className="flex items-center justify-between py-3 border-b border-cream-50"
                   >
                     <span
-                      className={`text-sm ${filters.authors?.includes(auth._id) ? "text-primary font-bold" : "text-text-main"}`}
+                      className={`text-sm ${filters.authors?.includes(authId) ? "text-primary font-bold" : "text-text-main"}`}
                     >
-                      {auth.first_name} {auth.last_name}
+                      {authName}
                     </span>
                     <input
                       type="checkbox"
-                      checked={filters.authors?.includes(auth._id)}
-                      onChange={() => handleFilterChange("authors", auth._id)}
+                      checked={filters.authors?.includes(authId)}
+                      onChange={() => handleFilterChange("authors", authId)}
                       className="w-5 h-5 rounded border-cream-200 text-primary accent-primary"
                     />
                   </label>
-                ))}
+                  );
+                })}
 
               {/* 🟢 Publishers Mobile */}
               {activeTab === "publishers" &&
-                publishers?.map((pub) => (
+                publishers?.map((pub) => {
+                  const pubId = pub.id || pub._id;
+                  return (
                   <label
-                    key={pub._id}
+                    key={pubId}
                     className="flex items-center justify-between py-3 border-b border-cream-50"
                   >
                     <span
-                      className={`text-sm ${filters.publishers?.includes(pub._id) ? "text-primary font-bold" : "text-text-main"}`}
+                      className={`text-sm ${filters.publishers?.includes(pubId) ? "text-primary font-bold" : "text-text-main"}`}
                     >
                       {pub.name || pub.title}
                     </span>
                     <input
                       type="checkbox"
-                      checked={filters.publishers?.includes(pub._id)}
-                      onChange={() => handleFilterChange("publishers", pub._id)}
+                      checked={filters.publishers?.includes(pubId)}
+                      onChange={() => handleFilterChange("publishers", pubId)}
                       className="w-5 h-5 rounded border-cream-200 text-primary accent-primary"
                     />
                   </label>
-                ))}
+                  );
+                })}
 
               {/* 🟢 Series Mobile */}
               {activeTab === "series" &&
-                series?.map((ser) => (
+                series?.map((ser) => {
+                  const serId = ser.id || ser._id;
+                  return (
                   <label
-                    key={ser._id}
+                    key={serId}
                     className="flex items-center justify-between py-3 border-b border-cream-50"
                   >
                     <span
-                      className={`text-sm ${filters.series?.includes(ser._id) ? "text-primary font-bold" : "text-text-main"}`}
+                      className={`text-sm ${filters.series?.includes(serId) ? "text-primary font-bold" : "text-text-main"}`}
                     >
                       {ser.title}
                     </span>
                     <input
                       type="checkbox"
-                      checked={filters.series?.includes(ser._id)}
-                      onChange={() => handleFilterChange("series", ser._id)}
+                      checked={filters.series?.includes(serId)}
+                      onChange={() => handleFilterChange("series", serId)}
                       className="w-5 h-5 rounded border-cream-200 text-primary accent-primary"
                     />
                   </label>
-                ))}
+                  );
+                })}
 
               {/* Existing Tabs... */}
               {activeTab === "popular" &&
@@ -327,24 +337,28 @@ const SidebarFilter = ({
                 ))}
 
               {activeTab === "format" &&
-                formats?.map((fmt) => (
+                formats?.map((fmt) => {
+                  const fmtId = fmt?.id ?? fmt;
+                  const fmtLabel = fmt?.title ?? fmt;
+                  return (
                   <label
-                    key={fmt}
+                    key={fmtId}
                     className="flex items-center justify-between py-3 border-b border-cream-50"
                   >
                     <span
-                      className={`text-sm capitalize ${filters.formats?.includes(fmt) ? "text-primary font-bold" : "text-text-main"}`}
+                      className={`text-sm capitalize ${filters.formats?.includes(fmtId) ? "text-primary font-bold" : "text-text-main"}`}
                     >
-                      {fmt}
+                      {fmtLabel}
                     </span>
                     <input
                       type="checkbox"
-                      checked={filters.formats?.includes(fmt)}
-                      onChange={() => handleFilterChange("formats", fmt)}
+                      checked={filters.formats?.includes(fmtId)}
+                      onChange={() => handleFilterChange("formats", fmtId)}
                       className="w-5 h-5 rounded border-cream-200 text-primary accent-primary"
                     />
                   </label>
-                ))}
+                  );
+                })}
 
               {activeTab === "price" &&
                 [
@@ -541,24 +555,28 @@ const SidebarFilter = ({
                     {(showAllStates.authors
                       ? authors
                       : authors.slice(0, 15)
-                    ).map((auth) => (
+                    ).map((auth) => {
+                      const authId = auth.id || auth._id;
+                      const authName = auth.fullName || `${auth.firstName || auth.first_name || ''} ${auth.lastName || auth.last_name || ''}`.trim();
+                      return (
                       <label
-                        key={auth._id}
+                        key={authId}
                         className="flex items-center space-x-3 cursor-pointer group"
                       >
                         <input
                           type="checkbox"
-                          checked={filters.authors?.includes(auth._id)}
+                          checked={filters.authors?.includes(authId)}
                           onChange={() =>
-                            handleFilterChange("authors", auth._id)
+                            handleFilterChange("authors", authId)
                           }
                           className="w-4 h-4 rounded border-cream-200 text-primary focus:ring-primary accent-primary"
                         />
                         <span className="text-sm text-text-muted group-hover:text-primary font-body">
-                          {auth.first_name} {auth.last_name}
+                          {authName}
                         </span>
                       </label>
-                    ))}
+                      );
+                    })}
                     {authors.length > 15 && (
                       <button
                         onClick={() => toggleShowAll("authors")}
@@ -600,16 +618,18 @@ const SidebarFilter = ({
                     {(showAllStates.publishers
                       ? publishers
                       : publishers.slice(0, 15)
-                    ).map((pub) => (
+                    ).map((pub) => {
+                      const pubId = pub.id || pub._id;
+                      return (
                       <label
-                        key={pub._id}
+                        key={pubId}
                         className="flex items-center space-x-3 cursor-pointer group"
                       >
                         <input
                           type="checkbox"
-                          checked={filters.publishers?.includes(pub._id)}
+                          checked={filters.publishers?.includes(pubId)}
                           onChange={() =>
-                            handleFilterChange("publishers", pub._id)
+                            handleFilterChange("publishers", pubId)
                           }
                           className="w-4 h-4 rounded border-cream-200 text-primary focus:ring-primary accent-primary"
                         />
@@ -617,7 +637,8 @@ const SidebarFilter = ({
                           {pub.name || pub.title}
                         </span>
                       </label>
-                    ))}
+                      );
+                    })}
                     {publishers.length > 15 && (
                       <button
                         onClick={() => toggleShowAll("publishers")}
@@ -657,16 +678,18 @@ const SidebarFilter = ({
                 {series?.length > 0 ? (
                   <>
                     {(showAllStates.series ? series : series.slice(0, 15)).map(
-                      (ser) => (
+                      (ser) => {
+                        const serId = ser.id || ser._id;
+                        return (
                         <label
-                          key={ser._id}
+                          key={serId}
                           className="flex items-center space-x-3 cursor-pointer group"
                         >
                           <input
                             type="checkbox"
-                            checked={filters.series?.includes(ser._id)}
+                            checked={filters.series?.includes(serId)}
                             onChange={() =>
-                              handleFilterChange("series", ser._id)
+                              handleFilterChange("series", serId)
                             }
                             className="w-4 h-4 rounded border-cream-200 text-primary focus:ring-primary accent-primary"
                           />
@@ -674,7 +697,8 @@ const SidebarFilter = ({
                             {ser.title}
                           </span>
                         </label>
-                      ),
+                        );
+                      },
                     )}
                     {series.length > 15 && (
                       <button
@@ -710,22 +734,26 @@ const SidebarFilter = ({
             />
             {openSections.format && (
               <div className="pt-3 space-y-3 pl-1">
-                {formats?.map((fmt) => (
+                {formats?.map((fmt) => {
+                  const fmtId = fmt?.id ?? fmt;
+                  const fmtLabel = fmt?.title ?? fmt;
+                  return (
                   <label
-                    key={fmt}
+                    key={fmtId}
                     className="flex items-center space-x-3 cursor-pointer group"
                   >
                     <input
                       type="checkbox"
-                      checked={filters.formats?.includes(fmt)}
-                      onChange={() => handleFilterChange("formats", fmt)}
+                      checked={filters.formats?.includes(fmtId)}
+                      onChange={() => handleFilterChange("formats", fmtId)}
                       className="w-4 h-4 rounded border-cream-200 text-primary focus:ring-primary accent-primary"
                     />
                     <span className="text-sm text-text-muted group-hover:text-primary capitalize font-body">
-                      {fmt}
+                      {fmtLabel}
                     </span>
                   </label>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

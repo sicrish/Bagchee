@@ -317,9 +317,7 @@ const EditBook = () => {
     // =======================================================================
     const updateBookMutation = useMutation({
         mutationFn: async (submitData) => {
-            const res = await axios.patch(`${process.env.REACT_APP_API_URL}/product/update/${id}`, submitData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
+            const res = await axios.patch(`${process.env.REACT_APP_API_URL}/product/update/${id}`, submitData);
             return res.data;
         }
     });
@@ -911,7 +909,7 @@ const EditBook = () => {
                                     <div className="border border-gray-300 rounded p-2 bg-white cursor-pointer min-h-[38px] flex flex-wrap gap-2 items-center hover:border-primary transition-colors" onClick={() => setIsAuthorDropdownOpen(!isAuthorDropdownOpen)}>
                                         {formData.authors.length > 0 ? (
                                             formData.authors.map((authId, idx) => {
-                                                const author = authors.find(a => (a.id || a._id) === authId);
+                                                const author = authors.find(a => String(a.id || a._id) === String(authId));
                                                 const authorName = author ? `${author.firstName || author.first_name || ''} ${author.lastName || author.last_name || ''}`.trim() : String(authId);
                                                 return (
                                                     <span key={idx} className="bg-blue-50 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded border border-blue-100 flex items-center gap-1">

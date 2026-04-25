@@ -236,29 +236,57 @@ export const deleteCoupon = async (req, res) => {
 };
 
 // ── SEND COUPON VIA EMAIL ─────────────────────────────────────────────────────
-// Body: { couponId, emails?: string (comma-separated), emailContent: string, sendToAll?: boolean }
+// Body: { couponId, recipientType: 'manual'|'all'|'ordered'|'members', emails?: string, emailContent: string }
 export const sendCouponEmail = async (req, res) => {
     try {
-        const { couponId, emails, emailContent, sendToAll } = req.body;
+        const { couponId, emails, emailContent, recipientType, sendToAll } = req.body;
+        // recipientType: 'manual' | 'all' | 'ordered' | 'members' (sendToAll is legacy fallback)
+        const rtype = recipientType || (sendToAll ? 'all' : 'manual');
 
         if (!couponId) return res.status(400).json({ status: false, msg: 'Coupon is required.' });
         if (!emailContent) return res.status(400).json({ status: false, msg: 'Email content is required.' });
-        if (!sendToAll && (!emails || !emails.trim())) return res.status(400).json({ status: false, msg: 'Provide customer emails or select Send to all.' });
+        if (rtype === 'manual' && (!emails || !emails.trim())) return res.status(400).json({ status: false, msg: 'Provide customer emails or select a recipient group.' });
 
         // Fetch coupon details
         const coupon = await prisma.coupon.findUnique({ where: { id: parseInt(couponId) } });
         if (!coupon) return res.status(404).json({ status: false, msg: 'Coupon not found.' });
 
-        // Build recipients list
+        // Build recipients list by type
         let recipientEmails = [];
-        if (sendToAll) {
-            const users = await prisma.user.findMany({ select: { email: true }, where: { email: { not: null } } });
+        if (rtype === 'all') {
+            const users = await prisma.user.findMany({
+                select: { email: true },
+                where: { email: { not: null }, status: 1, isGuest: false }
+            });
+            recipientEmails = users.map(u => u.email).filter(Boolean);
+        } else if (rtype === 'ordered') {
+            const orderRows = await prisma.order.findMany({
+                where: { customerId: { not: null } },
+                distinct: ['customerId'],
+                select: { customerId: true }
+            });
+            const customerIds = orderRows.map(o => o.customerId).filter(Boolean);
+            const users = await prisma.user.findMany({
+                where: { id: { in: customerIds }, email: { not: null }, isGuest: false },
+                select: { email: true }
+            });
+            recipientEmails = users.map(u => u.email).filter(Boolean);
+        } else if (rtype === 'members') {
+            const now = new Date();
+            const users = await prisma.user.findMany({
+                select: { email: true },
+                where: {
+                    email: { not: null },
+                    membership: 'active',
+                    membershipEnd: { gt: now }
+                }
+            });
             recipientEmails = users.map(u => u.email).filter(Boolean);
         } else {
             recipientEmails = emails.split(',').map(e => e.trim()).filter(e => e.includes('@'));
         }
 
-        if (recipientEmails.length === 0) return res.status(400).json({ status: false, msg: 'No valid email addresses found.' });
+        if (recipientEmails.length === 0) return res.status(400).json({ status: false, msg: 'No valid email addresses found for this recipient group.' });
 
         const transporter = nodemailer.createTransport({
             service: 'gmail',

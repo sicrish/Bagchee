@@ -407,6 +407,12 @@ const Checkout = () => {
   // 🏆 GRAND TOTAL
   const total = Math.max(0, (subtotal + currentMembershipCost - memberDiscount - couponDiscount - giftCardDiscount - walletDeduction) + shippingCost);
 
+  // When cart has ONLY gift cards: restrict payment to PayPal/credit card, hide redeem box
+  const hasOnlyGiftCards = cart.length > 0 && cart.every(i => i.itemType === 'gift_card');
+  const visiblePaymentMethods = hasOnlyGiftCards
+    ? paymentMethods.filter(m => isCardOrPayPalMethod(m))
+    : paymentMethods;
+
   // UI Display Helper (Symbols ke saath)
   const formatCheckoutDisplay = (val) => {
     const symbol = symbols?.[currency] || '';
@@ -878,9 +884,9 @@ const Checkout = () => {
       const giftCardCartItems = cart.filter(i => i.itemType === 'gift_card');
 
       const orderData = {
-        customer_id: user?.id || "000000000000000000000000",
+        customer_id: user?.id || null,
         products: physicalItems.map((item) => ({
-          product_id: item.id || null,
+          product_id: parseInt(item.id || item._id) || null,
           name: item.name || item.title || "Book",
           price: item.price || 0,
           quantity: item.quantity || 1,
@@ -1148,8 +1154,8 @@ const Checkout = () => {
     <div className="min-h-screen bg-cream-50">
       {/* ─── Add/Edit Address Modal ─── */}
       {showAddressModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-start sm:items-center justify-center p-4 pt-8 sm:pt-4 overflow-y-auto">
+          <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="bg-primary px-6 py-4 flex justify-between items-center text-white sticky top-0">
               <h3 className="font-bold text-lg tracking-wide">
                 {isEditingAddress ? "EDIT ADDRESS" : "ADD NEW ADDRESS"}
@@ -1353,8 +1359,8 @@ const Checkout = () => {
 
       {/* ─── Add/Edit Billing Address Modal ─── */}
       {showBillingModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-start sm:items-center justify-center p-4 pt-8 sm:pt-4 overflow-y-auto">
+          <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="bg-primary px-6 py-4 flex justify-between items-center text-white sticky top-0">
               <h3 className="font-bold text-lg tracking-wide">
                 {isEditingBilling ? "EDIT ADDRESS" : "ADD NEW ADDRESS"}
@@ -1731,7 +1737,7 @@ const Checkout = () => {
                           </div>
                           <div className="p-4 flex-grow space-y-3 text-sm">
                             <p className="font-bold text-gray-900">
-                              {addr.name}
+                              {[addr.firstName, addr.lastName].filter(Boolean).join(' ') || addr.name}
                             </p>
                             <div className="space-y-1.5">
                               <div className="flex gap-2 items-start">
@@ -2107,8 +2113,8 @@ const Checkout = () => {
               </div>
               <div className="p-5 space-y-2">
 
-                {/* ── Gift Card Section (top of payment) ── */}
-                <div className="border border-primary/20 rounded-lg bg-primary/5 p-4 mb-4 space-y-3">
+                {/* ── Gift Card Section (top of payment) — hidden when cart is only gift cards ── */}
+                {!hasOnlyGiftCards && <div className="border border-primary/20 rounded-lg bg-primary/5 p-4 mb-4 space-y-3">
                   <p className="text-sm font-bold text-text-main font-montserrat uppercase tracking-wide">Redeem E-Gift Card</p>
 
                   {/* Gift card code input */}
@@ -2153,18 +2159,18 @@ const Checkout = () => {
                       </span>
                     </label>
                   )}
-                </div>
+                </div>}
 
                 {loadingPayments ? (
                   <p className="text-sm text-gray-400 text-center py-2">
                     Loading payment methods...
                   </p>
-                ) : paymentMethods.length === 0 ? (
+                ) : visiblePaymentMethods.length === 0 ? (
                   <p className="text-sm text-gray-500 text-center py-2">
                     No payment methods available
                   </p>
                 ) : (
-                  paymentMethods.map((method) => {
+                  visiblePaymentMethods.map((method) => {
                     const isSelected = selectedPayment?.id === method.id;
                     const isCC = isCreditCardMethod(method);
                     const isPP = isPayPalMethod(method);
@@ -2338,7 +2344,7 @@ const Checkout = () => {
                             </div>
                             <div className="p-4 flex-grow space-y-3 text-sm">
                               <p className="font-bold text-gray-900">
-                                {addr.name}
+                                {[addr.firstName, addr.lastName].filter(Boolean).join(' ') || addr.name}
                               </p>
                               <div className="space-y-1.5">
                                 <div className="flex gap-2 items-start">
@@ -2708,7 +2714,11 @@ const Checkout = () => {
                     Loading...
                   </>
                 ) : (
-                  "CONTINUE TO PAY"
+                  (() => {
+                    if (isPurchaseOrderMethod(selectedPayment) || isWireTransferMethod(selectedPayment)) return "PLACE ORDER";
+                    if (isPayPalMethod(selectedPayment) && !isDeferredFlow()) return "CONTINUE TO PAYPAL";
+                    return "CONTINUE TO PAY";
+                  })()
                 )}
               </button>
               <p className="text-xs text-gray-400">

@@ -81,7 +81,7 @@ const EditReviews = () => {
           const data = reviewRes.data.data;
 
           const currentItemId = data.item_id && typeof data.item_id === 'object'
-            ? data.item_id._id
+            ? (data.item_id.id || data.item_id._id)
             : data.item_id;
 
           setFormData({
@@ -97,7 +97,7 @@ const EditReviews = () => {
           // 🟢 Setup Search Bar with current product name
           if (data.item_id && typeof data.item_id === 'object') {
             const prodName = data.item_id.title || data.item_id.name || "";
-            const bagcheeId = data.item_id.bagchee_id || "";
+            const bagcheeId = data.item_id.bagcheeId || data.item_id.bagchee_id || "";
             setSearchQuery(`${bagcheeId} - ${prodName}`);
             setSelectedProduct(data.item_id); // Set selected product for display
           } else if (data.item_id) {

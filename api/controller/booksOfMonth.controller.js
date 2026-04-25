@@ -7,11 +7,14 @@ import prisma from '../lib/prisma.js';
 
 export const saveBooksOfMonth = async (req, res) => {
     try {
-        const { id, monthName, headline, products, expiryDate } = req.body;
+        const { id, monthName, headline, products, expiryDate, isActive } = req.body;
+        if (!monthName) return res.status(400).json({ status: false, msg: 'Month name is required.' });
+        if (!expiryDate) return res.status(400).json({ status: false, msg: 'Expiry date is required.' });
         if (!products || products.length === 0) {
             return res.status(400).json({ status: false, msg: 'Please select at least one product' });
         }
         const productIds = products.map(p => parseInt(p));
+        const activeFlag = isActive === true || isActive === 'yes';
 
         if (id) {
             // Update: replace junction rows
@@ -22,27 +25,33 @@ export const saveBooksOfMonth = async (req, res) => {
                     monthName,
                     headline: headline || '',
                     expiryDate: new Date(expiryDate),
-                    isActive: true,
+                    isActive: activeFlag,
                     products: { create: productIds.map(pid => ({ productId: pid })) }
                 }
             });
             return res.json({ status: true, msg: 'Updated successfully', data: updated });
         } else {
             // Create: deactivate all existing, then create new
-            await prisma.booksOfMonth.updateMany({}, { data: { isActive: false } });
+            if (activeFlag) {
+                await prisma.booksOfMonth.updateMany({}, { data: { isActive: false } });
+            }
             const newData = await prisma.booksOfMonth.create({
                 data: {
                     monthName,
                     headline: headline || '',
                     expiryDate: new Date(expiryDate),
-                    isActive: true,
+                    isActive: activeFlag,
                     products: { create: productIds.map(pid => ({ productId: pid })) }
                 }
             });
             res.json({ status: true, msg: 'New Month Selection Saved successfully', data: newData });
         }
     } catch (error) {
-        res.status(500).json({ status: false });
+        console.error('BooksOfMonth save error:', error?.code, error?.message);
+        if (error?.code === 'P2002') return res.status(400).json({ status: false, msg: 'A duplicate product was detected. Please remove duplicates and try again.' });
+        if (error?.code === 'P2003') return res.status(400).json({ status: false, msg: 'One or more selected products could not be found. Please refresh and try again.' });
+        if (error?.code === 'P2025') return res.status(404).json({ status: false, msg: 'This selection no longer exists. Please go back and refresh.' });
+        res.status(500).json({ status: false, msg: 'Failed to save selection. Please try again.' });
     }
 };
 
@@ -71,7 +80,7 @@ export const getActiveBooksOfMonth = async (req, res) => {
         }
         res.json({ status: true, data: { ...data, products: validProducts } });
     } catch (error) {
-        res.status(500).json({ status: false });
+        res.status(500).json({ status: false, msg: 'Failed to fetch active selection.' });
     }
 };
 
@@ -89,7 +98,7 @@ export const getAllBooksOfMonthHistory = async (req, res) => {
         });
         res.json({ status: true, data: history });
     } catch (error) {
-        res.status(500).json({ status: false });
+        res.status(500).json({ status: false, msg: 'Failed to fetch history.' });
     }
 };
 
@@ -101,7 +110,7 @@ export const deleteBooksOfMonth = async (req, res) => {
         res.json({ status: true, msg: 'Selection deleted successfully' });
     } catch (error) {
         if (error.code === 'P2025') return res.status(404).json({ status: false, msg: 'Record not found' });
-        res.status(500).json({ status: false });
+        res.status(500).json({ status: false, msg: 'Failed to delete selection.' });
     }
 };
 
@@ -113,6 +122,6 @@ export const toggleBooksOfMonthStatus = async (req, res) => {
         const updated = await prisma.booksOfMonth.update({ where: { id }, data: { isActive: !data.isActive } });
         res.json({ status: true, msg: `Status updated to ${updated.isActive ? 'Active' : 'Inactive'}` });
     } catch (error) {
-        res.status(500).json({ status: false });
+        res.status(500).json({ status: false, msg: 'Failed to update status.' });
     }
 };

@@ -32,14 +32,16 @@ const mapBody = (b) => {
     if (fsoInr !== undefined) d.freeShippingOverInr = num(fsoInr);
 
     // frontend sends 'membership_cost' for USD membership price
-    const mcp = f('membershipCartPrice','membership_cart_price','membership_cost');
+    // Note: 'membership_cart_price' is the INR price — do NOT include it here
+    const mcp = f('membershipCartPrice','membership_cost');
     if (mcp !== undefined) d.membershipCartPrice = num(mcp);
 
     // frontend sends 'membership_cost_eur'
     const mcpEur = f('membershipCartPriceEur','membership_cart_price_eur','membership_cost_eur');
     if (mcpEur !== undefined) d.membershipCartPriceEur = num(mcpEur);
 
-    const mcpInr = f('membershipCartPriceInr','membership_cart_price_inr');
+    // frontend sends 'membership_cart_price' for INR membership price
+    const mcpInr = f('membershipCartPriceInr','membership_cart_price_inr','membership_cart_price');
     if (mcpInr !== undefined) d.membershipCartPriceInr = num(mcpInr);
 
     const usdToEur = f('usdToEurRate','usd_to_eur_rate');

@@ -209,6 +209,11 @@ const ProductListing = ({ type }) => {
                 if (filters.rating) query.append('rating', filters.rating);
                 if (filters.daysOld) query.append('daysOld', filters.daysOld);
 
+                if (filters.isNewRelease) query.append('isNewRelease', 'true');
+                if (filters.isBestseller) query.append('isBestseller', 'true');
+                if (filters.isRecommended) query.append('isRecommended', 'true');
+                if (filters.isSale) query.append('isSale', 'true');
+
                 // 🟢 STEP 4: Determine which API endpoint to use based on type
                 let apiEndpoint = `${process.env.REACT_APP_API_URL}/product/fetch`;
 
