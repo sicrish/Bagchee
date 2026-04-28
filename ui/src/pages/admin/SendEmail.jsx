@@ -14,6 +14,259 @@ const EMAIL_TEMPLATES = [
     body: ''
   },
   {
+    name: 'Bagchee New Site Launch',
+    subject: 'Celebrate our new site with us and get 20% off!',
+    body: `
+<div style="background-color: #f4f4f4; padding: 20px; font-family: 'Montserrat', Arial, sans-serif;">
+  <table align="center" border="0" cellpadding="0" cellspacing="0" width="600" style="background-color: #ffffff; border-collapse: collapse; border: 0; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+    
+<!-- ===== BAGCHEE HEADER ===== -->
+<tr>
+  <td align="center" bgcolor="#008DDA" style="padding: 0; margin: 0; border: 0;">
+    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="border-collapse: collapse; max-width: 960px; margin: 0 auto;">
+      <tr>
+        <td style="padding: 0 28px; height: 68px; vertical-align: middle;">
+          <table width="100%" border="0" cellspacing="0" cellpadding="0" style="border-collapse: collapse;">
+            <tr>
+
+              <!-- LOGO -->
+              <td style="width: 1%; white-space: nowrap; padding-right: 28px; vertical-align: middle;">
+                <a href="https://ui-production-2b96.up.railway.app/" target="_blank" style="text-decoration: none; display: inline-flex; align-items: center; gap: 10px;">
+                  
+                  <!-- Book Icon Box -->
+                 <span style="display: inline-block; width: 34px; height: 34px; background: rgba(255,255,255,0.2); border-radius: 8px; text-align: center; line-height: 34px; vertical-align: middle;">
+                    <img src="https://res.cloudinary.com/dmfb5ysx8/image/upload/v1777378372/logo_iaapi2.png" width="20" height="20" alt="Bagchee Logo" style="vertical-align: middle; margin: 0; border: none; outline: none; display: inline-block;"/>
+                  </span>
+
+                  <!-- Logo Text -->
+                  <span style="display: inline-block; vertical-align: middle;">
+                    <span style="display: block; font-family: 'Jost', Helvetica, Arial, sans-serif; font-size: 17px; font-weight: 700; color: #ffffff; letter-spacing: 1.5px; line-height: 1;">BAGCHEE</span>
+                    <span style="display: block; font-family: 'Jost', Helvetica, Arial, sans-serif; font-size: 7.5px; font-weight: 400; color: rgba(255,255,255,0.6); letter-spacing: 2px; text-transform: uppercase; margin-top: 3px; line-height: 1;">Books that stick</span>
+                  </span>
+                </a>
+              </td>
+
+              <!-- VERTICAL DIVIDER -->
+              <td style="width: 1px; padding: 0; white-space: nowrap;">
+                <div style="width: 1px; height: 30px; background: rgba(255,255,255,0.3); margin-right: 24px;"></div>
+              </td>
+
+              <!-- NAV LINKS -->
+              <td style="vertical-align: middle; white-space: nowrap; padding-left: 8px;">
+               
+                <a href="https://ui-production-2b96.up.railway.app/new-arrivals" target="_blank"
+                   style="font-family: 'Jost', Helvetica, Arial, sans-serif; font-size: 12px; font-weight: 500; color: #ffffff; text-decoration: none; padding: 6px 12px; letter-spacing: 0.3px;">
+                  New Arrivals
+                </a>
+                <a href="https://ui-production-2b96.up.railway.app/bestsellers" target="_blank"
+                   style="font-family: 'Jost', Helvetica, Arial, sans-serif; font-size: 12px; font-weight: 500; color: #ffffff; text-decoration: none; padding: 6px 12px; letter-spacing: 0.3px;">
+                  Bestsellers
+                </a>
+                <a href="https://ui-production-2b96.up.railway.app/recommended" target="_blank"
+                   style="font-family: 'Jost', Helvetica, Arial, sans-serif; font-size: 12px; font-weight: 500; color: #ffffff; text-decoration: none; padding: 6px 12px; letter-spacing: 0.3px;">
+                  Recommended
+                </a>
+                <a href="https://ui-production-2b96.up.railway.app/gift-card" target="_blank"
+                   style="font-family: 'Jost', Helvetica, Arial, sans-serif; font-size: 12px; font-weight: 500; color: #ffffff; text-decoration: none; padding: 6px 12px; letter-spacing: 0.3px;">
+                  E-Gift Card
+                </a>
+                <a href="https://ui-production-2b96.up.railway.app/sale" target="_blank"
+                   style="font-family: 'Jost', Helvetica, Arial, sans-serif; font-size: 12px; font-weight: 600; color: #ffffff; text-decoration: none; padding: 6px 14px; background: #CC2200; border-radius: 20px; letter-spacing: 0.3px;">
+                  ● Sale
+                </a>
+              </td>
+
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </td>
+</tr>
+<!-- ===== END HEADER ===== -->  
+
+   <tr>
+      <td align="center" bgcolor="#ffffff" style="padding: 10px 20px 5px 20px;">
+        <p style="margin: 0; font-family: 'Montserrat', Helvetica, Arial, sans-serif; font-size: 16px; color: #0B2F3A; font-weight: bold;">
+          🎉 Celebrate our new site with us and get 20% off
+        </p>
+      </td>
+    </tr>
+<tr>
+      <td align="center" bgcolor="#FFD700" style="padding: 15px 20px;">
+        <h1 style="margin: 0; font-family: 'Montserrat', Helvetica, Arial, sans-serif; font-size: 24px; color: #0B2F3A;">
+          Your 20% off promo code: 
+          <span style="background: #ffffff; padding: 4px 15px; border-radius: 5px; display: inline-block; vertical-align: middle; margin-left: 8px;">123abc</span>
+        </h1>
+      </td>
+    </tr>
+
+    
+
+   <tr>
+      <td style="padding: 20px 30px 15px 40px; color: #4A4A4A; font-size: 14px; line-height: 1.6; font-family: 'Montserrat', Helvetica, Arial, sans-serif;">
+        <h2 style="margin: 0 0 10px 0; font-size: 20px; color: #0B2F3A;">Hello, Reader!</h2>
+        <p style="margin: 0;">Our brand-new website is live! To celebrate, enjoy a special discount. Experience an easier, faster way to find your favorite books today.</p>  </td>
+    </tr>
+
+    <tr>
+      <td align="center" style="padding: 0px 40px 30px 40px;">
+        <a href="https://ui-production-2b96.up.railway.app/" target="_blank" style="text-decoration: none;">
+          
+          <img src="https://res.cloudinary.com/dmfb5ysx8/image/upload/v1777368222/Screenshot_2026-04-28_145244_uftpga.png" alt="New Website Preview" width="100%" style="display: block; max-width: 100%; height: auto; border-radius: 8px; border: 1px solid #e0e0e0; box-shadow: 0 4px 15px rgba(0,0,0,0.08);" />
+          
+        </a>
+      </td>
+    </tr>
+
+    <tr>
+      <td style="padding: 10px 40px 40px 40px; font-family: 'Montserrat', Helvetica, Arial, sans-serif;">
+        <h3 style="padding-bottom: 10px; color: #333;">What's new?</h3>
+        
+        <table width="100%" cellpadding="12" cellspacing="0">
+          
+          <tr>
+            <td style="border-left: 4px solid #008DDA; background: #f9f9f9; margin-bottom: 20px; display: block; width: 100%; border-radius: 0 4px 4px 0;">
+              <strong style="color: #008DDA; font-size: 15px;">🔍 New Search and Listing</strong><br/>
+              <span style="font-size: 13px; color: #666; display: inline-block; margin-top: 4px;">Find exactly what you want with our advanced filters.</span>
+              
+              <img src="https://res.cloudinary.com/dmfb5ysx8/image/upload/v1777368913/Screenshot_2026-04-28_150440_dbkxkh.png" alt="Search Feature" width="100%" style="display: block; max-width: 100%; height: auto; border-radius: 6px; border: 1px solid #e0e0e0; margin-top: 15px;" />
+            </td>
+          </tr>
+
+          <tr>
+            <td style="border-left: 4px solid #008DDA; background: #f9f9f9; margin-bottom: 20px; display: block; width: 100%; border-radius: 0 4px 4px 0;">
+              <strong style="color: #008DDA; font-size: 15px;">📖 Improved Product Page</strong><br/>
+              <span style="font-size: 13px; color: #666; display: inline-block; margin-top: 4px;">Detailed descriptions and high-quality book previews.</span>
+              
+              <img src="https://res.cloudinary.com/dmfb5ysx8/image/upload/v1777369305/Screenshot_2026-04-28_151126_sypgd9.png" alt="Product Page" width="100%" style="display: block; max-width: 100%; height: auto; border-radius: 6px; border: 1px solid #e0e0e0; margin-top: 15px;" />
+            </td>
+          </tr>
+
+          <tr>
+            <td style="border-left: 4px solid #008DDA; background: #f9f9f9; margin-bottom: 20px; display: block; width: 100%; border-radius: 0 4px 4px 0;">
+              <strong style="color: #008DDA; font-size: 15px;">🛒 Easy Checkout</strong><br/>
+              <span style="font-size: 13px; color: #666; display: inline-block; margin-top: 4px;">Faster, secure, and seamless payment experience.</span>
+              
+              <img src="https://res.cloudinary.com/dmfb5ysx8/image/upload/v1777369894/Screenshot_2026-04-28_152120_b6cyjn.png" alt="Checkout" width="100%" style="display: block; max-width: 100%; height: auto; border-radius: 6px; border: 1px solid #e0e0e0; margin-top: 15px;" />
+            </td>
+          </tr>
+
+          <tr>
+            <td style="border-left: 4px solid #008DDA; background: #f9f9f9; margin-bottom: 20px; display: block; width: 100%; border-radius: 0 4px 4px 0;">
+              <strong style="color: #008DDA; font-size: 15px;">❤️ My Account</strong><br/>
+              <span style="font-size: 13px; color: #666; display: inline-block; margin-top: 4px;">All your favorites and tracking in one place.</span>
+              
+              <img src="https://res.cloudinary.com/dmfb5ysx8/image/upload/v1777369645/Screenshot_2026-04-28_151700_ylshjb.png" alt="My Account" width="100%" style="display: block; max-width: 100%; height: auto; border-radius: 6px; border: 1px solid #e0e0e0; margin-top: 15px;" />
+            </td>
+          </tr>
+
+          <tr>
+            <td style="border-left: 4px solid #008DDA; background: #f9f9f9; display: block; width: 100%; border-radius: 0 4px 4px 0;">
+              <strong style="color: #008DDA; font-size: 15px;">🎁 E-gift Cards</strong><br/>
+              <span style="font-size: 13px; color: #666; display: inline-block; margin-top: 4px;">Perfect for gifting the joy of reading.</span>
+              
+              <img src="https://res.cloudinary.com/dmfb5ysx8/image/upload/v1777369772/Screenshot_2026-04-28_151919_cwgjz2.png" alt="Gift Cards" width="100%" style="display: block; max-width: 100%; height: auto; border-radius: 6px; border: 1px solid #e0e0e0; margin-top: 15px;" />
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+
+  <tr>
+      <td align="center" style="padding: 20px 40px 50px 40px;">
+        
+        <h3 style="margin: 0 0 10px 0; font-family: 'Merriweather', Georgia, serif; font-size: 24px; font-style: italic; color: #0B2F3A; font-weight: normal; letter-spacing: 0.5px;">
+          The story doesn't end here...
+        </h3>
+        
+        <p style="margin: 0 0 30px 0; font-family: 'Montserrat', Helvetica, Arial, sans-serif; font-size: 14px; color: #666666; line-height: 1.6;">
+          Experience the all-new Bagchee and uncover a world of unforgettable reads.
+        </p>
+        
+       <a href="https://ui-production-2b96.up.railway.app/" target="_blank" style="background-color: #FFD700; color: #111111; padding: 15px 35px; text-decoration: none; display: inline-block; border-radius: 6px; font-family: 'Montserrat', Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+          Continue to Bagchee.com
+        </a>
+        
+      </td>
+    </tr>
+
+    <tr>
+      <td align="center" style="padding: 40px 40px 20px 40px; background-color: #ffffff; border-top: 1px solid #f0f0f0;">
+        
+       <h2 style="margin: 0 0 6px 0; font-family: 'Montserrat', Helvetica, Arial, sans-serif; font-size: 20px; color: #0B2F3A; font-weight: 600; letter-spacing: -0.5px;">
+          <span style="font-size: 20px; vertical-align: baseline; margin-right: 2px;">📍</span> Find Your Local Bagchee
+        </h2>
+        
+        <p style="margin: 0 0 15px 0; font-family: 'Montserrat', Helvetica, Arial, sans-serif; font-size: 14px; color: #555555;">
+          Order ahead and have it waiting for you. &nbsp;
+          <a href="https://ui-production-2b96.up.railway.app/" style="color: #008DDA; text-decoration: none; font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #008DDA;">
+            LEARN MORE &rarr;
+          </a>
+        </p>
+        
+        <a href="https://ui-production-2b96.up.railway.app/" target="_blank" style="text-decoration: none;">
+          <img src="https://res.cloudinary.com/dmfb5ysx8/image/upload/v1777373582/ChatGPT_Image_Apr_28_2026_04_15_22_PM_ouvyu3.png" alt="Local Bagchee Store" width="100%" style="display: block; max-width: 100%; height: auto; border-radius: 8px; border: 1px solid #e0e0e0; box-shadow: 0 4px 10px rgba(0,0,0,0.05);" />
+        </a>
+
+      </td>
+    </tr>
+  <tr>
+      <td align="center" bgcolor="#333333" style="padding: 40px 20px; font-family: 'Montserrat', Helvetica, Arial, sans-serif;">
+        
+        <p style="margin: 0 0 20px 0; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #999999;">
+          <a href="#" style="color: #999999; text-decoration: underline;">VIEW IN BROWSER</a>
+        </p>
+
+        <h3 style="margin: 0 0 10px 0; font-size: 18px; color: #ffffff; font-weight: 800;">
+          <a href="https://www.bagchee.com" style="color: #ffffff; text-decoration: none;">www.bagchee.com</a>
+        </h3>
+
+        <p style="margin: 0 0 25px 0; font-size: 12px; color: #008DDA; font-weight: 600;">
+          <a href="#" style="color: #008DDA; text-decoration: none;">About</a> &nbsp;|&nbsp; 
+          <a href="#" style="color: #008DDA; text-decoration: none;">Terms & Conditions</a> &nbsp;|&nbsp; 
+          <a href="#" style="color: #008DDA; text-decoration: none;">Privacy</a>
+        </p>
+
+        <p style="margin: 0 0 10px 0; font-size: 11px; color: #cccccc; line-height: 1.6;">
+          You are receiving this e-mail because you have signed up to the Bagchee newsletter.<br/>
+          Your personal details won't be given to any third parties.<br/>
+          You can <a href="#" style="color: #008DDA; text-decoration: none;">update your subscription</a> or <a href="#" style="color: #008DDA; text-decoration: none;">unsubscribe</a> anytime you want.
+        </p>
+
+        <table border="0" cellspacing="0" cellpadding="0" align="center" style="margin: 25px 0;">
+          <tr>
+            <td align="right" style="font-family: 'Montserrat', Helvetica, Arial, sans-serif; font-size: 11px; color: #cccccc; padding-right: 12px; vertical-align: middle;">
+              Follow Bagchee and be the first to know about latest news & promotions:
+            </td>
+            <td align="left" style="vertical-align: middle;">
+              <a href="#" style="text-decoration: none; display: inline-block; margin-right: 8px;">
+                <img src="https://img.icons8.com/ios-filled/28/ffffff/facebook-new.png" width="28" height="28" alt="Facebook" style="display: block; border: none; outline: none;" />
+              </a>
+              <a href="#" style="text-decoration: none; display: inline-block;">
+                <img src="https://img.icons8.com/ios-filled/28/ffffff/twitter.png" width="28" height="28" alt="Twitter" style="display: block; border: none; outline: none;" />
+              </a>
+            </td>
+          </tr>
+        </table>
+
+        <p style="margin: 20px 0 10px 0; font-size: 11px; color: #999999;">
+          <a href="#" style="color: #999999; text-decoration: underline;">Update Your Preferences</a> &nbsp;|&nbsp; 
+          <a href="#" style="color: #999999; text-decoration: underline;">Unsubscribe</a>
+        </p>
+        <p style="margin: 0; font-size: 11px; color: #999999;">
+          &copy; 2026 Bagchee. All Rights Reserved.
+        </p>
+
+      </td>
+    </tr>
+
+  </table>
+</div>
+    `
+  },
+  {
     name: 'Coupon / Promo Code',
     subject: 'Exclusive Offer Just for You!',
     body: `<div style="text-align:center; padding:20px 0;">
@@ -530,11 +783,10 @@ const SendEmail = () => {
               return (
                 <label
                   key={opt.key}
-                  className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                    checked
-                      ? 'border-primary bg-primary/5 shadow-md'
-                      : 'border-gray-200 hover:border-gray-300 bg-white'
-                  }`}
+                  className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${checked
+                    ? 'border-primary bg-primary/5 shadow-md'
+                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                    }`}
                 >
                   <input
                     type="checkbox"
