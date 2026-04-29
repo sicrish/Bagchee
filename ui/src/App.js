@@ -13,6 +13,7 @@ import useScrollToHash from './hooks/useScrollToHash';
 // 1. Import CurrencyProvider
 import { CurrencyProvider } from './context/CurrencyContext';
 import { CartProvider } from './context/CartContext.jsx';
+import { ConfirmProvider } from './context/ConfirmContext';
 
 // 1. Layouts
 import WebsiteLayout from './layouts/WebsiteLayout.jsx';
@@ -600,6 +601,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
     <CurrencyProvider>
       <CartProvider>
+        <ConfirmProvider>
         <BrowserRouter>
           <ScrollToHashHandler /> {/* 🟢 Hash scroll handler */}
           <Toaster position="top-center" reverseOrder={false} />
@@ -927,6 +929,7 @@ function App() {
           </Suspense>
           </ErrorBoundary>
         </BrowserRouter>
+        </ConfirmProvider>
       </CartProvider>
     </CurrencyProvider>
     </QueryClientProvider>

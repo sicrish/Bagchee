@@ -87,6 +87,28 @@ export const normalizeProduct = (p) => {
 
         // --- Author (flattened for legacy UI) ---
         author: authorObj,
+
+        
+        // --- Product Categories (for Related Subjects) ---
+
+        productCategories: p.productCategories || p.product_categories || (Array.isArray(p.categories) ? p.categories.map(c => c.category || c) : []),
+
+        product_categories: p.productCategories || p.product_categories || (Array.isArray(p.categories) ? p.categories.map(c => c.category || c) : []),
+
+
+
+        // --- Product Tags ---
+
+        productTags: p.productTags || p.product_tags || (Array.isArray(p.tags) ? p.tags.map(t => t.tag || t) : []),
+
+        product_tags: p.productTags || p.product_tags || (Array.isArray(p.tags) ? p.tags.map(t => t.tag || t) : []),
+
+        // --- Series Number ---
+
+        series_number: p.series_number || p.seriesNumber || '',
+
+        seriesNumber: p.seriesNumber || p.series_number || '',
+
     };
 };
 

@@ -716,27 +716,39 @@ const BookDetail = () => {
               <p className="text-base text-gray-700 mb-2">
                 by{" "}
                 <Link
-                  to={`/author/${createAuthorSlug(book.author)}`}
+                  to={`/books/${createAuthorSlug(book.author)}`}
                   className="text-primary hover:underline font-medium"
                 >
                   {getAuthorName(book.author)}
                 </Link>
               </p>
 
-              {/* 🟢 Series Display */}
+            {/* 🟢 Series Display */}
               {book.series && (
                 <p className="text-sm text-gray-500 mb-3">
                   Series:{" "}
-                  <span className="font-medium text-primary">
-                    {typeof book.series === 'object' ? book.series.title : book.series}
-                    {book.series_number ? ` #${book.series_number}` : ''}
-                  </span>
+                  {(() => {
+                    const seriesName = getDisplayValue(book.series);
+                    if (!seriesName) return null;
+                    
+                    // Safe slug generation
+                    const seriesSlug = seriesName.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                    
+                    return (
+                      <span className="font-medium">
+                        <Link to={`/books/${seriesSlug}`} className="text-primary hover:underline transition-colors">
+                          {seriesName}
+                        </Link>
+                       
+                      </span>
+                    );
+                  })()}
                 </p>
               )}
 
               {/* 🟢 STEP: Top Dynamic Rating Section using Reviews Array */}
               <div className="flex items-center gap-4 mt-4 pb-3 border-b border-gray-100">
-                {((reviews && reviews.length > 0) || ((book?.ratedTimes || book?.rated_times) > 0)) ? (
+                {((reviews && reviews.length > 0) || (book?.rating > 0)) ? (
                   <>
                     <div className="flex items-center gap-1">
                       {[...Array(5)].map((_, i) => {
@@ -1053,20 +1065,48 @@ const BookDetail = () => {
                   {/* 🟢 List Layout: Ek ke niche ek (Single Column) */}
                   <div className="space-y-4">
                     {[
+        // 🟢 Series (With Clickable Link & Slug Logic)
                       {
                         label: "Series",
-                        value: book.series
-                          ? typeof book.series === 'object' ? book.series.title : book.series
-                          : null,
+                        value: (() => {
+                          const seriesName = getDisplayValue(book.series);
+                          if (!seriesName) return null;
+                          
+                          // Safe slug generation
+                          const seriesSlug = seriesName.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                          
+                          return (
+                            <span>
+                              <Link to={`/books/${seriesSlug}`} className="transition-colors">
+                                {seriesName}
+                              </Link>
+                              {book.series_number ? `, ${book.series_number}` : ''}
+                            </span>
+                          );
+                        })()
                       },
-                      // 🟢 Series Number Logic
-                      { label: "Series Number", value: book.series_number ? `#${book.series_number}` : null },
                       { label: "Format", value: book.formats?.map(f => f.format?.title || f.title || f)},
                       { label: "Language", value: getDisplayValue(book.language) },
                       { label: "ISBN", value: [book.isbn10, book.isbn13].filter(Boolean).join(" , ") },
                       { label: "Release Date", value: book.pub_date },
                       { label: "Edition", value: book.edition },
-                      { label: "Publisher", value: getDisplayValue(book.publisher) },
+// 🟢 Publisher (With Clickable Link & Slug Logic)
+                      {
+                        label: "Publisher",
+                        value: (() => {
+                          const pubName = getDisplayValue(book.publisher);
+                          if (!pubName) return null;
+                          
+                          // Safe slug generation
+                          const pubSlug = pubName.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                          
+                          return (
+                            <Link to={`/books/${pubSlug}`} className="transition-colors">
+                              {pubName}
+                            </Link>
+                          );
+                        })()
+                      },
                       { label: "Length", value: book.total_pages || book.pages ? `${book.total_pages || book.pages}` : null },
                       { label: "Weight", value: book.weight && String(book.weight).trim() !== '0' && String(book.weight).trim() !== '' ? book.weight : null },
                     ]
@@ -1143,7 +1183,7 @@ const BookDetail = () => {
                     {productCategories.map((cat, idx) => (
                       <Link
                         key={idx}
-                        to={cat.slug ? `/books/${cat.slug}` : `/sale?category=${encodeURIComponent(cat.name)}`}
+                        to={cat.name ? `/books/${encodeURIComponent(cat.name)}` : `/sale?category=${encodeURIComponent(cat.name)}`}
                         className="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs font-medium rounded-full hover:bg-gray-200 transition-colors"
                       >
                         {cat.name}

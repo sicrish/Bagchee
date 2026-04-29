@@ -17,73 +17,36 @@ const EMAIL_TEMPLATES = [
     name: 'Bagchee New Site Launch',
     subject: 'Celebrate our new site with us and get 20% off!',
     body: `
-<div style="background-color: #f4f4f4; padding: 20px; font-family: 'Montserrat', Arial, sans-serif;">
-  <table align="center" border="0" cellpadding="0" cellspacing="0" width="600" style="background-color: #ffffff; border-collapse: collapse; border: 0; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
-    
-<!-- ===== BAGCHEE HEADER ===== -->
+<div style="background-color: #f4f4f4; padding: 20px 10px; font-family: 'Montserrat', Arial, sans-serif;">
+  <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #ffffff; border-collapse: collapse; border: 0; box-shadow: 0 4px 10px rgba(0,0,0,0.1); max-width: 700px; margin: 0 auto;">
+
 <tr>
-  <td align="center" bgcolor="#008DDA" style="padding: 0; margin: 0; border: 0;">
+  <td align="center" bgcolor="#008DDA" style="padding: 15px 10px; border: 0;">
     <table width="100%" border="0" cellspacing="0" cellpadding="0" style="border-collapse: collapse; max-width: 960px; margin: 0 auto;">
-      <tr>
-        <td style="padding: 0 28px; height: 68px; vertical-align: middle;">
-          <table width="100%" border="0" cellspacing="0" cellpadding="0" style="border-collapse: collapse;">
-            <tr>
-
-              <!-- LOGO -->
-              <td style="width: 1%; white-space: nowrap; padding-right: 28px; vertical-align: middle;">
-                <a href="https://ui-production-2b96.up.railway.app/" target="_blank" style="text-decoration: none; display: inline-flex; align-items: center; gap: 10px;">
-                  
-                  <!-- Book Icon Box -->
-                 <span style="display: inline-block; width: 34px; height: 34px; background: rgba(255,255,255,0.2); border-radius: 8px; text-align: center; line-height: 34px; vertical-align: middle;">
-                    <img src="https://res.cloudinary.com/dmfb5ysx8/image/upload/v1777378372/logo_iaapi2.png" width="20" height="20" alt="Bagchee Logo" style="vertical-align: middle; margin: 0; border: none; outline: none; display: inline-block;"/>
-                  </span>
-
-                  <!-- Logo Text -->
-                  <span style="display: inline-block; vertical-align: middle;">
-                    <span style="display: block; font-family: 'Jost', Helvetica, Arial, sans-serif; font-size: 17px; font-weight: 700; color: #ffffff; letter-spacing: 1.5px; line-height: 1;">BAGCHEE</span>
-                    <span style="display: block; font-family: 'Jost', Helvetica, Arial, sans-serif; font-size: 7.5px; font-weight: 400; color: rgba(255,255,255,0.6); letter-spacing: 2px; text-transform: uppercase; margin-top: 3px; line-height: 1;">Books that stick</span>
-                  </span>
-                </a>
-              </td>
-
-              <!-- VERTICAL DIVIDER -->
-              <td style="width: 1px; padding: 0; white-space: nowrap;">
-                <div style="width: 1px; height: 30px; background: rgba(255,255,255,0.3); margin-right: 24px;"></div>
-              </td>
-
-              <!-- NAV LINKS -->
-              <td style="vertical-align: middle; white-space: nowrap; padding-left: 8px;">
-               
-                <a href="https://ui-production-2b96.up.railway.app/new-arrivals" target="_blank"
-                   style="font-family: 'Jost', Helvetica, Arial, sans-serif; font-size: 12px; font-weight: 500; color: #ffffff; text-decoration: none; padding: 6px 12px; letter-spacing: 0.3px;">
-                  New Arrivals
-                </a>
-                <a href="https://ui-production-2b96.up.railway.app/bestsellers" target="_blank"
-                   style="font-family: 'Jost', Helvetica, Arial, sans-serif; font-size: 12px; font-weight: 500; color: #ffffff; text-decoration: none; padding: 6px 12px; letter-spacing: 0.3px;">
-                  Bestsellers
-                </a>
-                <a href="https://ui-production-2b96.up.railway.app/recommended" target="_blank"
-                   style="font-family: 'Jost', Helvetica, Arial, sans-serif; font-size: 12px; font-weight: 500; color: #ffffff; text-decoration: none; padding: 6px 12px; letter-spacing: 0.3px;">
-                  Recommended
-                </a>
-                <a href="https://ui-production-2b96.up.railway.app/gift-card" target="_blank"
-                   style="font-family: 'Jost', Helvetica, Arial, sans-serif; font-size: 12px; font-weight: 500; color: #ffffff; text-decoration: none; padding: 6px 12px; letter-spacing: 0.3px;">
-                  E-Gift Card
-                </a>
-                <a href="https://ui-production-2b96.up.railway.app/sale" target="_blank"
-                   style="font-family: 'Jost', Helvetica, Arial, sans-serif; font-size: 12px; font-weight: 600; color: #ffffff; text-decoration: none; padding: 6px 14px; background: #CC2200; border-radius: 20px; letter-spacing: 0.3px;">
-                  ● Sale
-                </a>
-              </td>
-
-            </tr>
-          </table>
+    <tr>
+        <td align="center" style="background-color: #0d8bd0; padding: 8px;">
+          
+          <a href="https://ui-production-2b96.up.railway.app/" target="_blank" style="text-decoration: none; display: inline-block; border: 2px solid rgba(255, 255, 255, 0.2); border-radius: 12px; padding: 5px 24px;">
+            
+            <span style="display: inline-block; width: 48px; height: 48px; background: #ffffff; border-radius: 12px; text-align: center; line-height: 48px; vertical-align: middle; margin-right: 16px;">
+              <img src="https://res.cloudinary.com/dmfb5ysx8/image/upload/v1777378372/logo_iaapi2.png" width="30" height="30" alt="Bagchee Logo" style="vertical-align: middle; margin: 0; border: none; outline: none; display: inline-block;"/>
+            </span>
+  
+            <span style="display: inline-block; text-align: left; vertical-align: middle;">
+              <span style="display: block; font-family: 'Jost', Helvetica, Arial, sans-serif; font-size: 26px; font-weight: 700; color: #ffffff; letter-spacing: 2px; line-height: 1;">BAGCHEE</span>
+              <span style="display: block; font-family: 'Jost', Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 600; color: #ffffff; letter-spacing: 2.5px; text-transform: uppercase; margin-top: 6px; line-height: 1;">Books that stick</span>
+            </span>
+            
+          </a>
+          
         </td>
       </tr>
+
+      
+      
     </table>
   </td>
 </tr>
-<!-- ===== END HEADER ===== -->  
 
    <tr>
       <td align="center" bgcolor="#ffffff" style="padding: 10px 20px 5px 20px;">
@@ -193,12 +156,8 @@ const EMAIL_TEMPLATES = [
     </tr>
 
     <tr>
-      <td align="center" style="padding: 40px 40px 20px 40px; background-color: #ffffff; border-top: 1px solid #f0f0f0;">
-        
-       <h2 style="margin: 0 0 6px 0; font-family: 'Montserrat', Helvetica, Arial, sans-serif; font-size: 20px; color: #0B2F3A; font-weight: 600; letter-spacing: -0.5px;">
-          <span style="font-size: 20px; vertical-align: baseline; margin-right: 2px;">📍</span> Find Your Local Bagchee
-        </h2>
-        
+      <td align="center" style="padding: 20px 40px 20px 40px; background-color: #ffffff; border-top: 1px solid #f0f0f0;">
+           
         <p style="margin: 0 0 15px 0; font-family: 'Montserrat', Helvetica, Arial, sans-serif; font-size: 14px; color: #555555;">
           Order ahead and have it waiting for you. &nbsp;
           <a href="https://ui-production-2b96.up.railway.app/" style="color: #008DDA; text-decoration: none; font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #008DDA;">
@@ -207,7 +166,7 @@ const EMAIL_TEMPLATES = [
         </p>
         
         <a href="https://ui-production-2b96.up.railway.app/" target="_blank" style="text-decoration: none;">
-          <img src="https://res.cloudinary.com/dmfb5ysx8/image/upload/v1777373582/ChatGPT_Image_Apr_28_2026_04_15_22_PM_ouvyu3.png" alt="Local Bagchee Store" width="100%" style="display: block; max-width: 100%; height: auto; border-radius: 8px; border: 1px solid #e0e0e0; box-shadow: 0 4px 10px rgba(0,0,0,0.05);" />
+          <img src="https://res.cloudinary.com/dmfb5ysx8/image/upload/v1777464195/ChatGPT_Image_Apr_29_2026_05_31_36_PM_ztew1i.png" alt="Local Bagchee Store" width="100%" style="display: block; max-width: 100%; height: auto; border-radius: 8px; border: 1px solid #e0e0e0; box-shadow: 0 4px 10px rgba(0,0,0,0.05);" />
         </a>
 
       </td>
@@ -235,21 +194,6 @@ const EMAIL_TEMPLATES = [
           You can <a href="#" style="color: #008DDA; text-decoration: none;">update your subscription</a> or <a href="#" style="color: #008DDA; text-decoration: none;">unsubscribe</a> anytime you want.
         </p>
 
-        <table border="0" cellspacing="0" cellpadding="0" align="center" style="margin: 25px 0;">
-          <tr>
-            <td align="right" style="font-family: 'Montserrat', Helvetica, Arial, sans-serif; font-size: 11px; color: #cccccc; padding-right: 12px; vertical-align: middle;">
-              Follow Bagchee and be the first to know about latest news & promotions:
-            </td>
-            <td align="left" style="vertical-align: middle;">
-              <a href="#" style="text-decoration: none; display: inline-block; margin-right: 8px;">
-                <img src="https://img.icons8.com/ios-filled/28/ffffff/facebook-new.png" width="28" height="28" alt="Facebook" style="display: block; border: none; outline: none;" />
-              </a>
-              <a href="#" style="text-decoration: none; display: inline-block;">
-                <img src="https://img.icons8.com/ios-filled/28/ffffff/twitter.png" width="28" height="28" alt="Twitter" style="display: block; border: none; outline: none;" />
-              </a>
-            </td>
-          </tr>
-        </table>
 
         <p style="margin: 20px 0 10px 0; font-size: 11px; color: #999999;">
           <a href="#" style="color: #999999; text-decoration: underline;">Update Your Preferences</a> &nbsp;|&nbsp; 
