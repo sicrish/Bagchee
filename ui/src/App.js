@@ -101,6 +101,10 @@ const SecureShopping = lazy(() => import('./pages/website/SecureShopping.jsx'));
 // import FreeDelivery from './pages/website/FreeDelivery.jsx';
 const FreeDelivery = lazy(() => import('./pages/website/FreeDelivery.jsx'));
 
+const PaymentOptions = lazy(() => import('./pages/website/PaymentOptions.jsx'));
+const ShippingInfo = lazy(() => import('./pages/website/ShippingInfo.jsx'));
+const ReturnsRefunds = lazy(() => import('./pages/website/ReturnsRefunds.jsx'));
+
 
 // Help Pages
 // import HelpDesk from './pages/website/HelpDesk.jsx';
@@ -144,6 +148,7 @@ const TraceOrder = lazy(() => import('./pages/website/TraceOrder.jsx'));
 const OrderReceipt = lazy(() => import('./pages/website/OrderReceipt.jsx'));
 const NotFound = lazy(() => import('./pages/website/NotFound.jsx'));
 const UnderMaintenance = lazy(() => import('./pages/website/UnderMaintenance.jsx'));
+const Disclaimer = lazy(() => import('./pages/website/Disclaimer.jsx'));
 
 
 
@@ -700,11 +705,11 @@ function App() {
               <Route path="order-receipt" element={<OrderReceipt />} />
               <Route path="pay/:orderId/:token" element={<PaymentPage />} />
               <Route path="manage-account" element={<Profile />} />
-              {/* <Route path="payment-options" element={<PaymentOptions />} /> */}
-              {/* <Route path="shipping-info" element={<ShippingInfo />} />
-              <Route path="returns-refunds" element={<ReturnsRefunds />} /> */}
+              <Route path="payment-options" element={<PaymentOptions />} />
+              <Route path="shipping-info" element={<ShippingInfo />} />
+              <Route path="returns-refunds" element={<ReturnsRefunds />} />
               <Route path="contact-us" element={<ContactUs />} />
-              <Route path="disclaimer" element={<UnderMaintenance />} />
+              <Route path="disclaimer" element={<Disclaimer />} />
 
             </Route>
 

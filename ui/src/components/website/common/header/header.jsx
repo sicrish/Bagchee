@@ -200,7 +200,7 @@ const CategoriesDropdown = memo(({ onLinkClick }) => {
   const { data: allCats = [] } = useQuery({
     queryKey: ['headerCategories'],
     queryFn: async () => {
-      const res = await axios.get(`${API_URL}/categories/fetch`);
+      const res = await axios.get(`${API_URL}/category/fetch?limit=200`);
       return res.data.status ? res.data.data : [];
     },
     staleTime: 1000 * 60 * 15,
@@ -222,18 +222,16 @@ const CategoriesDropdown = memo(({ onLinkClick }) => {
     return <div className="p-6 text-sm text-gray-400 text-center">Loading categories…</div>;
   }
 
-  const half = Math.ceil(displayCats.length / 2);
-  const col1 = displayCats.slice(0, half);
-  const col2 = displayCats.slice(half);
+  const third = Math.ceil(displayCats.length / 3);
+  const col1 = displayCats.slice(0, third);
+  const col2 = displayCats.slice(third, third * 2);
+  const col3 = displayCats.slice(third * 2);
 
-  const catLink = (cat) => {
-    const slug = cat.slug || cat.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-    return `/books?category=${cat.id}`;
-  };
+  const catLink = (cat) => `/books?category=${cat.id}`;
 
   return (
     <div className="p-5">
-      <div className="grid grid-cols-3 gap-x-6">
+      <div className="grid grid-cols-4 gap-x-6">
         {/* Column 1 */}
         <div>
           <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-3 pb-2 border-b border-primary/20 font-montserrat">Browse Categories</p>
@@ -266,7 +264,23 @@ const CategoriesDropdown = memo(({ onLinkClick }) => {
             ))}
           </ul>
         </div>
-        {/* Column 3 — quick links */}
+        {/* Column 3 */}
+        <div>
+          <p className="text-[10px] font-bold text-transparent uppercase tracking-widest mb-3 pb-2 border-b border-transparent font-montserrat">‎</p>
+          <ul className="space-y-1">
+            {col3.map(cat => (
+              <li key={cat.id}>
+                <button
+                  onClick={() => onLinkClick(catLink(cat))}
+                  className="text-sm text-gray-600 hover:text-primary transition-colors text-left w-full py-0.5 font-body"
+                >
+                  {cat.title}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+        {/* Column 4 — quick links */}
         <div>
           <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-3 pb-2 border-b border-primary/20 font-montserrat">Quick Links</p>
           <ul className="space-y-1">
@@ -438,7 +452,7 @@ const PremiumHeader = () => {
 
       setIsSearching(true);
       try {
-        const res = await axios.get(`${process.env.REACT_APP_API_URL}/product/fetch?keyword=${searchTerm.trim()}&limit=8`);
+        const res = await axios.get(`${process.env.REACT_APP_API_URL}/product/search-suggestions?keyword=${encodeURIComponent(searchTerm.trim())}&limit=10`);
         if (res.data.status) {
           setSuggestions(res.data.data);
         }
@@ -900,6 +914,19 @@ const PremiumHeader = () => {
                 </div>
               );
             })}
+
+            {/* Books of the Month — always shown */}
+            {!navItems.some(n => (n.item || n.name || '').toLowerCase().includes('books of the month')) && (
+              <div className="relative flex items-center h-full px-0.5">
+                <Link
+                  to="/books-of-the-month"
+                  onClick={handleNavigation}
+                  className="relative flex items-center transition-all duration-300 font-bold font-montserrat rounded-full whitespace-nowrap px-2 py-1.5 lg:px-5 lg:py-2 text-[10px] min-[850px]:text-xs lg:text-sm tracking-tighter lg:tracking-normal bg-primary-50 text-primary-dark hover:bg-primary hover:text-white hover:shadow-md"
+                >
+                  Books of the Month
+                </Link>
+              </div>
+            )}
           </nav>
         </div>
       </div>
@@ -1006,24 +1033,37 @@ const SearchSuggestions = memo(({ suggestions, isSearching, searchTerm, onSelect
       ) : suggestions.length > 0 ? (
         <div className="max-h-[380px] overflow-y-auto custom-scrollbar font-body">
           {suggestions.map((item) => {
+            const type = item.type || (item.isbn13 ? 'book' : item.categorytitle ? 'category' : 'item');
+            const displayTitle = item.title || item.categorytitle || "Unnamed";
             let typeLabel = "Item";
-            let displayTitle = item.title || item.categorytitle || "Unnamed";
             let subText = "";
+            let linkTo = `/books?keyword=${encodeURIComponent(displayTitle)}`;
 
-            if (item.isbn13) {
+            if (type === 'book' || item.isbn13) {
               typeLabel = "Book";
-              subText = item.author ? `by ${item.author.first_name} ${item.author.last_name}` : "";
-            } else if (item.categorytitle) {
-              typeLabel = "Category";
-            } else if (item.first_name) {
+              const authorObj = item.author;
+              subText = authorObj ? `by ${authorObj.firstName || authorObj.first_name || ''} ${authorObj.lastName || authorObj.last_name || ''}`.trim() : "";
+              linkTo = `/books/${item.bagcheeId || item.id}/${displayTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}`;
+            } else if (type === 'author') {
               typeLabel = "Author";
-              displayTitle = `${item.first_name} ${item.last_name}`;
+              const authorSlug = displayTitle.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+              linkTo = `/author/${authorSlug}`;
+            } else if (type === 'category') {
+              typeLabel = "Category";
+              linkTo = item.slug ? `/books?category=${item.slug}` : `/books?keyword=${encodeURIComponent(displayTitle)}`;
+            } else if (type === 'series') {
+              typeLabel = "Series";
+              const seriesSlug = displayTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+              linkTo = `/series/${seriesSlug}`;
+            } else if (type === 'publisher') {
+              typeLabel = "Publisher";
+              linkTo = item.slug ? `/publisher/${item.slug}` : `/books?keyword=${encodeURIComponent(displayTitle)}`;
             }
 
             return (
               <Link
-                key={item._id}
-                to={`/books?keyword=${encodeURIComponent(displayTitle)}`}
+                key={`${type}-${item.id}`}
+                to={linkTo}
                 onClick={() => onSelect()}
                 className="flex items-center justify-between px-4 py-3 hover:bg-cream-50 transition-colors border-b border-gray-50 last:border-0 group"
               >

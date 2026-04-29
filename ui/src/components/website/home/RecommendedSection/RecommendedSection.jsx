@@ -12,7 +12,7 @@ import toast from 'react-hot-toast';
 // 🟢 Skeleton Component: Loading ke waqt layout ko stable rakhne ke liye
 const ProductSkeleton = () => (
     <div className="bg-cream-100 rounded-lg overflow-hidden animate-pulse border border-gray-100">
-        <div className="aspect-[2/3] bg-gray-200" />
+        <div className="aspect-[3/4] bg-gray-200" />
         <div className="p-3 space-y-2">
             <div className="h-3 bg-gray-200 rounded w-3/4" />
             <div className="h-2 bg-gray-200 rounded w-1/2" />
@@ -143,7 +143,7 @@ const createSlug = (title) => {
                                     <div key={bookId} className="bg-cream-100 hover:shadow-xl transition-all group cursor-pointer flex flex-col block rounded-lg overflow-hidden border border-transparent hover:border-primary-100 relative">
 
                                         {/* 🟢 Image Click -> Details Page */}
-                                        <div className="relative aspect-[2/3] overflow-hidden bg-gray-200" onClick={() => {
+                                        <div className="relative aspect-[3/4] overflow-hidden bg-gray-200" onClick={() => {
                                             const slug = createSlug(book.title);
                                             // 🟢 Redirect to professional URL format
                                             navigate(`/books/${bagcheeId}/${slug}`);
@@ -152,12 +152,12 @@ const createSlug = (title) => {
                                                 src={imageUrl}
                                                 alt={book.title}
                                                 loading="lazy"
-                                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                                className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
                                                 onError={(e) => { e.target.src = "https://placehold.co/300x450?text=Error"; }}
                                             />
 
                                             {book.discount && Number(book.discount) >= 20 && (
-                                                <div className="absolute top-2 left-2 bg-secondary text-white w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center text-[9px] md:text-[10px] font-bold shadow-md z-10 font-montserrat">
+                                                <div className="absolute top-2 left-2 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-sm shadow-sm z-10 font-montserrat">
                                                     {book.discount}%
                                                 </div>
                                             )}

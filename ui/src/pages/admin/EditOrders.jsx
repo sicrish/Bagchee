@@ -41,6 +41,7 @@ const EditOrders = () => {
   const [fetching, setFetching] = useState(true);
   const [approving, setApproving] = useState(false);
   const [paymentLink, setPaymentLink] = useState('');
+  const [resending, setResending] = useState(false);
   const [purchaseOrderNumber, setPurchaseOrderNumber] = useState('');
 
   // Dropdown Data
@@ -416,6 +417,26 @@ const EditOrders = () => {
     }
   };
 
+  // Resend payment link email
+  const handleResendPaymentLink = async () => {
+    if (!window.confirm('Resend payment link email to the customer?')) return;
+    setResending(true);
+    const toastId = toast.loading('Resending payment link...');
+    try {
+      const API_URL = process.env.REACT_APP_API_URL;
+      const res = await axios.post(`${API_URL}/orders/${id}/resend-payment-link`);
+      if (res.data.status) {
+        toast.success('Payment link resent successfully!', { id: toastId });
+      } else {
+        toast.error(res.data.msg || 'Failed to resend', { id: toastId });
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.msg || 'Failed to resend', { id: toastId });
+    } finally {
+      setResending(false);
+    }
+  };
+
   // Jodit Config
   const config = useMemo(() => ({
     readonly: false,
@@ -477,9 +498,20 @@ const EditOrders = () => {
             {paymentLink && (
               <div className="grid grid-cols-12 gap-4 items-center">
                 <label className={labelClass}>Payment link</label>
-                <div className="col-span-9">
-                  <a href={paymentLink} target="_blank" rel="noreferrer" className="text-primary text-[12px] font-bold hover:underline break-all">{paymentLink}</a>
-                  <p className="text-[10px] text-gray-400 mt-0.5">This link was emailed to the customer.</p>
+                <div className="col-span-9 flex flex-col gap-2">
+                  <div className="flex items-center gap-3">
+                    <a href={paymentLink} target="_blank" rel="noreferrer" className="text-primary text-[12px] font-bold hover:underline break-all flex-1">{paymentLink}</a>
+                    <button
+                      type="button"
+                      onClick={handleResendPaymentLink}
+                      disabled={resending}
+                      className="shrink-0 bg-orange-500 hover:bg-orange-600 text-white px-3 py-1.5 rounded text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all disabled:opacity-50"
+                    >
+                      {resending ? <Loader2 size={12} className="animate-spin" /> : <Mail size={12} />}
+                      Send Mail Again
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-gray-400">This link was emailed to the customer.</p>
                 </div>
               </div>
             )}

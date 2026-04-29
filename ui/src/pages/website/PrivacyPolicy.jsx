@@ -81,7 +81,7 @@ const PrivacyPolicy = () => {
                   className="privacy-content font-body text-gray-700 leading-relaxed text-lg prose prose-blue max-w-none
                   prose-headings:font-display prose-headings:text-text-main prose-headings:mt-8 prose-headings:mb-4
                   prose-p:mb-5 prose-strong:text-primary prose-strong:font-bold"
-                  dangerouslySetInnerHTML={createSafeHtml(data?.page_content)} 
+                  dangerouslySetInnerHTML={createSafeHtml(data?.pageContent || data?.page_content)}
                 />
               </div>
             </section>

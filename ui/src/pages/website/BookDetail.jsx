@@ -702,6 +702,13 @@ const BookDetail = () => {
 
               </div>
 
+              {/* Sale label */}
+              {hasDiscount && (
+                <div className="inline-flex items-center gap-1.5 bg-red-600 text-white text-[10px] font-bold px-3 py-1 rounded-full font-montserrat uppercase tracking-wide shadow-sm mb-3">
+                  SALE
+                </div>
+              )}
+
               {/* Title */}
               <h1 className="text-xl lg:text-3xl font-display font-bold text-gray-900 mb-1 leading-snug">
                 {book.title}
@@ -728,19 +735,14 @@ const BookDetail = () => {
                 <p className="text-sm text-gray-500 mb-3">
                   Series:{" "}
                   {(() => {
-                    const seriesName = getDisplayValue(book.series);
-                    if (!seriesName) return null;
-                    
-                    // Safe slug generation
-                    const seriesSlug = seriesName.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-                    
+                    const seriesTitle = typeof book.series === 'object' ? book.series.title : book.series;
+                    const seriesSlug = (typeof book.series === 'object' && book.series.slug)
+                      ? book.series.slug
+                      : seriesTitle?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
                     return (
-                      <span className="font-medium">
-                        <Link to={`/books/${seriesSlug}`} className="text-primary hover:underline transition-colors">
-                          {seriesName}
-                        </Link>
-                       
-                      </span>
+                      <Link to={`/series/${seriesSlug}`} className="font-medium text-primary hover:underline">
+                        {seriesTitle}{book.series_number ? ` #${book.series_number}` : ''}
+                      </Link>
                     );
                   })()}
                 </p>
@@ -748,7 +750,7 @@ const BookDetail = () => {
 
               {/* 🟢 STEP: Top Dynamic Rating Section using Reviews Array */}
               <div className="flex items-center gap-4 mt-4 pb-3 border-b border-gray-100">
-                {((reviews && reviews.length > 0) || (book?.rating > 0)) ? (
+                {((reviews && reviews.length > 0) || ((book?.ratedTimes || book?.rated_times) > 0) || (book?.rating > 0)) ? (
                   <>
                     <div className="flex items-center gap-1">
                       {[...Array(5)].map((_, i) => {
@@ -1064,60 +1066,49 @@ const BookDetail = () => {
                 <div className="animate-fadeIn max-w-2xl">
                   {/* 🟢 List Layout: Ek ke niche ek (Single Column) */}
                   <div className="space-y-4">
-                    {[
-        // 🟢 Series (With Clickable Link & Slug Logic)
-                      {
-                        label: "Series",
-                        value: (() => {
-                          const seriesName = getDisplayValue(book.series);
-                          if (!seriesName) return null;
-                          
-                          // Safe slug generation
-                          const seriesSlug = seriesName.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-                          
-                          return (
-                            <span>
-                              <Link to={`/books/${seriesSlug}`} className="transition-colors">
-                                {seriesName}
-                              </Link>
-                              {book.series_number ? `, ${book.series_number}` : ''}
-                            </span>
-                          );
-                        })()
-                      },
-                      { label: "Format", value: book.formats?.map(f => f.format?.title || f.title || f)},
-                      { label: "Language", value: getDisplayValue(book.language) },
-                      { label: "ISBN", value: [book.isbn10, book.isbn13].filter(Boolean).join(" , ") },
-                      { label: "Release Date", value: book.pub_date },
-                      { label: "Edition", value: book.edition },
-// 🟢 Publisher (With Clickable Link & Slug Logic)
-                      {
-                        label: "Publisher",
-                        value: (() => {
-                          const pubName = getDisplayValue(book.publisher);
-                          if (!pubName) return null;
-                          
-                          // Safe slug generation
-                          const pubSlug = pubName.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-                          
-                          return (
-                            <Link to={`/books/${pubSlug}`} className="transition-colors">
-                              {pubName}
-                            </Link>
-                          );
-                        })()
-                      },
-                      { label: "Length", value: book.total_pages || book.pages ? `${book.total_pages || book.pages}` : null },
-                      { label: "Weight", value: book.weight && String(book.weight).trim() !== '0' && String(book.weight).trim() !== '' ? book.weight : null },
-                    ]
-                      .filter((row) => row.value)
-                      .map((row) => (
-                        <div key={row.label} className="flex items-start text-sm border-b border-gray-50 pb-3 last:border-0">
-                          {/* Label and Value side by side but in a vertical list flow */}
-                          <span className="text-gray-500 font-medium w-40 shrink-0">{row.label}:</span>
-                          <span className="text-gray-900 font-semibold">{row.value}</span>
-                        </div>
-                      ))}
+                    {(() => {
+                      const seriesTitle = book.series
+                        ? (typeof book.series === 'object' ? book.series.title : book.series)
+                        : null;
+                      const seriesSlug = seriesTitle
+                        ? ((typeof book.series === 'object' && book.series.slug)
+                          ? book.series.slug
+                          : seriesTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''))
+                        : null;
+                      const seriesValue = seriesTitle
+                        ? (book.series_number ? `${seriesTitle}, ${book.series_number}` : seriesTitle)
+                        : null;
+
+                      const pubName = getDisplayValue(book.publisher);
+                      const pubSlug = pubName
+                        ? ((typeof book.publisher === 'object' && book.publisher.slug)
+                          ? book.publisher.slug
+                          : pubName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''))
+                        : null;
+
+                      return [
+                        { label: "Series", value: seriesValue, link: seriesSlug ? `/series/${seriesSlug}` : null },
+                        { label: "Format", value: book.formats?.map(f => f.format?.title || f.title || f) },
+                        { label: "Language", value: getDisplayValue(book.language) },
+                        { label: "ISBN", value: [book.isbn10, book.isbn13].filter(Boolean).join(" , ") },
+                        { label: "Release Date", value: book.pub_date },
+                        { label: "Edition", value: book.edition },
+                        { label: "Publisher", value: pubName, link: pubSlug ? `/publisher/${pubSlug}` : null },
+                        { label: "Length", value: book.total_pages || book.pages ? `${book.total_pages || book.pages}` : null },
+                        { label: "Weight", value: book.weight && String(book.weight).trim() !== '0' && String(book.weight).trim() !== '' ? book.weight : null },
+                      ]
+                        .filter((row) => row.value)
+                        .map((row) => (
+                          <div key={row.label} className="flex items-start text-sm border-b border-gray-50 pb-3 last:border-0">
+                            <span className="text-gray-500 font-medium w-40 shrink-0">{row.label}:</span>
+                            {row.link ? (
+                              <Link to={row.link} className="text-primary font-semibold hover:underline">{row.value}</Link>
+                            ) : (
+                              <span className="text-gray-900 font-semibold">{row.value}</span>
+                            )}
+                          </div>
+                        ));
+                    })()}
                   </div>
                 </div>
               )}
@@ -1500,15 +1491,24 @@ const BookDetail = () => {
                     <div className="p-2">
                       <p className="text-xs font-medium text-gray-800 line-clamp-2 mb-1">{sb.title}</p>
                       {sb.series_number && <p className="text-[10px] text-gray-500">#{sb.series_number}</p>}
-                      {/* 🟢 FIXED: Using formatPrice for proper currency display */}
-                      <p className="text-sm font-bold text-primary">
-                        {(() => {
-                          const mPrice = Number(sb.price || 0);
-                          const rPrice = Number(sb.realPrice || sb.real_price || 0);
-                          const iPrice = Number(sb.inrPrice || sb.inr_price || 0);
-                          return formatPrice(mPrice, iPrice, rPrice);
-                        })()}
-                      </p>
+                      {(() => {
+                        const mPrice = Number(sb.price || 0);
+                        const rPrice = Number(sb.realPrice || sb.real_price || 0);
+                        const iPrice = Number(sb.inrPrice || sb.inr_price || 0);
+                        const hasDiscount = sb.real_price && rPrice > mPrice;
+                        return (
+                          <>
+                            <p className="text-sm font-bold text-primary">
+                              {formatPrice(mPrice, iPrice, rPrice)}
+                            </p>
+                            {hasDiscount && (
+                              <span className="text-[10px] text-gray-400 line-through">
+                                {formatPrice(mPrice, iPrice, mPrice)}
+                              </span>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   </Link>
                 );

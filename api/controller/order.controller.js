@@ -479,6 +479,27 @@ export const approveOrder = async (req, res) => {
     }
 };
 
+// POST /orders/:id/resend-payment-link — resend the payment link email to customer
+export const resendPaymentLink = async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) return res.status(400).json({ status: false, msg: 'Invalid ID' });
+
+        const order = await prisma.order.findUnique({ where: { id }, include: { customer: true, items: { include: { product: true } } } });
+        if (!order) return res.status(404).json({ status: false, msg: 'Order not found' });
+        if (!order.paymentLink) return res.status(400).json({ status: false, msg: 'No payment link for this order' });
+
+        const email = order.shippingEmail || order.customer?.email;
+        if (!email) return res.status(400).json({ status: false, msg: 'No customer email found' });
+
+        await sendPaymentLinkEmail(email, order, order.paymentLink);
+        res.json({ status: true, msg: 'Payment link email resent successfully' });
+    } catch (error) {
+        console.error('Resend Payment Link Error:', error);
+        res.status(500).json({ status: false, msg: 'Failed to resend payment link' });
+    }
+};
+
 // DELETE /orders/:id
 export const deleteOrder = async (req, res) => {
     try {

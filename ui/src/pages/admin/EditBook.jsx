@@ -50,6 +50,9 @@ const EditBook = () => {
     const [isTagDropdownOpen, setIsTagDropdownOpen] = useState(false);
     const [authorSearch, setAuthorSearch] = useState("");
     const [isAuthorDropdownOpen, setIsAuthorDropdownOpen] = useState(false);
+    const [authorSearchResults, setAuthorSearchResults] = useState([]);
+    const [authorSearchLoading, setAuthorSearchLoading] = useState(false);
+    const [selectedAuthorsCache, setSelectedAuthorsCache] = useState({});
     const [formatSearch, setFormatSearch] = useState("");
     const [isFormatDropdownOpen, setIsFormatDropdownOpen] = useState(false);
     const [seriesSearch, setSeriesSearch] = useState("");
@@ -143,7 +146,7 @@ const EditBook = () => {
                 axios.get(`${API_URL}/category/fetch`),
                 axios.get(`${API_URL}/languages/list`),
                 axios.get(`${API_URL}/tags/list`),
-                axios.get(`${API_URL}/authors/list`),
+                Promise.resolve({ data: { data: [] } }),
                 axios.get(`${API_URL}/formats/list`),
                 axios.get(`${API_URL}/series/list`),
                 axios.get(`${API_URL}/publishers/list`),
@@ -158,7 +161,7 @@ const EditBook = () => {
                 categories: catRes.data.data || [],
                 languages: langRes.data.data || [],
                 tags: tagRes.data.data || [],
-                authors: authRes.data.data || [],
+                authors: [],
                 formats: fmtRes.data.data || [],
                 series: serRes.data.data || [],
                 publishers: pubRes.data.data || [],
@@ -286,6 +289,16 @@ const EditBook = () => {
                 setServerImage(cleanPath);
             }
 
+            if (book.authors) {
+                const cache = {};
+                book.authors.forEach(a => {
+                    const id = a.authorId || a.author?.id;
+                    const name = a.author?.fullName || `${a.author?.firstName || ''} ${a.author?.lastName || ''}`.trim();
+                    if (id && name) cache[String(id)] = name;
+                });
+                setSelectedAuthorsCache(cache);
+            }
+
             setSynopsis(book.synopsis || book.description || '');
             setCriticsNote(book.criticsNote || book.critics_note || '');
             setSearchText(book.searchText || book.search_text || '');
@@ -345,6 +358,23 @@ const EditBook = () => {
 
 
     // Related Search Debounce
+    useEffect(() => {
+        const delayDebounceFn = setTimeout(async () => {
+            if (authorSearch.length > 1 && isAuthorDropdownOpen) {
+                setAuthorSearchLoading(true);
+                try {
+                    const API_URL = process.env.REACT_APP_API_URL;
+                    const res = await axios.get(`${API_URL}/authors/list?q=${encodeURIComponent(authorSearch)}&limit=20`);
+                    if (res.data.status) setAuthorSearchResults(res.data.data || []);
+                } catch { setAuthorSearchResults([]); }
+                finally { setAuthorSearchLoading(false); }
+            } else {
+                setAuthorSearchResults([]);
+            }
+        }, 350);
+        return () => clearTimeout(delayDebounceFn);
+    }, [authorSearch, isAuthorDropdownOpen]);
+
     useEffect(() => {
         const delayDebounceFn = setTimeout(async () => {
             if (relatedSearchQuery.length > 2 && isRelatedDropdownOpen) {
@@ -909,8 +939,7 @@ const EditBook = () => {
                                     <div className="border border-gray-300 rounded p-2 bg-white cursor-pointer min-h-[38px] flex flex-wrap gap-2 items-center hover:border-primary transition-colors" onClick={() => setIsAuthorDropdownOpen(!isAuthorDropdownOpen)}>
                                         {formData.authors.length > 0 ? (
                                             formData.authors.map((authId, idx) => {
-                                                const author = authors.find(a => String(a.id || a._id) === String(authId));
-                                                const authorName = author ? `${author.firstName || author.first_name || ''} ${author.lastName || author.last_name || ''}`.trim() : String(authId);
+                                                const authorName = selectedAuthorsCache[String(authId)] || `Author #${authId}`;
                                                 return (
                                                     <span key={idx} className="bg-blue-50 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded border border-blue-100 flex items-center gap-1">
                                                         {authorName}
@@ -927,11 +956,21 @@ const EditBook = () => {
                                                 <input type="text" placeholder="Search authors..." value={authorSearch} onChange={(e) => setAuthorSearch(e.target.value)} onClick={(e) => e.stopPropagation()} className="w-full text-xs p-1.5 border border-gray-300 rounded focus:border-primary outline-none bg-white" autoFocus />
                                             </div>
                                             <div className="max-h-48 overflow-y-auto p-1 scrollbar-thin">
-                                                {authors.filter(a => `${a.firstName || a.first_name || ''} ${a.lastName || a.last_name || ''}`.toLowerCase().includes(authorSearch.toLowerCase())).map((auth) => {
-                                                    const isSelected = formData.authors.includes(auth.id || auth._id);
+                                                {authorSearchLoading ? (
+                                                    <div className="p-3 text-xs text-gray-400 text-center">Searching...</div>
+                                                ) : authorSearch.length < 2 ? (
+                                                    <div className="p-3 text-xs text-gray-400 text-center">Type at least 2 characters to search</div>
+                                                ) : authorSearchResults.length === 0 ? (
+                                                    <div className="p-3 text-xs text-gray-400 text-center">No authors found</div>
+                                                ) : authorSearchResults.map((auth) => {
+                                                    const isSelected = formData.authors.includes(auth.id);
+                                                    const name = auth.fullName || `${auth.firstName || ''} ${auth.lastName || ''}`.trim();
                                                     return (
-                                                        <div key={auth.id || auth._id} onClick={() => handleCheckboxChange('authors', auth.id || auth._id)} className={`flex items-center justify-between p-2 text-sm rounded hover:bg-blue-50 cursor-pointer ${isSelected ? 'bg-blue-50 font-bold text-primary' : ''}`}>
-                                                            <span>{auth.firstName || auth.first_name} {auth.lastName || auth.last_name}</span>
+                                                        <div key={auth.id} onClick={() => {
+                                                            handleCheckboxChange('authors', auth.id);
+                                                            setSelectedAuthorsCache(prev => ({ ...prev, [String(auth.id)]: name }));
+                                                        }} className={`flex items-center justify-between p-2 text-sm rounded hover:bg-blue-50 cursor-pointer ${isSelected ? 'bg-blue-50 font-bold text-primary' : ''}`}>
+                                                            <span>{name}</span>
                                                             {isSelected && <Check size={14} />}
                                                         </div>
                                                     );

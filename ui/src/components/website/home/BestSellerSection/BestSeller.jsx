@@ -12,7 +12,7 @@ import toast from 'react-hot-toast';
 // 🟢 Skeleton Loader for Fast UX Feel
 const ProductSkeleton = () => (
   <div className="bg-cream-100 rounded-lg overflow-hidden animate-pulse border border-gray-100">
-    <div className="aspect-[2/3] bg-gray-200" />
+    <div className="aspect-[3/4] bg-gray-200" />
     <div className="p-3 space-y-2">
       <div className="h-3 bg-gray-200 rounded w-3/4" />
       <div className="h-2 bg-gray-200 rounded w-1/2" />
@@ -137,20 +137,20 @@ const Bestsellers = () => {
                   <div key={bookId} className="bg-cream-100 hover:shadow-xl transition-all group cursor-pointer flex flex-col block rounded-lg overflow-hidden border border-transparent hover:border-primary-100 relative">
 
                     {/* 🟢 Image Click -> Detail Page */}
-                    <div className="relative aspect-[2/3] overflow-hidden" onClick={() => {
+                    <div className="relative aspect-[3/4] overflow-hidden" onClick={() => {
                       const slug = createSlug(book.title);
                       navigate(`/books/${bagcheeId}/${slug}`);
                     }}>
                       <img
                         src={imageUrl}
                         alt={book.title}
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                        className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
                         loading="lazy"
                         onError={(e) => { e.target.src = "https://placehold.co/300x450?text=Error"; }}
                       />
 
                       {Number(book.discount) >= 20 && (
-                        <div className="absolute top-2 left-2 bg-secondary text-white w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center text-[9px] md:text-[10px] font-bold shadow-md z-10 font-montserrat">
+                        <div className="absolute top-2 left-2 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-sm shadow-sm z-10 font-montserrat">
                           {book.discount}%
                         </div>
                       )}

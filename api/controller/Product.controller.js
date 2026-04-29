@@ -170,10 +170,10 @@ const buildWhereClause = (query, { includeInactive = false } = {}) => {
 
 // What to include when returning product data (full — for detail/admin views)
 const PRODUCT_INCLUDE = {
-    publisher:    { select: { id: true, title: true } },
+    publisher:    { select: { id: true, title: true, slug: true } },
     series:       { select: { id: true, title: true } },
     authors:      { include: { author: { select: { id: true, firstName: true, lastName: true, fullName: true } } } },
-    categories:   { include: { category: { select: { id: true, title: true } } } },
+    categories:   { include: { category: { select: { id: true, title: true, slug: true } } } },
     tags:         { include: { tag: { select: { id: true, title: true } } } },
     formats:      { include: { format: { select: { id: true, title: true } } } },
     languages:    { include: { language: { select: { id: true, title: true } } } },
@@ -277,8 +277,8 @@ export const save = async (req, res) => {
                 isExclusive:    parseBoolean(req.body.exclusive),
                 rating:         Number(req.body.rating)      || 0,
                 ratedTimes:     Number(req.body.rated_times) || 0,
-                shipDays:       Number(req.body.ship_days)   || 3,
-                deliverDays:    Number(req.body.deliver_days) || 7,
+                shipDays:       req.body.ship_days    ? String(req.body.ship_days)    : null,
+                deliverDays:    req.body.deliver_days ? String(req.body.deliver_days) : null,
                 metaTitle:      req.body.meta_title       || null,
                 metaKeywords:   req.body.meta_keywords    || null,
                 metaDescription:req.body.meta_description || null,
@@ -357,8 +357,8 @@ export const update = async (req, res) => {
         if (req.body.total_pages  !== undefined) updateData.pages       = req.body.total_pages || null;
         if (req.body.rating       !== undefined) updateData.rating      = Number(req.body.rating);
         if (req.body.rated_times  !== undefined) updateData.ratedTimes  = Number(req.body.rated_times);
-        if (req.body.ship_days    !== undefined) updateData.shipDays    = Number(req.body.ship_days) || 0;
-        if (req.body.deliver_days !== undefined) updateData.deliverDays = Number(req.body.deliver_days) || 0;
+        if (req.body.ship_days    !== undefined) updateData.shipDays    = req.body.ship_days    ? String(req.body.ship_days)    : null;
+        if (req.body.deliver_days !== undefined) updateData.deliverDays = req.body.deliver_days ? String(req.body.deliver_days) : null;
         if (req.body.availability !== undefined) updateData.availability= Number(req.body.availability);
 
         // ── FK IDs ────────────────────────────────────────────────────────────

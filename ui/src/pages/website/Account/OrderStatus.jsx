@@ -24,6 +24,34 @@ const OrderStatus = () => {
 
     const API_BASE_URL = process.env.REACT_APP_API_URL || '';
 
+    const handleViewInvoice = () => {
+        const o = order;
+        const num = o.orderNumber || o.order_number || orderId;
+        const items = o.items || o.products || [];
+        const rows = items.map(it => `
+            <tr>
+                <td style="padding:8px;border-bottom:1px solid #eee">${it.name || it.product?.title || 'Item'}</td>
+                <td style="padding:8px;border-bottom:1px solid #eee;text-align:center">${it.quantity || 1}</td>
+                <td style="padding:8px;border-bottom:1px solid #eee;text-align:right">${o.currency || 'USD'} ${Number(it.price || 0).toFixed(2)}</td>
+            </tr>`).join('');
+        const html = `<!DOCTYPE html><html><head><title>Invoice #${num}</title>
+            <style>body{font-family:Arial,sans-serif;margin:40px;color:#333}h1{color:#1a5276}table{width:100%;border-collapse:collapse}th{background:#1a5276;color:#fff;padding:10px;text-align:left}.total{font-size:18px;font-weight:bold;text-align:right;margin-top:16px}@media print{button{display:none}}</style>
+            </head><body>
+            <h1>BAGCHEE — Invoice</h1>
+            <p><strong>Order #:</strong> ${num}</p>
+            <p><strong>Date:</strong> ${new Date(o.createdAt || o.created_at || Date.now()).toLocaleDateString()}</p>
+            <p><strong>Payment:</strong> ${o.paymentType || o.payment_type || ''}</p>
+            <hr/>
+            <table><thead><tr><th>Item</th><th style="text-align:center">Qty</th><th style="text-align:right">Price</th></tr></thead>
+            <tbody>${rows}</tbody></table>
+            <div class="total">Total: ${o.currency || 'USD'} ${Number(o.total || 0).toFixed(2)}</div>
+            <br/><button onclick="window.print()">🖨 Print / Save as PDF</button>
+            </body></html>`;
+        const w = window.open('', '_blank');
+        w.document.write(html);
+        w.document.close();
+    };
+
     if (!order) {
         navigate('/account/orders');
         return null;
@@ -38,6 +66,12 @@ const OrderStatus = () => {
     const orderStatus = (order.status || '').toLowerCase();
     const payStatus   = order.paymentStatus || order.payment_status || '';
     const paymentMethod = order.paymentType || order.payment_type || '';
+    const isWireUnpaid  = (() => {
+        const t = paymentMethod.toLowerCase();
+        const s = orderStatus;
+        return (t.includes('wire') || t.includes('bank transfer') || t.includes('western union'))
+            && s !== 'paid' && s !== 'delivered' && s !== 'completed' && s !== 'cancelled';
+    })();
 
     const shippingName = order.shippingFirstName
         ? `${order.shippingFirstName} ${order.shippingLastName}`.trim()
@@ -247,6 +281,35 @@ const OrderStatus = () => {
                                 </div>
                             )}
 
+                            {/* Wire transfer instructions */}
+                            {isWireUnpaid && (
+                                <div className="rounded-xl bg-amber-50 border border-amber-200 p-4">
+                                    <p className="text-xs font-black text-amber-800 uppercase tracking-wide mb-2">Wire Transfer Pending</p>
+                                    <p className="text-xs text-amber-700 leading-relaxed">
+                                        Please transfer the total amount using the bank details sent to your email.
+                                        Use order <strong>#{orderNum}</strong> as your payment reference.
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Payment link for deferred/pending orders */}
+                            {(order.status || '').toLowerCase() === 'payment pending' && (order.paymentLink || order.payment_link) && (
+                                <a
+                                    href={order.paymentLink || order.payment_link}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="flex items-center justify-between p-3.5 rounded-xl bg-orange-50 border border-orange-300 hover:bg-orange-100 transition-all"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-9 h-9 rounded-full bg-orange-500 text-white flex shrink-0 items-center justify-center">
+                                            <ExternalLink className="w-4 h-4" />
+                                        </div>
+                                        <span className="font-bold text-sm text-orange-700 font-montserrat">Complete Payment</span>
+                                    </div>
+                                    <span className="text-xs font-black text-orange-600 uppercase tracking-wide">Pay Now →</span>
+                                </a>
+                            )}
+
                             {/* Invoice */}
                             <div className={`rounded-xl bg-cream-50 transition-all duration-300 ${showInvoiceMenu ? 'border border-primary shadow-md' : 'border border-gray-200 hover:border-primary hover:shadow-md'}`}>
                                 <button onClick={() => setShowInvoiceMenu(!showInvoiceMenu)} className="w-full flex items-center justify-between p-3.5 group">
@@ -260,7 +323,7 @@ const OrderStatus = () => {
                                 </button>
                                 <div className={`overflow-hidden transition-all duration-400 ease-in-out px-3.5 ${showInvoiceMenu ? 'max-h-[200px] pb-4 opacity-100' : 'max-h-0 opacity-0'}`}>
                                     <div className="flex gap-2 pt-3 border-t border-gray-200">
-                                        <button className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg bg-primary-50 text-primary font-bold text-xs hover:bg-primary hover:text-white transition-all">
+                                        <button onClick={handleViewInvoice} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg bg-primary-50 text-primary font-bold text-xs hover:bg-primary hover:text-white transition-all">
                                             <Eye className="w-3.5 h-3.5" /> VIEW
                                         </button>
                                         <button className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg bg-gray-100 text-gray-600 font-bold text-xs hover:bg-secondary hover:text-white transition-all">
@@ -362,22 +425,24 @@ const OrderStatus = () => {
                                                 {/* Courier + Track Package */}
                                                 {(courierName || trackingCode) && (
                                                     <div className="mt-3 flex flex-wrap gap-2">
-                                                        {courierName && (
-                                                            <span className="inline-flex items-center gap-1.5 bg-white border border-gray-200 px-2.5 py-1 rounded-lg text-[10px] font-bold text-text-muted">
-                                                                <Truck size={11} /> {courierName}
-                                                            </span>
-                                                        )}
                                                         {trackingCode && (
                                                             trackingUrl ? (
                                                                 <a href={trackingUrl} target="_blank" rel="noopener noreferrer"
                                                                     className="inline-flex items-center gap-1.5 bg-primary-50 border border-primary-100 px-3 py-1 rounded-lg text-[10px] font-black text-primary hover:bg-primary hover:text-white transition-colors">
-                                                                    <ExternalLink size={11} /> Track Package
+                                                                    <ExternalLink size={11} />
+                                                                    {courierName ? `${courierName} TRK: ${trackingCode}` : `TRK: ${trackingCode}`}
                                                                 </a>
                                                             ) : (
                                                                 <span className="inline-flex items-center gap-1.5 bg-cream-50 border border-gray-200 px-2.5 py-1 rounded-lg text-[10px] font-bold text-text-muted">
-                                                                    TRK: {trackingCode}
+                                                                    <Truck size={11} />
+                                                                    {courierName ? `${courierName} TRK: ${trackingCode}` : `TRK: ${trackingCode}`}
                                                                 </span>
                                                             )
+                                                        )}
+                                                        {courierName && !trackingCode && (
+                                                            <span className="inline-flex items-center gap-1.5 bg-white border border-gray-200 px-2.5 py-1 rounded-lg text-[10px] font-bold text-text-muted">
+                                                                <Truck size={11} /> {courierName}
+                                                            </span>
                                                         )}
                                                     </div>
                                                 )}

@@ -65,7 +65,19 @@ const BooksOfMonthPage = () => {
     );
 
     // Error or No Data State
-    if (isError || (!isLoading && !data)) return null;
+    if (isError || (!isLoading && !data)) return (
+        <div className="min-h-screen flex flex-col justify-center items-center bg-cream-50 text-center px-4">
+            <div className="max-w-md">
+                <h1 className="text-3xl font-display font-black uppercase text-primary mb-4">Books of the Month</h1>
+                <p className="text-text-muted font-body text-base">
+                    Our next curated selection is coming soon. Check back later!
+                </p>
+                <a href="/books" className="mt-6 inline-block bg-primary text-white px-8 py-3 rounded-full font-bold font-montserrat uppercase text-sm tracking-wide hover:bg-primary/90 transition-colors">
+                    Browse All Books
+                </a>
+            </div>
+        </div>
+    );
 
 
     const createSlug = (title) => {

@@ -72,6 +72,7 @@ import emailCampaignRoutes from './routes/emailCampaignRoutes.js';
 import { processScheduledEmails } from './controller/emailCampaignController.js';
 import sitemapRoutes from './routes/sitemap.routes.js';
 import disclaimerRoutes from './routes/disclaimerRoutes.js';
+import contactRoutes from './routes/contactRoutes.js';
 
 
 
@@ -217,6 +218,7 @@ app.use('/authors-publishers', authorsPublishersRoutes);
 app.use('/privacy', privacyRoutes);
 app.use('/terms', termsRoutes);
 app.use('/disclaimer', disclaimerRoutes);
+app.use('/contact', contactRoutes);
 app.use('/side-banner-one', sideBannerOneRoutes);
 app.use('/socials', socialRoutes);
 app.use('/side-banner-two', sideBannerTwoRoutes);

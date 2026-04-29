@@ -1,14 +1,14 @@
 import React, { useContext, memo, useMemo, useCallback } from 'react';
 import { CurrencyContext } from '../../context/CurrencyContext.jsx';
 import { useCart } from '../../context/CartContext.jsx';
-import { Heart, ShoppingCart } from 'lucide-react';
+import { Heart, ShoppingCart, Eye } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getProductImageUrl } from '../../utils/imageUrl';
 import toast from 'react-hot-toast';
 import { useMutation, useQueryClient } from '@tanstack/react-query'; 
 import axios from '../../utils/axiosConfig.js';
 
-const ProductCardGrid = ({ data }) => {
+const ProductCardGrid = ({ data, onQuickView }) => {
     const { formatPrice } = useContext(CurrencyContext);
     const { addToCart, toggleWishlist, isInWishlist } = useCart();
     const queryClient = useQueryClient();
@@ -110,6 +110,14 @@ const ProductCardGrid = ({ data }) => {
                         onError={(e) => { e.target.src = "https://placehold.co/300x400?text=No+Image" }}
                     />
                 </Link>
+                {onQuickView && (
+                    <button
+                        onClick={(e) => { e.preventDefault(); onQuickView(data); }}
+                        className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-white/90 text-primary text-[10px] font-bold px-3 py-1.5 rounded-full shadow-md flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-primary hover:text-white font-montserrat whitespace-nowrap"
+                    >
+                        <Eye size={12} /> Quick View
+                    </button>
+                )}
             </div>
 
             {/* --- CONTENT SECTION --- */}

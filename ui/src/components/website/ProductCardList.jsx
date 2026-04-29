@@ -1,6 +1,6 @@
 import React, { useState, useContext, memo, useMemo, useCallback } from 'react';
 import { createSafeHtml } from '../../utils/sanitize';
-import { Heart, ShoppingCart, Globe, Truck } from 'lucide-react';
+import { Heart, ShoppingCart, Globe, Truck, Eye } from 'lucide-react';
 import { useCart } from '../../context/CartContext.jsx';
 import { CurrencyContext } from '../../context/CurrencyContext.jsx';
 import { Link } from 'react-router-dom';
@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 import { useMutation, useQueryClient } from '@tanstack/react-query'; // 🟢 React Query
 import axios from '../../utils/axiosConfig.js';
 
-const ProductCardList = ({ data }) => {
+const ProductCardList = ({ data, onQuickView }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const { formatPrice } = useContext(CurrencyContext);
     const { addToCart, toggleWishlist, isInWishlist } = useCart();
@@ -164,7 +164,14 @@ const ProductCardList = ({ data }) => {
                             <Globe size={14} className="text-primary" /> Free delivery Worldwide
                         </div>
                         <div className="flex items-center gap-2">
-                            <Truck size={14} className="text-primary" /> Ships in {data.shipDays || 2}-{data.deliverDays || 7} days
+                            <Truck size={14} className="text-primary" /> Ships in {(() => {
+                                const s = data.shipDays ?? data.ship_days;
+                                const d = data.deliverDays ?? data.deliver_days;
+                                if (s && String(s).includes('-')) return `${s} days`;
+                                if (s && d) return `${s}–${d} days`;
+                                if (d) return `${d} days`;
+                                return '2–7 days';
+                            })()}
                         </div>
                     </div>
                 </div>
@@ -184,6 +191,15 @@ const ProductCardList = ({ data }) => {
                     >
                         Buy Now
                     </Link>
+
+                    {onQuickView && (
+                        <button
+                            onClick={() => onQuickView(data)}
+                            className="w-full border border-primary text-primary py-2 rounded font-bold text-xs md:text-sm transition-all uppercase tracking-slick font-montserrat hover:bg-primary hover:text-white flex items-center justify-center gap-1.5 active:scale-95"
+                        >
+                            <Eye size={14} /> Quick View
+                        </button>
+                    )}
 
                     <button
                         onClick={handleWishlist}

@@ -14,7 +14,8 @@ function WebsiteLayouts() {
   const isAccountOrCartPage =
     location.pathname.startsWith("/account") ||
     // location.pathname.startsWith("/cart") ||
-    location.pathname.startsWith("/checkout");
+    location.pathname.startsWith("/checkout") ||
+    location.pathname.startsWith("/pay/");
   return (
     <>
       {pageMeta && (

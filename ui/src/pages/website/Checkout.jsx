@@ -697,7 +697,7 @@ const Checkout = () => {
 
   const isWireTransferMethod = (method) => {
     const t = (method?.title || '').toLowerCase();
-    return t.includes('wire') || t.includes('bank transfer');
+    return t.includes('wire') || t.includes('bank transfer') || t.includes('western union');
   };
 
   const isPurchaseOrderMethod = (method) => {
@@ -727,11 +727,11 @@ const Checkout = () => {
   const handlePlaceOrder = async () => {
     // Validation
     if (user) {
-      if (!selectedAddress) {
+      if (!selectedAddress && !hasOnlyGiftCards) {
         toast.error("Please select a delivery address");
         return;
       }
-      if (!sameAsShipping && !selectedBillingAddress) {
+      if (!sameAsShipping && !selectedBillingAddress && !hasOnlyGiftCards) {
         toast.error("Please select a billing address");
         return;
       }
@@ -1888,7 +1888,7 @@ const Checkout = () => {
                       )}
                     </div>
                   </div>
-                  <div>
+                  {!showLoginDropdown && <><div>
                     <select
                       value={guestAddress.country}
                       onChange={(e) =>
@@ -2024,6 +2024,7 @@ const Checkout = () => {
                       className="w-full px-3 py-2.5 border border-gray-300 text-sm focus:outline-none focus:border-primary"
                     />
                   </div>
+                  </>}
                 </div>
               )}
             </div>
@@ -2716,7 +2717,7 @@ const Checkout = () => {
                 ) : (
                   (() => {
                     if (isPurchaseOrderMethod(selectedPayment) || isWireTransferMethod(selectedPayment)) return "PLACE ORDER";
-                    if (isPayPalMethod(selectedPayment) && !isDeferredFlow()) return "CONTINUE TO PAYPAL";
+                    if (isCardOrPayPalMethod(selectedPayment) && !isDeferredFlow()) return "CONTINUE TO PAYPAL";
                     return "CONTINUE TO PAY";
                   })()
                 )}
@@ -2797,46 +2798,53 @@ const Checkout = () => {
 
                 {/* Promo code */}
                 <div className="border-t border-gray-200 pt-3">
-                  <p className="text-xs font-bold text-primary text-center mb-2">
-                    Use a promotion Code
-                  </p>
                   {!appliedCoupon ? (
-                    <div className="flex gap-0">
-                      <input
-                        type="text"
-                        value={promoInput}
-                        onChange={(e) =>
-                          setPromoInput(e.target.value.toUpperCase())
-                        }
-                        placeholder="Enter promo code"
-                        className="flex-1 px-3 py-2 border border-gray-300 text-sm focus:outline-none focus:border-primary"
-                      />
-                      <button
-                        onClick={handleApplyCoupon}
-                        disabled={applyingCoupon}
-                        className="bg-primary text-white px-4 py-2 text-xs font-bold hover:bg-primary-dark transition-colors disabled:opacity-70 font-montserrat uppercase"
-                      >
-                        {applyingCoupon ? "..." : "Apply"}
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between p-2 bg-green-50 border border-green-200">
-                      <div className="flex items-center gap-1.5">
-                        <Tag className="text-green-600 shrink-0" size={14} />
-                        <span className="text-xs font-bold text-green-800">
-                          {appliedCoupon.code} (
-                          {appliedCoupon.discountType === "fixed"
-                            ? formatPrice(appliedCoupon.discount)
-                            : `${appliedCoupon.discount}% off`}
-                          )
+                    <div className="rounded-lg border-2 border-dashed border-primary/30 bg-primary/5 p-3">
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <Tag size={13} className="text-primary" />
+                        <span className="text-[11px] font-bold text-primary uppercase tracking-wider font-montserrat">
+                          Have a Promo Code?
                         </span>
                       </div>
-                      <button
-                        onClick={handleRemoveCoupon}
-                        className="text-green-600 hover:text-green-800"
-                      >
-                        <X size={14} />
-                      </button>
+                      <div className="flex gap-0 rounded overflow-hidden border border-primary/30">
+                        <input
+                          type="text"
+                          value={promoInput}
+                          onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
+                          placeholder="Enter code"
+                          className="flex-1 px-3 py-2 text-xs bg-white focus:outline-none placeholder:text-gray-400 font-montserrat tracking-widest"
+                        />
+                        <button
+                          onClick={handleApplyCoupon}
+                          disabled={applyingCoupon}
+                          className="bg-primary text-white px-4 py-2 text-[11px] font-bold hover:bg-primary/90 transition-colors disabled:opacity-60 font-montserrat uppercase tracking-wide shrink-0"
+                        >
+                          {applyingCoupon ? "..." : "Apply"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative rounded-lg border-2 border-green-400 bg-green-50 overflow-hidden">
+                      <div className="flex items-center justify-between px-3 py-2.5">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full bg-green-500 flex items-center justify-center shrink-0">
+                            <Check size={14} className="text-white" />
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-green-700 font-semibold uppercase tracking-wider font-montserrat">Coupon Applied</p>
+                            <p className="text-xs font-black text-green-900 font-montserrat tracking-widest">
+                              {appliedCoupon.code}
+                              <span className="ml-1.5 text-green-700 font-bold">
+                                — {appliedCoupon.discountType === "fixed" ? formatPrice(appliedCoupon.discount) : `${appliedCoupon.discount}% off`}
+                              </span>
+                            </p>
+                          </div>
+                        </div>
+                        <button onClick={handleRemoveCoupon} className="text-green-600 hover:text-red-500 transition-colors ml-2 shrink-0">
+                          <X size={15} />
+                        </button>
+                      </div>
+                      <div className="h-1 bg-gradient-to-r from-green-400 via-green-500 to-green-400" />
                     </div>
                   )}
                 </div>

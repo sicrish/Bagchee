@@ -297,6 +297,95 @@ const EMAIL_TEMPLATES = [
     <strong>The Bagchee Team</strong>
   </p>
 </div>`
+  },
+  {
+    name: 'New Site Launch',
+    subject: 'Celebrate the New Bagchee — and Get 20% Off!',
+    body: `<div style="font-family:'Inter',Helvetica,Arial,sans-serif; color:#333; max-width:580px; margin:0 auto;">
+
+  <!-- Promo Banner -->
+  <div style="background:#f5a623; border-radius:10px; padding:24px 30px; text-align:center; margin-bottom:28px;">
+    <p style="font-size:13px; color:#7a4e00; margin:0 0 6px; font-weight:600; letter-spacing:1px; text-transform:uppercase;">Celebrate our new site with us and get</p>
+    <p style="font-size:15px; color:#7a4e00; margin:0 0 12px;">Your 20% off promo code:</p>
+    <p style="font-size:40px; font-weight:800; color:#0B2F3A; margin:0; letter-spacing:4px;">NEWSITE20</p>
+    <p style="font-size:12px; color:#7a4e00; margin:10px 0 0; opacity:0.8;">Use at checkout. Valid for a limited time.</p>
+  </div>
+
+  <!-- Greeting -->
+  <p style="font-size:18px; font-weight:700; color:#0B2F3A; margin:0 0 8px;">Hello!</p>
+  <p style="font-size:15px; color:#555; line-height:1.7; margin:0 0 30px;">
+    We've been working hard on the new Bagchee and we're excited to share what's new. Here's a quick look at what we've built for you.
+  </p>
+
+  <!-- Feature 1: Search & Listing -->
+  <div style="border-left:4px solid #008DDA; padding:14px 20px; background:#f0f8ff; border-radius:0 8px 8px 0; margin-bottom:20px;">
+    <p style="font-size:16px; font-weight:700; color:#0B2F3A; margin:0 0 5px;">🔍 Improved Search &amp; Listings</p>
+    <p style="font-size:14px; color:#555; line-height:1.6; margin:0;">
+      Find exactly what you're looking for with our new live search and improved listing pages. Switch between list and grid view to match your browsing style.
+    </p>
+  </div>
+
+  <!-- Feature 2: Product Page -->
+  <div style="border-left:4px solid #f5a623; padding:14px 20px; background:#fffdf5; border-radius:0 8px 8px 0; margin-bottom:20px;">
+    <p style="font-size:16px; font-weight:700; color:#0B2F3A; margin:0 0 5px;">📖 Improved Product Page</p>
+    <p style="font-size:14px; color:#555; line-height:1.6; margin:0;">
+      Richer book details, author bios, related titles, and a quick-look modal so you can preview any book in a flash without leaving the page.
+    </p>
+  </div>
+
+  <!-- Feature 3: Checkout -->
+  <div style="border-left:4px solid #43a047; padding:14px 20px; background:#f1f8f1; border-radius:0 8px 8px 0; margin-bottom:20px;">
+    <p style="font-size:16px; font-weight:700; color:#0B2F3A; margin:0 0 5px;">🛒 Easy Checkout</p>
+    <p style="font-size:14px; color:#555; line-height:1.6; margin:0;">
+      Fewer steps, saved addresses, multiple payment options, and gift card support — getting your books has never been this smooth.
+    </p>
+  </div>
+
+  <!-- Feature 4: My Account -->
+  <div style="border-left:4px solid #8e24aa; padding:14px 20px; background:#fdf4ff; border-radius:0 8px 8px 0; margin-bottom:20px;">
+    <p style="font-size:16px; font-weight:700; color:#0B2F3A; margin:0 0 5px;">❤️ My Account — All Your Favourites in One Place</p>
+    <p style="font-size:14px; color:#555; line-height:1.6; margin:0;">
+      Your wishlist, order history, and account details all in one clean dashboard. Track your orders and pick up right where you left off.
+    </p>
+  </div>
+
+  <!-- Perks row -->
+  <div style="display:flex; gap:12px; margin-bottom:28px; flex-wrap:wrap;">
+    <div style="flex:1; min-width:140px; background:#f8f4eb; border-radius:10px; padding:16px; text-align:center;">
+      <p style="font-size:22px; margin:0 0 4px;">🎁</p>
+      <p style="font-size:13px; font-weight:700; color:#0B2F3A; margin:0 0 3px;">E-gift Cards</p>
+      <p style="font-size:12px; color:#666; margin:0;">The perfect gift for every reader</p>
+    </div>
+    <div style="flex:1; min-width:140px; background:#f8f4eb; border-radius:10px; padding:16px; text-align:center;">
+      <p style="font-size:22px; margin:0 0 4px;">🚚</p>
+      <p style="font-size:13px; font-weight:700; color:#0B2F3A; margin:0 0 3px;">Free Shipping Worldwide</p>
+      <p style="font-size:12px; color:#666; margin:0;">On every order, everywhere</p>
+    </div>
+    <div style="flex:1; min-width:140px; background:#f8f4eb; border-radius:10px; padding:16px; text-align:center;">
+      <p style="font-size:22px; margin:0 0 4px;">🏷️</p>
+      <p style="font-size:13px; font-weight:700; color:#0B2F3A; margin:0 0 3px;">10% Off for Members</p>
+      <p style="font-size:12px; color:#666; margin:0;">Every day, on every order</p>
+    </div>
+  </div>
+
+  <!-- New Arrivals + Sale -->
+  <div style="background:#0B2F3A; border-radius:10px; padding:24px 28px; text-align:center; margin-bottom:28px;">
+    <p style="color:#f5a623; font-size:13px; font-weight:700; letter-spacing:1px; text-transform:uppercase; margin:0 0 8px;">What's on right now</p>
+    <p style="color:#fff; font-size:20px; font-weight:800; margin:0 0 6px;">New Arrivals &amp; Sale</p>
+    <p style="color:#ccc; font-size:14px; margin:0 0 18px; line-height:1.6;">Fresh titles added weekly. Plus hundreds of books on sale — up to 25% off.</p>
+    <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
+      <a href="https://ui-production-2b96.up.railway.app/new-arrivals" style="display:inline-block; background:#f5a623; color:#0B2F3A; text-decoration:none; padding:12px 28px; font-size:14px; font-weight:800; border-radius:8px;">New Arrivals →</a>
+      <a href="https://ui-production-2b96.up.railway.app/sale" style="display:inline-block; background:#e53935; color:#fff; text-decoration:none; padding:12px 28px; font-size:14px; font-weight:800; border-radius:8px;">Shop the Sale →</a>
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <div style="text-align:center; margin-bottom:10px;">
+    <p style="font-size:16px; color:#555; font-style:italic; margin:0 0 14px;">There is more… but you better see it for yourself.</p>
+    <a href="https://ui-production-2b96.up.railway.app" style="display:inline-block; background:#008DDA; color:#fff; text-decoration:none; padding:15px 40px; font-size:15px; font-weight:800; border-radius:8px; letter-spacing:0.5px;">Continue to Bagchee.com →</a>
+  </div>
+
+</div>`
   }
 ];
 

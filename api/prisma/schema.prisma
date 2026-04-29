@@ -17,7 +17,8 @@
 // =============================================================
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
@@ -221,8 +222,8 @@ model Product {
   soldCount         Int       @default(0) @map("ordered_items")  // total units sold
 
   // --- Shipping ---
-  shipDays          Int       @default(3) @map("ship_in_days")
-  deliverDays       Int       @default(7) @map("deliver_in_days")
+  shipDays          String?   @map("ship_in_days")
+  deliverDays       String?   @map("deliver_in_days")
 
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime  @updatedAt

@@ -1,5 +1,5 @@
 import express from 'express';
-import { saveBooksOfMonth, getActiveBooksOfMonth, getAllBooksOfMonthHistory, deleteBooksOfMonth } from '../controller/booksOfMonth.controller.js';
+import { saveBooksOfMonth, getActiveBooksOfMonth, getAllBooksOfMonthHistory, deleteBooksOfMonth, toggleBooksOfMonthStatus } from '../controller/booksOfMonth.controller.js';
 import adminAuth from '../middleware/adminAuth.middleware.js';
 
 const router = express.Router();
@@ -10,6 +10,7 @@ router.get('/active', getActiveBooksOfMonth);
 // ADMIN — management
 router.post('/save',         adminAuth, saveBooksOfMonth);
 router.get('/history',       adminAuth, getAllBooksOfMonthHistory);
-router.delete('/delete/:id', adminAuth, deleteBooksOfMonth);
+router.delete('/delete/:id',        adminAuth, deleteBooksOfMonth);
+router.patch('/toggle/:id',         adminAuth, toggleBooksOfMonthStatus);
 
 export default router;

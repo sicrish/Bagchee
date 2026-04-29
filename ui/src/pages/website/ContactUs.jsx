@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight, Mail, Phone, MapPin, Clock, Send, MessageCircle } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
+import axios from "../../utils/axiosConfig";
 
 const ContactUs = () => {
   const [formData, setFormData] = useState({
@@ -23,6 +24,8 @@ const ContactUs = () => {
   }
 
   const [formStatus, setFormStatus] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -43,27 +46,31 @@ const ContactUs = () => {
     setCaptchaError(false);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
+    setSubmitError("");
+
     if (parseInt(captcha) !== captchaQuestion.answer) {
       setCaptchaError(true);
       return;
     }
 
-    setFormStatus("submitted");
-    setTimeout(() => {
-      setFormData({
-        name: "",
-        email: "",
-        subject: "",
-        category: "general",
-        message: "",
-      });
-      setCaptcha("");
-      setCaptchaQuestion(generateCaptcha());
-      setFormStatus("");
-    }, 3000);
+    setSubmitting(true);
+    try {
+      const API_URL = process.env.REACT_APP_API_URL;
+      await axios.post(`${API_URL}/contact/submit`, formData);
+      setFormStatus("submitted");
+      setTimeout(() => {
+        setFormData({ name: "", email: "", subject: "", category: "general", message: "" });
+        setCaptcha("");
+        setCaptchaQuestion(generateCaptcha());
+        setFormStatus("");
+      }, 3000);
+    } catch (err) {
+      setSubmitError(err.response?.data?.msg || "Failed to send message. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
 const contactInfo = [
@@ -73,14 +80,16 @@ const contactInfo = [
     details: ["4384/4A Ansari Road", "Daryaganj, New Delhi 110002"],
   },
   {
-    icon: <FaWhatsapp className="w-6 h-6" />,
-    title: "WhatsApp",
-    details: ["+91-11-4104-8000"],
-  },
-  {
     icon: <Mail className="w-6 h-6" />,
     title: "Email",
     details: ["email@bagchee.com"],
+    static: true,
+  },
+  {
+    icon: <FaWhatsapp className="w-6 h-6" />,
+    title: "WhatsApp",
+    whatsapp: "+911141048000",
+    details: ["Chat on WhatsApp"],
   },
 ];
 
@@ -117,12 +126,25 @@ const contactInfo = [
                         </h4>
                         <div className="space-y-0.5 mb-2">
                           {info.details.map((detail, idx) => (
-                            <p
-                              key={idx}
-                              className="font-semibold text-primary text-sm"
-                            >
-                              {detail}
-                            </p>
+                            info.whatsapp ? (
+                              <a
+                                key={idx}
+                                href={`https://wa.me/${info.whatsapp}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="font-semibold text-primary text-sm hover:underline flex items-center gap-1"
+                              >
+                                {detail}
+                              </a>
+                            ) : (
+                              <p
+                                key={idx}
+                                className="font-semibold text-primary text-sm"
+                                style={info.static ? { userSelect: 'none', pointerEvents: 'none' } : {}}
+                              >
+                                {detail}
+                              </p>
+                            )
                           ))}
                         </div>
                         {/* <p className="text-gray-600 text-sm font-body">
@@ -145,6 +167,11 @@ const contactInfo = [
                     <p className="text-green-800 font-semibold text-center">
                       ✓ Thank you for your message! We'll get back to you within 24 hours.
                     </p>
+                  </div>
+                )}
+                {submitError && (
+                  <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-red-700 font-semibold text-center">{submitError}</p>
                   </div>
                 )}
 
@@ -274,10 +301,11 @@ const contactInfo = [
                   <div>
                     <button
                       type="submit"
-                      className="w-full md:w-auto bg-primary text-white px-8 py-3 rounded-lg hover:bg-primary-hover transition-colors font-bold font-display uppercase tracking-wide flex items-center justify-center gap-2"
+                      disabled={submitting}
+                      className="w-full md:w-auto bg-primary text-white px-8 py-3 rounded-lg hover:bg-primary-hover transition-colors font-bold font-display uppercase tracking-wide flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       <Send className="w-5 h-5" />
-                      Send Message
+                      {submitting ? "Sending..." : "Send Message"}
                     </button>
                   </div>
 

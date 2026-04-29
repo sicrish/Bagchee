@@ -62,10 +62,10 @@ export const normalizeProduct = (p) => {
         weight:       p.weight       || '',
 
         // --- Shipping ---
-        shipDays:    (p.shipDays    || p.ship_days)    || 3,
-        ship_days:   (p.shipDays    || p.ship_days)    || 3,
-        deliverDays: (p.deliverDays || p.deliver_days) || 7,
-        deliver_days:(p.deliverDays || p.deliver_days) || 7,
+        shipDays:    p.shipDays    ?? p.ship_days    ?? null,
+        ship_days:   p.shipDays    ?? p.ship_days    ?? null,
+        deliverDays: p.deliverDays ?? p.deliver_days ?? null,
+        deliver_days:p.deliverDays ?? p.deliver_days ?? null,
 
         // --- Content ---
         metaTitle:        p.metaTitle        || p.meta_title        || '',
@@ -84,6 +84,28 @@ export const normalizeProduct = (p) => {
         // --- Category (extract first category ID for legacy UI) ---
         categoryId: p.leadingCategoryId || (Array.isArray(p.categories) && p.categories.length > 0 ? p.categories[0].categoryId || p.categories[0].category?.id : undefined),
         leadingCategoryId: p.leadingCategoryId,
+
+        // --- Categories array (Prisma junction → flat objects for BookDetail) ---
+        productCategories: Array.isArray(p.categories)
+            ? p.categories.map(c => {
+                const cat = c.category || {};
+                return { id: cat.id, _id: cat.id, title: cat.title || '', name: cat.title || '', categorytitle: cat.title || '', slug: cat.slug || '' };
+              }).filter(c => c.title)
+            : (p.productCategories || []),
+        product_categories: Array.isArray(p.categories)
+            ? p.categories.map(c => {
+                const cat = c.category || {};
+                return { id: cat.id, _id: cat.id, title: cat.title || '', name: cat.title || '', categorytitle: cat.title || '', slug: cat.slug || '' };
+              }).filter(c => c.title)
+            : (p.product_categories || []),
+
+        // --- Tags array (Prisma junction → string array for BookDetail) ---
+        productTags: Array.isArray(p.tags)
+            ? p.tags.map(t => t.tag?.title || t.title || t).filter(Boolean)
+            : (p.productTags || []),
+        product_tags: Array.isArray(p.tags)
+            ? p.tags.map(t => t.tag?.title || t.title || t).filter(Boolean)
+            : (p.product_tags || []),
 
         // --- Author (flattened for legacy UI) ---
         author: authorObj,

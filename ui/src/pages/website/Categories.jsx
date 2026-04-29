@@ -16,7 +16,7 @@ const Categories = () => {
           axios.get(`${process.env.REACT_APP_API_URL}/tags/list`),
         ]);
         if (catRes.data.status) {
-          const rawData = catRes.data.data || catRes.data.categories || [];
+          const rawData = (catRes.data.data || catRes.data.categories || []).filter(c => c.active !== false);
           setCategories(buildCategoryTree(rawData));
         }
         if (tagRes.data.status && tagRes.data.data) {
@@ -87,8 +87,8 @@ const Categories = () => {
 /* ─── Blue pill button for a category (recursive) ─── */
 const CategoryPill = ({ category, depth = 0 }) => {
   const navigate = useNavigate();
-  const [isOpen, setIsOpen] = useState(false);
   const hasChildren = category.children && category.children.length > 0;
+  const [isOpen, setIsOpen] = useState(depth === 0 && hasChildren);
   const catTitle = category.title || category.categorytitle || '';
 
   const handleClick = () => {
@@ -96,7 +96,6 @@ const CategoryPill = ({ category, depth = 0 }) => {
     else if (category.slug) navigate(`/books/${category.slug}`);
   };
 
-  // Depth-based styling: darker/brighter at root, lighter shades as we go deeper
   const bgByDepth = ['bg-primary hover:bg-primary/90', 'bg-primary/80 hover:bg-primary', 'bg-primary/70 hover:bg-primary', 'bg-primary/60 hover:bg-primary'];
   const rowBg = bgByDepth[Math.min(depth, bgByDepth.length - 1)];
   const textSize = depth === 0 ? 'text-sm' : 'text-xs';

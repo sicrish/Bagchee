@@ -75,7 +75,7 @@ const AboutUs = () => {
                 {/* HTML content from Admin with Tailwind Typography look */}
                 <div 
                   className="dynamic-content font-body text-gray-700 leading-relaxed text-lg"
-                  dangerouslySetInnerHTML={createSafeHtml(data?.page_content)} 
+                  dangerouslySetInnerHTML={createSafeHtml(data?.pageContent || data?.page_content)}
                 />
               </div>
             </section>

@@ -77,7 +77,7 @@ const TermsConditions = () => {
                                     className="terms-content font-body text-gray-700 leading-relaxed text-lg prose prose-blue max-w-none
                                     prose-headings:font-display prose-headings:text-text-main prose-headings:mt-8 prose-headings:mb-4
                                     prose-p:mb-5 prose-strong:text-primary prose-a:text-primary prose-a:no-underline hover:prose-a:underline"
-                                    dangerouslySetInnerHTML={createSafeHtml(data?.page_content)} 
+                                    dangerouslySetInnerHTML={createSafeHtml(data?.pageContent || data?.page_content)}
                                 />
                             </div>
                         </section>
