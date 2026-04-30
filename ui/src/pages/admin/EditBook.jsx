@@ -148,8 +148,8 @@ const EditBook = () => {
                 axios.get(`${API_URL}/tags/list`),
                 Promise.resolve({ data: { data: [] } }),
                 axios.get(`${API_URL}/formats/list`),
-                axios.get(`${API_URL}/series/list`),
-                axios.get(`${API_URL}/publishers/list`),
+                axios.get(`${API_URL}/series/list?limit=1000`),
+                axios.get(`${API_URL}/publishers/list?limit=1000`),
                 axios.get(`${API_URL}/settings/list`),
                 axios.get(`${API_URL}/product/get/${id}`)
             ]);
