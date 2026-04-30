@@ -179,6 +179,7 @@ model Product {
   volume            String?
   edition           String?
   pages             Int?      @map("total_pages")
+  pagesDesc         String?   @map("pages_desc")              // full bibliographic string e.g. "219p., (6)col. pls., 29cm."
   weight            String?
   binding           String?   @default("Paperback")
   pubDate           String?   @map("pub_date")              // stored as string e.g. "2024-01-15"
@@ -215,6 +216,7 @@ model Product {
   upcomingDate      DateTime? @map("upcoming_date")
   newReleaseUntil   DateTime? @map("new_release_until")
   isExclusive       Boolean   @default(false)
+  exclusiveFor      String?   @map("exclusive_for")  // null/"all" | "members" | "ordered"
 
   // --- Stats ---
   rating            Float     @default(0)
@@ -222,8 +224,8 @@ model Product {
   soldCount         Int       @default(0) @map("ordered_items")  // total units sold
 
   // --- Shipping ---
-  shipDays          String?   @map("ship_in_days")
-  deliverDays       String?   @map("deliver_in_days")
+  shipDays          Int?      @map("ship_in_days")
+  deliverDays       Int?      @map("deliver_in_days")
 
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime  @updatedAt
@@ -1117,6 +1119,7 @@ model HelpPage {
   metaDesc         String  @default("") @map("meta_description")
   metaKeywords     String  @default("") @map("meta_keywords")
   isCommonQuestion Boolean @default(false) @map("is_common_question")
+  ord              Int     @default(0)
 
   @@map("help_pages")
 }
@@ -1132,6 +1135,7 @@ model Service {
   metaTitle    String @default("") @map("meta_title")
   metaDesc     String @default("") @map("meta_description")
   metaKeywords String @default("") @map("meta_keywords")
+  ord          Int    @default(0)
 
   @@map("services")
 }

@@ -695,7 +695,11 @@ const BookDetail = () => {
                 {book.isExclusive === true && (
                   <div className="inline-flex items-center gap-1.5 bg-primary text-white text-[10px] font-bold px-3 py-1 rounded-full font-montserrat uppercase tracking-wide shadow-sm">
                     <ShieldCheck className="w-3 h-3" />
-                    Exclusive
+                    {(book.exclusiveFor || book.exclusive_for) === 'members'
+                      ? 'Exclusive for Members'
+                      : (book.exclusiveFor || book.exclusive_for) === 'ordered'
+                      ? 'Exclusive for Customers'
+                      : 'Exclusive'}
                   </div>
                 )}
 
@@ -1094,7 +1098,7 @@ const BookDetail = () => {
                         { label: "Release Date", value: book.pub_date },
                         { label: "Edition", value: book.edition },
                         { label: "Publisher", value: pubName, link: pubSlug ? `/publisher/${pubSlug}` : null },
-                        { label: "Length", value: book.total_pages || book.pages ? `${book.total_pages || book.pages}` : null },
+                        { label: "Length", value: (book.pagesDesc || book.pages_desc) ? (book.pagesDesc || book.pages_desc) : (book.total_pages || book.pages ? `${book.total_pages || book.pages}` : null) },
                         { label: "Weight", value: book.weight && String(book.weight).trim() !== '0' && String(book.weight).trim() !== '' ? book.weight : null },
                       ]
                         .filter((row) => row.value)

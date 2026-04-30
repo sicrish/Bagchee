@@ -15,7 +15,8 @@ export const saveService = async (req, res) => {
                 pageTitle: b.pageTitle || b.page_title || '',
                 metaTitle: b.metaTitle || b.meta_title || '',
                 metaDesc: b.metaDesc || b.meta_description || '',
-                metaKeywords: b.metaKeywords || b.meta_keywords || ''
+                metaKeywords: b.metaKeywords || b.meta_keywords || '',
+                ord: parseInt(b.ord) || 0
             }
         });
         res.status(201).json({ status: true, msg: 'Service added successfully!', data: newService });
@@ -26,7 +27,7 @@ export const saveService = async (req, res) => {
 
 export const listServices = async (req, res) => {
     try {
-        const data = await prisma.service.findMany({ orderBy: { id: 'asc' } });
+        const data = await prisma.service.findMany({ orderBy: [{ ord: 'asc' }, { id: 'asc' }] });
         res.status(200).json({ status: true, data });
     } catch (error) {
         res.status(500).json({ status: false, msg: 'Server Error' });
@@ -55,6 +56,7 @@ export const updateService = async (req, res) => {
         if (b.metaTitle !== undefined || b.meta_title !== undefined) updateData.metaTitle = b.metaTitle ?? b.meta_title;
         if (b.metaDesc !== undefined || b.meta_description !== undefined) updateData.metaDesc = b.metaDesc ?? b.meta_description;
         if (b.metaKeywords !== undefined || b.meta_keywords !== undefined) updateData.metaKeywords = b.metaKeywords ?? b.meta_keywords;
+        if (b.ord !== undefined) updateData.ord = parseInt(b.ord) || 0;
         const updated = await prisma.service.update({ where: { id }, data: updateData });
         res.status(200).json({ status: true, msg: 'Service updated successfully!', data: updated });
     } catch (error) {

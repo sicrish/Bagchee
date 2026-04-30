@@ -275,10 +275,12 @@ export const save = async (req, res) => {
                 upcomingDate:   req.body.upcoming === 'active' && req.body.upcoming_date
                                     ? new Date(req.body.upcoming_date) : null,
                 isExclusive:    parseBoolean(req.body.exclusive),
+                exclusiveFor:   req.body.exclusive_for || null,
                 rating:         Number(req.body.rating)      || 0,
                 ratedTimes:     Number(req.body.rated_times) || 0,
-                shipDays:       req.body.ship_days    ? String(req.body.ship_days)    : null,
-                deliverDays:    req.body.deliver_days ? String(req.body.deliver_days) : null,
+                shipDays:       req.body.ship_days    ? (parseInt(req.body.ship_days)    || null) : null,
+                deliverDays:    req.body.deliver_days ? (parseInt(req.body.deliver_days) || null) : null,
+                pagesDesc:      req.body.pages_desc   || null,
                 metaTitle:      req.body.meta_title       || null,
                 metaKeywords:   req.body.meta_keywords    || null,
                 metaDescription:req.body.meta_description || null,
@@ -357,8 +359,9 @@ export const update = async (req, res) => {
         if (req.body.total_pages  !== undefined) updateData.pages       = req.body.total_pages || null;
         if (req.body.rating       !== undefined) updateData.rating      = Number(req.body.rating);
         if (req.body.rated_times  !== undefined) updateData.ratedTimes  = Number(req.body.rated_times);
-        if (req.body.ship_days    !== undefined) updateData.shipDays    = req.body.ship_days    ? String(req.body.ship_days)    : null;
-        if (req.body.deliver_days !== undefined) updateData.deliverDays = req.body.deliver_days ? String(req.body.deliver_days) : null;
+        if (req.body.ship_days    !== undefined) updateData.shipDays    = req.body.ship_days    ? (parseInt(req.body.ship_days)    || null) : null;
+        if (req.body.deliver_days !== undefined) updateData.deliverDays = req.body.deliver_days ? (parseInt(req.body.deliver_days) || null) : null;
+        if (req.body.pages_desc   !== undefined) updateData.pagesDesc   = req.body.pages_desc   || null;
         if (req.body.availability !== undefined) updateData.availability= Number(req.body.availability);
 
         // ── FK IDs ────────────────────────────────────────────────────────────
@@ -380,7 +383,8 @@ export const update = async (req, res) => {
         if (req.body.active      !== undefined) updateData.isActive     = parseBoolean(req.body.active);
         if (req.body.recommended !== undefined) updateData.isRecommended= parseBoolean(req.body.recommended);
         if (req.body.new_release !== undefined) updateData.isNewRelease = parseBoolean(req.body.new_release);
-        if (req.body.exclusive   !== undefined) updateData.isExclusive  = parseBoolean(req.body.exclusive);
+        if (req.body.exclusive      !== undefined) updateData.isExclusive  = parseBoolean(req.body.exclusive);
+        if (req.body.exclusive_for  !== undefined) updateData.exclusiveFor = req.body.exclusive_for || null;
         if (req.body.isFeatured  !== undefined) updateData.isFeatured   = parseBoolean(req.body.isFeatured);
         if (req.body.upcoming    !== undefined) {
             updateData.upcoming     = parseBoolean(req.body.upcoming);

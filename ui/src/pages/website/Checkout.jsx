@@ -407,6 +407,37 @@ const Checkout = () => {
   // 🏆 GRAND TOTAL
   const total = Math.max(0, (subtotal + currentMembershipCost - memberDiscount - couponDiscount - giftCardDiscount - walletDeduction) + shippingCost);
 
+  // ─── Payment method type helpers ───
+  const isCreditCardMethod = (method) =>
+    (method?.title || '').toLowerCase().includes('credit card');
+
+  const isWireTransferMethod = (method) => {
+    const t = (method?.title || '').toLowerCase();
+    return t.includes('wire') || t.includes('bank transfer') || t.includes('western union');
+  };
+
+  const isPurchaseOrderMethod = (method) => {
+    const t = (method?.title || '').toLowerCase();
+    return t.includes('purchase order');
+  };
+
+  const isPayPalMethod = (method) =>
+    (method?.title || '').toLowerCase().includes('paypal');
+
+  const isCardOrPayPalMethod = (method) => {
+    const t = (method?.title || '').toLowerCase();
+    return t.includes('credit card') || t.includes('paypal') || t.includes('debit card') || t.includes('debit');
+  };
+
+  // Is this a deferred flow (no immediate gateway) for the current user?
+  const isDeferredFlow = () => {
+    if (!isCardOrPayPalMethod(selectedPayment)) return false;
+    const mode = settings?.paymentGatewayMode || settings?.payment_gateway_mode || 'deferred';
+    const auth = (() => { try { return JSON.parse(localStorage.getItem('auth') || '{}'); } catch { return {}; } })();
+    const forcesDirect = auth?.userDetails?.forceDirectPayment === true;
+    return mode === 'deferred' && !forcesDirect;
+  };
+
   // When cart has ONLY gift cards: restrict payment to PayPal/credit card, hide redeem box
   const hasOnlyGiftCards = cart.length > 0 && cart.every(i => i.itemType === 'gift_card');
   const visiblePaymentMethods = hasOnlyGiftCards
@@ -690,38 +721,6 @@ const Checkout = () => {
     setPromoInput("");
     toast.success("Promo code removed");
   };
-
-  // ─── Payment method type helpers ───
-  const isCreditCardMethod = (method) =>
-    method?.title?.toLowerCase().includes("credit card");
-
-  const isWireTransferMethod = (method) => {
-    const t = (method?.title || '').toLowerCase();
-    return t.includes('wire') || t.includes('bank transfer') || t.includes('western union');
-  };
-
-  const isPurchaseOrderMethod = (method) => {
-    const t = (method?.title || '').toLowerCase();
-    return t.includes('purchase order');
-  };
-
-  const isPayPalMethod = (method) =>
-    (method?.title || '').toLowerCase().includes('paypal');
-
-  const isCardOrPayPalMethod = (method) => {
-    const t = (method?.title || '').toLowerCase();
-    return t.includes('credit card') || t.includes('paypal') || t.includes('debit card') || t.includes('debit');
-  };
-
-  // Is this a deferred flow (no immediate gateway) for the current user?
-  const isDeferredFlow = () => {
-    if (!isCardOrPayPalMethod(selectedPayment)) return false;
-    const mode = settings?.paymentGatewayMode || settings?.payment_gateway_mode || 'deferred';
-    const auth = (() => { try { return JSON.parse(localStorage.getItem('auth') || '{}'); } catch { return {}; } })();
-    const forcesDirect = auth?.userDetails?.forceDirectPayment === true;
-    return mode === 'deferred' && !forcesDirect;
-  };
-
 
   // ─── Place order ───
   const handlePlaceOrder = async () => {
@@ -2717,7 +2716,7 @@ const Checkout = () => {
                 ) : (
                   (() => {
                     if (isPurchaseOrderMethod(selectedPayment) || isWireTransferMethod(selectedPayment)) return "PLACE ORDER";
-                    if (isCardOrPayPalMethod(selectedPayment) && !isDeferredFlow()) return "CONTINUE TO PAYPAL";
+                    if (isPayPalMethod(selectedPayment) && !isDeferredFlow()) return "CONTINUE TO PAYPAL";
                     return "CONTINUE TO PAY";
                   })()
                 )}

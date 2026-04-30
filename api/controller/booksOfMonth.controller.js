@@ -91,7 +91,7 @@ export const getAllBooksOfMonthHistory = async (req, res) => {
             include: {
                 products: {
                     include: {
-                        product: { select: { id: true, title: true, price: true, bagcheeId: true } }
+                        product: { select: { id: true, title: true, price: true, bagcheeId: true, defaultImage: true, slug: true } }
                     }
                 }
             }

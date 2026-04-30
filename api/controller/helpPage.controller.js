@@ -15,7 +15,8 @@ export const saveHelpPage = async (req, res) => {
                 metaTitle: meta_title || title.trim(),
                 metaDesc: meta_description || '',
                 metaKeywords: meta_keywords || '',
-                isCommonQuestion: is_common_question === true || is_common_question === 'true' || is_common_question === 1
+                isCommonQuestion: is_common_question === true || is_common_question === 'true' || is_common_question === 1,
+                ord: parseInt(req.body.ord) || 0
             }
         });
         res.status(201).json({ status: true, msg: 'Help page added successfully!', data: newPage });
@@ -30,7 +31,7 @@ export const getAllHelpPages = async (req, res) => {
         const pageSize = parseInt(req.query.limit) || 100;
         const skip = (pageNum - 1) * pageSize;
         const [pages, total] = await Promise.all([
-            prisma.helpPage.findMany({ orderBy: { id: 'asc' }, skip, take: pageSize }),
+            prisma.helpPage.findMany({ orderBy: [{ ord: 'asc' }, { id: 'asc' }], skip, take: pageSize }),
             prisma.helpPage.count()
         ]);
         res.status(200).json({ status: true, data: pages, total, totalPages: Math.ceil(total / pageSize), page: pageNum });
@@ -60,6 +61,7 @@ export const updateHelpPage = async (req, res) => {
         if (meta_description !== undefined) updateData.metaDesc = meta_description;
         if (meta_keywords !== undefined) updateData.metaKeywords = meta_keywords;
         if (is_common_question !== undefined) updateData.isCommonQuestion = is_common_question === true || is_common_question === 'true' || is_common_question === 1;
+        if (req.body.ord !== undefined) updateData.ord = parseInt(req.body.ord) || 0;
         const updated = await prisma.helpPage.update({ where: { id }, data: updateData });
         res.status(200).json({ status: true, msg: 'Help page updated successfully!', data: updated });
     } catch (error) {

@@ -132,7 +132,9 @@ const EditBook = () => {
         toc_image: '',
         new_release_until: '',
         ordered_items_count: 0,
-        exclusive: 'inactive'
+        exclusive: 'inactive',
+        exclusive_for: 'all',
+        pages_desc: '',
     });
 
     // =======================================================================
@@ -246,6 +248,8 @@ const EditBook = () => {
                 new_release: book.isNewRelease ? 'active' : 'inactive',
                 new_release_until: (book.newReleaseUntil || book.new_release_until) ? new Date(book.newReleaseUntil || book.new_release_until).toISOString().split('T')[0] : '',
                 exclusive: book.isExclusive ? 'active' : 'inactive',
+                exclusive_for: book.exclusiveFor || book.exclusive_for || 'all',
+                pages_desc: book.pagesDesc || book.pages_desc || '',
                 ship_days: book.shipDays !== undefined ? String(book.shipDays) : (book.ship_days !== undefined ? String(book.ship_days) : ''),
                 deliver_days: book.deliverDays !== undefined ? String(book.deliverDays) : (book.deliver_days !== undefined ? String(book.deliver_days) : ''),
                 pub_date: book.pubDate || book.pub_date || '',
@@ -619,6 +623,8 @@ const EditBook = () => {
             data.append('new_release', formData.new_release);
             data.append('new_release_until', formData.new_release_until || '');
             data.append('exclusive', formData.exclusive);
+            data.append('exclusive_for', formData.exclusive_for || 'all');
+            data.append('pages_desc', formData.pages_desc || '');
             data.append('ship_days', formData.ship_days || '');
             data.append('deliver_days', formData.deliver_days || '');
             data.append('pub_date', formData.pub_date || '');
@@ -1082,7 +1088,8 @@ const EditBook = () => {
                         <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Edition</label><div className="col-span-9"><input name="edition" value={formData.edition} onChange={handleChange} className="theme-input w-full md:w-1/3" /></div></div>
                         <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">ISBN 10</label><div className="col-span-9"><input name="isbn10" value={formData.isbn10} onChange={handleChange} className="theme-input w-full md:w-1/2" /></div></div>
                         <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">ISBN 13</label><div className="col-span-9"><input name="isbn13" value={formData.isbn13} onChange={handleChange} className="theme-input w-full md:w-1/2" /></div></div>
-                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Total Pages</label><div className="col-span-9"><input name="total_pages" type="text" value={formData.total_pages || ""} onChange={handleChange} className="theme-input w-full md:w-1/2" placeholder="e.g. 171p., Plates; Notes; 23cm." /></div></div>
+                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Total Pages</label><div className="col-span-9"><input name="total_pages" type="text" value={formData.total_pages || ""} onChange={handleChange} className="theme-input w-full md:w-1/2" placeholder="e.g. 219" /></div></div>
+                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Pages (Full)</label><div className="col-span-9"><input name="pages_desc" value={formData.pages_desc || ""} onChange={handleChange} className="theme-input w-full" placeholder="e.g. 219p., (6)col. pls., (21) between Illustration., ind., 29cm." /><p className="text-[10px] text-gray-400 mt-1">Full bibliographic description shown under "Length" on the product page</p></div></div>
                         <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Weight</label><div className="col-span-9"><input name="weight" value={formData.weight} onChange={handleChange} className="theme-input w-32" /></div></div>
 
                         {/* 11. IMAGES SECTIONS */}
@@ -1551,6 +1558,20 @@ const EditBook = () => {
                                 <label className="flex items-center gap-2 text-sm cursor-pointer font-body"><input type="radio" name="exclusive" value="inactive" checked={formData.exclusive === "inactive"} onChange={handleChange} className="accent-primary w-4 h-4" /> inactive</label>
                             </div>
                         </div>
+
+                        {formData.exclusive === 'active' && (
+                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4">
+                            <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight">Exclusive For</label>
+                            <div className="col-span-9">
+                                <select name="exclusive_for" value={formData.exclusive_for} onChange={handleChange} className="theme-input w-56">
+                                    <option value="all">All Customers</option>
+                                    <option value="ordered">Ordered Customers Only</option>
+                                    <option value="members">Bagchee Members Only</option>
+                                </select>
+                                <p className="text-[10px] text-gray-400 mt-1">Controls who can see this exclusive title</p>
+                            </div>
+                        </div>
+                        )}
 
                         {/* 18. Ship & Search */}
                         <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Ship Days</label><div className="col-span-9"><select name="ship_days" value={formData.ship_days} onChange={handleChange} className="theme-input w-48"><option value="">Select</option>{["24", "1-2", "2-4", "3-5", "1-7", "5-7", "7-10", "7-14", "10-15", "10-18", "14-21", "15-25", "28", "25-30", "28-45", "30-45"].map(d => <option key={d} value={d}>{d}</option>)}</select></div></div>

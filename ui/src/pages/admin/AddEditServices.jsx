@@ -21,6 +21,7 @@ const AddEditServices = () => {
     meta_title: '',
     meta_description: '',
     meta_keywords: '',
+    ord: 0,
   });
 
   const [boxDescription, setBoxDescription] = useState('');
@@ -49,6 +50,7 @@ const AddEditServices = () => {
         meta_title: serviceData.metaTitle || serviceData.meta_title || '',
         meta_description: serviceData.metaDesc || serviceData.meta_description || '',
         meta_keywords: serviceData.metaKeywords || serviceData.meta_keywords || '',
+        ord: serviceData.ord ?? 0,
       });
       setBoxDescription(serviceData.boxDesc || serviceData.box_desc || serviceData.box_description || '');
       setPageContent(serviceData.pageContent || serviceData.page_content || '');
@@ -92,6 +94,7 @@ const AddEditServices = () => {
       metaKeywords: formData.meta_keywords,
       boxDesc: boxDescription,
       pageContent: pageContent,
+      ord: parseInt(formData.ord) || 0,
     };
 
     saveServiceMutation.mutate(payload, {
@@ -108,7 +111,7 @@ const AddEditServices = () => {
             navigate('/admin/services');
           } else if (!isEdit) {
             // Sirf "Add" me clear karna hai agar wahi page par rukna ho
-            setFormData({ title: '', page_title: '', meta_title: '', meta_description: '', meta_keywords: '' });
+            setFormData({ title: '', page_title: '', meta_title: '', meta_description: '', meta_keywords: '', ord: 0 });
             setBoxDescription('');
             setPageContent('');
           }
@@ -209,6 +212,16 @@ const AddEditServices = () => {
               <label className={labelClass}>Meta keywords</label>
               <div className="col-span-12 md:col-span-10">
                 <input name="meta_keywords" value={formData.meta_keywords} onChange={handleChange} className={inputClass} />
+              </div>
+            </div>
+
+            {/* Display Order / Tab Position */}
+            <div className="grid grid-cols-12 gap-4 items-center pb-4">
+              <label className={labelClass}>Tab Order</label>
+              <div className="col-span-12 md:col-span-10">
+                <input type="number" name="ord" value={formData.ord} onChange={handleChange} min="0"
+                  className="w-24 border border-gray-300 rounded px-3 py-2 text-[13px] outline-none focus:border-primary bg-white font-body" />
+                <p className="text-[10px] text-text-muted mt-1">Controls tab position on the Library Services page (lower = earlier)</p>
               </div>
             </div>
 

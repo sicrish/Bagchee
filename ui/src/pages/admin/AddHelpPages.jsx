@@ -16,6 +16,7 @@ const AddHelpPages = () => {
     meta_description: '',
     meta_keywords: '',
     is_common_question: false,
+    ord: 0,
   });
 
   const [pageContent, setPageContent] = useState('');
@@ -158,6 +159,16 @@ const AddHelpPages = () => {
                   onChange={handleChange}
                   className={inputClass}
                 />
+              </div>
+            </div>
+
+            {/* Display Order */}
+            <div className="grid grid-cols-12 gap-4 items-center">
+              <label className={labelClass}>Display Order</label>
+              <div className="col-span-9">
+                <input type="number" name="ord" value={formData.ord} onChange={handleChange} min="0"
+                  className="w-24 border border-gray-300 rounded px-3 py-2 text-[13px] outline-none focus:border-primary bg-white font-body" />
+                <p className="text-[10px] text-text-muted mt-1">Lower number = appears first in the list</p>
               </div>
             </div>
 
