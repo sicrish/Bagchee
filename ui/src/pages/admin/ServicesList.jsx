@@ -7,9 +7,11 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
+import {useConfirm} from '../../context/ConfirmContext.jsx'
 
 const ServicesList = () => {
     const navigate = useNavigate();
+        const {confirm}=useConfirm()
     const [services, setServices] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -65,7 +67,7 @@ const ServicesList = () => {
     };
 
     const handleDelete = async (id) => {
-       if (!window.confirm("Are you sure?")) return;
+       if (!(await confirm())) return;
         const toastId = toast.loading("Removing service...");
         try {
             const API_URL = process.env.REACT_APP_API_URL;

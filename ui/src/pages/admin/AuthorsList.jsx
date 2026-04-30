@@ -10,12 +10,14 @@ import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
 import { exportToExcel } from '../../utils/exportExcel.js';
+import {useConfirm} from '../../context/ConfirmContext.jsx'
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:3001";
 
 const AuthorsList = () => {
   const navigate = useNavigate();
   const [authors, setAuthors] = useState([]);
+    const {confirm}=useConfirm()
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -109,7 +111,7 @@ const AuthorsList = () => {
 
   // 🔴 2. Delete Author Logic with Confirmation
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this author?")) return;
+   if (!(await confirm())) return;
 
     const toastId = toast.loading("Processing deletion...");
     try {

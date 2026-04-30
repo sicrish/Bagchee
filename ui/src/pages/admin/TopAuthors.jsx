@@ -8,10 +8,11 @@ import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
 import { exportToExcel } from '../../utils/exportExcel.js';
+import {useConfirm} from '../../context/ConfirmContext.jsx'
 
 const TopAuthors = () => {
   const navigate = useNavigate();
-
+  const {confirm}=useConfirm()
   // --- Data States ---
   const [authors, setAuthors] = useState([]);
   const [totalRecords, setTotalRecords] = useState(0);
@@ -74,7 +75,7 @@ const TopAuthors = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure?")) return;
+        if (!(await confirm())) return;
     const toastId = toast.loading("Removing...");
     try {
       const res = await axios.delete(`${process.env.REACT_APP_API_URL}/top-authors/delete/${id}`);

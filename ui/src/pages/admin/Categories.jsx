@@ -7,10 +7,12 @@ import {
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
 import { exportToExcel } from '../../utils/exportExcel.js';
+import {useConfirm} from '../../context/ConfirmContext.jsx'
 
 const Categories = () => {
     const navigate = useNavigate();
     const [categories, setCategories] = useState([]);
+    const {confirm}=useConfirm()
     const [loading, setLoading] = useState(true);
 
     // 🟢 1. Pagination States Add Karein
@@ -98,7 +100,7 @@ const Categories = () => {
 
     // 🔴 2. Delete Logic
     const handleDelete = async (id) => {
-        if (!window.confirm("Are you sure you want to delete this category?")) return;
+       if (!(await confirm())) return;
 
         const toastId = toast.loading("Processing...");
         try {

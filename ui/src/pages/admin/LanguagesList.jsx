@@ -8,11 +8,13 @@ import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
 import { exportToExcel } from '../../utils/exportExcel.js';
+import {useConfirm} from '../../context/ConfirmContext.jsx'
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:3001";
 
 const LanguagesList = () => {
   const navigate = useNavigate();
+    const {confirm}=useConfirm()
   const [languages, setLanguages] = useState([]);
   const [loading, setLoading] = useState(true);
   // 🟢 1. Pagination States (Backend Match)
@@ -112,7 +114,7 @@ const LanguagesList = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this language?")) return;
+       if (!(await confirm())) return;
     const toastId = toast.loading("Deleting...");
     try {
       const API_URL = process.env.REACT_APP_API_URL;

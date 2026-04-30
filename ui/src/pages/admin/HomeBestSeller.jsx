@@ -8,9 +8,11 @@ import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig'; 
 import toast from 'react-hot-toast';
 import { exportToExcel } from '../../utils/exportExcel.js';
+import {useConfirm} from '../../context/ConfirmContext.jsx'
 
 const HomeBestSeller = () => {
   const navigate = useNavigate();
+    const {confirm}=useConfirm()
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false); 
@@ -64,7 +66,7 @@ const HomeBestSeller = () => {
 
   // --- 2. DELETE HANDLER ---
   const handleDelete = async (id) => {
-    if(!window.confirm("Are you sure you want to delete this item?")) return;
+       if (!(await confirm())) return;
 
     const toastId = toast.loading("Deleting...");
     try {

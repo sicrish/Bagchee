@@ -7,10 +7,11 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
+import {useConfirm} from '../../context/ConfirmContext.jsx'
 
 const ProductTypesList = () => {
   const navigate = useNavigate();
-  
+    const {confirm}=useConfirm()
   // 🟢 State for data
   const [productTypes, setProductTypes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -62,7 +63,7 @@ const ProductTypesList = () => {
   };
 
   const handleDelete = async (id) => {
-    if(!window.confirm("Are you sure you want to delete this?")) return;
+        if (!(await confirm())) return;
     try {
         const API_URL = process.env.REACT_APP_API_URL;
         await axios.delete(`${API_URL}/product-types/delete/${id}`);

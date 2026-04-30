@@ -8,9 +8,10 @@ import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig'; 
 import toast from 'react-hot-toast';
 import { exportToExcel } from '../../utils/exportExcel.js';
-
+import {useConfirm} from '../../context/ConfirmContext.jsx'
 const HomeSlider = () => {
   const navigate = useNavigate();
+    const {confirm}=useConfirm()
   const [sliders, setSliders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false); 
@@ -63,8 +64,7 @@ const HomeSlider = () => {
 
   // --- 2. DELETE HANDLER ---
   const handleDelete = async (id) => {
-    if(!window.confirm("Are you sure you want to delete this slider?")) return;
-
+    if (!(await confirm())) return;
     const toastId = toast.loading("Deleting...");
     try {
       const API_URL = process.env.REACT_APP_API_URL;

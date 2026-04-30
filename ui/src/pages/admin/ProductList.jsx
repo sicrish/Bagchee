@@ -5,11 +5,13 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom'; // 🟢 Import useParams
 import axios from '../../utils/axiosConfig';
+import {useConfirm} from '../../context/ConfirmContext.jsx'
 
 import toast from 'react-hot-toast';
 
 const ProductList = () => {
   const navigate = useNavigate();
+  const {confirm}=useConfirm()
 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -174,7 +176,7 @@ const ProductList = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Confirm delete?")) return;
+        if (!(await confirm())) return;
     const toastId = toast.loading("Deleting...");
     try {
       await axios.delete(`${process.env.REACT_APP_API_URL}/product/delete/${id}`);

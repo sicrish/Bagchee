@@ -8,10 +8,11 @@ import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
 import { exportToExcel } from '../../utils/exportExcel.js';
-
+import {useConfirm} from '../../context/ConfirmContext.jsx'
 
 const OrderStatusesList = () => {
   const navigate = useNavigate();
+      const {confirm}=useConfirm()
   const [statuses, setStatuses] = useState([]);
   const [loading, setLoading] = useState(true);
   
@@ -100,7 +101,7 @@ const [totalItems, setTotalItems] = useState(0);
   };
 
   const handleDelete = async (id) => {
-    if(!window.confirm("Are you sure you want to delete this status?")) return;
+    if (!(await confirm())) return;
     const toastId = toast.loading("Deleting...");
     try {
       const API_URL = process.env.REACT_APP_API_URL;

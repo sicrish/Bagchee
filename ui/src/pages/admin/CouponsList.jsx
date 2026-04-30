@@ -10,12 +10,14 @@ import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
 import { exportToExcel } from '../../utils/exportExcel.js';
+import {useConfirm} from '../../context/ConfirmContext.jsx'
 
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:3001";
 
 const CouponsList = () => {
   const navigate = useNavigate();
+      const {confirm}=useConfirm()
   const [coupons, setCoupons] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -95,7 +97,7 @@ const CouponsList = () => {
 
   // 🔴 2. Delete Logic with Confirmation
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to permanently delete this coupon?")) return;
+       if (!(await confirm())) return;
 
     const toastId = toast.loading("Processing deletion...");
     try {

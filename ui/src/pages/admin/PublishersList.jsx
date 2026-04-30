@@ -8,12 +8,12 @@ import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
 import { exportToExcel } from '../../utils/exportExcel.js';
-
+import {useConfirm} from '../../context/ConfirmContext.jsx'
 const PublishersList = () => {
   const navigate = useNavigate();
   const [publishers, setPublishers] = useState([]);
   const [loading, setLoading] = useState(true);
-
+    const {confirm}=useConfirm()
 
   // 🟢 1. Pagination States
   const [currentPage, setCurrentPage] = useState(1);
@@ -114,7 +114,7 @@ const PublishersList = () => {
   };
 
   const handleDelete = async (id) => {
-    if(!window.confirm("Are you sure?")) return;
+    if (!(await confirm())) return;
     const toastId = toast.loading("Deleting...");
     try {
       const res = await axios.delete(`${API_BASE_URL}/publishers/delete/${id}`); 
