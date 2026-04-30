@@ -1110,12 +1110,13 @@ model AuthorsPublishers {
 // Help pages — each row is one help article
 // Old DB: help_pages
 model HelpPage {
-  id           Int    @id @default(autoincrement())
-  title        String
-  pageContent  String @default("") @map("page_content")
-  metaTitle    String @default("") @map("meta_title")
-  metaDesc     String @default("") @map("meta_description")
-  metaKeywords String @default("") @map("meta_keywords")
+  id               Int     @id @default(autoincrement())
+  title            String
+  pageContent      String  @default("") @map("page_content")
+  metaTitle        String  @default("") @map("meta_title")
+  metaDesc         String  @default("") @map("meta_description")
+  metaKeywords     String  @default("") @map("meta_keywords")
+  isCommonQuestion Boolean @default(false) @map("is_common_question")
 
   @@map("help_pages")
 }
@@ -1152,6 +1153,8 @@ model Settings {
   usdToInrRate           Float   @default(0) @map("usd_to_inr_rate")
   mailFrom               String  @default("") @map("mail_from")
   mailReplyTo            String  @default("") @map("mail_reply_to")
+  showPromoOverUsd       Float   @default(0) @map("show_promo_over_usd")
+  showPromoOverEur       Float   @default(0) @map("show_promo_over_eur")
   topbarPromotion        Boolean @default(false) @map("topbar_promotion")
   topbarPromotionText    String  @default("") @map("topbar_promotion_text")
   // Legacy single-set bank details (kept for backwards compat)

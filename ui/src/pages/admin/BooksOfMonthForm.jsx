@@ -135,8 +135,10 @@ const BooksOfMonthForm = () => {
         } else if (!isEdit) {
           setFormData({ monthName: '', headline: '', products: [], expiryDate: '', isActive: 'yes' });
           setSelectedProductsData([]);
-          setSearchQuery(""); 
+          setSearchQuery("");
         }
+      } else {
+        toast.error(res.data.msg || 'Save failed', { id: toastId });
       }
     } catch (error) {
       toast.error(error.response?.data?.msg || "Operation failed", { id: toastId });
@@ -265,10 +267,10 @@ const BooksOfMonthForm = () => {
 
             {/* Actions */}
             <div className="flex flex-col md:flex-row justify-center items-center gap-4 pt-8 border-t mt-4 font-montserrat">
-              <button onClick={(e) => handleSubmit(e, 'stay')} disabled={loading} className="w-full md:w-auto bg-primary text-white px-8 py-2.5 rounded font-bold text-[10px] uppercase shadow-md flex items-center justify-center gap-2">
+              <button type="button" onClick={(e) => handleSubmit(e, 'stay')} disabled={loading} className="w-full md:w-auto bg-primary text-white px-8 py-2.5 rounded font-bold text-[10px] uppercase shadow-md flex items-center justify-center gap-2">
                 {loading ? <Loader2 size={14} className="animate-spin"/> : <Check size={14}/>} {isEdit ? "Update" : "Save Selection"}
               </button>
-              <button onClick={(e) => handleSubmit(e, 'back')} disabled={loading} className="w-full md:w-auto bg-text-main text-white px-8 py-2.5 rounded font-bold text-[10px] uppercase shadow-md flex items-center justify-center gap-2">
+              <button type="button" onClick={(e) => handleSubmit(e, 'back')} disabled={loading} className="w-full md:w-auto bg-text-main text-white px-8 py-2.5 rounded font-bold text-[10px] uppercase shadow-md flex items-center justify-center gap-2">
                 <RotateCcw size={14}/> {isEdit ? "Update & Go Back" : "Save & Go Back"}
               </button>
               <button type="button" onClick={() => navigate('/admin/books-of-the-month')} className="w-full md:w-auto bg-white border border-cream-200 text-text-main px-8 py-2.5 rounded font-bold text-[10px] uppercase flex items-center justify-center gap-2">

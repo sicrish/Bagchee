@@ -33,7 +33,7 @@ export const saveBooksOfMonth = async (req, res) => {
         } else {
             // Create: deactivate all existing, then create new
             if (activeFlag) {
-                await prisma.booksOfMonth.updateMany({}, { data: { isActive: false } });
+                await prisma.booksOfMonth.updateMany({ data: { isActive: false } });
             }
             const newData = await prisma.booksOfMonth.create({
                 data: {

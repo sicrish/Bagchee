@@ -17,6 +17,7 @@ const EditHelpPages = () => {
     meta_title: '',
     meta_description: '',
     meta_keywords: '',
+    is_common_question: false,
   });
 
   const [pageContent, setPageContent] = useState('');
@@ -36,6 +37,7 @@ const EditHelpPages = () => {
             meta_title: data.metaTitle || data.meta_title || '',
             meta_description: data.metaDesc || data.meta_description || '',
             meta_keywords: data.metaKeywords || data.meta_keywords || '',
+            is_common_question: data.isCommonQuestion || data.is_common_question || false,
           });
           // Content ko alag state mein set karein Jodit ke liye
           setPageContent(data.pageContent || data.content || '');
@@ -190,13 +192,31 @@ const EditHelpPages = () => {
             <div className="grid grid-cols-12 gap-4 items-center">
               <label className={labelClass}>Meta keywords</label>
               <div className="col-span-9">
-                <input 
-                  type="text" 
-                  name="meta_keywords" 
-                  value={formData.meta_keywords} 
-                  onChange={handleChange} 
+                <input
+                  type="text"
+                  name="meta_keywords"
+                  value={formData.meta_keywords}
+                  onChange={handleChange}
                   className={inputClass}
                 />
+              </div>
+            </div>
+
+            {/* Is Common Question */}
+            <div className="grid grid-cols-12 gap-4 items-center">
+              <label className={labelClass}>Common Question</label>
+              <div className="col-span-9 flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="is_common_question"
+                  name="is_common_question"
+                  checked={formData.is_common_question}
+                  onChange={(e) => setFormData({ ...formData, is_common_question: e.target.checked })}
+                  className="h-4 w-4 accent-primary cursor-pointer"
+                />
+                <label htmlFor="is_common_question" className="text-sm text-text-muted font-body cursor-pointer">
+                  Show this page under "Common Questions" on the Help page
+                </label>
               </div>
             </div>
 

@@ -6,7 +6,7 @@ import prisma from '../lib/prisma.js';
 
 export const saveHelpPage = async (req, res) => {
     try {
-        const { title, content, meta_title, meta_description, meta_keywords } = req.body;
+        const { title, content, meta_title, meta_description, meta_keywords, is_common_question } = req.body;
         if (!title || !content) return res.status(400).json({ status: false, msg: 'Title and Content are required.' });
         const newPage = await prisma.helpPage.create({
             data: {
@@ -14,7 +14,8 @@ export const saveHelpPage = async (req, res) => {
                 pageContent: content,
                 metaTitle: meta_title || title.trim(),
                 metaDesc: meta_description || '',
-                metaKeywords: meta_keywords || ''
+                metaKeywords: meta_keywords || '',
+                isCommonQuestion: is_common_question === true || is_common_question === 'true' || is_common_question === 1
             }
         });
         res.status(201).json({ status: true, msg: 'Help page added successfully!', data: newPage });
@@ -51,13 +52,14 @@ export const getHelpPageById = async (req, res) => {
 export const updateHelpPage = async (req, res) => {
     try {
         const id = parseInt(req.params.id);
-        const { title, content, meta_title, meta_description, meta_keywords } = req.body;
+        const { title, content, meta_title, meta_description, meta_keywords, is_common_question } = req.body;
         const updateData = {};
         if (title) updateData.title = title.trim();
         if (content !== undefined) updateData.pageContent = content;
         if (meta_title !== undefined) updateData.metaTitle = meta_title;
         if (meta_description !== undefined) updateData.metaDesc = meta_description;
         if (meta_keywords !== undefined) updateData.metaKeywords = meta_keywords;
+        if (is_common_question !== undefined) updateData.isCommonQuestion = is_common_question === true || is_common_question === 'true' || is_common_question === 1;
         const updated = await prisma.helpPage.update({ where: { id }, data: updateData });
         res.status(200).json({ status: true, msg: 'Help page updated successfully!', data: updated });
     } catch (error) {

@@ -8,10 +8,10 @@ import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
 import { exportToExcel } from '../../utils/exportExcel.js';
-import {useConfirm} from '../../context/ConfirmContext.jsx'
+import { useConfirm } from '../../context/ConfirmContext';
 const BooksOfMonthList = () => {
   const navigate = useNavigate();
-    const {confirm}=useConfirm()
+  const { confirm } = useConfirm();
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
@@ -47,7 +47,8 @@ const BooksOfMonthList = () => {
 
   // --- 2. DELETE HANDLER ---
   const handleDelete = async (id) => {
-        if (!(await confirm())) return;
+    const ok = await confirm("Delete Selection", "Are you sure you want to delete this selection?");
+    if (!ok) return;
 
     const toastId = toast.loading("Deleting...");
     try {

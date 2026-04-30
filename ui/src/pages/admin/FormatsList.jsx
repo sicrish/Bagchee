@@ -9,10 +9,12 @@ import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
 import { exportToExcel } from '../../utils/exportExcel.js';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // 🟢 React Query added
+import { useConfirm } from '../../context/ConfirmContext';
 
 const FormatsList = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { confirm } = useConfirm();
 
   // 🟢 1. Pagination States
   const [currentPage, setCurrentPage] = useState(1);
@@ -129,8 +131,9 @@ const FormatsList = () => {
     refetch(); // Force a fresh background fetch
   };
 
-  const handleDelete = (id) => {
-    if(!window.confirm("Are you sure you want to delete this format?")) return;
+  const handleDelete = async (id) => {
+    const ok = await confirm("Delete Format", "Are you sure you want to delete this format?");
+    if (!ok) return;
     deleteFormatMutation.mutate(id);
   };
 

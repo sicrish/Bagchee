@@ -8,11 +8,11 @@ import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
 import { exportToExcel } from '../../utils/exportExcel.js';
-import {useConfirm} from '../../context/ConfirmContext.jsx'
+import { useConfirm } from '../../context/ConfirmContext';
 
 const HelpPagesList = () => {
   const navigate = useNavigate();
-          const {confirm}=useConfirm()
+  const { confirm } = useConfirm();
   const [helpPages, setHelpPages] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -103,7 +103,8 @@ const HelpPagesList = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!(await confirm())) return;
+    const ok = await confirm("Delete Help Page", "Are you sure you want to delete this help page?");
+    if (!ok) return;
     const toastId = toast.loading("Deleting...");
     try {
       const API_URL = process.env.REACT_APP_API_URL;

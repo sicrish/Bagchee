@@ -156,6 +156,11 @@ const Cart = () => {
     : (settings.freeShippingOver || settings.free_shipping_over || 0)
   ) : 0;
 
+  const showPromoOver = settings ? (
+    currency === 'EUR' ? (settings.showPromoOverEur || 0)
+    : (settings.showPromoOverUsd || 0)
+  ) : 0;
+
   // ─── 🟢 STEP 1: MNC DISCOUNT-SAFE CALCULATIONS (REPLACE LINE 114-124) ───
 
   // Total number of physical books (excludes gift cards — they don't ship)
@@ -546,44 +551,12 @@ const Cart = () => {
             <div className="bg-cream-100 border border-gray-200 shadow-sm">
               <div className="p-5 space-y-5">
 
-                {/* ─── FREE SHIPPING PROGRESS BAR ─── */}
-                {freeShippingOver > 0 && (() => {
-                  const progress = Math.min(100, (subtotal / freeShippingOver) * 100);
-                  const remaining = Math.max(0, freeShippingOver - subtotal);
-                  const unlocked = subtotal >= freeShippingOver;
-                  return (
-                    <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-2.5">
-                      <p className="text-xs font-bold text-center text-gray-600">
-                        Free delivery on orders over{' '}
-                        <span className="text-primary font-black">{formatPrice(freeShippingOver)}</span>
-                      </p>
-                      {/* Progress bar */}
-                      <div className="relative h-3 bg-gray-100 rounded-full overflow-hidden">
-                        <div
-                          className="absolute inset-y-0 left-0 rounded-full transition-all duration-500"
-                          style={{
-                            width: `${progress}%`,
-                            background: unlocked
-                              ? 'linear-gradient(90deg, #22c55e, #16a34a)'
-                              : 'linear-gradient(90deg, #a78bfa, #7c3aed)',
-                          }}
-                        />
-                      </div>
-                      {/* Message */}
-                      <p className="text-[11px] text-center text-gray-500">
-                        {unlocked ? (
-                          <span className="text-green-600 font-black">🎉 You've unlocked free shipping!</span>
-                        ) : (
-                          <>
-                            Add at least{' '}
-                            <span className="text-primary font-black">{formatPrice(remaining)}</span>
-                            {' '}more to get free shipping!
-                          </>
-                        )}
-                      </p>
-                    </div>
-                  );
-                })()}
+                {/* ─── FREE SHIPPING UNLOCKED BADGE ─── */}
+                {freeShippingOver > 0 && subtotal >= freeShippingOver && (
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-center">
+                    <span className="text-green-700 font-black text-sm">🎉 You've unlocked free shipping!</span>
+                  </div>
+                )}
 
                 {/* Cart total line */}
                 <div className="flex justify-between items-baseline">
@@ -597,7 +570,7 @@ const Cart = () => {
                 </div>
 
                 {/* ─── PROMOTION CODE ─── */}
-                <div className="border-t border-gray-200 pt-4">
+                {(showPromoOver === 0 || subtotal >= showPromoOver) && <div className="border-t border-gray-200 pt-4">
                   <p className="text-sm font-bold text-primary text-center mb-3">
                     Use a promotion Code
                   </p>
@@ -640,7 +613,7 @@ const Cart = () => {
                       </button>
                     </div>
                   )}
-                </div>
+                </div>}
 
 {/* ─── SHIPPING OPTIONS SECTION ─── */}
 <div className="space-y-2">

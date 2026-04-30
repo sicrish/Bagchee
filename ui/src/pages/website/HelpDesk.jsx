@@ -224,7 +224,7 @@ const HelpDesk = () => {
             </div>
 
             <div className="max-w-4xl mx-auto space-y-4">
-              {helpPages.map((page) => (
+              {helpPages.filter(page => page.isCommonQuestion || page.is_common_question || page.title?.toLowerCase().includes('common')).map((page) => (
                 <div
                   key={page.id}
                   className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"

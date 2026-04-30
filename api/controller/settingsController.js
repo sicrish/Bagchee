@@ -56,6 +56,12 @@ const mapBody = (b) => {
     const mailReplyTo = f('mailReplyTo','mail_reply_to');
     if (mailReplyTo !== undefined) d.mailReplyTo = mailReplyTo || '';
 
+    const spou = f('showPromoOverUsd','show_promo_over_usd');
+    if (spou !== undefined) d.showPromoOverUsd = num(spou);
+
+    const spoe = f('showPromoOverEur','show_promo_over_eur');
+    if (spoe !== undefined) d.showPromoOverEur = num(spoe);
+
     const topbarPromo = f('topbarPromotion','topbar_promotion');
     if (topbarPromo !== undefined) d.topbarPromotion = bool(topbarPromo);
 
@@ -183,6 +189,8 @@ export const getPublicConfig = async (req, res) => {
             freeShippingOver:       s.freeShippingOver       || 0,
             freeShippingOverEur:    s.freeShippingOverEur    || 0,
             freeShippingOverInr:    s.freeShippingOverInr    || 1000,
+            showPromoOverUsd:       s.showPromoOverUsd       || 0,
+            showPromoOverEur:       s.showPromoOverEur       || 0,
             usdToInrRate:           s.usdToInrRate           || 84,
             usdToEurRate:           s.usdToEurRate           || 0.92,
             saleThreshold:          s.saleThreshold          || 0,
