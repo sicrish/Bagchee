@@ -235,8 +235,16 @@ const CategoriesDropdown = memo(({ onLinkClick }) => {
     : allCats.filter(c => c.title && c.title.trim() && (c.parentId === 0 || c.parent_id === 0))
         .sort((a, b) => a.title.localeCompare(b.title));
 
-  // Top categories: search entire allCats (they may be subcategories, not at parentId=2)
-  const topCats  = allCats.filter(c => c.title && BAGCHEE_TOP_CAT_NAMES.has(c.title.toLowerCase()));
+  // Top categories: search entire allCats, deduplicate by title
+  const topCats = Object.values(
+    allCats
+      .filter(c => c.title && BAGCHEE_TOP_CAT_NAMES.has(c.title.toLowerCase()))
+      .reduce((acc, c) => {
+        const key = c.title.toLowerCase();
+        if (!acc[key]) acc[key] = c;
+        return acc;
+      }, {})
+  );
   const moreCats = displayCats.filter(c => !BAGCHEE_TOP_CAT_NAMES.has(c.title.toLowerCase()));
   const moreHalf = Math.ceil(moreCats.length / 2);
   const moreCol1 = moreCats.slice(0, moreHalf);
@@ -335,6 +343,15 @@ const CategoriesDropdown = memo(({ onLinkClick }) => {
           </div>
         </div>
 
+      </div>
+
+      <div className="mt-4 pt-3 border-t border-gray-100 text-center">
+        <button
+          onClick={() => onLinkClick('/allcategories')}
+          className="text-xs font-bold text-primary uppercase tracking-widest hover:underline font-montserrat"
+        >
+          Browse All Categories →
+        </button>
       </div>
     </div>
   );
