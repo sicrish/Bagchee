@@ -1050,7 +1050,7 @@ const SearchSuggestions = memo(({ suggestions, isSearching, searchTerm, onSelect
               linkTo = `/author/${authorSlug}`;
             } else if (type === 'category') {
               typeLabel = "Category";
-              linkTo = item.slug ? `/books?category=${item.slug}` : `/books?keyword=${encodeURIComponent(displayTitle)}`;
+              linkTo = item.slug ? `/books/${item.slug}` : `/books?keyword=${encodeURIComponent(displayTitle)}`;
             } else if (type === 'series') {
               typeLabel = "Series";
               const seriesSlug = displayTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
