@@ -695,23 +695,16 @@ const BookDetail = () => {
                 {book.isExclusive === true && (
                   <div className="inline-flex items-center gap-1.5 bg-primary text-white text-[10px] font-bold px-3 py-1 rounded-full font-montserrat uppercase tracking-wide shadow-sm">
                     <ShieldCheck className="w-3 h-3" />
-                    {(book.exclusiveFor || book.exclusive_for) === 'members'
-                      ? 'Exclusive for Members'
-                      : (book.exclusiveFor || book.exclusive_for) === 'ordered'
-                      ? 'Exclusive for Customers'
-                      : 'Exclusive'}
+                    Exclusive
                   </div>
                 )}
-
-
+                {/* Sale label */}
+                {discount > 20 && (
+                  <div className="inline-flex items-center gap-1.5 bg-red-600 text-white text-[10px] font-bold px-3 py-1 rounded-full font-montserrat uppercase tracking-wide shadow-sm">
+                    SALE
+                  </div>
+                )}
               </div>
-
-              {/* Sale label */}
-              {hasDiscount && (
-                <div className="inline-flex items-center gap-1.5 bg-red-600 text-white text-[10px] font-bold px-3 py-1 rounded-full font-montserrat uppercase tracking-wide shadow-sm mb-3">
-                  SALE
-                </div>
-              )}
 
               {/* Title */}
               <h1 className="text-xl lg:text-3xl font-display font-bold text-gray-900 mb-1 leading-snug">
@@ -734,7 +727,7 @@ const BookDetail = () => {
                 </Link>
               </p>
 
-            {/* 🟢 Series Display */}
+              {/* 🟢 Series Display */}
               {book.series && (
                 <p className="text-sm text-gray-500 mb-3">
                   Series:{" "}
@@ -754,39 +747,44 @@ const BookDetail = () => {
 
               {/* 🟢 STEP: Top Dynamic Rating Section using Reviews Array */}
               <div className="flex items-center gap-4 mt-4 pb-3 border-b border-gray-100">
-                {(() => {
-                  const adminRating = Number(book?.rating ?? book?.adminRating ?? 0);
-                  const ratedTimes  = Number(book?.ratedTimes ?? book?.rated_times ?? 0);
-                  const reviewAvg   = reviews.length > 0
-                    ? reviews.reduce((acc, curr) => acc + curr.rating, 0) / reviews.length
-                    : 0;
-                  const displayRating = reviews.length > 0 ? reviewAvg : adminRating;
-                  const hasRating = reviews.length > 0 || ratedTimes > 0 || adminRating > 0;
-                  return hasRating ? (
+                {((reviews && reviews.length > 0) || ((book?.ratedTimes || book?.rated_times) > 0) || (book?.rating > 0)) ? (
                   <>
                     <div className="flex items-center gap-1">
-                      {[...Array(5)].map((_, i) => (
-                        <Star
-                          key={i}
-                          size={16}
-                          className={`w-4 h-4 ${i < Math.floor(displayRating) ? "fill-amber-400 text-amber-400" : "text-gray-300"}`}
-                        />
-                      ))}
+                      {[...Array(5)].map((_, i) => {
+                        // Average Rating Calculation: reviews array se average nikalna
+                        const calculatedAvg = reviews.length > 0
+                          ? (reviews.reduce((acc, curr) => acc + curr.rating, 0) / reviews.length)
+                          : (book?.rating || 0);
+
+                        return (
+                          <Star
+                            key={i}
+                            size={16}
+                            className={`w-4 h-4 ${i < Math.floor(calculatedAvg) ? "fill-amber-400 text-amber-400" : "text-gray-300"}`}
+                          />
+                        );
+                      })}
                     </div>
                     <span className="text-sm text-gray-600 font-montserrat font-medium">
-                      {displayRating.toFixed(1)}
+                      {/* Average Rating (toFixed use kiya hai taaki decimal sahi dikhe) */}
+                      {reviews.length > 0
+                        ? (reviews.reduce((acc, curr) => acc + curr.rating, 0) / reviews.length).toFixed(1)
+                        : (book?.rating || 0).toFixed(1)}
                       {" "}
-                      ({reviews.length > 0 ? reviews.length : ratedTimes} {reviews.length === 1 ? 'rating' : 'ratings'})
+                      ({reviews.length > 0 ? reviews.length : (book?.ratedTimes || book?.rated_times || 0)} ratings)
                     </span>
                   </>
-                ) : (
-                  <div className="flex items-center gap-1">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} size={16} className="w-4 h-4 text-gray-300" />
-                    ))}
-                  </div>
-                );
-                })()}
+                ) : <div className="flex items-center gap-1">
+                  {[...Array(5)].map((_, i) => (
+                    <Star
+                      key={i}
+                      size={16}
+                      className="w-4 h-4 text-gray-300" // Khali star ka color gray-300 (outline)
+                    />
+                  ))}
+                </div>
+
+                }
 
                 {/* Write a Review Button (Scroll trigger ke sath) */}
                 <button
@@ -1093,7 +1091,7 @@ const BookDetail = () => {
                         { label: "Release Date", value: book.pub_date },
                         { label: "Edition", value: book.edition },
                         { label: "Publisher", value: pubName, link: pubSlug ? `/publisher/${pubSlug}` : null },
-                        { label: "Length", value: (book.pagesDesc || book.pages_desc) ? (book.pagesDesc || book.pages_desc) : (book.total_pages || book.pages ? `${book.total_pages || book.pages}` : null) },
+                        { label: "Length", value: book.total_pages || book.pages ? `${book.total_pages || book.pages}` : null },
                         { label: "Weight", value: book.weight && String(book.weight).trim() !== '0' && String(book.weight).trim() !== '' ? book.weight : null },
                       ]
                         .filter((row) => row.value)

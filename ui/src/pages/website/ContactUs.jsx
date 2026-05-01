@@ -77,7 +77,7 @@ const contactInfo = [
   {
     icon: <MapPin className="w-6 h-6" />,
     title: "Address",
-    details: ["4384/4A Ansari Road", "Daryaganj, New Delhi 110002"],
+    details: ["4384/4A Ansari Road", "New Delhi 110002,India"],
   },
   {
     icon: <Mail className="w-6 h-6" />,
@@ -88,7 +88,6 @@ const contactInfo = [
   {
     icon: <FaWhatsapp className="w-6 h-6" />,
     title: "WhatsApp",
-    whatsapp: "+911141048000",
     details: ["Chat on WhatsApp"],
   },
 ];
