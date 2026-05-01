@@ -24,9 +24,9 @@ const EditTerms = () => {
           const d = res.data.data;
           setFormData({
             title: d.title || '',
-            meta_title: d.meta_title || d.meta_title || '',
-            meta_description: d.meta_description || d.meta_description || '',
-            meta_keywords: d.meta_keywords || d.meta_keywords || '',
+            meta_title: d.metaTitle || d.meta_title || '',
+            meta_description: d.metaDesc || d.meta_description || '',
+            meta_keywords: d.metaKeywords || d.meta_keywords || '',
           });
           setPageContent(d.pageContent || d.page_content || '');
         }
@@ -44,7 +44,7 @@ const EditTerms = () => {
     setLoading(true);
     const toastId = toast.loading("Updating Terms of Use...");
     try {
-      const payload = { ...formData, page_content: pageContent };
+      const payload = { ...formData, pageContent };
       const API_URL = process.env.REACT_APP_API_URL;
       const res = await axios.patch(`${API_URL}/terms/update`, payload);
 

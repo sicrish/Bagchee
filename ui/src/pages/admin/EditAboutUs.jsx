@@ -58,7 +58,7 @@ const EditAboutUs = () => {
     const toastId = toast.loading("Updating About Us...");
 
     try {
-      const payload = { ...formData, page_content: pageContent };
+      const payload = { ...formData, pageContent };
       const API_URL = process.env.REACT_APP_API_URL;
       const res = await axios.patch(`${API_URL}/about-us/update`, payload);
 
