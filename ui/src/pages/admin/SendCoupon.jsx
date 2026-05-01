@@ -41,25 +41,67 @@ const RECIPIENT_OPTIONS = [
 const buildPreviewHtml = (coupon, emailContent) => {
   const validTill = coupon?.validTo
     ? new Date(coupon.validTo).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-    : '—';
+    : null;
+
+  const discountLabel = coupon?.discountType === 'percentage'
+    ? `${coupon.discountValue}% OFF`
+    : coupon?.discountType === 'fixed'
+    ? `$${coupon?.discountValue} OFF`
+    : coupon?.code ? 'SPECIAL OFFER' : '';
+
   return `
-    <div style="font-family:'Inter',Helvetica,Arial,sans-serif;background-color:#F7EEDD;padding:40px 0;">
-      <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 15px rgba(0,0,0,0.1);border:1px solid #e6decd;">
-        <div style="background-color:#008DDA;padding:30px;text-align:center;">
-          <h1 style="color:#fff;margin:0;font-size:24px;font-weight:700;letter-spacing:0.5px;">Bagchee</h1>
-          <p style="color:#fff;margin-top:5px;opacity:0.9;font-size:13px;">Your Favorite Bookstore</p>
+    <div style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;background-color:#F7EEDD;padding:40px 16px;">
+      <div style="max-width:580px;margin:0 auto;">
+
+        <!-- Header -->
+        <div style="background:#1a3a5c;border-radius:12px 12px 0 0;padding:28px 32px;text-align:center;">
+          <div style="display:inline-block;border:2px solid rgba(255,255,255,0.3);border-radius:8px;padding:6px 18px;margin-bottom:10px;">
+            <span style="color:#ffffff;font-size:22px;font-weight:900;letter-spacing:3px;text-transform:uppercase;">BAGCHEE</span>
+          </div>
+          <p style="color:rgba(255,255,255,0.7);margin:0;font-size:12px;letter-spacing:1px;text-transform:uppercase;">Your Trusted Bookstore</p>
         </div>
-        <div style="padding:10px 30px 30px;">
-          ${emailContent || '<p style="color:#888;font-style:italic;">No content written yet.</p>'}
+
+        <!-- Body -->
+        <div style="background:#ffffff;padding:32px 32px 24px;border-left:1px solid #e2d9cc;border-right:1px solid #e2d9cc;">
+          <div style="color:#2d3748;font-size:14px;line-height:1.7;">
+            ${emailContent || '<p style="color:#888;font-style:italic;">No message written yet.</p>'}
+          </div>
         </div>
-        <div style="background:#fffdf5;padding:16px 30px;text-align:center;border-top:1px solid #e6decd;">
-          <p style="font-size:13px;color:#4A6fa5;margin:0;">
-            Use code <strong style="color:#008DDA;letter-spacing:2px;font-size:16px;">${coupon?.code || '—'}</strong> at checkout.
-          </p>
-          <p style="font-size:12px;color:#888;margin:6px 0 0;">Valid till ${validTill}</p>
-          <a href="https://bagchee.com" style="display:inline-block;margin-top:14px;background:#008DDA;color:#fff;text-decoration:none;padding:10px 28px;font-size:13px;font-weight:bold;border-radius:6px;">Shop Now</a>
-          <p style="font-size:11px;color:#9ca3af;margin-top:16px;margin-bottom:0;">&copy; ${new Date().getFullYear()} Bagchee. All rights reserved.</p>
+
+        <!-- Coupon Card -->
+        <div style="background:#ffffff;border-left:1px solid #e2d9cc;border-right:1px solid #e2d9cc;padding:0 32px 32px;">
+          <div style="border:2px dashed #008DDA;border-radius:12px;overflow:hidden;">
+            <!-- Coupon top band -->
+            <div style="background:linear-gradient(135deg,#008DDA 0%,#0069a8 100%);padding:20px 24px;text-align:center;">
+              ${discountLabel ? `<p style="color:#fff;font-size:32px;font-weight:900;margin:0;letter-spacing:1px;text-shadow:0 1px 3px rgba(0,0,0,0.2);">${discountLabel}</p>` : ''}
+              <p style="color:rgba(255,255,255,0.9);margin:4px 0 0;font-size:12px;text-transform:uppercase;letter-spacing:2px;">Exclusive Coupon</p>
+            </div>
+            <!-- Tear line -->
+            <div style="display:flex;align-items:center;background:#f8f4ee;">
+              <div style="width:20px;height:20px;background:#F7EEDD;border-radius:50%;margin-left:-10px;flex-shrink:0;"></div>
+              <div style="flex:1;border-top:2px dashed #d1c9bd;margin:0 8px;"></div>
+              <div style="width:20px;height:20px;background:#F7EEDD;border-radius:50%;margin-right:-10px;flex-shrink:0;"></div>
+            </div>
+            <!-- Coupon bottom -->
+            <div style="background:#fffdf8;padding:20px 24px;text-align:center;">
+              <p style="color:#6b7280;font-size:11px;margin:0 0 8px;text-transform:uppercase;letter-spacing:1.5px;">Use Coupon Code</p>
+              <div style="background:#f0f9ff;border:1.5px solid #008DDA;border-radius:8px;display:inline-block;padding:10px 28px;">
+                <span style="color:#008DDA;font-size:22px;font-weight:900;letter-spacing:5px;font-family:'Courier New',monospace;">${coupon?.code || '— — — —'}</span>
+              </div>
+              ${validTill ? `<p style="color:#9ca3af;font-size:11px;margin:10px 0 0;">Valid till <strong style="color:#374151;">${validTill}</strong></p>` : ''}
+            </div>
+          </div>
+
+          <div style="text-align:center;margin-top:20px;">
+            <a href="https://bagchee.com" style="display:inline-block;background:#008DDA;color:#fff;text-decoration:none;padding:13px 36px;font-size:13px;font-weight:700;border-radius:8px;letter-spacing:0.5px;box-shadow:0 3px 8px rgba(0,141,218,0.35);">Shop Now at Bagchee →</a>
+          </div>
         </div>
+
+        <!-- Footer -->
+        <div style="background:#f0ebe3;border-radius:0 0 12px 12px;padding:16px 32px;text-align:center;border:1px solid #e2d9cc;border-top:none;">
+          <p style="font-size:11px;color:#9ca3af;margin:0;">&copy; ${new Date().getFullYear()} Bagchee. All rights reserved. &nbsp;|&nbsp; <a href="https://bagchee.com" style="color:#008DDA;text-decoration:none;">bagchee.com</a></p>
+        </div>
+
       </div>
     </div>
   `;

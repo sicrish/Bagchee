@@ -57,6 +57,7 @@ export const normalizeProduct = (p) => {
         sold_count:  p.soldCount    ?? p.sold_count   ?? 0,
         ratedTimes:  p.ratedTimes   ?? p.rated_times  ?? 0,
         rated_times: p.ratedTimes   ?? p.rated_times  ?? 0,
+        rating:      p.rating       ?? 0,
 
         // --- Physical Details ---
         weight:       p.weight       || '',
@@ -109,21 +110,6 @@ export const normalizeProduct = (p) => {
 
         // --- Author (flattened for legacy UI) ---
         author: authorObj,
-
-        
-        // --- Product Categories (for Related Subjects) ---
-
-        productCategories: p.productCategories || p.product_categories || (Array.isArray(p.categories) ? p.categories.map(c => c.category || c) : []),
-
-        product_categories: p.productCategories || p.product_categories || (Array.isArray(p.categories) ? p.categories.map(c => c.category || c) : []),
-
-
-
-        // --- Product Tags ---
-
-        productTags: p.productTags || p.product_tags || (Array.isArray(p.tags) ? p.tags.map(t => t.tag || t) : []),
-
-        product_tags: p.productTags || p.product_tags || (Array.isArray(p.tags) ? p.tags.map(t => t.tag || t) : []),
 
         // --- Series Number ---
 

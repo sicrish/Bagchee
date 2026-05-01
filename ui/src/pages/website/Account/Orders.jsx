@@ -280,7 +280,18 @@ const navigate = useNavigate();
                     </div>
 
                     {/* Header Actions */}
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      {(order.status || '').toLowerCase() === 'payment pending' && (order.paymentLink || order.payment_link) && (
+                        <a
+                          href={order.paymentLink || order.payment_link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 px-3 py-2 text-sm font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-lg transition-colors shadow-sm"
+                        >
+                          <Wallet size={15} />
+                          Pay Now
+                        </a>
+                      )}
                       <button
                        onClick={() => navigate(`/account/order-status/${order.id || order._id}`, { state: { orderData: order } })}
                         className="flex items-center gap-2 px-3 py-2 text-sm text-primary hover:text-primary-dark hover:bg-primary/5 rounded-lg transition-colors"

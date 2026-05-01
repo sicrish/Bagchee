@@ -16,7 +16,8 @@ const Categories = () => {
           axios.get(`${process.env.REACT_APP_API_URL}/tags/list`),
         ]);
         if (catRes.data.status) {
-          const rawData = (catRes.data.data || catRes.data.categories || []).filter(c => c.active !== false);
+          const rawData = (catRes.data.data || catRes.data.categories || [])
+            .filter(c => c.active !== false && (c.title || '').trim().toUpperCase() !== 'ROOT CATEGORY');
           setCategories(buildCategoryTree(rawData));
         }
         if (tagRes.data.status && tagRes.data.data) {

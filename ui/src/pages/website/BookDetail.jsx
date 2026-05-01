@@ -754,44 +754,39 @@ const BookDetail = () => {
 
               {/* 🟢 STEP: Top Dynamic Rating Section using Reviews Array */}
               <div className="flex items-center gap-4 mt-4 pb-3 border-b border-gray-100">
-                {((reviews && reviews.length > 0) || ((book?.ratedTimes || book?.rated_times) > 0) || (book?.rating > 0)) ? (
+                {(() => {
+                  const adminRating = Number(book?.rating ?? book?.adminRating ?? 0);
+                  const ratedTimes  = Number(book?.ratedTimes ?? book?.rated_times ?? 0);
+                  const reviewAvg   = reviews.length > 0
+                    ? reviews.reduce((acc, curr) => acc + curr.rating, 0) / reviews.length
+                    : 0;
+                  const displayRating = reviews.length > 0 ? reviewAvg : adminRating;
+                  const hasRating = reviews.length > 0 || ratedTimes > 0 || adminRating > 0;
+                  return hasRating ? (
                   <>
                     <div className="flex items-center gap-1">
-                      {[...Array(5)].map((_, i) => {
-                        // Average Rating Calculation: reviews array se average nikalna
-                        const calculatedAvg = reviews.length > 0
-                          ? (reviews.reduce((acc, curr) => acc + curr.rating, 0) / reviews.length)
-                          : (book?.rating || 0);
-
-                        return (
-                          <Star
-                            key={i}
-                            size={16}
-                            className={`w-4 h-4 ${i < Math.floor(calculatedAvg) ? "fill-amber-400 text-amber-400" : "text-gray-300"}`}
-                          />
-                        );
-                      })}
+                      {[...Array(5)].map((_, i) => (
+                        <Star
+                          key={i}
+                          size={16}
+                          className={`w-4 h-4 ${i < Math.floor(displayRating) ? "fill-amber-400 text-amber-400" : "text-gray-300"}`}
+                        />
+                      ))}
                     </div>
                     <span className="text-sm text-gray-600 font-montserrat font-medium">
-                      {/* Average Rating (toFixed use kiya hai taaki decimal sahi dikhe) */}
-                      {reviews.length > 0
-                        ? (reviews.reduce((acc, curr) => acc + curr.rating, 0) / reviews.length).toFixed(1)
-                        : (book?.rating || 0).toFixed(1)}
+                      {displayRating.toFixed(1)}
                       {" "}
-                      ({reviews.length > 0 ? reviews.length : (book?.ratedTimes || book?.rated_times || 0)} ratings)
+                      ({reviews.length > 0 ? reviews.length : ratedTimes} {reviews.length === 1 ? 'rating' : 'ratings'})
                     </span>
                   </>
-                ) : <div className="flex items-center gap-1">
-                  {[...Array(5)].map((_, i) => (
-                    <Star
-                      key={i}
-                      size={16}
-                      className="w-4 h-4 text-gray-300" // Khali star ka color gray-300 (outline)
-                    />
-                  ))}
-                </div>
-
-                }
+                ) : (
+                  <div className="flex items-center gap-1">
+                    {[...Array(5)].map((_, i) => (
+                      <Star key={i} size={16} className="w-4 h-4 text-gray-300" />
+                    ))}
+                  </div>
+                );
+                })()}
 
                 {/* Write a Review Button (Scroll trigger ke sath) */}
                 <button

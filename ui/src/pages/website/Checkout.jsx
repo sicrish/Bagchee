@@ -340,6 +340,14 @@ const Checkout = () => {
   // ─── Helpers ───
   const totalBooks = cart.reduce((acc, item) => acc + (item.quantity || 1), 0);
 
+  // Max ship-preparation days across all physical cart items
+  const maxShipDays = cart
+    .filter(i => i.itemType !== 'gift_card')
+    .reduce((max, item) => {
+      const d = parseInt(item.shipDays ?? item.ship_days ?? 0) || 0;
+      return d > max ? d : max;
+    }, 0);
+
   const getShippingPrice = (option) => {
     if (!option) return 0;
     const optId = option.id || option._id;
@@ -2055,7 +2063,17 @@ const Checkout = () => {
                       option.maxDayLimit > 0
                         ? (() => {
                           const d = new Date();
-                          d.setDate(d.getDate() + option.maxDayLimit);
+                          d.setDate(d.getDate() + option.maxDayLimit + maxShipDays);
+                          return d.toLocaleDateString("en-US", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          });
+                        })()
+                        : maxShipDays > 0
+                        ? (() => {
+                          const d = new Date();
+                          d.setDate(d.getDate() + maxShipDays);
                           return d.toLocaleDateString("en-US", {
                             day: "numeric",
                             month: "short",
