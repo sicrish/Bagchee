@@ -228,7 +228,7 @@ const EditBook = () => {
                 edition: book.edition || '',
                 isbn10: book.isbn10 || '',
                 isbn13: book.isbn13 || book.isbn || '',
-                total_pages: (book.pages !== undefined && book.pages !== null) ? String(book.pages) : '',
+                total_pages: book.pagesDesc || book.pages_desc || ((book.pages !== undefined && book.pages !== null) ? String(book.pages) : ''),
                 weight: book.weight || '',
                 price: book.price || '',
                 real_price: book.realPrice || book.real_price || book.priceForeign || '',
@@ -588,11 +588,8 @@ const EditBook = () => {
 
             if (formData.leading_category) data.append('leading_category', formData.leading_category);
             if (formData.series && formData.series.length > 0) {
-                const validSeries = formData.series.filter(s => s && s.trim() !== "");
-                if (validSeries.length > 0) {
-                    // Agar aap JSON stringify karke bhej rahe hain
-                    data.append('series', JSON.stringify(validSeries));
-                }
+                const firstSeries = formData.series[0];
+                if (firstSeries) data.append('series', String(firstSeries));
             }
             if (formData.series_number) data.append('series_number', formData.series_number);
             if (formData.publisher) data.append('publisher', formData.publisher);
@@ -624,7 +621,7 @@ const EditBook = () => {
             data.append('new_release_until', formData.new_release_until || '');
             data.append('exclusive', formData.exclusive);
             data.append('exclusive_for', formData.exclusive_for || 'all');
-            data.append('pages_desc', formData.pages_desc || '');
+            data.append('pages_desc', formData.total_pages || '');
             data.append('ship_days', formData.ship_days || '');
             data.append('deliver_days', formData.deliver_days || '');
             data.append('pub_date', formData.pub_date || '');
@@ -1088,8 +1085,7 @@ const EditBook = () => {
                         <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Edition</label><div className="col-span-9"><input name="edition" value={formData.edition} onChange={handleChange} className="theme-input w-full md:w-1/3" /></div></div>
                         <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">ISBN 10</label><div className="col-span-9"><input name="isbn10" value={formData.isbn10} onChange={handleChange} className="theme-input w-full md:w-1/2" /></div></div>
                         <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">ISBN 13</label><div className="col-span-9"><input name="isbn13" value={formData.isbn13} onChange={handleChange} className="theme-input w-full md:w-1/2" /></div></div>
-                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Total Pages</label><div className="col-span-9"><input name="total_pages" type="text" value={formData.total_pages || ""} onChange={handleChange} className="theme-input w-full md:w-1/2" placeholder="e.g. 219" /></div></div>
-                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Pages (Full)</label><div className="col-span-9"><input name="pages_desc" value={formData.pages_desc || ""} onChange={handleChange} className="theme-input w-full" placeholder="e.g. 219p., (6)col. pls., (21) between Illustration., ind., 29cm." /><p className="text-[10px] text-gray-400 mt-1">Full bibliographic description shown under "Length" on the product page</p></div></div>
+                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Total Pages</label><div className="col-span-9"><input name="total_pages" type="text" value={formData.total_pages || ""} onChange={handleChange} className="theme-input w-full" placeholder="e.g. 219 or 219p., (6)col. pls., 29cm." /></div></div>
                         <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Weight</label><div className="col-span-9"><input name="weight" value={formData.weight} onChange={handleChange} className="theme-input w-32" /></div></div>
 
                         {/* 11. IMAGES SECTIONS */}
