@@ -675,19 +675,29 @@ const BookDetail = () => {
               {/* 🟢 BADGES CONTAINER */}
               <div className="flex flex-wrap gap-2 mb-4 shrink-0">
 
-                {/* 1. BESTSELLER logic (Aapke backend se match karta hua) */}
-                {(book.soldCount >= bestsellerThreshold || book.isFeatured) && (
-                  <div className="inline-flex items-center gap-1.5 bg-orange-500 text-white text-[10px] font-bold px-3 py-1 rounded-full font-montserrat uppercase tracking-wide shadow-sm">
-                    <Trophy className="w-3 h-3" />
-                    Bestseller
+
+{/* Sale label */}
+                {discount > 20 && (
+                  <div className="inline-flex items-center gap-1.5 bg-red-600 text-white text-[10px] font-bold px-3 py-1 rounded-full font-montserrat uppercase tracking-wide shadow-sm">
+                    SALE
                   </div>
                 )}
+
+               
 
                 {/* 2. Recommended */}
                 {book.isRecommended === true && (
                   <div className="inline-flex items-center gap-1.5 bg-accent text-white text-[10px] font-bold px-3 py-1 rounded-full font-montserrat uppercase tracking-wide shadow-sm">
                     <ThumbsUp className="w-3 h-3 fill-white" />
                     Recommended
+                  </div>
+                )}
+
+                 {/* 1. BESTSELLER logic (Aapke backend se match karta hua) */}
+                {(book.soldCount >= bestsellerThreshold || book.isFeatured) && (
+                  <div className="inline-flex items-center gap-1.5 bg-orange-500 text-white text-[10px] font-bold px-3 py-1 rounded-full font-montserrat uppercase tracking-wide shadow-sm">
+                    <Trophy className="w-3 h-3" />
+                    Bestseller
                   </div>
                 )}
 
@@ -698,12 +708,7 @@ const BookDetail = () => {
                     Exclusive
                   </div>
                 )}
-                {/* Sale label */}
-                {discount > 20 && (
-                  <div className="inline-flex items-center gap-1.5 bg-red-600 text-white text-[10px] font-bold px-3 py-1 rounded-full font-montserrat uppercase tracking-wide shadow-sm">
-                    SALE
-                  </div>
-                )}
+                
               </div>
 
               {/* Title */}
