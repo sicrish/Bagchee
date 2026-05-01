@@ -235,7 +235,8 @@ const CategoriesDropdown = memo(({ onLinkClick }) => {
     : allCats.filter(c => c.title && c.title.trim() && (c.parentId === 0 || c.parent_id === 0))
         .sort((a, b) => a.title.localeCompare(b.title));
 
-  const topCats  = displayCats.filter(c => BAGCHEE_TOP_CAT_NAMES.has(c.title.toLowerCase()));
+  // Top categories: search entire allCats (they may be subcategories, not at parentId=2)
+  const topCats  = allCats.filter(c => c.title && BAGCHEE_TOP_CAT_NAMES.has(c.title.toLowerCase()));
   const moreCats = displayCats.filter(c => !BAGCHEE_TOP_CAT_NAMES.has(c.title.toLowerCase()));
   const moreHalf = Math.ceil(moreCats.length / 2);
   const moreCol1 = moreCats.slice(0, moreHalf);
