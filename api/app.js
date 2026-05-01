@@ -66,6 +66,7 @@ import termsRoutes from './routes/termsRoutes.js'
 import sideBannerOneRoutes from './routes/sideBannerOneRoutes.js';
 import socialRoutes from './routes/socialRoutes.js'
 import sideBannerTwoRoutes from './routes/sideBannerTwoRoutes.js'
+import eGiftCardBannerRoutes from './routes/eGiftCardBanner.routes.js'
 import footerRoutes from './routes/footerRoutes.js';
 import razorpayRoutes from './routes/razorpay.routes.js';
 import emailCampaignRoutes from './routes/emailCampaignRoutes.js';
@@ -222,6 +223,7 @@ app.use('/contact', contactRoutes);
 app.use('/side-banner-one', sideBannerOneRoutes);
 app.use('/socials', socialRoutes);
 app.use('/side-banner-two', sideBannerTwoRoutes);
+app.use('/e-gift-card-banner', eGiftCardBannerRoutes);
 app.use('/footer', footerRoutes);
 app.use('/razorpay', razorpayRoutes);
 app.use('/email-campaign', emailCampaignRoutes);

@@ -1046,6 +1046,18 @@ model SideBannerTwo {
   @@map("side_banner_two")
 }
 
+model EGiftCardBanner {
+  id           Int      @id @default(autoincrement())
+  desktopImage String   @default("") @map("desktop_image")
+  mobileImage  String   @default("") @map("mobile_image")
+  isActive     Boolean  @default(true) @map("is_active")
+  order        Int      @default(0)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("e_gift_card_banners")
+}
+
 // =============================================================
 // SECTION 7: CONTENT / STATIC PAGES
 // Single-record tables — admin edits these pages via CMS
