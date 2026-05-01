@@ -186,7 +186,12 @@ const EditBook = () => {
             setTags(tags);
             setAuthors(authors);
             setFormats(formats);
-            setSeriesList(series);
+            // Ensure book's own series is in the list even if it falls outside the fetched 1000
+            const bookSeries = pageData?.bookData?.series;
+            const mergedSeries = bookSeries && !series.some(s => s.id === bookSeries.id)
+                ? [bookSeries, ...series]
+                : series;
+            setSeriesList(mergedSeries);
             setPublishers(publishers);
             setArrivalDays(arrivalDays);
 
