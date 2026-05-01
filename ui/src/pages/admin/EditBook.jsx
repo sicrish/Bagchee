@@ -259,6 +259,7 @@ const EditBook = () => {
                 deliver_days: book.deliverDays !== undefined ? String(book.deliverDays) : (book.deliver_days !== undefined ? String(book.deliver_days) : ''),
                 pub_date: book.pubDate || book.pub_date || '',
                 source: book.source || '',
+                related_products: book.relatedProducts || book.related_products || '',
                 rating: book.rating || '',
                 rated_times: book.ratedTimes || book.rated_times || '',
                 toc_image: book.tocImage || book.toc_image || '',
@@ -312,8 +313,8 @@ const EditBook = () => {
             setCriticsNote(book.criticsNote || book.critics_note || '');
             setSearchText(book.searchText || book.search_text || '');
 
-            if (book.related_products) {
-                const ids = book.related_products.split(',').map(s => s.trim()).filter(Boolean);
+            if (book.relatedProducts || book.related_products) {
+                const ids = (book.relatedProducts || book.related_products).split(',').map(s => s.trim()).filter(Boolean);
                 if (ids.length > 0) {
                     const fetchTitles = async () => {
                         try {

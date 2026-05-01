@@ -261,8 +261,9 @@ export const save = async (req, res) => {
                 synopsis:       req.body.synopsis      || '',
                 criticsNote:    req.body.critics_note  || req.body.criticsNote  || '',
                 searchText:     req.body.search_text   || req.body.searchText   || '',
-                notes:          req.body.notes  || null,
-                source:         req.body.source || null,
+                notes:            req.body.notes             || null,
+                source:           req.body.source            || null,
+                relatedProducts:  req.body.related_products  || null,
                 defaultImage:   coverPath,
                 tocImage:       tocPath,
                 stock:          req.body.stock === 'inactive' ? 'inactive' : 'active',
@@ -336,8 +337,9 @@ export const update = async (req, res) => {
         if (req.body.synopsis     !== undefined) updateData.synopsis    = req.body.synopsis;
         if (req.body.critics_note !== undefined) updateData.criticsNote = req.body.critics_note;
         if (req.body.search_text  !== undefined) updateData.searchText  = req.body.search_text;
-        if (req.body.notes        !== undefined) updateData.notes       = req.body.notes;
-        if (req.body.source       !== undefined) updateData.source      = req.body.source;
+        if (req.body.notes              !== undefined) updateData.notes            = req.body.notes;
+        if (req.body.source             !== undefined) updateData.source           = req.body.source;
+        if (req.body.related_products   !== undefined) updateData.relatedProducts  = req.body.related_products || null;
         if (req.body.meta_title       !== undefined) updateData.metaTitle       = req.body.meta_title;
         if (req.body.meta_keywords    !== undefined) updateData.metaKeywords    = req.body.meta_keywords;
         if (req.body.meta_description !== undefined) updateData.metaDescription = req.body.meta_description;

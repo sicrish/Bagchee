@@ -192,6 +192,7 @@ model Product {
   aboutAuthorText   String?   @map("about_author_text")
   notes             String?
   source            String?
+  relatedProducts   String?   @map("related_products")  // comma-separated bagcheeIds
 
   // --- Main Images ---
   defaultImage      String?   @map("default_image")
