@@ -16,9 +16,13 @@ const Categories = () => {
           axios.get(`${process.env.REACT_APP_API_URL}/tags/list`),
         ]);
         if (catRes.data.status) {
-          const rawData = (catRes.data.data || catRes.data.categories || [])
-            .filter(c => c.active !== false && (c.title || '').trim().toUpperCase() !== 'ROOT CATEGORY');
-          setCategories(buildCategoryTree(rawData));
+          const rawData = (catRes.data.data || catRes.data.categories || []);
+          // Only show main categories (parentId=2 = visible root, same as header dropdown)
+          const mainCats = rawData
+            .filter(c => c.active !== false && (c.parentId === 2 || c.parent_id === 2) && (c.title || '').trim())
+            .sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+          // Attach their children
+          setCategories(buildCategoryTree(rawData, mainCats));
         }
         if (tagRes.data.status && tagRes.data.data) {
           setTags(tagRes.data.data);
@@ -53,11 +57,8 @@ const Categories = () => {
         </div>
 
         {categories.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {categories.map((cat) => (
-              <CategoryPill key={cat.id || cat._id} category={cat} />
-            ))}
-          </div>
+          <AccordionCategoryList categories={categories} />
+
         ) : (
           <p className="text-center text-text-muted font-semibold py-10">
             No categories found.
@@ -85,16 +86,37 @@ const Categories = () => {
   );
 };
 
+/* ─── Accordion wrapper — only one root category open at a time ─── */
+const AccordionCategoryList = ({ categories }) => {
+  const [openId, setOpenId] = useState(null);
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      {categories.map((cat) => (
+        <CategoryPill
+          key={cat.id || cat._id}
+          category={cat}
+          isOpen={openId === (cat.id || cat._id)}
+          onToggle={(id) => setOpenId(prev => prev === id ? null : id)}
+        />
+      ))}
+    </div>
+  );
+};
+
 /* ─── Blue pill button for a category (recursive) ─── */
-const CategoryPill = ({ category, depth = 0 }) => {
+const CategoryPill = ({ category, depth = 0, isOpen: isOpenProp, onToggle }) => {
   const navigate = useNavigate();
   const hasChildren = category.children && category.children.length > 0;
-  const [isOpen, setIsOpen] = useState(depth === 0 && hasChildren);
+  // depth=0 uses controlled open from parent accordion; deeper levels manage their own state
+  const [innerOpen, setInnerOpen] = useState(false);
+  const isOpen = depth === 0 ? (isOpenProp ?? false) : innerOpen;
   const catTitle = category.title || category.categorytitle || '';
 
   const handleClick = () => {
-    if (hasChildren) setIsOpen(!isOpen);
-    else if (category.slug) navigate(`/books/${category.slug}`);
+    if (hasChildren) {
+      if (depth === 0 && onToggle) onToggle(category.id || category._id);
+      else setInnerOpen(prev => !prev);
+    } else if (category.slug) navigate(`/books/${category.slug}`);
   };
 
   const bgByDepth = ['bg-primary hover:bg-primary/90', 'bg-primary/80 hover:bg-primary', 'bg-primary/70 hover:bg-primary', 'bg-primary/60 hover:bg-primary'];
@@ -164,31 +186,33 @@ const TagPill = ({ tag }) => {
   );
 };
 
-/* ─── Build nested tree from flat list ─── */
-const buildCategoryTree = (categories) => {
-  const map = {};
-  const roots = [];
+/* ─── Build nested tree — roots are the provided mainCats, children attached from full list ─── */
+const buildCategoryTree = (allCategories, rootCats) => {
+  if (!rootCats) {
+    // fallback: original behaviour
+    rootCats = allCategories.filter(c => {
+      const parentId = c.parentId ?? c.parentid ?? 0;
+      return !parentId;
+    });
+  }
 
-  categories.forEach((cat) => {
+  const map = {};
+  allCategories.forEach((cat) => {
     const id = cat.id ?? cat._id;
-    const title = (cat.title || cat.category_title || '').trim();
-    if (!title) return;
+    if (!id) return;
     map[id] = { ...cat, children: [] };
   });
 
-  categories.forEach((cat) => {
+  allCategories.forEach((cat) => {
     const id = cat.id ?? cat._id;
     if (!map[id]) return;
     const parentId = cat.parentId ?? cat.parentid ?? 0;
-    const parent = map[parentId];
-    if (!parentId || !parent || !(parent.title || parent.category_title || '').trim()) {
-      roots.push(map[id]);
-    } else {
-      parent.children.push(map[id]);
+    if (parentId && map[parentId] && !rootCats.some(r => (r.id ?? r._id) === id)) {
+      map[parentId].children.push(map[id]);
     }
   });
 
-  return roots;
+  return rootCats.map(r => map[r.id ?? r._id] || r);
 };
 
 export default Categories;

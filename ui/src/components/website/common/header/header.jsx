@@ -194,6 +194,25 @@ MobileHtmlAccordion.displayName = 'MobileHtmlAccordion';
 /* ---------------------------------------------------------
   🟢 CATEGORIES MEGA DROPDOWN — dynamic, fetched from API
   --------------------------------------------------------- */
+
+// Exact data from old bagchee.com
+const BAGCHEE_TOP_CAT_NAMES = new Set([
+  'astrology', 'ayurveda', 'atlases & maps', 'christianity', 'homeopathy',
+  'sanskrit', 'numismatics', 'music', 'veterinary science', 'zoology', 'botany', 'yoga',
+]);
+
+const BAGCHEE_TOP_AUTHORS = [
+  'David Frawley', 'Lokesh Chandra', 'Osho', 'D.P. Chattopadhyaya', 'Dilip K. Chakrabarti',
+  'Sanjeev Kapoor', 'Romila Thapar', 'Rabindranath Tagore', 'James Massey', 'Lalita Ramakrishna',
+];
+
+const BAGCHEE_SERIES = [
+  'Chowkhamba Sanskrit Series',
+  'Satapitaka Series',
+  'IGNCA Rock Art Series',
+  'History of Science, Philosophy and Culture',
+];
+
 const CategoriesDropdown = memo(({ onLinkClick }) => {
   const API_URL = process.env.REACT_APP_API_URL;
 
@@ -207,109 +226,114 @@ const CategoriesDropdown = memo(({ onLinkClick }) => {
     refetchOnWindowFocus: false,
   });
 
-  // Main categories: non-empty title, parentId 2 (invisible root) or 0 fallback
   const mainCats = allCats
     .filter(c => c.title && c.title.trim() && (c.parentId === 2 || c.parent_id === 2))
     .sort((a, b) => a.title.localeCompare(b.title));
 
-  // Fallback: if parentId=2 yields nothing, show parentId=0 top-level cats
   const displayCats = mainCats.length > 0
     ? mainCats
     : allCats.filter(c => c.title && c.title.trim() && (c.parentId === 0 || c.parent_id === 0))
         .sort((a, b) => a.title.localeCompare(b.title));
 
+  const topCats  = displayCats.filter(c => BAGCHEE_TOP_CAT_NAMES.has(c.title.toLowerCase()));
+  const moreCats = displayCats.filter(c => !BAGCHEE_TOP_CAT_NAMES.has(c.title.toLowerCase()));
+  const moreHalf = Math.ceil(moreCats.length / 2);
+  const moreCol1 = moreCats.slice(0, moreHalf);
+  const moreCol2 = moreCats.slice(moreHalf);
+
+  const catLink = (cat) => cat.slug ? `/books/${cat.slug}` : `/books?category=${cat.id}`;
+
+  const makeSlug = (str) =>
+    str.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+
+  const popularFeatures = [
+    { label: 'New Arrivals', href: '/new-arrivals' },
+    { label: 'Bestsellers',  href: '/bestsellers' },
+    { label: 'Recommended',  href: '/recommended' },
+    { label: 'Sale Today',   href: '/sale' },
+    { label: 'Gift Cards',   href: '/gift-cards' },
+  ];
+
+  const sectionHead = "text-[10px] font-bold text-primary uppercase tracking-widest mb-2 pb-1.5 border-b border-primary/20 font-montserrat";
+  const itemBtn     = "text-sm text-gray-600 hover:text-primary transition-colors text-left w-full py-0.5 font-body leading-snug";
+
   if (!displayCats.length) {
     return <div className="p-6 text-sm text-gray-400 text-center">Loading categories…</div>;
   }
 
-  const third = Math.ceil(displayCats.length / 3);
-  const col1 = displayCats.slice(0, third);
-  const col2 = displayCats.slice(third, third * 2);
-  const col3 = displayCats.slice(third * 2);
-
-  const catLink = (cat) => `/books?category=${cat.id}`;
-
   return (
     <div className="p-5">
-      <div className="grid grid-cols-4 gap-x-6">
-        {/* Column 1 */}
-        <div>
-          <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-3 pb-2 border-b border-primary/20 font-montserrat">Browse Categories</p>
-          <ul className="space-y-1">
-            {col1.map(cat => (
+      <div className="flex gap-5">
+
+        {/* TOP CATEGORIES */}
+        <div className="w-[145px] shrink-0">
+          <p className={sectionHead}>Top Categories</p>
+          <ul className="space-y-0.5">
+            {topCats.map(cat => (
               <li key={cat.id}>
-                <button
-                  onClick={() => onLinkClick(catLink(cat))}
-                  className="text-sm text-gray-600 hover:text-primary transition-colors text-left w-full py-0.5 font-body"
-                >
-                  {cat.title}
-                </button>
+                <button onClick={() => onLinkClick(catLink(cat))} className={itemBtn}>{cat.title}</button>
               </li>
             ))}
           </ul>
         </div>
-        {/* Column 2 */}
-        <div>
-          <p className="text-[10px] font-bold text-transparent uppercase tracking-widest mb-3 pb-2 border-b border-transparent font-montserrat">‎</p>
-          <ul className="space-y-1">
-            {col2.map(cat => (
-              <li key={cat.id}>
-                <button
-                  onClick={() => onLinkClick(catLink(cat))}
-                  className="text-sm text-gray-600 hover:text-primary transition-colors text-left w-full py-0.5 font-body"
-                >
-                  {cat.title}
-                </button>
+
+        {/* MORE CATEGORIES — 2 sub-columns */}
+        <div className="flex-1 min-w-0">
+          <p className={sectionHead}>More Categories</p>
+          <div className="flex gap-4">
+            <ul className="flex-1 space-y-0.5">
+              {moreCol1.map(cat => (
+                <li key={cat.id}>
+                  <button onClick={() => onLinkClick(catLink(cat))} className={itemBtn}>{cat.title}</button>
+                </li>
+              ))}
+            </ul>
+            <ul className="flex-1 space-y-0.5">
+              {moreCol2.map(cat => (
+                <li key={cat.id}>
+                  <button onClick={() => onLinkClick(catLink(cat))} className={itemBtn}>{cat.title}</button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        {/* TOP AUTHORS */}
+        <div className="w-[155px] shrink-0">
+          <p className={sectionHead}>Top Authors</p>
+          <ul className="space-y-0.5">
+            {BAGCHEE_TOP_AUTHORS.map(name => (
+              <li key={name}>
+                <button onClick={() => onLinkClick(`/author/${makeSlug(name)}`)} className={itemBtn}>{name}</button>
               </li>
             ))}
           </ul>
         </div>
-        {/* Column 3 */}
-        <div>
-          <p className="text-[10px] font-bold text-transparent uppercase tracking-widest mb-3 pb-2 border-b border-transparent font-montserrat">‎</p>
-          <ul className="space-y-1">
-            {col3.map(cat => (
-              <li key={cat.id}>
-                <button
-                  onClick={() => onLinkClick(catLink(cat))}
-                  className="text-sm text-gray-600 hover:text-primary transition-colors text-left w-full py-0.5 font-body"
-                >
-                  {cat.title}
-                </button>
-              </li>
-            ))}
-          </ul>
+
+        {/* BESTSELLING SERIES + POPULAR FEATURES */}
+        <div className="w-[170px] shrink-0 space-y-4">
+          <div>
+            <p className={sectionHead}>Bestselling Series</p>
+            <ul className="space-y-0.5">
+              {BAGCHEE_SERIES.map(title => (
+                <li key={title}>
+                  <button onClick={() => onLinkClick(`/series/${makeSlug(title)}`)} className={itemBtn}>{title}</button>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <p className={sectionHead}>Popular Features</p>
+            <ul className="space-y-0.5">
+              {popularFeatures.map(f => (
+                <li key={f.href}>
+                  <button onClick={() => onLinkClick(f.href)} className={itemBtn}>{f.label}</button>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
-        {/* Column 4 — quick links */}
-        <div>
-          <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-3 pb-2 border-b border-primary/20 font-montserrat">Quick Links</p>
-          <ul className="space-y-1">
-            {[
-              { label: 'New Arrivals', href: '/new-arrivals' },
-              { label: 'Bestsellers', href: '/bestsellers' },
-              { label: 'Recommended', href: '/recommended' },
-              { label: 'Sale', href: '/sale' },
-              { label: 'All Categories', href: '/allcategories' },
-            ].map(link => (
-              <li key={link.href}>
-                <button
-                  onClick={() => onLinkClick(link.href)}
-                  className="text-sm text-gray-600 hover:text-primary transition-colors text-left w-full py-0.5 font-body"
-                >
-                  {link.label}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-      <div className="mt-4 pt-3 border-t border-gray-100 text-center">
-        <button
-          onClick={() => onLinkClick('/allcategories')}
-          className="text-xs font-bold text-primary uppercase tracking-widest hover:underline font-montserrat"
-        >
-          Browse All Categories →
-        </button>
+
       </div>
     </div>
   );
@@ -481,7 +505,6 @@ const PremiumHeader = () => {
     <header className={`fixed top-0 z-50 w-full shadow-sm font-body transition-all duration-300 bg-gradient-to-r from-primary to-primary-dark text-text-light`}>
 
       {/* --- TOP ROW --- */}
-      {/* 🟢 z-index z-50 diya hai taki dropdown iske niche se slide ho */}
       <div className={`border-b border-white/10 transition-all duration-300 ease-in-out relative z-50 bg-inherit py-2 md:py-3 md:max-h-24 md:opacity-100`}>
         <div className="container mx-auto px-4 md:px-8 flex items-center justify-between gap-2 md:gap-8">
 

@@ -35,6 +35,8 @@ const ProductListing = ({ type }) => {
     const [seriesList, setSeriesList] = useState([]);
     const [subcategoriesList, setSubcategoriesList] = useState([]); // child categories of current slug
     const [pageTitle, setPageTitle] = useState('category');
+    const [baseTitleRef, setBaseTitleRef] = useState('category'); // original title before filters
+    const [flatCats, setFlatCats] = useState([]);
 
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
@@ -89,6 +91,7 @@ const ProductListing = ({ type }) => {
                     const flatCategories = catRes.data.data; // flat array, all categories
                     const treeData = buildCategoryTree(flatCategories);
                     setAllCategories(treeData);
+                    setFlatCats(flatCategories);
 
                     if (slug) {
                         // Find current category by slug from flat list
@@ -96,7 +99,9 @@ const ProductListing = ({ type }) => {
                             c => c.slug === slug || c.slug.endsWith('/' + slug)
                         );
                         if (foundCat) {
-                            setPageTitle(foundCat.categorytitle || foundCat.title);
+                            const title = foundCat.categorytitle || foundCat.title;
+                            setPageTitle(title);
+                            setBaseTitleRef(title);
                             const foundCatId = foundCat.id || foundCat._id;
                             // Filter all categories whose parentId matches this category's id
                             const children = flatCategories.filter(
@@ -107,17 +112,23 @@ const ProductListing = ({ type }) => {
                             );
                             setSubcategoriesList(children);
                         } else {
-                            setPageTitle(slug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()));
+                            const fallback = slug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                            setPageTitle(fallback);
+                            setBaseTitleRef(fallback);
                             setSubcategoriesList([]);
                         }
                     } else {
                         const searchParams = new URLSearchParams(window.location.search);
                         const kw = searchParams.get('keyword');
                         if (type === 'search' && kw) {
-                            setPageTitle(`Results for "${kw}"`);
+                            const t = `Results for "${kw}"`;
+                            setPageTitle(t);
+                            setBaseTitleRef(t);
                             setSubcategoriesList([]);
                         } else {
-                            setPageTitle(type ? type.replace(/-/g, ' ') : 'category');
+                            const t = type ? type.replace(/-/g, ' ') : 'category';
+                            setPageTitle(t);
+                            setBaseTitleRef(t);
                             // No slug = special page (recommended/bestsellers etc.) — show root categories
                             const rootCategories = flatCategories.filter(c => !(c.parentId || c.parentid) || c.level === 0);
                             setSubcategoriesList(rootCategories);
@@ -259,13 +270,24 @@ const ProductListing = ({ type }) => {
                 categories: [], authors: [], publishers: [], series: [], formats: [], price: '', sort: 'newest',
                 isNewRelease: false, isBestseller: false, isRecommended: false, isSale: false
             });
-            setPageTitle(type?.replace('-', ' ') || 'category');
+            setPageTitle(baseTitleRef);
             return;
         }
         setFilters(prev => {
             if (['categories', 'formats', 'authors', 'publishers', 'series'].includes(key)) {
                 const list = prev[key];
-                return { ...prev, [key]: list.includes(value) ? list.filter(i => i !== value) : [...list, value] };
+                const newList = list.includes(value) ? list.filter(i => i !== value) : [...list, value];
+
+                if (key === 'categories') {
+                    if (newList.length === 1) {
+                        const cat = flatCats.find(c => String(c.id || c._id) === String(newList[0]));
+                        if (cat) setPageTitle(cat.categorytitle || cat.title || baseTitleRef);
+                    } else if (newList.length === 0) {
+                        setPageTitle(baseTitleRef);
+                    }
+                }
+
+                return { ...prev, [key]: newList };
             }
             return { ...prev, [key]: value };
         });
