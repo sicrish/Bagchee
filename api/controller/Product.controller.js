@@ -359,8 +359,8 @@ export const update = async (req, res) => {
         if (req.body.total_pages  !== undefined) updateData.pages       = req.body.total_pages || null;
         if (req.body.rating       !== undefined) updateData.rating      = Number(req.body.rating);
         if (req.body.rated_times  !== undefined) updateData.ratedTimes  = Number(req.body.rated_times);
-        if (req.body.ship_days    !== undefined) updateData.shipDays    = req.body.ship_days    ? (parseInt(req.body.ship_days)    || null) : null;
-        if (req.body.deliver_days !== undefined) updateData.deliverDays = req.body.deliver_days ? (parseInt(req.body.deliver_days) || null) : null;
+        if (req.body.ship_days    !== undefined) updateData.shipDays    = req.body.ship_days    || null;
+        if (req.body.deliver_days !== undefined) updateData.deliverDays = req.body.deliver_days || null;
         if (req.body.pages_desc   !== undefined) updateData.pagesDesc   = req.body.pages_desc   || null;
         if (req.body.availability !== undefined) updateData.availability= Number(req.body.availability);
 
