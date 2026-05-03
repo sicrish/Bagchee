@@ -1650,7 +1650,7 @@ const Checkout = () => {
         </div>
       </header>
 
-      <main className="max-w-full mx-auto px-4 py-8">
+      <main className="max-w-full mx-auto px-4 py-8 overflow-x-hidden">
         {/* Page title */}
 
 
@@ -1836,22 +1836,26 @@ const Checkout = () => {
                 <div className="p-5 space-y-3">
                   {/* Contact section */}
                   <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                      Contact
-                    </label>
-                    <input
-                      type="email"
-                      placeholder="Email"
-                      required
-                      value={guestAddress.email}
-                      onChange={(e) =>
-                        setGuestAddress({
-                          ...guestAddress,
-                          email: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 py-2.5 border border-gray-300 text-sm focus:outline-none focus:border-primary"
-                    />
+                    {!showLoginDropdown && (
+                      <>
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                          Contact
+                        </label>
+                        <input
+                          type="email"
+                          placeholder="Email"
+                          required
+                          value={guestAddress.email}
+                          onChange={(e) =>
+                            setGuestAddress({
+                              ...guestAddress,
+                              email: e.target.value,
+                            })
+                          }
+                          className="w-full px-3 py-2.5 border border-gray-300 text-sm focus:outline-none focus:border-primary"
+                        />
+                      </>
+                    )}
 
                     {/* ─── NAYA INLINE LOGIN OPTION ─── */}
                     <div className="mt-3 bg-primary/5 border border-primary/10 rounded-lg p-3">
@@ -1911,126 +1915,126 @@ const Checkout = () => {
                       ))}
                     </select>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <input
+                        type="text"
+                        placeholder="First name"
+                        required
+                        value={guestAddress.firstName}
+                        onChange={(e) =>
+                          setGuestAddress({
+                            ...guestAddress,
+                            firstName: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2.5 border border-gray-300 text-sm focus:outline-none focus:border-primary"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Last name"
+                        value={guestAddress.lastName}
+                        onChange={(e) =>
+                          setGuestAddress({
+                            ...guestAddress,
+                            lastName: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2.5 border border-gray-300 text-sm focus:outline-none focus:border-primary"
+                      />
+                    </div>
                     <input
                       type="text"
-                      placeholder="First name"
+                      placeholder="Address line 1"
                       required
-                      value={guestAddress.firstName}
+                      value={guestAddress.address1}
                       onChange={(e) =>
                         setGuestAddress({
                           ...guestAddress,
-                          firstName: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 py-2.5 border border-gray-300 text-sm focus:outline-none focus:border-primary"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Last name"
-                      value={guestAddress.lastName}
-                      onChange={(e) =>
-                        setGuestAddress({
-                          ...guestAddress,
-                          lastName: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 py-2.5 border border-gray-300 text-sm focus:outline-none focus:border-primary"
-                    />
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Address line 1"
-                    required
-                    value={guestAddress.address1}
-                    onChange={(e) =>
-                      setGuestAddress({
-                        ...guestAddress,
-                        address1: e.target.value,
-                      })
-                    }
-                    className="w-full px-3 py-2.5 border border-gray-300 text-sm focus:outline-none focus:border-primary"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Address line 2 (optional)"
-                    value={guestAddress.address2}
-                    onChange={(e) =>
-                      setGuestAddress({
-                        ...guestAddress,
-                        address2: e.target.value,
-                      })
-                    }
-                    className="w-full px-3 py-2.5 border border-gray-300 text-sm focus:outline-none focus:border-primary"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Company (optional)"
-                    value={guestAddress.company}
-                    onChange={(e) =>
-                      setGuestAddress({
-                        ...guestAddress,
-                        company: e.target.value,
-                      })
-                    }
-                    className="w-full px-3 py-2.5 border border-gray-300 text-sm focus:outline-none focus:border-primary"
-                  />
-                  <div className="grid grid-cols-2 gap-3">
-                    <input
-                      type="text"
-                      placeholder="City"
-                      required
-                      value={guestAddress.city}
-                      onChange={(e) =>
-                        setGuestAddress({
-                          ...guestAddress,
-                          city: e.target.value,
+                          address1: e.target.value,
                         })
                       }
                       className="w-full px-3 py-2.5 border border-gray-300 text-sm focus:outline-none focus:border-primary"
                     />
                     <input
                       type="text"
-                      placeholder="Region / State"
-                      required
-                      value={guestAddress.state}
+                      placeholder="Address line 2 (optional)"
+                      value={guestAddress.address2}
                       onChange={(e) =>
                         setGuestAddress({
                           ...guestAddress,
-                          state: e.target.value,
+                          address2: e.target.value,
                         })
                       }
                       className="w-full px-3 py-2.5 border border-gray-300 text-sm focus:outline-none focus:border-primary"
                     />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
                     <input
                       type="text"
-                      placeholder="Postal code"
-                      required
-                      value={guestAddress.postalCode}
+                      placeholder="Company (optional)"
+                      value={guestAddress.company}
                       onChange={(e) =>
                         setGuestAddress({
                           ...guestAddress,
-                          postalCode: e.target.value,
+                          company: e.target.value,
                         })
                       }
                       className="w-full px-3 py-2.5 border border-gray-300 text-sm focus:outline-none focus:border-primary"
                     />
-                    <input
-                      type="tel"
-                      placeholder="Phone"
-                      required
-                      value={guestAddress.phone}
-                      onChange={(e) =>
-                        setGuestAddress({
-                          ...guestAddress,
-                          phone: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 py-2.5 border border-gray-300 text-sm focus:outline-none focus:border-primary"
-                    />
-                  </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <input
+                        type="text"
+                        placeholder="City"
+                        required
+                        value={guestAddress.city}
+                        onChange={(e) =>
+                          setGuestAddress({
+                            ...guestAddress,
+                            city: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2.5 border border-gray-300 text-sm focus:outline-none focus:border-primary"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Region / State"
+                        required
+                        value={guestAddress.state}
+                        onChange={(e) =>
+                          setGuestAddress({
+                            ...guestAddress,
+                            state: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2.5 border border-gray-300 text-sm focus:outline-none focus:border-primary"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <input
+                        type="text"
+                        placeholder="Postal code"
+                        required
+                        value={guestAddress.postalCode}
+                        onChange={(e) =>
+                          setGuestAddress({
+                            ...guestAddress,
+                            postalCode: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2.5 border border-gray-300 text-sm focus:outline-none focus:border-primary"
+                      />
+                      <input
+                        type="tel"
+                        placeholder="Phone"
+                        required
+                        value={guestAddress.phone}
+                        onChange={(e) =>
+                          setGuestAddress({
+                            ...guestAddress,
+                            phone: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2.5 border border-gray-300 text-sm focus:outline-none focus:border-primary"
+                      />
+                    </div>
                   </>}
                 </div>
               )}
@@ -2071,16 +2075,16 @@ const Checkout = () => {
                           });
                         })()
                         : maxShipDays > 0
-                        ? (() => {
-                          const d = new Date();
-                          d.setDate(d.getDate() + maxShipDays);
-                          return d.toLocaleDateString("en-US", {
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric",
-                          });
-                        })()
-                        : null;
+                          ? (() => {
+                            const d = new Date();
+                            d.setDate(d.getDate() + maxShipDays);
+                            return d.toLocaleDateString("en-US", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            });
+                          })()
+                          : null;
                     return (
                       <label
                         key={option.id}
@@ -2687,32 +2691,32 @@ const Checkout = () => {
 
 
             {/* ─── 6. ORDER NOTES (Hamesha Open) ─── */}
-{/* ─── 6. ORDER NOTES (Hamesha Open - Same PO Theme) ─── */}
-<div className="bg-cream-100 border border-primary/30 shadow-sm rounded-lg overflow-hidden mt-5">
-  <div className="px-5 py-4 border-b border-primary/20 bg-primary/5">
-    <h2 className="text-sm font-display font-bold text-primary uppercase tracking-wide flex items-center gap-3">
-      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center">
-        6
-      </span>
-      NOTES    (optional)
-    </h2>
-  </div>
-  <div className="p-5">
-    <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2 font-montserrat">
-      Add a note to your order (Optional)
-    </label>
-    <textarea
-      rows="3"
-      value={orderNotes}
-      onChange={(e) => setOrderNotes(e.target.value)}
-      placeholder="e.g. Special instructions for delivery, landmark etc."
-      className="w-full border border-gray-300 rounded px-4 py-2.5 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 bg-white font-body transition-all resize-none"
-    ></textarea>
-    {/* <p className="text-[10px] text-gray-400 mt-2 italic">
+            {/* ─── 6. ORDER NOTES (Hamesha Open - Same PO Theme) ─── */}
+            <div className="bg-cream-100 border border-primary/30 shadow-sm rounded-lg overflow-hidden mt-5">
+              <div className="px-5 py-4 border-b border-primary/20 bg-primary/5">
+                <h2 className="text-sm font-display font-bold text-primary uppercase tracking-wide flex items-center gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center">
+                    6
+                  </span>
+                  NOTES    (optional)
+                </h2>
+              </div>
+              <div className="p-5">
+                <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2 font-montserrat">
+                  Add a note to your order (Optional)
+                </label>
+                <textarea
+                  rows="3"
+                  value={orderNotes}
+                  onChange={(e) => setOrderNotes(e.target.value)}
+                  placeholder="e.g. Special instructions for delivery, landmark etc."
+                  className="w-full border border-gray-300 rounded px-4 py-2.5 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 bg-white font-body transition-all resize-none"
+                ></textarea>
+                {/* <p className="text-[10px] text-gray-400 mt-2 italic">
       * This note will be saved with your order details.
     </p> */}
-  </div>
-</div>
+              </div>
+            </div>
 
             {/* ─── CONTINUE TO PAY ─── */}
             <div className="bg-cream-100 border border-gray-200 shadow-sm p-5 text-center space-y-3">

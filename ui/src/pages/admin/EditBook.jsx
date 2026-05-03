@@ -658,7 +658,7 @@ const EditBook = () => {
         }
     };
 
-    const config = useMemo(() => ({ readonly: false, placeholder: 'Start typing...', toolbarSticky: false, height: 350 }), []);
+    const config = useMemo(() => ({ readonly: false, placeholder: 'Start typing...', toolbarSticky: false, height: 500 }), []);
 
     const handleSeriesSelect = (selectedSeries) => {
         setFormData(prev => {
@@ -1382,13 +1382,13 @@ const EditBook = () => {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-12 gap-4 items-start border-b border-gray-50 pb-12">
-                            <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase pt-2">Synopsis</label>
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start border-b border-gray-50 pb-12">
+                            <label className="col-span-3 text-left md:text-right text-[11px] font-bold text-gray-500 uppercase pt-2">Synopsis</label>
                             <div className="col-span-9 border rounded overflow-hidden"><JoditEditor ref={editor} value={synopsis} config={config} onBlur={newContent => setSynopsis(newContent)} /></div>
                         </div>
 
-                        <div className="grid grid-cols-12 gap-4 items-start border-b border-gray-50 pb-12">
-                            <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase pt-2">Critics Note</label>
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start border-b border-gray-50 pb-12">
+                            <label className="col-span-3 text-left md:text-right text-[11px] font-bold text-gray-500 uppercase pt-2">Critics Note</label>
                             <div className="col-span-9 border rounded overflow-hidden"><JoditEditor value={criticsNote} config={config} onBlur={newContent => setCriticsNote(newContent)} /></div>
                         </div>
 
@@ -1497,7 +1497,7 @@ const EditBook = () => {
                         {/* 16. Meta Data */}
                         <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Meta Title</label><div className="col-span-9"><input name="meta_title" value={formData.meta_title || ''} onChange={handleChange} className="theme-input w-full" /></div></div>
                         <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Meta Keywords</label><div className="col-span-9"><input name="meta_keywords" value={formData.meta_keywords || ''} onChange={handleChange} className="theme-input w-full" /></div></div>
-                        <div className="grid grid-cols-12 gap-4 items-start border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase pt-2">Meta Description</label><div className="col-span-9"><textarea name="meta_description" value={formData.meta_description || ''} onChange={handleChange} className="theme-input w-full h-24 p-2 resize-none" /></div></div>
+                        <div className="grid grid-cols-12 gap-4 items-start border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase pt-2">Meta Description</label><div className="col-span-9"><textarea name="meta_description" value={formData.meta_description || ''} onChange={handleChange} className="theme-input w-full h-40 p-2 resize-none" /></div></div>
 
                         {/* 17. Flags */}
                         {[{ label: "Active", name: "active" }, { label: "Recommended", name: "recommended" }].map((item) => (
@@ -1579,8 +1579,8 @@ const EditBook = () => {
                         <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Ship Days</label><div className="col-span-9"><input type="number" name="ship_days" value={formData.ship_days || ''} onChange={handleChange} className="theme-input w-32" placeholder="e.g. 7" min="0" /></div></div>
                         <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Deliver Days</label><div className="col-span-9"><input type="number" name="deliver_days" value={formData.deliver_days || ''} onChange={handleChange} className="theme-input w-32" placeholder="e.g. 5" min="0" /></div></div>
 
-                        <div className="grid grid-cols-12 gap-4 items-start border-b border-gray-50 pb-12">
-                            <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase pt-2">Search Text</label>
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start border-b border-gray-50 pb-12">
+                            <label className="col-span-3 text-left md:text-right text-[11px] font-bold text-gray-500 uppercase pt-2">Search Text</label>
                             <div className="col-span-9 border rounded overflow-hidden"><JoditEditor value={searchText} config={config} onBlur={newContent => setSearchText(newContent)} /></div>
                         </div>
 

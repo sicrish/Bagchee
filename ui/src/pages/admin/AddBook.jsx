@@ -487,7 +487,7 @@ const AddBook = () => {
             'image', 'table', 'link', '|', 'align', 'undo', 'redo', '|',
             'hr', 'eraser', 'fullsize', 'print', 'about'
         ],
-        height: 350,
+        height: 500,
     }), []);
 
     const handleSeriesSelect = (selectedSeries) => {
@@ -1383,14 +1383,14 @@ const AddBook = () => {
                             <div className="col-span-9"><input name="availability" type="text" onChange={handleChange} className="theme-input w-full" /></div>
                         </div>
 
-                        <div className="grid grid-cols-12 gap-4 items-start border-b border-gray-50 pb-12">
-                            <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight pt-2">Synopsis</label>
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start border-b border-gray-50 pb-12">
+                            <label className="col-span-3 text-left md:text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight pt-2">Synopsis</label>
                             <div className="col-span-9 border rounded-md overflow-hidden shadow-sm">
                                 <JoditEditor ref={editor} value={synopsis} config={config} onBlur={newContent => setSynopsis(newContent)} />
                             </div>
                         </div>
-                        <div className="grid grid-cols-12 gap-4 items-start border-b border-gray-50 pb-12">
-                            <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight pt-2">From the critics</label>
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start border-b border-gray-50 pb-12">
+                            <label className="col-span-3 text-left md:text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight pt-2">From the critics</label>
                             <div className="col-span-9 border rounded-md overflow-hidden shadow-sm">
                                 <JoditEditor value={criticsNote} config={config} onBlur={newContent => setCriticsNote(newContent)} />
                             </div>
@@ -1581,8 +1581,8 @@ const AddBook = () => {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-12 gap-4 items-start border-b border-gray-50 pb-12">
-                            <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight pt-2">Search text</label>
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start border-b border-gray-50 pb-12">
+                            <label className="col-span-3 text-left md:text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight pt-2">Search text</label>
                             <div className="col-span-9 border rounded-md overflow-hidden shadow-sm">
                                 <JoditEditor value={searchText} config={config} onChange={newContent => setSearchText(newContent)} />
                             </div>

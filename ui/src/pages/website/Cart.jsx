@@ -15,34 +15,42 @@ import paypalImg from '../../assets/images/website/payments/PayPal.svg';
 // ─── Tiered shipping prices (USD) by shipping DB id ───
 const SHIPPING_TIERS = {
   6: [ // Express (3-5 Business Days)
-    { min: 1,   max: 2,        usd: 50  },
-    { min: 3,   max: 6,        usd: 80  },
-    { min: 7,   max: 11,       usd: 110 },
-    { min: 12,  max: 15,       usd: 150 },
-    { min: 16,  max: 20,       usd: 200 },
-    { min: 21,  max: 25,       usd: 280 },
-    { min: 26,  max: 36,       usd: 350 },
-    { min: 37,  max: 50,       usd: 435 },
-    { min: 51,  max: 100,      usd: 550 },
+    { min: 1, max: 2, usd: 50 },
+    { min: 3, max: 6, usd: 80 },
+    { min: 7, max: 11, usd: 110 },
+    { min: 12, max: 15, usd: 150 },
+    { min: 16, max: 20, usd: 200 },
+    { min: 21, max: 25, usd: 280 },
+    { min: 26, max: 36, usd: 350 },
+    { min: 37, max: 50, usd: 435 },
+    { min: 51, max: 100, usd: 550 },
     { min: 101, max: Infinity, usd: 730 },
   ],
   5: [ // Expedited (8-12 Business Days)
-    { min: 1,   max: 2,        usd: 20  },
-    { min: 3,   max: 6,        usd: 35  },
-    { min: 7,   max: 11,       usd: 50  },
-    { min: 12,  max: 15,       usd: 80  },
-    { min: 16,  max: 20,       usd: 120 },
-    { min: 21,  max: 25,       usd: 150 },
-    { min: 26,  max: 36,       usd: 175 },
-    { min: 37,  max: 50,       usd: 222 },
-    { min: 51,  max: 100,      usd: 280 },
+    { min: 1, max: 2, usd: 20 },
+    { min: 3, max: 6, usd: 35 },
+    { min: 7, max: 11, usd: 50 },
+    { min: 12, max: 15, usd: 80 },
+    { min: 16, max: 20, usd: 120 },
+    { min: 21, max: 25, usd: 150 },
+    { min: 26, max: 36, usd: 175 },
+    { min: 37, max: 50, usd: 222 },
+    { min: 51, max: 100, usd: 280 },
     { min: 101, max: Infinity, usd: 400 },
   ],
 };
 
-const getTieredShippingUsd = (shippingId, totalBooks) => {
-  const tiers = SHIPPING_TIERS[shippingId];
-  if (!tiers || totalBooks === 0) return 0;
+const getTieredShippingUsd = (shippingOption, totalBooks) => {
+  if (!shippingOption) return 0;
+  const optId = shippingOption.id || shippingOption._id;
+  const tiers = SHIPPING_TIERS[optId];
+
+  if (!tiers) {
+    // Agar ID 5 ya 6 nahi h, toh crash hone ki jagah ye price dikhayega
+    return Number(shippingOption.priceUsd) || Number(shippingOption.price) || 0;
+  }
+
+  if (totalBooks === 0) return 0;
   const tier = tiers.find(t => totalBooks >= t.min && totalBooks <= t.max);
   return tier ? tier.usd : tiers[tiers.length - 1].usd;
 };
@@ -153,12 +161,12 @@ const Cart = () => {
 
   const freeShippingOver = settings ? (
     currency === 'EUR' ? (settings.freeShippingOverEur || 0)
-    : (settings.freeShippingOver || settings.free_shipping_over || 0)
+      : (settings.freeShippingOver || settings.free_shipping_over || 0)
   ) : 0;
 
   const showPromoOver = settings ? (
     currency === 'EUR' ? (settings.showPromoOverEur || 0)
-    : (settings.showPromoOverUsd || 0)
+      : (settings.showPromoOverUsd || 0)
   ) : 0;
 
   // ─── 🟢 STEP 1: MNC DISCOUNT-SAFE CALCULATIONS (REPLACE LINE 114-124) ───
@@ -178,7 +186,22 @@ const Cart = () => {
   }, 0);
 
 
+  // ─── 🟢 FREE SHIPPING LOGIC ───
+  // Check karna ki kya cart mein SIRF gift cards hain (physical books 0 hain)
+  const hasOnlyGiftCards = cart.length > 0 && totalBooks === 0;
+
+  // Setting se base USD threshold nikalna
+  const freeShippingThresholdUSD = Number(settings?.free_shipping_over || settings?.freeShippingOver || 0);
+
   const subtotal = subtotalAfterItemDiscount; // Ye line add karein taaki coupon logic chale
+
+  // Agar sirf gift card hai, toh free shipping unlock ka logic false rahega
+  const isFreeShippingUnlocked = !hasOnlyGiftCards && freeShippingThresholdUSD > 0 && subtotal >= freeShippingThresholdUSD;
+
+  // Remaining amount nikalna (jo UI par dikhega)
+  const remainingForFreeShippingUSD = freeShippingThresholdUSD - subtotal;
+
+
 
   const getSelectedShippingRawPrice = () => {
     if (!appliedShipping) return 0;
@@ -187,7 +210,10 @@ const Cart = () => {
     if (currency === 'EUR') return usd * (exchangeRates?.EUR || 0.92);
     return usd;
   };
-
+  // ─── 🟢 FINAL SHIPPING CALCULATION (Ek baar calculate karo) ───
+  const finalShippingUSD = (isFreeShippingUnlocked || hasOnlyGiftCards || !appliedShipping)
+    ? 0
+    : getTieredShippingUsd(appliedShipping, totalBooks);
 
   // 3. Display Variables
   // Yahan null ki jagah original totals bhejna zaroori hai
@@ -388,101 +414,104 @@ const Cart = () => {
                         </div>
                       </div>
                     ) : (
-                    <div className="flex gap-4">
-                      {/* Book cover */}
-                      <Link
-                        to={`/books/${item.bagcheeId || item._id}/${item.slug || "book"}`}
-                        className="shrink-0"
-                      >
-                        <img
-                          src={getImageUrl(
-                            item.defaultImage || item.default_image || item.related_images?.[0],
-                          )}
-                          alt={item.name || item.title}
-                          className="w-20 h-28 object-cover border border-gray-200"
-                          onError={(e) => {
-                            e.target.src =
-                              "https://placehold.co/80x110?text=No+Image";
-                          }}
-                        />
-                      </Link>
-
-                      {/* Details */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between gap-2 mb-1">
-                          <div className="flex-1 min-w-0">
-                            <Link
-                              to={`/books/${item.bagcheeId || item._id}/${item.slug || "book"}`}
-                              className="font-semibold text-text-main hover:text-primary transition-colors leading-snug block"
-                            >
-                              {item.name || item.title}
-                            </Link>
-                            {item.author && (
-                              <p className="text-sm text-gray-500 mt-0.5">
-                                by{" "}
-                                {typeof item.author === "object"
-                                  ? `${item.author.firstName || item.author.first_name || ""} ${item.author.lastName || item.author.last_name || ""}`.trim()
-                                  : item.author}
-                              </p>
+                      <div className="flex gap-4">
+                        {/* Book cover */}
+                        <Link
+                          to={`/books/${item.bagcheeId || item._id}/${item.slug || "book"}`}
+                          className="shrink-0"
+                        >
+                          <img
+                            src={getImageUrl(
+                              item.defaultImage || item.default_image || item.related_images?.[0],
                             )}
-                          </div>
-                          {/* Price top-right */}
-                          <div className="text-right shrink-0">
-                            <p className="text-xl font-bold text-text-main">
-                              {formatPrice(
-                                (item.price || 0) * item.quantity,
-                                (item.inrPrice ?? item.inr_price ?? 0) * item.quantity,
-                                ((item.realPrice ?? item.real_price ?? 0) > 0 ? (item.realPrice ?? item.real_price) : (item.price || 0)) * item.quantity
+                            alt={item.name || item.title}
+                            className="w-20 h-28 object-cover border border-gray-200"
+                            onError={(e) => {
+                              e.target.src =
+                                "https://placehold.co/80x110?text=No+Image";
+                            }}
+                          />
+                        </Link>
+
+                        {/* Details */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between gap-2 mb-1">
+                            <div className="flex-1 min-w-0">
+                              <Link
+                                to={`/books/${item.bagcheeId || item._id}/${item.slug || "book"}`}
+                                className="font-semibold text-text-main hover:text-primary transition-colors leading-snug block"
+                              >
+                                {item.name || item.title}
+                              </Link>
+                              {item.author && (
+                                <p className="text-sm text-gray-500 mt-0.5">
+                                  by{" "}
+                                  {typeof item.author === "object"
+                                    ? `${item.author.firstName || item.author.first_name || ""} ${item.author.lastName || item.author.last_name || ""}`.trim()
+                                    : item.author}
+                                </p>
                               )}
-                            </p>
+                            </div>
+                            {/* Price top-right */}
+                            <div className="text-right shrink-0">
+                              <p className="text-xl font-bold text-text-main">
+                                {formatPrice(
+                                  (item.price || 0) * item.quantity,
+                                  (item.inrPrice ?? item.inr_price ?? 0) * item.quantity,
+                                  ((item.realPrice ?? item.real_price ?? 0) > 0 ? (item.realPrice ?? item.real_price) : (item.price || 0)) * item.quantity
+                                )}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Stars */}
+                          <div className="mb-3">
+                            {renderStars(item.rating || 0)}
+                          </div>
+
+                          {/* Quantity dropdown + Actions */}
+                          <div className="flex items-center gap-4 mt-4 pt-3 border-t border-gray-100 flex-wrap">
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="text-[10px] font-bold text-text-muted uppercase font-montserrat">Qty:</span>
+                              <select
+                                value={item.quantity}
+                                onChange={(e) =>
+                                  handleQuantityChange(
+                                    item.id || item._id,
+                                    parseInt(e.target.value, 10),
+                                  )
+                                }
+                                className="border border-gray-200 rounded-md px-2 py-1 text-sm font-bold text-text-main bg-white focus:outline-none focus:border-primary cursor-pointer hover:border-gray-300 transition-colors"
+                              >
+                                {Array.from(
+                                  {
+                                    // 🟢 FIXED LOGIC: Safe Number parsing + Cart Quantity fallback
+                                    length: Math.max(item.quantity || 1, Number(item.stock) > 0 ? Math.min(Number(item.stock), 10) : 10)
+                                  },
+                                  (_, i) => i + 1,
+                                ).map((n) => (
+                                  <option key={n} value={n}>{n}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2 ml-0 sm:ml-auto w-full sm:w-auto justify-start sm:justify-end">
+                              {/* REMOVE BUTTON: Styled with Red-50 bg and transition */}
+                              <button
+                                onClick={() => handleRemoveItem(item.id || item._id)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-red-50 text-red-600 hover:bg-red-600 hover:text-white transition-all duration-300 text-[11px] font-bold uppercase font-montserrat group shadow-sm active:scale-95 whitespace-nowrap"
+                              >
+                                <X size={14} className="group-hover:rotate-90 transition-transform duration-300" />
+                                REMOVE
+                              </button>
+                              {/* SAVE FOR LATER: Styled with subtle Blue/Primary theme */}
+                              <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-50 text-primary hover:bg-primary hover:text-white transition-all duration-300 text-[11px] font-bold uppercase font-montserrat shadow-sm active:scale-95 whitespace-nowrap">
+                                <Award size={14} />
+                                SAVE FOR LATER
+                              </button>
+                            </div>
                           </div>
                         </div>
-
-                        {/* Stars */}
-                        <div className="mb-3">
-                          {renderStars(item.rating || 0)}
-                        </div>
-
-                        {/* Quantity dropdown + Actions */}
-<div className="flex items-center gap-4 mt-4 pt-3 border-t border-gray-100 flex-wrap">
-  <div className="flex items-center gap-2 shrink-0">
-    <span className="text-[10px] font-bold text-text-muted uppercase font-montserrat">Qty:</span>
-    <select
-      value={item.quantity}
-      onChange={(e) =>
-        handleQuantityChange(
-          item.id || item._id,
-          parseInt(e.target.value, 10),
-        )
-      }
-      className="border border-gray-200 rounded-md px-2 py-1 text-sm font-bold text-text-main bg-white focus:outline-none focus:border-primary cursor-pointer hover:border-gray-300 transition-colors"
-    >
-      {Array.from(
-        { length: Math.min(item.stock || 10, 10) },
-        (_, i) => i + 1,
-      ).map((n) => (
-        <option key={n} value={n}>{n}</option>
-      ))}
-    </select>
-  </div>
-  <div className="flex flex-wrap items-center gap-2 ml-0 sm:ml-auto w-full sm:w-auto justify-start sm:justify-end">
-    {/* REMOVE BUTTON: Styled with Red-50 bg and transition */}
-    <button
-      onClick={() => handleRemoveItem(item.id || item._id)}
-      className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-red-50 text-red-600 hover:bg-red-600 hover:text-white transition-all duration-300 text-[11px] font-bold uppercase font-montserrat group shadow-sm active:scale-95 whitespace-nowrap"
-    >
-      <X size={14} className="group-hover:rotate-90 transition-transform duration-300" />
-      REMOVE
-    </button>
-    {/* SAVE FOR LATER: Styled with subtle Blue/Primary theme */}
-    <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-50 text-primary hover:bg-primary hover:text-white transition-all duration-300 text-[11px] font-bold uppercase font-montserrat shadow-sm active:scale-95 whitespace-nowrap">
-      <Award size={14} />
-      SAVE FOR LATER
-    </button>
-  </div>
-</div>
                       </div>
-                    </div>
                     )}
                   </div>
                 ))}
@@ -551,10 +580,35 @@ const Cart = () => {
             <div className="bg-cream-100 border border-gray-200 shadow-sm">
               <div className="p-5 space-y-5">
 
-                {/* ─── FREE SHIPPING UNLOCKED BADGE ─── */}
-                {freeShippingOver > 0 && subtotal >= freeShippingOver && (
-                  <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-center">
-                    <span className="text-green-700 font-black text-sm">🎉 You've unlocked free shipping!</span>
+
+                {/* ─── 🟢 DYNAMIC FREE SHIPPING PROGRESS ─── */}
+                {/* Yahan condition add ki hai: !hasOnlyGiftCards */}
+                {freeShippingThresholdUSD > 0 && !hasOnlyGiftCards && (
+                  <div className="mb-4">
+                    {isFreeShippingUnlocked ? (
+                      <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-center shadow-sm animate-fadeIn">
+                        <span className="text-green-700 font-black text-sm">🎉 Congratulations! You've unlocked Free Shipping!</span>
+                      </div>
+                    ) : (
+                      <div className="bg-blue-50/50 border border-blue-200 rounded-xl p-4 text-center space-y-3 shadow-sm">
+                        <p className="text-blue-900 text-sm font-medium font-body">
+                          Add <span className="font-black text-primary text-base">
+                            {formatPrice(
+                              remainingForFreeShippingUSD,
+                              remainingForFreeShippingUSD * (exchangeRates?.INR || 83),
+                              remainingForFreeShippingUSD
+                            )}
+                          </span> more to unlock <span className="font-bold">Free Shipping</span>!
+                        </p>
+                        {/* 📊 Progress Bar */}
+                        <div className="w-full bg-blue-100 rounded-full h-2.5 overflow-hidden">
+                          <div
+                            className="bg-primary h-2.5 rounded-full transition-all duration-500 ease-out"
+                            style={{ width: `${Math.min((subtotal / freeShippingThresholdUSD) * 100, 100)}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -615,44 +669,44 @@ const Cart = () => {
                   )}
                 </div>}
 
-{/* ─── SHIPPING OPTIONS SECTION ─── */}
-<div className="space-y-2">
-  <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide flex items-center gap-1">
-    <Truck size={13} /> Shipping ({totalBooks} {totalBooks === 1 ? 'book' : 'books'})
-  </p>
-  {shippingOptions.map((option) => {
-    const optId = option.id || option._id;
-    const tieredUsd = getTieredShippingUsd(optId, totalBooks);
-    const isSelected = (appliedShipping?.id || appliedShipping?._id) === optId;
+                {/* ─── SHIPPING OPTIONS SECTION ─── */}
+                {/* <div className="space-y-2">
+                  <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide flex items-center gap-1">
+                    <Truck size={13} /> Shipping ({totalBooks} {totalBooks === 1 ? 'book' : 'books'})
+                  </p>
+                  {shippingOptions.map((option) => {
+                    const optId = option.id || option._id;
+                    const tieredUsd = isFreeShippingUnlocked ? 0 : getTieredShippingUsd(optId, totalBooks);
+                    const isSelected = (appliedShipping?.id || appliedShipping?._id) === optId;
 
-    let displayPrice;
-    if (currency === 'EUR') displayPrice = `€${(tieredUsd * (exchangeRates?.EUR || 0.92)).toFixed(2)}`;
-    else if (currency === 'GBP') displayPrice = `£${(tieredUsd * (exchangeRates?.GBP || 0.78)).toFixed(2)}`;
-    else if (currency === 'USD') displayPrice = `$${tieredUsd.toFixed(2)}`;
-    else displayPrice = `${symbols?.[currency] || ''}${(tieredUsd * (exchangeRates?.[currency] || 1)).toFixed(2)}`;
+                    let displayPrice;
+                    if (currency === 'EUR') displayPrice = `€${(tieredUsd * (exchangeRates?.EUR || 0.92)).toFixed(2)}`;
+                    else if (currency === 'GBP') displayPrice = `£${(tieredUsd * (exchangeRates?.GBP || 0.78)).toFixed(2)}`;
+                    else if (currency === 'USD') displayPrice = `$${tieredUsd.toFixed(2)}`;
+                    else displayPrice = `${symbols?.[currency] || ''}${(tieredUsd * (exchangeRates?.[currency] || 1)).toFixed(2)}`;
 
-    return (
-      <label key={optId} className={`flex items-start justify-between p-3 cursor-pointer rounded border transition-colors ${isSelected ? 'bg-primary/5 border-primary/30' : 'border-gray-100 hover:border-gray-200'}`}>
-        <div className="flex items-start gap-2 min-w-0 flex-1">
-          <input
-            type="radio"
-            name="shipping"
-            checked={isSelected}
-            onChange={() => setAppliedShipping(option)}
-            className="w-4 h-4 text-primary mt-1 shrink-0"
-          />
-          <div className='min-w-0 flex-1'>
-            <span className="text-sm font-semibold text-text-main block truncate sm:whitespace-normal">{option.title}</span>
-            {tieredUsd === 0 && <span className="text-[10px] text-green-600 font-bold">FREE</span>}
-          </div>
-        </div>
-        <span className="text-sm font-bold text-primary shrink-0 ml-2">
-          {tieredUsd === 0 ? 'Free' : displayPrice}
-        </span>
-      </label>
-    );
-  })}
-</div>
+                    return (
+                      <label key={optId} className={`flex items-start justify-between p-3 cursor-pointer rounded border transition-colors ${isSelected ? 'bg-primary/5 border-primary/30' : 'border-gray-100 hover:border-gray-200'}`}>
+                        <div className="flex items-start gap-2 min-w-0 flex-1">
+                          <input
+                            type="radio"
+                            name="shipping"
+                            checked={isSelected}
+                            onChange={() => setAppliedShipping(option)}
+                            className="w-4 h-4 text-primary mt-1 shrink-0"
+                          />
+                          <div className='min-w-0 flex-1'>
+                            <span className="text-sm font-semibold text-text-main block truncate sm:whitespace-normal">{option.title}</span>
+                            {tieredUsd === 0 && <span className="text-[10px] text-green-600 font-bold">FREE</span>}
+                          </div>
+                        </div>
+                        <span className="text-sm font-bold text-primary shrink-0 ml-2">
+                          {tieredUsd === 0 ? 'Free' : displayPrice}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div> */}
 
                 {/* ─── TOTALS ─── */}
                 <div className="border-t border-gray-200 pt-4 space-y-2">
@@ -677,17 +731,17 @@ const Cart = () => {
                   )}
 
                   {/* Shipping line */}
-                  {appliedShipping && (() => {
-                    const shippingUsd = getTieredShippingUsd(appliedShipping.id || appliedShipping._id, totalBooks);
-                    return (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Shipping</span>
-                        <span className="font-medium text-text-main">
-                          {shippingUsd === 0 ? 'Free' : formatPrice(shippingUsd, null, shippingUsd)}
-                        </span>
-                      </div>
-                    );
-                  })()}
+                  {/* {appliedShipping && !hasOnlyGiftCards && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Shipping</span>
+                      <span className={`font-bold ${finalShippingUSD === 0 ? "text-primary" : "text-text-main"}`}>
+                        {finalShippingUSD === 0
+                          ? 'Free'
+                          : formatPrice(finalShippingUSD, null, finalShippingUSD)
+                        }
+                      </span>
+                    </div>
+                  )} */}
 
                   <div className="flex justify-between items-baseline pt-2 border-t border-gray-100">
                     <span className="text-sm text-gray-600">
@@ -695,11 +749,11 @@ const Cart = () => {
                     </span>
                     <span className="text-2xl font-bold text-text-main">
                       {(() => {
-                        const shippingUsd = getTieredShippingUsd(appliedShipping?.id || appliedShipping?._id, totalBooks);
+                       
                         const baseUsd = subtotalAfterItemDiscount;
                         const membershipUsd = membershipAdded ? (mData.usd || 0) : 0;
-                        const totalUsd = baseUsd + shippingUsd + membershipUsd;
-                        const totalInr = originalBaseINR + (shippingUsd * (exchangeRates?.INR || 83)) + (membershipAdded ? (mData.inr || 0) : 0);
+                        const totalUsd = baseUsd  + membershipUsd;
+                        const totalInr = originalBaseINR  + (membershipAdded ? (mData.inr || 0) : 0);
                         return formatPrice(totalUsd, totalInr, totalUsd);
                       })()}
                     </span>

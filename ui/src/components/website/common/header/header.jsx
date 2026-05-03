@@ -983,10 +983,36 @@ const PremiumHeader = () => {
             <TransitionChild as={Fragment} enter="transition ease-in-out duration-300 transform" enterFrom="-translate-x-full" enterTo="translate-x-0" leave="transition ease-in-out duration-300 transform" leaveFrom="translate-x-0" leaveTo="-translate-x-full">
               <DialogPanel className="relative flex w-[85%] max-w-xs flex-col overflow-y-auto bg-white pb-12 shadow-2xl h-full border-r border-cream-200 text-text-main">
 
-                <div className="flex px-5 pt-6 pb-4 justify-between items-center border-b border-primary-dark bg-primary">
-                  <Logo className="h-10 w-auto text-white" />
-                  <button onClick={() => setMobileMenuOpen(false)} className="p-2 text-white hover:text-accent hover:bg-primary-dark rounded-full transition-colors"><X size={24} /></button>
-                </div>
+                <div className="flex px-4 sm:px-5 py-2 justify-between items-center border-b border-primary-dark bg-primary gap-2">
+  <Link to="/" onClick={() => setMobileMenuOpen(false)} className="group overflow-hidden">
+    <div className="flex items-center gap-2 px-2 py-0.5 bg-primary hover:bg-primary/90 rounded-lg border border-white/20 hover:border-white/40 transition-all duration-300">
+      <div className="w-8 h-8 shrink-0 rounded-md bg-white flex items-center justify-center shadow-md">
+        <img
+          src={logoImg}
+          alt="Bagchee"
+          className="w-6 h-6 object-contain"
+          fetchPriority="high"
+          decoding="async"
+          style={{
+            filter: 'brightness(0) saturate(100%) invert(45%) sepia(89%) saturate(2448%) hue-rotate(165deg) brightness(95%) contrast(101%)',
+          }}
+        />
+      </div>
+      <div className="flex flex-col leading-tight overflow-hidden">
+        <span className="text-base font-bold text-white tracking-tight font-montserrat truncate">
+          Bagchee
+        </span>
+        <span className="text-[8px] font-medium tracking-wider text-white/80 uppercase font-montserrat truncate">
+          Books That Stick
+        </span>
+      </div>
+    </div>
+  </Link>
+  
+  <button onClick={() => setMobileMenuOpen(false)} className="p-1 shrink-0 text-white hover:text-accent hover:bg-primary-dark rounded-full transition-colors">
+    <X size={24} />
+  </button>
+</div>
 
                 <div className="flex-1 px-4 py-4 space-y-2 font-montserrat">
                   {navItems.map((nav) => {
@@ -1015,7 +1041,7 @@ const PremiumHeader = () => {
                           </>
                         ) : (
                           <Link
-                            to={nav.link}
+                            to={nav.itemLink || nav.link }
                             onClick={() => setMobileMenuOpen(false)}
                             className={`block py-3 text-base font-bold tracking-wide text-text-main hover:text-primary `}
                           >
@@ -1027,14 +1053,62 @@ const PremiumHeader = () => {
                   })}
                 </div>
 
-                <div className="flex px-5 pt-6 pb-6 justify-between items-start border-b border-cream-200 bg-cream-50 mt-auto gap-4">
+                {/* --- 🟢 NEW MOBILE AUTH/ACCOUNT SECTION --- */}
+                <div className="px-5 py-5 border-t border-cream-200 mt-auto bg-white font-montserrat">
+                  {isLoggedIn ? (
+                    <div className="space-y-4">
+                      <div className="pb-2 border-b border-gray-50">
+                        <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Hello,</p>
+                        <p className="text-sm font-black text-primary">{userName}</p>
+                      </div>
+                      <div className="flex flex-col gap-3">
+                        <Link to="/account" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 text-sm font-bold text-text-main hover:text-primary transition-colors">
+                          <User size={16} /> My Account
+                        </Link>
+                        <Link to="/account/orders" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 text-sm font-bold text-text-main hover:text-primary transition-colors">
+                          <List size={16} /> Orders
+                        </Link>
+                        <button onClick={() => { handleLogout(); setMobileMenuOpen(false); }} className="flex items-center gap-3 text-sm font-bold text-red-600 hover:text-red-700 transition-colors text-left w-full">
+                          <LogOut size={16} /> Sign Out
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider">My Account</p>
+                      <div className="flex gap-3">
+                        <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-primary text-white text-xs font-bold rounded-lg shadow-md transition-transform active:scale-95">
+                          <LogIn size={16} /> LOGIN
+                        </Link>
+                        <Link to="/register" onClick={() => setMobileMenuOpen(false)} className="flex-1 flex items-center justify-center gap-2 py-2.5 border-2 border-primary text-primary text-xs font-bold rounded-lg transition-transform active:scale-95 hover:bg-primary/5">
+                          <UserPlus size={16} /> REGISTER
+                        </Link>
+                      </div>
+                      <div className="pt-2">
+                        <Link to="/trace-order" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-center gap-2 w-full py-2.5 bg-cream-50 text-text-main text-xs font-bold rounded-lg border border-cream-200 transition-transform active:scale-95 hover:text-primary">
+                          <Search size={14} className="text-primary" /> TRACE ORDER
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* --- 🟢 BOTTOM CURRENCY SECTION (Updated Layout) --- */}
+                <div className="flex px-5 py-4 justify-between items-center border-t border-cream-200 bg-cream-50 gap-4">
+                  
+                  
                   <div className="relative">
                     <button onClick={() => setMobileCurrencyOpen(!mobileCurrencyOpen)} className="flex items-center gap-2 text-text-muted hover:text-primary transition-colors bg-white border border-cream-200 px-3 py-1.5 rounded-full h-8 shadow-sm">
-                      <Globe size={14} /><span className="text-sm font-bold font-montserrat">{currency}</span><ChevronDown size={14} className={`transition-transform ${mobileCurrencyOpen ? 'rotate-180' : ''}`} />
+                      <Globe size={14} />
+                      <span className="text-sm font-bold font-montserrat">{currency}</span>
+                      <ChevronDown size={14} className={`transition-transform ${mobileCurrencyOpen ? 'rotate-180' : ''}`} />
                     </button>
+                    
                     <div className={`absolute bottom-full right-0 mb-2 w-24 bg-white shadow-xl rounded-lg border border-cream-200 overflow-hidden transition-all duration-200 ${mobileCurrencyOpen ? 'opacity-100 scale-100 visible' : 'opacity-0 scale-95 invisible'}`}>
                       {currencies.map((c) => (
-                        <div key={c} onClick={() => { setCurrency(c); setMobileCurrencyOpen(false); }} className={`px-4 py-2 text-xs font-bold hover:bg-cream-50 transition-colors text-text-main cursor-pointer text-center font-montserrat ${currency === c ? 'text-primary bg-primary/5' : ''}`}>{c}</div>
+                        <div key={c} onClick={() => { setCurrency(c); setMobileCurrencyOpen(false); }} className={`px-4 py-2 text-xs font-bold hover:bg-cream-50 transition-colors text-text-main cursor-pointer text-center font-montserrat ${currency === c ? 'text-primary bg-primary/5' : ''}`}>
+                          {c}
+                        </div>
                       ))}
                     </div>
                   </div>

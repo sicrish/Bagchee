@@ -54,7 +54,7 @@ const GiftCardDetail = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white font-body text-text-main">
+    <div className="min-h-screen bg-white font-body text-text-main overflow-x-hidden">
       {/* Breadcrumb */}
       <div className="max-w-7xl mx-auto px-4 py-4 text-[10px] font-montserrat flex items-center gap-2 text-gray-400 uppercase tracking-[0.2em]">
         <Link to="/" className="hover:text-primary cursor-pointer transition-colors">Home</Link>
