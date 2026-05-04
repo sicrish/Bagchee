@@ -617,102 +617,91 @@ export const searchSuggestions = async (req, res) => {
         const { keyword, limit } = req.query;
         const pageSize = Math.min(20, Math.max(1, Number(limit) || 8));
 
-        if (!keyword || keyword.trim().length < 3) {
+        if (!keyword || keyword.trim().length < 2) {
             return res.json({ status: true, data: [] });
         }
 
-        const searchParam = `%${keyword.trim()}%`;
+        const kw = keyword.trim();
 
-        // Run all searches in parallel
         const [products, authors, categories, series, publishers] = await Promise.all([
-            prisma.$queryRaw`
-                SELECT DISTINCT ON (p.id) p.id, p.bagchee_id AS "bagcheeId", p.title, p.isbn_13 AS "isbn13",
-                       p.default_image AS "defaultImage", p.price, p.real_price AS "realPrice",
-                       a.first_name AS "authorFirstName", a.last_name AS "authorLastName"
-                FROM products p
-                LEFT JOIN products_authors pa ON pa.product_id = p.id AND pa.id = (
-                    SELECT MIN(pa2.id) FROM products_authors pa2 WHERE pa2.product_id = p.id
-                )
-                LEFT JOIN authors a ON a.id = pa.author_id
-                WHERE p.active = true
-                  AND (p.title ILIKE ${searchParam} OR p.isbn_13 ILIKE ${searchParam} OR p.isbn_10 ILIKE ${searchParam} OR p.bagchee_id ILIKE ${searchParam})
-                ORDER BY p.id DESC
-                LIMIT ${pageSize}
-            `,
-            prisma.$queryRaw`
-                SELECT id, first_name AS "firstName", last_name AS "lastName", full_name AS "fullName"
-                FROM authors
-                WHERE full_name ILIKE ${searchParam} OR first_name ILIKE ${searchParam} OR last_name ILIKE ${searchParam}
-                ORDER BY full_name ASC
-                LIMIT 5
-            `,
-            prisma.$queryRaw`
-                SELECT id, category_title AS "title", slug
-                FROM categories
-                WHERE category_title ILIKE ${searchParam} AND active = true
-                ORDER BY category_title ASC
-                LIMIT 5
-            `,
-            prisma.$queryRaw`
-                SELECT id, series_title AS "title"
-                FROM series
-                WHERE series_title ILIKE ${searchParam}
-                ORDER BY series_title ASC
-                LIMIT 5
-            `,
-            prisma.$queryRaw`
-                SELECT id, publisher_title AS "title", slug
-                FROM publishers
-                WHERE publisher_title ILIKE ${searchParam}
-                ORDER BY publisher_title ASC
-                LIMIT 5
-            `,
+            prisma.product.findMany({
+                where: {
+                    isActive: true,
+                    OR: [
+                        { title:     { contains: kw, mode: 'insensitive' } },
+                        { isbn13:    { contains: kw, mode: 'insensitive' } },
+                        { isbn10:    { contains: kw, mode: 'insensitive' } },
+                        { bagcheeId: { contains: kw, mode: 'insensitive' } },
+                    ],
+                },
+                select: {
+                    id: true,
+                    bagcheeId: true,
+                    title: true,
+                    isbn13: true,
+                    defaultImage: true,
+                    price: true,
+                    realPrice: true,
+                    authors: {
+                        take: 1,
+                        select: { author: { select: { firstName: true, lastName: true } } },
+                    },
+                },
+                orderBy: { createdAt: 'desc' },
+                take: pageSize,
+            }),
+            prisma.author.findMany({
+                where: { OR: [
+                    { fullName:  { contains: kw, mode: 'insensitive' } },
+                    { firstName: { contains: kw, mode: 'insensitive' } },
+                    { lastName:  { contains: kw, mode: 'insensitive' } },
+                ]},
+                select: { id: true, firstName: true, lastName: true, fullName: true },
+                take: 5,
+            }),
+            prisma.category.findMany({
+                where: { active: true, title: { contains: kw, mode: 'insensitive' } },
+                select: { id: true, title: true, slug: true },
+                take: 5,
+            }),
+            prisma.series.findMany({
+                where: { title: { contains: kw, mode: 'insensitive' } },
+                select: { id: true, title: true },
+                take: 5,
+            }),
+            prisma.publisher.findMany({
+                where: { title: { contains: kw, mode: 'insensitive' } },
+                select: { id: true, title: true, slug: true },
+                take: 5,
+            }),
         ]);
 
         const data = [];
 
-        // Authors first so they appear at the top of results
         authors.forEach(a => data.push({
             id: a.id,
-            title: a.fullName || `${a.firstName} ${a.lastName}`.trim(),
+            title: a.fullName || `${a.firstName || ''} ${a.lastName || ''}`.trim(),
             type: 'author',
         }));
 
-        // Then books
-        products.forEach(p => data.push({
-            id: p.id,
-            bagcheeId: p.bagcheeId,
-            title: p.title,
-            isbn13: p.isbn13,
-            defaultImage: p.defaultImage,
-            price: Number(p.price),
-            realPrice: Number(p.realPrice),
-            author: p.authorFirstName ? { firstName: p.authorFirstName, lastName: p.authorLastName || '' } : null,
-            type: 'book',
-        }));
+        products.forEach(p => {
+            const firstAuthor = p.authors?.[0]?.author;
+            data.push({
+                id: p.id,
+                bagcheeId: p.bagcheeId,
+                title: p.title,
+                isbn13: p.isbn13,
+                defaultImage: p.defaultImage,
+                price: Number(p.price),
+                realPrice: Number(p.realPrice),
+                author: firstAuthor ? { firstName: firstAuthor.firstName, lastName: firstAuthor.lastName || '' } : null,
+                type: 'book',
+            });
+        });
 
-        // Add categories
-        categories.forEach(c => data.push({
-            id: c.id,
-            title: c.title,
-            slug: c.slug,
-            type: 'category',
-        }));
-
-        // Add series
-        series.forEach(s => data.push({
-            id: s.id,
-            title: s.title,
-            type: 'series',
-        }));
-
-        // Add publishers
-        publishers.forEach(p => data.push({
-            id: p.id,
-            title: p.title,
-            slug: p.slug,
-            type: 'publisher',
-        }));
+        categories.forEach(c => data.push({ id: c.id, title: c.title, slug: c.slug, type: 'category' }));
+        series.forEach(s => data.push({ id: s.id, title: s.title, type: 'series' }));
+        publishers.forEach(p => data.push({ id: p.id, title: p.title, slug: p.slug, type: 'publisher' }));
 
         res.json({ status: true, data });
     } catch (error) {
