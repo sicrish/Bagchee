@@ -203,8 +203,13 @@ const Cart = () => {
 
 
 
-  // Read DB price directly (snake_case + camelCase fallback)
-  const getDbShippingUsd = (option) => Number(option?.priceUsd || option?.price_usd || 0);
+  const STANDARD_SHIPPING_FEE = 12; // flat fee when DB price is 0 and threshold not met
+
+  // Read DB price; fall back to flat $12 if not set
+  const getDbShippingUsd = (option) => {
+    const db = Number(option?.priceUsd || option?.price_usd || 0);
+    return db > 0 ? db : STANDARD_SHIPPING_FEE;
+  };
 
   const finalShippingUSD = (isFreeShippingUnlocked || hasOnlyGiftCards || !appliedShipping)
     ? 0

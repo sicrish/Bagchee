@@ -366,7 +366,11 @@ const Checkout = () => {
 
   const freeShippingThresholdUSD = Number(settings?.free_shipping_over || settings?.freeShippingOver || 50);
   const isFreeShippingUnlocked = subtotalAfterItemDiscountUSD >= freeShippingThresholdUSD;
-  const getDbShippingUsd = (option) => Number(option?.priceUsd || option?.price_usd || 0);
+  const STANDARD_SHIPPING_FEE = 12;
+  const getDbShippingUsd = (option) => {
+    const db = Number(option?.priceUsd || option?.price_usd || 0);
+    return db > 0 ? db : STANDARD_SHIPPING_FEE;
+  };
 
   const originalBaseUSD = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
 
