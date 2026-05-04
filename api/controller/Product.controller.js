@@ -401,6 +401,9 @@ export const update = async (req, res) => {
             const path = await saveFileLocal(req.files.default_image, 'products');
             if (existing.defaultImage) await deleteFileLocal(existing.defaultImage);
             updateData.defaultImage = path;
+        } else if (req.body.remove_default_image === 'true') {
+            if (existing.defaultImage) await deleteFileLocal(existing.defaultImage);
+            updateData.defaultImage = null;
         }
         if (req.files?.toc_image || req.files?.tocImage) {
             const file = req.files.toc_image || req.files.tocImage;

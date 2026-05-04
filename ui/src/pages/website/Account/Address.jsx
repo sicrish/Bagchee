@@ -28,9 +28,24 @@ const Address = () => {
     city: '',
     state: '',
     pincode: '',
-    country: 'India',
+    country: 'United States',
     phone: ''
   };
+
+  const COUNTRIES = [
+    'Afghanistan','Albania','Algeria','Argentina','Armenia','Australia','Austria','Azerbaijan',
+    'Bahrain','Bangladesh','Belarus','Belgium','Bolivia','Bosnia and Herzegovina','Brazil',
+    'Bulgaria','Cambodia','Canada','Chile','China','Colombia','Croatia','Czech Republic',
+    'Denmark','Ecuador','Egypt','Estonia','Ethiopia','Finland','France','Georgia','Germany',
+    'Ghana','Greece','Hungary','India','Indonesia','Iran','Iraq','Ireland','Israel','Italy',
+    'Japan','Jordan','Kazakhstan','Kenya','Kuwait','Latvia','Lebanon','Libya','Lithuania',
+    'Malaysia','Mexico','Morocco','Myanmar','Nepal','Netherlands','New Zealand','Nigeria',
+    'Norway','Oman','Pakistan','Palestine','Peru','Philippines','Poland','Portugal','Qatar',
+    'Romania','Russia','Saudi Arabia','Serbia','Singapore','Slovakia','South Africa',
+    'South Korea','Spain','Sri Lanka','Sudan','Sweden','Switzerland','Syria','Taiwan',
+    'Tanzania','Thailand','Tunisia','Turkey','Uganda','Ukraine','United Arab Emirates',
+    'United Kingdom','United States','Uruguay','Uzbekistan','Venezuela','Vietnam','Yemen','Zimbabwe'
+  ];
   const [formData, setFormData] = useState(initialFormState);
 
   // Load User from LocalStorage
@@ -368,7 +383,7 @@ const Address = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 <div>
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    State
+                    State / Province / Region
                   </label>
                   <input
                     type="text"
@@ -376,12 +391,11 @@ const Address = () => {
                     value={formData.state}
                     onChange={handleChange}
                     className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
-                    required
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    Pincode
+                    Postal Code / ZIP
                   </label>
                   <input
                     type="text"
@@ -389,7 +403,6 @@ const Address = () => {
                     value={formData.pincode}
                     onChange={handleChange}
                     className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
-                    required
                   />
                 </div>
                 <div>
@@ -405,6 +418,20 @@ const Address = () => {
                     required
                   />
                 </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                  Country
+                </label>
+                <select
+                  name="country"
+                  value={formData.country}
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary bg-gray-50"
+                  required
+                >
+                  {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
               </div>
               <div className="pt-6 flex justify-end gap-4 border-t border-gray-100">
                 <button

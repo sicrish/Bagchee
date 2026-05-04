@@ -640,7 +640,12 @@ const EditBook = () => {
             data.append('rated_times', formData.rated_times || '');
             data.append('toc_image', formData.toc_image || '');
 
-            if (imageFile) data.append('default_image', imageFile);
+            if (imageFile) {
+                data.append('default_image', imageFile);
+            } else if (!serverImage) {
+                // User explicitly removed the cover image
+                data.append('remove_default_image', 'true');
+            }
             if (tocImageFile) data.append('toc_image', tocImageFile);
 
             tocImagesList.forEach(item => { if (item.file) { data.append(`toc_images`, item.file); data.append(`toc_images_order`, item.order); } });
