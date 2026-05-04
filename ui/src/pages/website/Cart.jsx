@@ -203,17 +203,12 @@ const Cart = () => {
 
 
 
-  const getSelectedShippingRawPrice = () => {
-    if (!appliedShipping) return 0;
-    const usd = getTieredShippingUsd(appliedShipping.id || appliedShipping._id, totalBooks);
-    if (currency === 'GBP') return usd * (exchangeRates?.GBP || 0.78);
-    if (currency === 'EUR') return usd * (exchangeRates?.EUR || 0.92);
-    return usd;
-  };
-  // ─── 🟢 FINAL SHIPPING CALCULATION (Ek baar calculate karo) ───
+  // Read DB price directly (snake_case + camelCase fallback)
+  const getDbShippingUsd = (option) => Number(option?.priceUsd || option?.price_usd || 0);
+
   const finalShippingUSD = (isFreeShippingUnlocked || hasOnlyGiftCards || !appliedShipping)
     ? 0
-    : getTieredShippingUsd(appliedShipping, totalBooks);
+    : getDbShippingUsd(appliedShipping);
 
   // 3. Display Variables
   // Yahan null ki jagah original totals bhejna zaroori hai

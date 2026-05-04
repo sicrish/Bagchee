@@ -350,8 +350,8 @@ const Checkout = () => {
 
   const getShippingPrice = (option) => {
     if (!option) return 0;
-    const optId = option.id || option._id;
-    const usd = getTieredShippingUsd(optId, totalBooks);
+    if (isFreeShippingUnlocked) return 0;
+    const usd = getDbShippingUsd(option);
     if (currency === 'EUR') return usd * (exchangeRates?.EUR || 0.92);
     if (currency === 'GBP') return usd * (exchangeRates?.GBP || 0.78);
     return usd;
@@ -364,7 +364,9 @@ const Checkout = () => {
     return acc + (Number(p) * item.quantity);
   }, 0);
 
-
+  const freeShippingThresholdUSD = Number(settings?.free_shipping_over || settings?.freeShippingOver || 50);
+  const isFreeShippingUnlocked = subtotalAfterItemDiscountUSD >= freeShippingThresholdUSD;
+  const getDbShippingUsd = (option) => Number(option?.priceUsd || option?.price_usd || 0);
 
   const originalBaseUSD = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
 
@@ -383,15 +385,14 @@ const Checkout = () => {
     return Number(settings.membership_cost) || 35;
   }, [membershipAdded, settings, currency, exchangeRates]);
 
-  // ─── 🟢 STEP 3: SHIPPING COST (Tiered by book count) ───
+  // ─── 🟢 STEP 3: SHIPPING COST (from DB price, free above threshold) ───
   const shippingCost = useMemo(() => {
-    if (!appliedShipping) return 0;
-    const optId = appliedShipping.id || appliedShipping._id;
-    const usd = getTieredShippingUsd(optId, totalBooks);
+    if (!appliedShipping || isFreeShippingUnlocked) return 0;
+    const usd = getDbShippingUsd(appliedShipping);
     if (currency === 'EUR') return usd * (exchangeRates?.EUR || 0.92);
     if (currency === 'GBP') return usd * (exchangeRates?.GBP || 0.78);
     return usd;
-  }, [appliedShipping, totalBooks, currency, exchangeRates]);
+  }, [appliedShipping, isFreeShippingUnlocked, currency, exchangeRates]);
 
   // 6. Member Discount (11% Logic)
   const memberDiscountPercent = Number(settings?.member_discount) || 11;
