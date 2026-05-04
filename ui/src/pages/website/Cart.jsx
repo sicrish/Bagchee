@@ -190,8 +190,8 @@ const Cart = () => {
   // Check karna ki kya cart mein SIRF gift cards hain (physical books 0 hain)
   const hasOnlyGiftCards = cart.length > 0 && totalBooks === 0;
 
-  // Setting se base USD threshold nikalna
-  const freeShippingThresholdUSD = Number(settings?.free_shipping_over || settings?.freeShippingOver || 0);
+  // Free shipping threshold — DB setting or hardcoded $50 fallback
+  const freeShippingThresholdUSD = Number(settings?.free_shipping_over || settings?.freeShippingOver || 50);
 
   const subtotal = subtotalAfterItemDiscount; // Ye line add karein taaki coupon logic chale
 
@@ -676,16 +676,19 @@ const Cart = () => {
   </p>
   {shippingOptions.map((option) => {
     const optId = option.id || option._id;
-    const dbPriceUsd = option.priceUsd || option.price_usd || 0;
+    // Use DB price; fall back to tiered pricing if DB has 0
+    const rawUsd = option.priceUsd || option.price_usd || getTieredShippingUsd(option, totalBooks);
+    // Override to 0 (free) when threshold is met
+    const effectiveUsd = isFreeShippingUnlocked ? 0 : rawUsd;
     const isSelected = (appliedShipping?.id || appliedShipping?._id) === optId;
 
     let displayPrice;
     if (currency === 'EUR') {
-      const eurPrice = option.priceEur || option.price_eur || dbPriceUsd * (exchangeRates?.EUR || 0.92);
-      displayPrice = `€${Number(eurPrice).toFixed(2)}`;
-    } else if (currency === 'GBP') displayPrice = `£${(dbPriceUsd * (exchangeRates?.GBP || 0.78)).toFixed(2)}`;
-    else if (currency === 'USD') displayPrice = `$${dbPriceUsd.toFixed(2)}`;
-    else displayPrice = `${symbols?.[currency] || ''}${(dbPriceUsd * (exchangeRates?.[currency] || 1)).toFixed(2)}`;
+      const eurPrice = option.priceEur || option.price_eur || effectiveUsd * (exchangeRates?.EUR || 0.92);
+      displayPrice = effectiveUsd === 0 ? 'Free' : `€${Number(eurPrice).toFixed(2)}`;
+    } else if (currency === 'GBP') displayPrice = effectiveUsd === 0 ? 'Free' : `£${(effectiveUsd * (exchangeRates?.GBP || 0.78)).toFixed(2)}`;
+    else if (currency === 'USD') displayPrice = effectiveUsd === 0 ? 'Free' : `$${effectiveUsd.toFixed(2)}`;
+    else displayPrice = effectiveUsd === 0 ? 'Free' : `${symbols?.[currency] || ''}${(effectiveUsd * (exchangeRates?.[currency] || 1)).toFixed(2)}`;
 
     return (
       <label key={optId} className={`flex items-start justify-between p-3 cursor-pointer rounded border transition-colors ${isSelected ? 'bg-primary/5 border-primary/30' : 'border-gray-100 hover:border-gray-200'}`}>
@@ -699,11 +702,11 @@ const Cart = () => {
           />
           <div className='min-w-0 flex-1'>
             <span className="text-sm font-semibold text-text-main block truncate sm:whitespace-normal">{option.title}</span>
-            {dbPriceUsd === 0 && <span className="text-[10px] text-green-600 font-bold">FREE</span>}
+            {effectiveUsd === 0 && <span className="text-[10px] text-green-600 font-bold">FREE</span>}
           </div>
         </div>
-        <span className="text-sm font-bold text-primary shrink-0 ml-2">
-          {dbPriceUsd === 0 ? 'Free' : displayPrice}
+        <span className={`text-sm font-bold shrink-0 ml-2 ${effectiveUsd === 0 ? 'text-green-600' : 'text-primary'}`}>
+          {displayPrice}
         </span>
       </label>
     );
@@ -733,17 +736,14 @@ const Cart = () => {
                   )}
 
                   {/* Shipping line */}
-                  {appliedShipping && (() => {
-                    const shippingUsd = appliedShipping.priceUsd || appliedShipping.price_usd || 0;
-                    return (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Shipping</span>
-                        <span className="font-medium text-text-main">
-                          {shippingUsd === 0 ? 'Free' : formatPrice(shippingUsd, null, shippingUsd)}
-                        </span>
-                      </div>
-                    );
-                  })()}
+                  {appliedShipping && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Shipping</span>
+                      <span className={`font-medium ${finalShippingUSD === 0 ? 'text-green-600' : 'text-text-main'}`}>
+                        {finalShippingUSD === 0 ? 'Free' : formatPrice(finalShippingUSD, null, finalShippingUSD)}
+                      </span>
+                    </div>
+                  )}
 
                   <div className="flex justify-between items-baseline pt-2 border-t border-gray-100">
                     <span className="text-sm text-gray-600">
@@ -751,11 +751,10 @@ const Cart = () => {
                     </span>
                     <span className="text-2xl font-bold text-text-main">
                       {(() => {
-                        const shippingUsd = appliedShipping?.priceUsd || appliedShipping?.price_usd || 0;
                         const baseUsd = subtotalAfterItemDiscount;
                         const membershipUsd = membershipAdded ? (mData.usd || 0) : 0;
-                        const totalUsd = baseUsd  + membershipUsd;
-                        const totalInr = originalBaseINR  + (membershipAdded ? (mData.inr || 0) : 0);
+                        const totalUsd = baseUsd + membershipUsd + finalShippingUSD;
+                        const totalInr = originalBaseINR + (membershipAdded ? (mData.inr || 0) : 0);
                         return formatPrice(totalUsd, totalInr, totalUsd);
                       })()}
                     </span>
