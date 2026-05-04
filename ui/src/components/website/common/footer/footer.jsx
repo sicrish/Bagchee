@@ -160,9 +160,15 @@ const Footer = () => {
 
   const handleContentClick = (e) => {
     const target = e.target.closest('a');
-    if (target && target.href.includes(window.location.origin)) {
+    if (!target) return;
+    const rawHref = target.getAttribute('href') || '';
+    // Handle internal links (absolute with same origin, or relative paths)
+    const isInternal = target.href.includes(window.location.origin) || rawHref.startsWith('/') || (!rawHref.startsWith('http') && !rawHref.startsWith('mailto') && !rawHref.startsWith('#'));
+    if (isInternal && rawHref && rawHref !== '#') {
       e.preventDefault();
-      const path = target.getAttribute('href').replace(window.location.origin, "");
+      let path = rawHref.startsWith('http')
+        ? rawHref.replace(window.location.origin, '')
+        : rawHref.startsWith('/') ? rawHref : `/${rawHref}`;
       if (target.innerText.toLowerCase().includes("trace an order")) {
         navigate(traceOrderPath);
       } else {
