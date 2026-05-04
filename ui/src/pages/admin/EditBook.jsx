@@ -301,14 +301,37 @@ const EditBook = () => {
 
             if (book.authors) {
                 const cache = {};
+                const missingIds = [];
                 book.authors.forEach(a => {
                     const id = a.authorId || a.author?.id;
-                    const name = a.author?.fullName ||
-                        `${a.author?.firstName || ''} ${a.author?.lastName || ''}`.trim() ||
-                        `Author #${id}`;
-                    if (id) cache[String(id)] = name;
+                    const name = (a.author?.fullName || '').trim() ||
+                        `${(a.author?.firstName || '').trim()} ${(a.author?.lastName || '').trim()}`.trim();
+                    if (id) {
+                        if (name) {
+                            cache[String(id)] = name;
+                        } else {
+                            missingIds.push(id);
+                        }
+                    }
                 });
                 setSelectedAuthorsCache(cache);
+                // Fetch names for any authors whose name fields were empty in the joined data
+                if (missingIds.length > 0) {
+                    axios.get(`${API_URL}/authors/batch?ids=${missingIds.join(',')}`)
+                        .then(res => {
+                            if (res.data.status) {
+                                const extra = {};
+                                res.data.data.forEach(a => {
+                                    const n = (a.fullName || '').trim() ||
+                                        `${(a.firstName || '').trim()} ${(a.lastName || '').trim()}`.trim() ||
+                                        `Author #${a.id}`;
+                                    extra[String(a.id)] = n;
+                                });
+                                setSelectedAuthorsCache(prev => ({ ...prev, ...extra }));
+                            }
+                        })
+                        .catch(() => {});
+                }
             }
 
             setSynopsis(book.synopsis || book.description || '');

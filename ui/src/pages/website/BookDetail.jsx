@@ -617,7 +617,7 @@ const BookDetail = () => {
                 )}
 
                 {/* 3. Exclusive */}
-                {book.isExclusive === true && (
+                {(book.isExclusive === true || book.exclusive === true) && (
                   <div className="inline-flex items-center gap-1.5 bg-primary text-white text-[10px] font-bold px-3 py-1 rounded-full font-montserrat uppercase tracking-wide shadow-sm">
                     <ShieldCheck className="w-3 h-3" />
                     Exclusive
@@ -736,13 +736,7 @@ const BookDetail = () => {
                   {/* Pages Pill */}
                   {(book.pages || book.total_pages) && (
                     <span className="inline-flex items-center bg-gray-100 text-gray-600 text-[10px] font-bold px-3 py-1.5 rounded-full border border-gray-200 uppercase tracking-widest font-montserrat">
-                      {(() => {
-                        const rawPages = book.pages || book.total_pages;
-                        // String me convert karke pehla number dhoondhna
-                        const match = String(rawPages).match(/\d+/);
-                        // Agar number mila to wo dikhao, warna jo data hai waisa hi dikha do
-                        return match ? match[0] : rawPages;
-                      })()} Pages
+                      {book.pages || book.total_pages}
                     </span>
                   )}
 

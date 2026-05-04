@@ -115,14 +115,14 @@ const Checkout = () => {
     city: "",
     state: "",
     pincode: "",
-    country: "India",
+    country: "United States",
     phone: "",
   });
 
   // ─── Guest address form ───
   const [guestAddress, setGuestAddress] = useState({
     email: "",
-    country: "India",
+    country: "United States",
     firstName: "",
     lastName: "",
     address1: "",
@@ -146,7 +146,7 @@ const Checkout = () => {
     city: "",
     state: "",
     postalCode: "",
-    country: "India",
+    country: "United States",
     phone: "",
   });
 
@@ -165,7 +165,7 @@ const Checkout = () => {
     city: "",
     state: "",
     pincode: "",
-    country: "India",
+    country: "United States",
     phone: "",
   });
 
@@ -402,7 +402,7 @@ const Checkout = () => {
 
   // ─── 🟢 STEP 3: SHIPPING COST (tiered options always charge, standard uses threshold) ───
   const shippingCost = (() => {
-    if (!appliedShipping) return 0;
+    if (!appliedShipping || hasOnlyGiftCards) return 0;
     const isTiered = TIERED_OPTION_IDS.has(appliedShipping.id || appliedShipping._id);
     let usd;
     if (isTiered) {
@@ -549,7 +549,7 @@ const Checkout = () => {
           city: "",
           state: "",
           pincode: "",
-          country: "India",
+          country: "United States",
           phone: "",
         });
         fetchAddresses(user.id);
@@ -642,7 +642,7 @@ const Checkout = () => {
           city: "",
           state: "",
           pincode: "",
-          country: "India",
+          country: "United States",
           phone: "",
         });
         fetchAddresses(user.id);
@@ -1741,7 +1741,7 @@ const Checkout = () => {
                             city: "",
                             state: "",
                             pincode: "",
-                            country: "India",
+                            country: "United States",
                             phone: "",
                           });
                           setIsEditingAddress(false);
@@ -1846,7 +1846,7 @@ const Checkout = () => {
                             city: "",
                             state: "",
                             pincode: "",
-                            country: "India",
+                            country: "United States",
                             phone: "",
                           });
                           setIsEditingAddress(false);
@@ -2073,7 +2073,12 @@ const Checkout = () => {
             </div>
 
             {/* ─── 2. SHIPPING OPTION ─── */}
-            <div className="bg-cream-100 border border-gray-200 shadow-sm">
+            {hasOnlyGiftCards ? (
+              <div className="bg-green-50 border border-green-200 rounded p-4 text-sm text-green-800 font-medium">
+                E-Gift Cards are delivered electronically to the recipient's email. No shipping required.
+              </div>
+            ) : null}
+            <div className={`bg-cream-100 border border-gray-200 shadow-sm${hasOnlyGiftCards ? ' hidden' : ''}`}>
               <div className="px-5 py-4 border-b border-gray-200 bg-cream-100">
                 <h2 className="text-base font-display font-bold text-text-main uppercase tracking-wide flex items-center gap-3">
                   <span className="flex-shrink-0 w-7 h-7 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center">
@@ -2366,7 +2371,7 @@ const Checkout = () => {
                               city: "",
                               state: "",
                               pincode: "",
-                              country: "India",
+                              country: "United States",
                               phone: "",
                             });
                             setIsEditingBilling(false);
@@ -2468,7 +2473,7 @@ const Checkout = () => {
                               city: "",
                               state: "",
                               pincode: "",
-                              country: "India",
+                              country: "United States",
                               phone: "",
                             });
                             setIsEditingBilling(false);
@@ -2755,7 +2760,7 @@ const Checkout = () => {
               <button
                 onClick={handlePlaceOrder}
                 disabled={loading || loadingPayments || loadingShipping}
-                className="w-full bg-primary text-white py-3.5 font-bold text-sm uppercase tracking-wider hover:bg-primary-dark transition-colors disabled:opacity-70 disabled:cursor-not-allowed font-montserrat flex items-center justify-center gap-2"
+                className="w-full bg-primary text-white py-3.5 font-bold text-sm tracking-wider hover:bg-primary-dark transition-colors disabled:opacity-70 disabled:cursor-not-allowed font-montserrat flex items-center justify-center gap-2"
               >
                 {loading ? (
                   <>
@@ -2769,9 +2774,9 @@ const Checkout = () => {
                   </>
                 ) : (
                   (() => {
-                    if (isPurchaseOrderMethod(selectedPayment) || isWireTransferMethod(selectedPayment)) return "PLACE ORDER";
-                    if (isPayPalMethod(selectedPayment) && !isDeferredFlow()) return "CONTINUE TO PAYPAL";
-                    return "CONTINUE TO PAY";
+                    if (isPurchaseOrderMethod(selectedPayment) || isWireTransferMethod(selectedPayment)) return "Place Order";
+                    if (isPayPalMethod(selectedPayment) && !isDeferredFlow()) return "Continue to PayPal";
+                    return "Continue to Pay";
                   })()
                 )}
               </button>
