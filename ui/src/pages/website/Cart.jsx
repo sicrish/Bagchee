@@ -111,7 +111,7 @@ const Cart = () => {
 
         // Shipping options
         if (shippingRes.data.status) {
-          const active = shippingRes.data.data.filter(o => o.isActive);
+          const active = shippingRes.data.data.filter(o => o.active || o.isActive);
           setShippingOptions(active);
           // Auto-select first if none selected yet
           if (!appliedShipping && active.length > 0) {
@@ -213,6 +213,10 @@ const Cart = () => {
   const finalShippingUSD = (isFreeShippingUnlocked || hasOnlyGiftCards || !appliedShipping)
     ? 0
     : getDbShippingUsd(appliedShipping);
+
+  // Pre-compute grand total so it's transparent and testable
+  const membershipUsdForTotal = membershipAdded ? (getMembershipData().usd || 0) : 0;
+  const grandTotalUSD = subtotalAfterItemDiscount + membershipUsdForTotal + finalShippingUSD;
 
   // 3. Display Variables
   // Yahan null ki jagah original totals bhejna zaroori hai
@@ -749,13 +753,7 @@ const Cart = () => {
                       Total (tax incl.)
                     </span>
                     <span className="text-2xl font-bold text-text-main">
-                      {(() => {
-                        const baseUsd = subtotalAfterItemDiscount;
-                        const membershipUsd = membershipAdded ? (mData.usd || 0) : 0;
-                        const totalUsd = baseUsd + membershipUsd + finalShippingUSD;
-                        const totalInr = originalBaseINR + (membershipAdded ? (mData.inr || 0) : 0);
-                        return formatPrice(totalUsd, totalInr, totalUsd);
-                      })()}
+                      {formatPrice(grandTotalUSD, null, grandTotalUSD)}
                     </span>
                   </div>
                 </div>

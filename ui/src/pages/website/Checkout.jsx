@@ -389,14 +389,14 @@ const Checkout = () => {
     return Number(settings.membership_cost) || 35;
   }, [membershipAdded, settings, currency, exchangeRates]);
 
-  // ─── 🟢 STEP 3: SHIPPING COST (from DB price, free above threshold) ───
-  const shippingCost = useMemo(() => {
+  // ─── 🟢 STEP 3: SHIPPING COST (computed inline each render — no stale useMemo cache) ───
+  const shippingCost = (() => {
     if (!appliedShipping || isFreeShippingUnlocked) return 0;
     const usd = getDbShippingUsd(appliedShipping);
     if (currency === 'EUR') return usd * (exchangeRates?.EUR || 0.92);
     if (currency === 'GBP') return usd * (exchangeRates?.GBP || 0.78);
     return usd;
-  }, [appliedShipping, isFreeShippingUnlocked, currency, exchangeRates]);
+  })();
 
   // 6. Member Discount (11% Logic)
   const memberDiscountPercent = Number(settings?.member_discount) || 11;

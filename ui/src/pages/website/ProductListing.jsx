@@ -19,6 +19,11 @@ const ProductListing = ({ type }) => {
     const [loading, setLoading] = useState(true);
     const [totalProducts, setTotalProducts] = useState(0);
     const [viewMode, setViewMode] = useState(type === 'search' ? 'list' : 'grid');
+
+    // Reset viewMode when type changes (React reuses component across routes)
+    useEffect(() => {
+        setViewMode(type === 'search' ? 'list' : 'grid');
+    }, [type]);
     const [showMobileFilter, setShowMobileFilter] = useState(false);
 
     // Modal State
