@@ -138,10 +138,11 @@ const BooksOfMonthForm = () => {
           setSearchQuery("");
         }
       } else {
-        toast.error(res.data.msg || 'Save failed', { id: toastId });
+        toast.error(res.data.msg || 'Save failed. Please try again.', { id: toastId });
       }
     } catch (error) {
-      toast.error(error.response?.data?.msg || "Operation failed", { id: toastId });
+      const msg = error.response?.data?.msg || error.message || "Save failed. Please try again.";
+      toast.error(msg, { id: toastId });
     } finally {
       setLoading(false);
     }

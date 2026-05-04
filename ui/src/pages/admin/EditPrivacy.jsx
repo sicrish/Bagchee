@@ -60,9 +60,11 @@ const EditPrivacy = () => {
       if (res.data.status) {
         toast.success("Privacy Policy updated successfully!", { id: toastId });
         if (actionType === 'back') navigate('/admin/pages');
+      } else {
+        toast.error(res.data.msg || "Failed to update", { id: toastId });
       }
     } catch (error) {
-      toast.error("Failed to update", { id: toastId });
+      toast.error(error.response?.data?.msg || "Failed to update", { id: toastId });
     } finally {
       setLoading(false);
     }
@@ -100,7 +102,7 @@ const EditPrivacy = () => {
           <div className="grid grid-cols-12 gap-4 items-start">
             <label className={labelClass}>Page content</label>
             <div className="col-span-12 md:col-span-10 border rounded overflow-hidden shadow-inner">
-              <JoditEditor value={pageContent} config={config} onBlur={c => setPageContent(c)} />
+              <JoditEditor value={pageContent} config={config} onChange={c => setPageContent(c)} onBlur={c => setPageContent(c)} />
             </div>
           </div>
 

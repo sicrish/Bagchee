@@ -51,9 +51,11 @@ const EditTerms = () => {
       if (res.data.status) {
         toast.success("Terms updated successfully!", { id: toastId });
         if (actionType === 'back') navigate('/admin/pages');
+      } else {
+        toast.error(res.data.msg || "Failed to update", { id: toastId });
       }
     } catch (error) {
-      toast.error("Failed to update", { id: toastId });
+      toast.error(error.response?.data?.msg || "Failed to update", { id: toastId });
     } finally {
       setLoading(false);
     }
@@ -86,7 +88,7 @@ const EditTerms = () => {
           <div className="grid grid-cols-12 gap-4 items-start">
             <label className={labelClass}>Page content</label>
             <div className="col-span-10 border rounded overflow-hidden">
-              <JoditEditor value={pageContent} config={config} onBlur={c => setPageContent(c)} />
+              <JoditEditor value={pageContent} config={config} onChange={c => setPageContent(c)} onBlur={c => setPageContent(c)} />
             </div>
           </div>
           <div className="space-y-4 pt-4 border-t border-cream-100">

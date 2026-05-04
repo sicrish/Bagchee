@@ -129,7 +129,7 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization'],
     maxAge: 86400, // Pre-flight cache for 24h
 }));
-app.use(express.json({ limit: '100kb' })); // 100kb — encrypted payloads are ~33% larger than plaintext
+app.use(express.json({ limit: '2mb' })); // 2mb — Jodit editor HTML can be large; encrypted payloads are ~33% bigger
 app.use(express.urlencoded({ extended: true }));
 app.use(decryptBody);
 
