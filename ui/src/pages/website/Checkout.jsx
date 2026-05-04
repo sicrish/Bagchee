@@ -32,8 +32,9 @@ import discoverLogo from "../../assets/images/website/payments/Discover.png";
 import amexLogo from "../../assets/images/website/payments/american.png";
 import paypalLogo from "../../assets/images/website/payments/PayPal.svg";
 
+// DB IDs: 3 = Expedited (8-12 days), 4 = Standard free (12-15 days), 5 = Express (3-5 days)
 const SHIPPING_TIERS = {
-  6: [ // Express (3-5 Business Days)
+  5: [ // Express (3-5 Business Days)
     { min: 1, max: 2, usd: 50 },
     { min: 3, max: 6, usd: 80 },
     { min: 7, max: 11, usd: 110 },
@@ -45,7 +46,7 @@ const SHIPPING_TIERS = {
     { min: 51, max: 100, usd: 550 },
     { min: 101, max: Infinity, usd: 730 },
   ],
-  5: [ // Expedited (8-12 Business Days)
+  3: [ // Expedited (8-12 Business Days)
     { min: 1, max: 2, usd: 20 },
     { min: 3, max: 6, usd: 35 },
     { min: 7, max: 11, usd: 50 },
@@ -59,8 +60,12 @@ const SHIPPING_TIERS = {
   ],
 };
 
-const getTieredShippingUsd = (shippingId, totalBooks) => {
-  const tiers = SHIPPING_TIERS[shippingId];
+// Express and Expedited always use tiered pricing — never free above $50 threshold
+const TIERED_OPTION_IDS = new Set([3, 5]);
+
+const getTieredShippingUsd = (option, totalBooks) => {
+  const optId = option?.id || option?._id;
+  const tiers = SHIPPING_TIERS[optId];
   if (!tiers || totalBooks === 0) return 0;
   const tier = tiers.find(t => totalBooks >= t.min && totalBooks <= t.max);
   return tier ? tier.usd : tiers[tiers.length - 1].usd;
@@ -350,8 +355,14 @@ const Checkout = () => {
 
   const getShippingPrice = (option) => {
     if (!option) return 0;
-    if (isFreeShippingUnlocked) return 0;
-    const usd = getDbShippingUsd(option);
+    const isTiered = TIERED_OPTION_IDS.has(option.id || option._id);
+    let usd;
+    if (isTiered) {
+      usd = getTieredShippingUsd(option, totalBooks);
+    } else {
+      if (isFreeShippingUnlocked) return 0;
+      usd = getDbShippingUsd(option);
+    }
     if (currency === 'EUR') return usd * (exchangeRates?.EUR || 0.92);
     if (currency === 'GBP') return usd * (exchangeRates?.GBP || 0.78);
     return usd;
@@ -389,10 +400,17 @@ const Checkout = () => {
     return Number(settings.membership_cost) || 35;
   }, [membershipAdded, settings, currency, exchangeRates]);
 
-  // ─── 🟢 STEP 3: SHIPPING COST (computed inline each render — no stale useMemo cache) ───
+  // ─── 🟢 STEP 3: SHIPPING COST (tiered options always charge, standard uses threshold) ───
   const shippingCost = (() => {
-    if (!appliedShipping || isFreeShippingUnlocked) return 0;
-    const usd = getDbShippingUsd(appliedShipping);
+    if (!appliedShipping) return 0;
+    const isTiered = TIERED_OPTION_IDS.has(appliedShipping.id || appliedShipping._id);
+    let usd;
+    if (isTiered) {
+      usd = getTieredShippingUsd(appliedShipping, totalBooks);
+    } else {
+      if (isFreeShippingUnlocked) return 0;
+      usd = getDbShippingUsd(appliedShipping);
+    }
     if (currency === 'EUR') return usd * (exchangeRates?.EUR || 0.92);
     if (currency === 'GBP') return usd * (exchangeRates?.GBP || 0.78);
     return usd;

@@ -13,8 +13,10 @@ import mastercardImg from '../../assets/images/website/payments/MasterCard.svg';
 import paypalImg from '../../assets/images/website/payments/PayPal.svg';
 
 // ─── Tiered shipping prices (USD) by shipping DB id ───
+// DB IDs: 3 = Expedited (8-12 days), 4 = Standard free (12-15 days), 5 = Express (3-5 days)
+// Express and Expedited ALWAYS use tiered pricing — never free even above $50 threshold
 const SHIPPING_TIERS = {
-  6: [ // Express (3-5 Business Days)
+  5: [ // Express (3-5 Business Days)
     { min: 1, max: 2, usd: 50 },
     { min: 3, max: 6, usd: 80 },
     { min: 7, max: 11, usd: 110 },
@@ -26,7 +28,7 @@ const SHIPPING_TIERS = {
     { min: 51, max: 100, usd: 550 },
     { min: 101, max: Infinity, usd: 730 },
   ],
-  5: [ // Expedited (8-12 Business Days)
+  3: [ // Expedited (8-12 Business Days)
     { min: 1, max: 2, usd: 20 },
     { min: 3, max: 6, usd: 35 },
     { min: 7, max: 11, usd: 50 },
@@ -39,6 +41,9 @@ const SHIPPING_TIERS = {
     { min: 101, max: Infinity, usd: 400 },
   ],
 };
+
+// IDs that always use tiered pricing (free threshold never applies to them)
+const TIERED_OPTION_IDS = new Set([3, 5]);
 
 const getTieredShippingUsd = (shippingOption, totalBooks) => {
   if (!shippingOption) return 0;
@@ -202,17 +207,17 @@ const Cart = () => {
 
 
 
-  const STANDARD_SHIPPING_FEE = 12; // flat fee when DB price is 0 and threshold not met
+  const STANDARD_SHIPPING_FEE = 12; // flat fee for standard option below $50
 
-  // Read DB price; fall back to flat $12 if not set
-  const getDbShippingUsd = (option) => {
-    const db = Number(option?.priceUsd || option?.price_usd || 0);
-    return db > 0 ? db : STANDARD_SHIPPING_FEE;
-  };
+  // Tiered options (Express/Expedited) always charge based on book count, never free
+  const appliedOptId = appliedShipping?.id;
+  const isTieredOption = TIERED_OPTION_IDS.has(appliedOptId);
 
-  const finalShippingUSD = (isFreeShippingUnlocked || hasOnlyGiftCards || !appliedShipping)
+  const finalShippingUSD = (hasOnlyGiftCards || !appliedShipping)
     ? 0
-    : getDbShippingUsd(appliedShipping);
+    : isTieredOption
+      ? getTieredShippingUsd(appliedShipping, totalBooks)
+      : (isFreeShippingUnlocked ? 0 : STANDARD_SHIPPING_FEE);
 
   // Pre-compute grand total so it's transparent and testable
   const membershipUsdForTotal = membershipAdded ? (getMembershipData().usd || 0) : 0;
@@ -679,10 +684,13 @@ const Cart = () => {
   </p>
   {shippingOptions.map((option) => {
     const optId = option.id || option._id;
-    // Use DB price; fall back to tiered pricing if DB has 0
-    const rawUsd = option.priceUsd || option.price_usd || getTieredShippingUsd(option, totalBooks);
-    // Override to 0 (free) when threshold is met
-    const effectiveUsd = isFreeShippingUnlocked ? 0 : rawUsd;
+    const isTiered = TIERED_OPTION_IDS.has(optId);
+    // Tiered options use book-count lookup; standard uses DB price / $12 fallback
+    const rawUsd = isTiered
+      ? getTieredShippingUsd(option, totalBooks)
+      : (Number(option.priceUsd || option.price_usd) || STANDARD_SHIPPING_FEE);
+    // Free threshold only applies to standard (non-tiered) options
+    const effectiveUsd = (isTiered || !isFreeShippingUnlocked) ? rawUsd : 0;
     const isSelected = (appliedShipping?.id || appliedShipping?._id) === optId;
 
     let displayPrice;
