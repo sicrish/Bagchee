@@ -1161,16 +1161,12 @@ const BookDetail = () => {
                   .replace(/[^a-z0-9]+/g, "-")
                   .replace(/(^-|-$)/g, "");
 
-                const hasRelatedDiscount =
-                  relatedBook.real_price &&
-                  relatedBook.real_price > relatedBook.price;
+                const relMrp = Number(relatedBook.price || 0);
+                const relSell = Number(relatedBook.realPrice || relatedBook.real_price || 0);
+                const hasRelatedDiscount = relSell > 0 && relMrp > relSell;
 
                 const relatedDiscount = hasRelatedDiscount
-                  ? Math.round(
-                    ((relatedBook.real_price - relatedBook.price) /
-                      relatedBook.real_price) *
-                    100,
-                  )
+                  ? Math.round(((relMrp - relSell) / relMrp) * 100)
                   : 0;
 
                 return (
@@ -1193,21 +1189,12 @@ const BookDetail = () => {
                       )}
                     </div>
                     <div className="p-2">
-                      <p className="text-sm font-bold text-gray-900">
-                        {(() => {
-                          const mPrice = Number(relatedBook.price || 0);
-                          const rPrice = Number(relatedBook.realPrice || relatedBook.real_price || 0);
-                          const iPrice = Number(relatedBook.inrPrice || relatedBook.inr_price || 0);
-                          return formatPrice(mPrice, iPrice, rPrice);
-                        })()}
+                      <p className="text-sm font-bold text-primary">
+                        {formatPrice(relMrp, Number(relatedBook.inrPrice || relatedBook.inr_price || 0), hasRelatedDiscount ? relSell : relMrp)}
                       </p>
                       {hasRelatedDiscount && (
                         <span className="text-xs text-gray-400 line-through block">
-                          {(() => {
-                            const mPrice = Number(relatedBook.price || 0);
-                            const iPrice = Number(relatedBook.inrPrice || relatedBook.inr_price || 0);
-                            return formatPrice(mPrice, iPrice, mPrice);
-                          })()}
+                          {formatPrice(relMrp, Number(relatedBook.inrPrice || relatedBook.inr_price || 0), relMrp)}
                         </span>
                       )}
 

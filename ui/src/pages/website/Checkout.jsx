@@ -1908,7 +1908,7 @@ const Checkout = () => {
                       )}
                     </div>
                   </div>
-                  {!showLoginDropdown && <><div>
+                  <><div>
                     <select
                       value={guestAddress.country}
                       onChange={(e) =>
@@ -2044,7 +2044,7 @@ const Checkout = () => {
                         className="w-full px-3 py-2.5 border border-gray-300 text-sm focus:outline-none focus:border-primary"
                       />
                     </div>
-                  </>}
+                  </>
                 </div>
               )}
             </div>
