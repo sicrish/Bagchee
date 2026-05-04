@@ -734,9 +734,9 @@ const BookDetail = () => {
                   )}
 
                   {/* Pages Pill */}
-                  {(book.pages || book.total_pages) && (
+                  {(book.pagesDesc || book.pages_desc || book.pages || book.total_pages) && (
                     <span className="inline-flex items-center bg-gray-100 text-gray-600 text-[10px] font-bold px-3 py-1.5 rounded-full border border-gray-200 uppercase tracking-widest font-montserrat">
-                      {book.pages || book.total_pages}
+                      {book.pagesDesc || book.pages_desc || `${book.pages || book.total_pages} Pages`}
                     </span>
                   )}
 
@@ -1005,7 +1005,7 @@ const BookDetail = () => {
                         { label: "Release Date", value: book.pub_date },
                         { label: "Edition", value: book.edition },
                         { label: "Publisher", value: pubName, link: pubSlug ? `/publisher/${pubSlug}` : null },
-                        { label: "Length", value: book.total_pages || book.pages ? `${book.total_pages || book.pages}` : null },
+                        { label: "Length", value: book.pagesDesc || book.pages_desc || (book.total_pages || book.pages ? `${book.total_pages || book.pages} pages` : null) },
                         { label: "Weight", value: book.weight && String(book.weight).trim() !== '0' && String(book.weight).trim() !== '' ? book.weight : null },
                       ]
                         .filter((row) => row.value)
