@@ -77,7 +77,7 @@ const contactInfo = [
   {
     icon: <MapPin className="w-6 h-6" />,
     title: "Address",
-    details: ["4384/4A Ansari Road", "New Delhi 110002,India"],
+    details: ["4384/4A Ansari Road", "New Delhi 110002, India"],
   },
   {
     icon: <Mail className="w-6 h-6" />,

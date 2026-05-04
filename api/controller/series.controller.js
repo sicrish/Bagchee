@@ -36,6 +36,23 @@ export const getAllSeries = async (req, res) => {
     }
 };
 
+export const getSeriesBySlug = async (req, res) => {
+    try {
+        const { slug } = req.params;
+        const result = await prisma.$queryRaw`
+            SELECT id::int as id, series_title as title
+            FROM series
+            WHERE TRIM(BOTH '-' FROM LOWER(REGEXP_REPLACE(series_title, '[^a-z0-9]+', '-', 'gi'))) = ${slug}
+            LIMIT 1
+        `;
+        if (!result.length) return res.status(404).json({ status: false, msg: 'Series not found' });
+        res.status(200).json({ status: true, data: result[0] });
+    } catch (error) {
+        console.error('Series by slug error:', error.message);
+        res.status(500).json({ status: false, msg: 'Server Error' });
+    }
+};
+
 export const getSeriesById = async (req, res) => {
     try {
         const series = await prisma.series.findUnique({ where: { id: parseInt(req.params.id) } });

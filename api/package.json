@@ -5,7 +5,7 @@
   "main": "app.js",
   "type": "module",
   "scripts": {
-    "start": "npx prisma generate && node app.js",
+    "start": "npx prisma db push --accept-data-loss && node app.js",
     "dev": "cross-env NODE_ENV=development nodemon app.js",
     "postinstall": "prisma generate"
   },

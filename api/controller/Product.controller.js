@@ -89,7 +89,9 @@ const buildWhereClause = (query, { includeInactive = false } = {}) => {
         { title:     { contains: keyword, mode: 'insensitive' } },
         { isbn13:    { contains: keyword, mode: 'insensitive' } },
         { isbn10:    { contains: keyword, mode: 'insensitive' } },
-        { bagcheeId: { contains: keyword, mode: 'insensitive' } }
+        { bagcheeId: { contains: keyword, mode: 'insensitive' } },
+        { publisher: { title: { contains: keyword, mode: 'insensitive' } } },
+        { series:    { title: { contains: keyword, mode: 'insensitive' } } },
     ]});
 
     if (title)     conditions.push({ title:     { contains: title,     mode: 'insensitive' } });
@@ -472,10 +474,76 @@ export const update = async (req, res) => {
 
         const result = await prisma.product.findUnique({ where: { id }, include: PRODUCT_INCLUDE });
         cache.invalidate('filter-options');
+        cache.invalidate(`product:id:${id}`);
+        if (result?.bagcheeId) cache.invalidate(`product:bid:${result.bagcheeId.toLowerCase()}`);
+        cache.invalidatePrefix(`related:`);
         res.status(200).json({ status: true, msg: 'Product updated successfully', data: result });
     } catch (error) {
         console.error('Update Error:', error);
         res.status(500).json({ status: false, msg: 'Internal Server Error' });
+    }
+};
+
+// GET /product/related/:bagcheeId — returns related, seriesBooks, alsoBought in one shot
+export const getRelatedProducts = async (req, res) => {
+    try {
+        const { bagcheeId } = req.params;
+        const FIVE_MIN = 5 * 60 * 1000;
+
+        const result = await cache.get(`related:${bagcheeId}`, FIVE_MIN, async () => {
+            const product = await prisma.product.findFirst({
+                where: { bagcheeId: { equals: bagcheeId, mode: 'insensitive' } },
+                select: { id: true, leadingCategoryId: true, seriesId: true, publisherId: true }
+            });
+            if (!product) return null;
+
+            const { id, leadingCategoryId, seriesId, publisherId } = product;
+
+            // Walk up category tree to find root category for broader related books
+            let rootCategoryId = leadingCategoryId;
+            if (leadingCategoryId) {
+                let current = await prisma.category.findUnique({
+                    where: { id: leadingCategoryId },
+                    select: { id: true, parentId: true }
+                });
+                while (current?.parentId && current.parentId > 2) {
+                    current = await prisma.category.findUnique({
+                        where: { id: current.parentId },
+                        select: { id: true, parentId: true }
+                    });
+                }
+                if (current) rootCategoryId = current.id;
+            }
+
+            const [relatedRaw, seriesRaw, alsoBoughtRaw] = await Promise.all([
+                rootCategoryId ? prisma.product.findMany({
+                    where: { AND: [{ isActive: true }, { OR: [{ leadingCategoryId: rootCategoryId }, { categories: { some: { categoryId: rootCategoryId } } }] }, { NOT: { id } }] },
+                    include: PRODUCT_LIST_INCLUDE,
+                    orderBy: { salesCount: 'desc' },
+                    take: 20
+                }) : Promise.resolve([]),
+                seriesId ? prisma.product.findMany({
+                    where: { seriesId, isActive: true, NOT: { id } },
+                    include: PRODUCT_LIST_INCLUDE,
+                    orderBy: { id: 'asc' },
+                    take: 20
+                }) : Promise.resolve([]),
+                publisherId ? prisma.product.findMany({
+                    where: { publisherId, isActive: true, NOT: { id } },
+                    include: PRODUCT_LIST_INCLUDE,
+                    orderBy: { salesCount: 'desc' },
+                    take: 20
+                }) : Promise.resolve([]),
+            ]);
+
+            return { related: relatedRaw, seriesBooks: seriesRaw, alsoBought: alsoBoughtRaw };
+        });
+
+        if (!result) return res.status(404).json({ status: false, msg: 'Product not found' });
+        res.status(200).json({ status: true, data: result });
+    } catch (error) {
+        console.error('Related products error:', error.message);
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 
@@ -486,7 +554,10 @@ export const fetch = async (req, res) => {
         if (req.params.id) {
             const id = parseInt(req.params.id);
             if (isNaN(id)) return res.status(400).json({ status: false, msg: 'Invalid ID' });
-            const product = await prisma.product.findUnique({ where: { id }, include: PRODUCT_INCLUDE });
+            const FIVE_MIN = 5 * 60 * 1000;
+            const product = await cache.get(`product:id:${id}`, FIVE_MIN, () =>
+                prisma.product.findUnique({ where: { id }, include: PRODUCT_INCLUDE })
+            );
             if (!product) return res.status(404).json({ status: false, msg: 'Product not found' });
             return res.status(200).json({ status: true, data: product });
         }
@@ -512,6 +583,16 @@ export const fetch = async (req, res) => {
 
         // Use lightweight include for public list views, full include for admin
         const includeSet = isAdmin ? PRODUCT_INCLUDE : PRODUCT_LIST_INCLUDE;
+
+        // Cache single-product detail fetches by bagchee_id (common from BookDetail page)
+        const bagcheeIdParam = req.query.bagchee_id;
+        if (bagcheeIdParam && !isAdmin) {
+            const FIVE_MIN = 5 * 60 * 1000;
+            const cached = await cache.get(`product:bid:${bagcheeIdParam.toLowerCase()}`, FIVE_MIN, async () =>
+                prisma.product.findMany({ where, include: PRODUCT_INCLUDE, take: 1 })
+            );
+            return res.status(200).json({ status: true, data: cached, total: cached.length, page: 1, limit: 1, totalPages: cached.length ? 1 : 0 });
+        }
 
         const [products, total] = await Promise.all([
             prisma.product.findMany({ where, include: includeSet, orderBy, skip, take: pageSize }),
@@ -590,7 +671,14 @@ export const searchSuggestions = async (req, res) => {
 
         const data = [];
 
-        // Add books first so they are prominent in results
+        // Authors first so they appear at the top of results
+        authors.forEach(a => data.push({
+            id: a.id,
+            title: a.fullName || `${a.firstName} ${a.lastName}`.trim(),
+            type: 'author',
+        }));
+
+        // Then books
         products.forEach(p => data.push({
             id: p.id,
             bagcheeId: p.bagcheeId,
@@ -601,13 +689,6 @@ export const searchSuggestions = async (req, res) => {
             realPrice: Number(p.realPrice),
             author: p.authorFirstName ? { firstName: p.authorFirstName, lastName: p.authorLastName || '' } : null,
             type: 'book',
-        }));
-
-        // Add authors
-        authors.forEach(a => data.push({
-            id: a.id,
-            title: a.fullName || `${a.firstName} ${a.lastName}`.trim(),
-            type: 'author',
         }));
 
         // Add categories
@@ -673,8 +754,12 @@ export const deleteProduct = async (req, res) => {
         await Promise.allSettled(filesToDelete.map(f => deleteFileLocal(f)));
 
         // Cascade in schema handles junction tables
+        const bagcheeId = product.bagcheeId;
         await prisma.product.delete({ where: { id } });
         cache.invalidate('filter-options');
+        cache.invalidate(`product:id:${id}`);
+        if (bagcheeId) cache.invalidate(`product:bid:${bagcheeId.toLowerCase()}`);
+        cache.invalidatePrefix(`related:`);
         res.status(200).json({ status: true, msg: 'Product deleted successfully' });
     } catch (error) {
         res.status(500).json({ status: false, msg: 'Error deleting' });

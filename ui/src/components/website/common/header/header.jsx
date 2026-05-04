@@ -861,7 +861,8 @@ const PremiumHeader = () => {
           <nav className="flex items-center justify-center gap-1 lg:gap-2 py-1.5 md:py-2 relative z-10">
             {navItems.map((nav, idx) => {
               const navName = nav.item || nav.name || "Link";
-              const hasDropdown = (nav.hasDropdown === true || nav.dropdown === 'active') && (nav.dropdownContent || nav.dropdown_content);
+              const isCategoriesNav = navName.toLowerCase() === 'categories' || navName.toLowerCase().includes('browse categor');
+              const hasDropdown = isCategoriesNav || ((nav.hasDropdown === true || nav.dropdown === 'active') && (nav.dropdownContent || nav.dropdown_content));
               const dropdownId = `nav-${nav._id || idx}`;
 
               const isSale = navName.toLowerCase().includes('sale');
@@ -1041,7 +1042,7 @@ const PremiumHeader = () => {
                           </>
                         ) : (
                           <Link
-                            to={nav.itemLink || nav.link }
+                            to={nav.itemLink || nav.link || '#'}
                             onClick={() => setMobileMenuOpen(false)}
                             className={`block py-3 text-base font-bold tracking-wide text-text-main hover:text-primary `}
                           >
@@ -1051,6 +1052,19 @@ const PremiumHeader = () => {
                       </div>
                     );
                   })}
+
+                  {/* Books of the Month — always shown in mobile if not already in nav */}
+                  {!navItems.some(n => (n.item || n.name || '').toLowerCase().includes('books of the month')) && (
+                    <div className="border-b border-cream-100 last:border-0 pb-1">
+                      <Link
+                        to="/books-of-the-month"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="block py-3 text-base font-bold tracking-wide text-text-main hover:text-primary"
+                      >
+                        Books of the Month
+                      </Link>
+                    </div>
+                  )}
                 </div>
 
                 {/* --- 🟢 NEW MOBILE AUTH/ACCOUNT SECTION --- */}

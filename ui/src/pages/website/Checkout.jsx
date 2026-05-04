@@ -799,7 +799,15 @@ const Checkout = () => {
     try {
       // Build shipping_details
       let shippingDetails;
-      if (user && selectedAddress) {
+      if (user && hasOnlyGiftCards) {
+        shippingDetails = {
+          email: user.email || "",
+          firstName: user.name?.split(" ")[0] || "",
+          lastName: user.name?.split(" ").slice(1).join(" ") || "",
+          address1: "", address2: "", company: "",
+          country: "", state: "", city: "", postcode: "", phone: "",
+        };
+      } else if (user && selectedAddress) {
         const addr = selectedAddress;
         const addrFirst = addr.firstName || addr.name?.split(" ")[0] || "";
         const addrLast = addr.lastName || addr.name?.split(" ").slice(1).join(" ") || "";
@@ -838,23 +846,24 @@ const Checkout = () => {
       // Build billing_details
       let billingDetails;
       if (user) {
-        const bAddr = sameAsShipping ? selectedAddress : selectedBillingAddress;
-        const bFirst = bAddr.firstName || bAddr.name?.split(" ")[0] || "";
-        const bLast = bAddr.lastName || bAddr.name?.split(" ").slice(1).join(" ") || "";
+        const bAddr = hasOnlyGiftCards ? null : (sameAsShipping ? selectedAddress : selectedBillingAddress);
+        const bFirst = bAddr?.firstName || bAddr?.name?.split(" ")[0] || "";
+        const bLast = bAddr?.lastName || bAddr?.name?.split(" ").slice(1).join(" ") || "";
         billingDetails = {
           firstName: bFirst,
           lastName: bLast,
-          address1:
-            bAddr.houseNo && bAddr.street
-              ? `${bAddr.houseNo}, ${bAddr.street}`
-              : bAddr.houseNo || bAddr.street || "",
-          address2: bAddr.address2 || "",
-          company: bAddr.company || "",
-          country: bAddr.country || "",
-          state: bAddr.state || "",
-          city: bAddr.city || "",
-          postcode: bAddr.pincode || "",
-          phone: bAddr.phone || "",
+          address1: bAddr
+            ? (bAddr.houseNo && bAddr.street
+                ? `${bAddr.houseNo}, ${bAddr.street}`
+                : bAddr.houseNo || bAddr.street || "")
+            : "",
+          address2: bAddr?.address2 || "",
+          company: bAddr?.company || "",
+          country: bAddr?.country || "",
+          state: bAddr?.state || "",
+          city: bAddr?.city || "",
+          postcode: bAddr?.pincode || "",
+          phone: bAddr?.phone || "",
         };
       } else if (guestBillingSame) {
         billingDetails = {
@@ -2229,7 +2238,7 @@ const Checkout = () => {
 
                         {/* Additional text for selected payment method */}
                         {isSelected &&
-                          method.isAdditionalTextActive &&
+                          (method.additionalTextActive || method.isAdditionalTextActive) &&
                           method.additionalText && (
                             <div className="px-4 pb-4 border-t border-gray-100 bg-gray-50">
                               <div

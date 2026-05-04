@@ -24,7 +24,8 @@ const ORDER_DETAIL_INCLUDE = {
     coupon:   { select: { id: true, code: true, amount: true, fixAmount: true, flatDeduction: true } },
     items: {
         include: {
-            product: { select: { id: true, title: true, defaultImage: true, bagcheeId: true, price: true } }
+            product: { select: { id: true, title: true, defaultImage: true, bagcheeId: true, price: true } },
+            courier: { select: { id: true, title: true, trackingPage: true } }
         }
     }
 };
@@ -320,6 +321,18 @@ export const getOrderById = async (req, res) => {
             return res.status(403).json({ status: false, msg: 'Access denied' });
         }
 
+        // Attach payment method additional text for wire transfer info display (#20)
+        if (order.paymentType) {
+            const paymentMethod = await prisma.payment.findFirst({
+                where: { title: { equals: order.paymentType, mode: 'insensitive' } },
+                select: { additionalText: true, additionalTextActive: true }
+            });
+            if (paymentMethod) {
+                order.paymentAdditionalText = paymentMethod.additionalText;
+                order.paymentAdditionalTextActive = paymentMethod.additionalTextActive;
+            }
+        }
+
         res.status(200).json({ status: true, data: order });
     } catch (error) {
         res.status(500).json({ status: false, msg: 'Server Error' });
@@ -532,7 +545,8 @@ export const getUserOrders = async (req, res) => {
                 include: {
                     items: {
                         include: {
-                            product: { select: { id: true, title: true, defaultImage: true, bagcheeId: true } }
+                            product: { select: { id: true, title: true, defaultImage: true, bagcheeId: true } },
+                            courier: { select: { id: true, title: true, trackingPage: true } }
                         }
                     }
                 },

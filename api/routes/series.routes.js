@@ -5,8 +5,9 @@ import adminAuth from '../middleware/adminAuth.middleware.js';
 const router = express.Router();
 
 // PUBLIC — series data used in website
-router.get("/list",    SeriesController.getAllSeries);
-router.get("/get/:id", SeriesController.getSeriesById);
+router.get("/list",           SeriesController.getAllSeries);
+router.get("/by-slug/:slug",  SeriesController.getSeriesBySlug);
+router.get("/get/:id",        SeriesController.getSeriesById);
 
 // ADMIN — mutations
 router.post("/save",         adminAuth, SeriesController.saveSeries);

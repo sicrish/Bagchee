@@ -5,8 +5,9 @@ import adminAuth from '../middleware/adminAuth.middleware.js';
 const router = express.Router();
 
 // PUBLIC — publisher data used in website
-router.get("/list",    PublisherController.getAllPublishers);
-router.get("/get/:id", PublisherController.getPublisherById);
+router.get("/list",           PublisherController.getAllPublishers);
+router.get("/by-slug/:slug",  PublisherController.getPublisherBySlug);
+router.get("/get/:id",        PublisherController.getPublisherById);
 
 // ADMIN — mutations
 router.post("/save",         adminAuth, PublisherController.savePublisher);

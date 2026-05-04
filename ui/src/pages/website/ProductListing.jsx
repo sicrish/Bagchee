@@ -40,6 +40,8 @@ const ProductListing = ({ type }) => {
 
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    // null = pending resolution, -1 = not found, >=1 = resolved ID
+    const [resolvedEntityId, setResolvedEntityId] = useState(null);
 
     // Selected Filters
     const [filters, setFilters] = useState({
@@ -93,7 +95,7 @@ const ProductListing = ({ type }) => {
                     setAllCategories(treeData);
                     setFlatCats(flatCategories);
 
-                    if (slug) {
+                    if (slug && type !== 'publisher' && type !== 'series') {
                         // Find current category by slug from flat list
                         const foundCat = flatCategories.find(
                             c => c.slug === slug || c.slug.endsWith('/' + slug)
@@ -117,7 +119,7 @@ const ProductListing = ({ type }) => {
                             setBaseTitleRef(fallback);
                             setSubcategoriesList([]);
                         }
-                    } else {
+                    } else if (!slug) {
                         const searchParams = new URLSearchParams(window.location.search);
                         const kw = searchParams.get('keyword');
                         if (type === 'search' && kw) {
@@ -145,6 +147,26 @@ const ProductListing = ({ type }) => {
                     setSeriesList(d.series || []);
                 }
 
+                // Resolve publisher/series slug to entity ID
+                if ((type === 'publisher' || type === 'series') && slug) {
+                    try {
+                        const endpoint = type === 'publisher'
+                            ? `${process.env.REACT_APP_API_URL}/publishers/by-slug/${slug}`
+                            : `${process.env.REACT_APP_API_URL}/series/by-slug/${slug}`;
+                        const entityRes = await axios.get(endpoint);
+                        if (entityRes.data.status) {
+                            const entity = entityRes.data.data;
+                            setResolvedEntityId(entity.id);
+                            setPageTitle(entity.title);
+                            setBaseTitleRef(entity.title);
+                        } else {
+                            setResolvedEntityId(-1);
+                        }
+                    } catch {
+                        setResolvedEntityId(-1);
+                    }
+                }
+
             } catch (err) {
                 console.error("Sidebar Error:", err);
             }
@@ -155,6 +177,10 @@ const ProductListing = ({ type }) => {
     // --- 2. Fetch Products ---
     useEffect(() => {
         const fetchProducts = async () => {
+            // For publisher/series pages, wait until slug is resolved to an entity ID
+            if ((type === 'publisher' || type === 'series') && slug && resolvedEntityId === null) {
+                return;
+            }
             setLoading(true);
             try {
                 const query = new URLSearchParams();
@@ -175,12 +201,21 @@ const ProductListing = ({ type }) => {
                 let categoryIds = [...filters.categories];
 
                 // 🟢 STEP 2: Agar URL mein slug hai, toh flat list se category ID nikaalo
-                if (slug && allCategories.length > 0) {
+                // Skip for publisher/series — they use resolvedEntityId instead
+                if (slug && allCategories.length > 0 && type !== 'publisher' && type !== 'series') {
                     const foundCat = findCategoryObject(allCategories, slug);
                     const foundCatId = foundCat && (foundCat.id || foundCat._id);
                     if (foundCat && foundCatId && !categoryIds.includes(foundCatId)) {
                         categoryIds.push(foundCatId);
                     }
+                }
+
+                // Publisher/series page: inject resolved entity ID into query
+                if (type === 'publisher' && resolvedEntityId > 0) {
+                    query.append('publishers', resolvedEntityId);
+                }
+                if (type === 'series' && resolvedEntityId > 0) {
+                    query.append('series', resolvedEntityId);
                 }
 
                 // 🟢 STEP 3: Common filters for all API calls
@@ -252,11 +287,11 @@ const ProductListing = ({ type }) => {
             }
         };
 
-        // 🟢 Trick: Tabhi fetch karo jab categories load ho chuki hon
-        if (allCategories.length > 0 || !slug) {
+        // For publisher/series: fetch once resolvedEntityId is set. For others: wait for categories.
+        if ((type === 'publisher' || type === 'series') ? (resolvedEntityId !== null) : (allCategories.length > 0 || !slug)) {
             fetchProducts();
         }
-    }, [filters, type, slug, allCategories, location.pathname, location.search, currentPage]);
+    }, [filters, type, slug, allCategories, location.pathname, location.search, currentPage, resolvedEntityId]);
 
 
 

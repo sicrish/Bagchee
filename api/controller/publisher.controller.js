@@ -75,6 +75,19 @@ export const getAllPublishers = async (req, res) => {
     }
 };
 
+export const getPublisherBySlug = async (req, res) => {
+    try {
+        const publisher = await prisma.publisher.findFirst({
+            where: { slug: req.params.slug },
+            select: { id: true, title: true, slug: true }
+        });
+        if (!publisher) return res.status(404).json({ status: false, msg: 'Publisher not found' });
+        res.status(200).json({ status: true, data: publisher });
+    } catch (error) {
+        res.status(500).json({ status: false, msg: 'Server Error' });
+    }
+};
+
 export const getPublisherById = async (req, res) => {
     try {
         const publisher = await prisma.publisher.findUnique({ where: { id: parseInt(req.params.id) } });

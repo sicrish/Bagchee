@@ -50,6 +50,8 @@ const ProductCardList = ({ data, onQuickView }) => {
         return { mPrice, rPrice, iPrice, hasDiscount, discountPercentage };
     }, [data.price, data.realPrice, data.real_price, data.inrPrice, data.inr_price]);
 
+    const isOutOfStock = data.stock === 'inactive' || data.stock === 'out_of_stock';
+
     // 🟢 React Query Mutation for Wishlist
     const wishlistMutation = useMutation({
         mutationFn: async (product) => {
@@ -179,18 +181,21 @@ const ProductCardList = ({ data, onQuickView }) => {
                 {/* Buttons */}
                 <div className="flex flex-col gap-2 mt-4 md:mt-6">
                     <button
-                        onClick={handleAdd}
-                        className="w-full bg-primary hover:bg-primary-hover text-white py-2 rounded font-bold text-xs md:text-sm transition-all uppercase tracking-slick font-montserrat shadow-sm hover:shadow-md active:scale-95"
+                        onClick={isOutOfStock ? undefined : handleAdd}
+                        disabled={isOutOfStock}
+                        className={`w-full py-2 rounded font-bold text-xs md:text-sm transition-all uppercase tracking-slick font-montserrat shadow-sm ${isOutOfStock ? 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-60' : 'bg-primary hover:bg-primary-hover text-white hover:shadow-md active:scale-95'}`}
                     >
-                        Add to Cart
+                        {isOutOfStock ? 'Out of Stock' : 'Add to Cart'}
                     </button>
 
+                    {!isOutOfStock && (
                     <Link
                         to={productUrl}
                         className="w-full bg-red-600 hover:bg-red-500 text-white py-2 rounded font-bold text-xs md:text-sm transition-all uppercase tracking-slick font-montserrat shadow-sm hover:shadow-md active:scale-95 text-center"
                     >
                         Buy Now
                     </Link>
+                    )}
 
                     {onQuickView && (
                         <button

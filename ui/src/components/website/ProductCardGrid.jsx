@@ -26,6 +26,8 @@ const ProductCardGrid = ({ data, onQuickView }) => {
         return `/books/${id}/${slug}`;
     }, [data.title, data.bagcheeId, data.bagchee_id, data._id, data.id]);
 
+    const isOutOfStock = data.stock === 'inactive' || data.stock === 'out_of_stock';
+
     // 🟢 Optimization 2: Memoize Pricing Logic
     const priceData = useMemo(() => {
         const mPrice = Number(data.price || 0);
@@ -91,7 +93,7 @@ const ProductCardGrid = ({ data, onQuickView }) => {
         <div className="group bg-white rounded-lg border border-cream-200 overflow-hidden hover:shadow-xl transition-all duration-300 relative font-body flex flex-col h-full translate-z-0">
             
             {/* --- IMAGE SECTION (Click to Product Page) --- */}
-            <div className="relative overflow-hidden aspect-[3/4] bg-cream-50">
+            <div className="relative aspect-[3/4] bg-cream-50">
                 {/* Discount Badge */}
                 {priceData.showDiscount && priceData.discountPercentage >= 20 && (
                     <span className="absolute top-2 left-2 bg-red-600 text-white text-[10px] md:text-xs font-bold px-2 py-1 rounded-sm z-10 shadow-sm font-montserrat animate-in fade-in">
@@ -99,7 +101,7 @@ const ProductCardGrid = ({ data, onQuickView }) => {
                     </span>
                 )}
 
-                <Link to={productUrl} className="block w-full h-full">
+                <Link to={productUrl} className="block w-full h-full overflow-hidden rounded-t-lg">
                     <img
                         src={imageUrl}
                         alt={data.title}
@@ -112,8 +114,8 @@ const ProductCardGrid = ({ data, onQuickView }) => {
                 </Link>
                 {onQuickView && (
                     <button
-                        onClick={(e) => { e.preventDefault(); onQuickView(data); }}
-                        className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-white/90 text-primary text-[10px] font-bold px-3 py-1.5 rounded-full shadow-md flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-primary hover:text-white font-montserrat whitespace-nowrap"
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onQuickView(data); }}
+                        className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-white/90 text-primary text-[10px] font-bold px-3 py-1.5 rounded-full shadow-md flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-primary hover:text-white font-montserrat whitespace-nowrap z-10"
                     >
                         <Eye size={12} /> Quick View
                     </button>
@@ -169,9 +171,11 @@ const ProductCardGrid = ({ data, onQuickView }) => {
                             <Heart size={16} fill={isInWishlist(data._id) ? "currentColor" : "none"} className="md:w-[18px] md:h-[18px]" />
                         </button>
                         <button
-                            onClick={handleAddToCart}
-                            aria-label="Add to Cart"
-                            className="p-2 rounded-full bg-primary text-white hover:bg-primary-dark shadow-md hover:shadow-lg transition-all active:scale-75 flex items-center justify-center"
+                            onClick={isOutOfStock ? undefined : handleAddToCart}
+                            disabled={isOutOfStock}
+                            aria-label={isOutOfStock ? "Out of Stock" : "Add to Cart"}
+                            title={isOutOfStock ? "Out of Stock" : "Add to Cart"}
+                            className={`p-2 rounded-full shadow-md transition-all flex items-center justify-center ${isOutOfStock ? 'bg-gray-300 text-gray-400 cursor-not-allowed opacity-50' : 'bg-primary text-white hover:bg-primary-dark hover:shadow-lg active:scale-75'}`}
                         >
                             <ShoppingCart size={16} className="md:w-[18px] md:h-[18px]" />
                         </button>

@@ -18,7 +18,15 @@ const LibraryServices = () => {
         setLoading(true);
         const res = await axios.get(`${process.env.REACT_APP_API_URL}/services/list`);
         if (res.data.status) {
-          setServices(res.data.data);
+          const ORDER = ['about bagchee', 'library services', 'monographs', 'approval plans', 'standing orders', 'subscriptions'];
+          const sorted = [...res.data.data].sort((a, b) => {
+            const ai = ORDER.findIndex(o => (a.title || '').toLowerCase().includes(o));
+            const bi = ORDER.findIndex(o => (b.title || '').toLowerCase().includes(o));
+            const aIdx = ai === -1 ? 999 : ai;
+            const bIdx = bi === -1 ? 999 : bi;
+            return aIdx !== bIdx ? aIdx - bIdx : (a.ord || 0) - (b.ord || 0);
+          });
+          setServices(sorted);
         }
       } catch (error) {
         toast.error("Failed to load services");

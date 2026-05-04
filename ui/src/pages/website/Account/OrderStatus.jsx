@@ -285,10 +285,14 @@ const OrderStatus = () => {
                             {isWireUnpaid && (
                                 <div className="rounded-xl bg-amber-50 border border-amber-200 p-4">
                                     <p className="text-xs font-black text-amber-800 uppercase tracking-wide mb-2">Wire Transfer Pending</p>
-                                    <p className="text-xs text-amber-700 leading-relaxed">
-                                        Please transfer the total amount using the bank details sent to your email.
-                                        Use order <strong>#{orderNum}</strong> as your payment reference.
-                                    </p>
+                                    {order.paymentAdditionalText ? (
+                                        <div className="text-xs text-amber-700 leading-relaxed" dangerouslySetInnerHTML={{ __html: order.paymentAdditionalText }} />
+                                    ) : (
+                                        <p className="text-xs text-amber-700 leading-relaxed">
+                                            Please transfer the total amount using the bank details sent to your email.
+                                            Use order <strong>#{orderNum}</strong> as your payment reference.
+                                        </p>
+                                    )}
                                 </div>
                             )}
 

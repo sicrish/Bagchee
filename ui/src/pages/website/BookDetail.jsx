@@ -81,8 +81,8 @@ const BookDetail = () => {
       try {
         setLoading(true);
 
-        // Fetch categories and book in parallel
-        const [catRes, settingsRes, bookRes, socialRes] = await Promise.allSettled([
+        // Fetch all data in parallel including related books
+        const [catRes, settingsRes, bookRes, socialRes, relatedRes] = await Promise.allSettled([
           axios.get(`${process.env.REACT_APP_API_URL}/category/fetch`),
           axios.get(`${process.env.REACT_APP_API_URL}/settings/public`),
           (async () => {
@@ -96,7 +96,8 @@ const BookDetail = () => {
               }
             }
           })(),
-          axios.get(`${process.env.REACT_APP_API_URL}/socials/list?limit=100`)
+          axios.get(`${process.env.REACT_APP_API_URL}/socials/list?limit=100`),
+          axios.get(`${process.env.REACT_APP_API_URL}/product/related/${bagcheeId}`)
         ]);
 
 
@@ -134,30 +135,18 @@ const BookDetail = () => {
           const bookData = normalizeProduct(rawBookData);
           setBook(bookData);
 
-          // Find root category ID by walking up the parentid chain
-          // Check multiple possible fields for category
-          const leafCategoryId = typeof bookData.categoryId === 'object'
-            ? bookData.categoryId?._id
-            : bookData.categoryId || bookData.leadingCategoryId || bookData.leading_category;
-
-          const rootCategoryId = findRootCategoryId(leafCategoryId, categoryMap);
-          // console.log("=== You May Also Like Debug ===");
-          // console.log("1. bookData.categoryId:", bookData.categoryId);
-          // console.log("2. leafCategoryId:", leafCategoryId);
-          // console.log("3. rootCategoryId:", rootCategoryId);
-          // console.log("4. categoryMap keys:", Object.keys(categoryMap));
-          if (rootCategoryId) {
-            try {
-              // Use `categories` param which matches both categoryId AND product_categories (broad match)
-              const relatedResponse = await axios.get(
-                `${process.env.REACT_APP_API_URL}/product/fetch?categories=${rootCategoryId}&sort=bestseller&limit=100`
-              );
-              if (relatedResponse.data.status && Array.isArray(relatedResponse.data.data)) {
-                const pool = relatedResponse.data.data.filter(b => b.id !== bookData.id).map(normalizeProduct);
-                const shuffled = pool.sort(() => Math.random() - 0.5);
-                setRelatedBooks(shuffled.slice(0, 15));
-              }
-            } catch (error) {
+          // Related data from parallel fetch
+          if (relatedRes.status === 'fulfilled' && relatedRes.value?.data?.status) {
+            const rel = relatedRes.value.data.data;
+            if (Array.isArray(rel.related) && rel.related.length > 0) {
+              const shuffled = rel.related.map(normalizeProduct).sort(() => Math.random() - 0.5);
+              setRelatedBooks(shuffled.slice(0, 15));
+            }
+            if (Array.isArray(rel.seriesBooks)) {
+              setSeriesBooks(rel.seriesBooks.filter(b => b.id !== bookData.id).map(normalizeProduct));
+            }
+            if (Array.isArray(rel.alsoBought)) {
+              setAlsoBoughtBooks(rel.alsoBought.filter(b => b.id !== bookData.id).map(normalizeProduct).slice(0, 15));
             }
           }
         } else {
@@ -229,112 +218,38 @@ const BookDetail = () => {
     }
   };
 
-  // 🟢 Secondary fetch: editorial series books, also-bought — runs after book is loaded
+  // Secondary fetch: author bios — runs after book is loaded (series/publisher handled in parallel above)
   useEffect(() => {
     if (!book) return;
 
-    const fetchSecondaryData = async () => {
-
-
-      // Series Books
-      console.log("=== Series Books Debug ===");
-      console.log("1. book.series:", book.series);
-      console.log("2. typeof book.series:", typeof book.series);
-
-      const seriesId = typeof book.series === 'object'
-        ? book.series?.id || book.series?._id
-        : book.series;
-
-      console.log("3. seriesId:", seriesId);
-      console.log("4. book.series?.id:", book.series?.id);
-      console.log("5. book.series?._id:", book.series?._id);
-      if (seriesId) {
-        try {
-          const seriesRes = await axios.get(
-            `${process.env.REACT_APP_API_URL}/product/fetch?series=${seriesId}&limit=20`
-          );
-          if (seriesRes.data.status && Array.isArray(seriesRes.data.data)) {
-            setSeriesBooks(seriesRes.data.data.filter(b => b.id !== book.id).map(normalizeProduct));
-          }
-        } catch {
-          // silently fail
-        }
-      }
-
-      // Also Bought — proxy: same publisher, bestsellers
-      // Uses 'publishers' (plural) param as required by the product fetch controller
-      try {
-        console.log("=== Also Bought Debug ===");
-        console.log("1. book.publisher:", book.publisher);
-        console.log("2. typeof book.publisher:", typeof book.publisher);
-
-        const publisherId = typeof book.publisher === 'object'
-          ? book.publisher?.id || book.publisher?._id
-          : book.publisher;
-
-        console.log("3. publisherId:", publisherId);
-        console.log("4. book.publisher?.id:", book.publisher?.id);
-        console.log("5. book.publisher?._id:", book.publisher?._id);
-        if (publisherId) {
-          const abRes = await axios.get(
-            `${process.env.REACT_APP_API_URL}/product/fetch?publishers=${publisherId}&sort=bestseller&limit=20`
-          );
-          if (abRes.data.status && Array.isArray(abRes.data.data)) {
-            setAlsoBoughtBooks(abRes.data.data.filter(b => b.id !== book.id).map(normalizeProduct).slice(0, 15));
-          }
-        }
-      } catch {
-        // silently fail
-      }
-
-      // 🟢 Full Author Data Fetch (Multiple Authors Support, Variable name: authorData)
+    const fetchAuthorData = async () => {
       try {
         let authorIds = [];
-
-        // 1. Agar book.authors array hai (multiple authors), toh sabki ID nikal lo
         if (Array.isArray(book.authors) && book.authors.length > 0) {
           authorIds = book.authors.map(a => {
-            if (typeof a === 'object') {
-              // Prisma join record: { author: { id, ... } }
-              return a.author?.id || a.author?._id || a._id || a.id;
-            }
+            if (typeof a === 'object') return a.author?.id || a.author?._id || a._id || a.id;
             return a;
           }).filter(Boolean);
-        }
-        // 2. Agar array nahi hai, par single book.author hai (purana data), toh uski ID nikal lo
-        else if (book.author) {
-          const authorId = typeof book.author === 'object'
-            ? (book.author.id || book.author._id)
-            : book.author;
+        } else if (book.author) {
+          const authorId = typeof book.author === 'object' ? (book.author.id || book.author._id) : book.author;
           if (authorId) authorIds = [authorId];
         }
-
-        // 3. Agar IDs mil gayi hain, toh API call karo
         if (authorIds.length > 0) {
-          // Ek saath sabhi authors ka data mangwane ke liye promises banayein
-          const authorPromises = authorIds.map(id =>
-            axios.get(`${process.env.REACT_APP_API_URL}/authors/get/${id}`)
+          const authorResponses = await Promise.allSettled(
+            authorIds.map(id => axios.get(`${process.env.REACT_APP_API_URL}/authors/get/${id}`))
           );
-
-          // Sabka result aane ka wait karein
-          const authorResponses = await Promise.allSettled(authorPromises);
-
-          // Jo response success huye hain, unka data filter karke array bana lein
-          const fetchedAuthors = authorResponses
-            .filter(res => res.status === 'fulfilled' && res.value.data.status)
-            .map(res => res.value.data.data);
-
-          // Data ko state me save kar dein (Ab ye Array hoga)
-          setAuthorData(fetchedAuthors);
+          setAuthorData(
+            authorResponses
+              .filter(res => res.status === 'fulfilled' && res.value.data.status)
+              .map(res => res.value.data.data)
+          );
         }
       } catch (error) {
         console.error("Error fetching author data:", error);
       }
-
-
     };
 
-    fetchSecondaryData();
+    fetchAuthorData();
   }, [book]);
 
   const getAuthorName = (author) => {
@@ -677,7 +592,7 @@ const BookDetail = () => {
 
 
 {/* Sale label */}
-                {discount > 20 && (
+                {discount >= 20 && (
                   <div className="inline-flex items-center gap-1.5 bg-red-600 text-white text-[10px] font-bold px-3 py-1 rounded-full font-montserrat uppercase tracking-wide shadow-sm">
                     SALE
                   </div>

@@ -53,15 +53,13 @@ axiosInstance.interceptors.response.use(
     (response) => response,
     (error) => {
 
-// 🟢 Check karein ki URL 'verify' wala toh nahi hai
 const isVerifyRoute = error.config?.url?.includes('/user/verify');
+const isLoginRoute = error.config?.url?.includes('/user/login');
 
         // Agar Backend ne 401 (Unauthorized) error diya
         if (error.response && error.response.status === 401) {
 
-
-
-            if (isVerifyRoute) {
+            if (isVerifyRoute || isLoginRoute) {
                 return Promise.reject(error);
             }
 

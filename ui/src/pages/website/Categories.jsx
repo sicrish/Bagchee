@@ -12,8 +12,8 @@ const Categories = () => {
     const fetchData = async () => {
       try {
         const [catRes, tagRes] = await Promise.all([
-          axios.get(`${process.env.REACT_APP_API_URL}/category/fetch`),
-          axios.get(`${process.env.REACT_APP_API_URL}/tags/list`),
+          axios.get('/category/fetch'),
+          axios.get('/tags/list'),
         ]);
         if (catRes.data.status) {
           const rawData = (catRes.data.data || catRes.data.categories || []);

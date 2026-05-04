@@ -6,15 +6,16 @@ import optionalAuth from '../middleware/optionalAuth.middleware.js';
 const router = express.Router();
 
 // PUBLIC — product catalog reads (optionalAuth so admin showAll param works)
-router.get("/list",           optionalAuth, ProductController.fetch);
-router.get("/fetch",          optionalAuth, ProductController.fetch);
-router.get("/get/:id",        optionalAuth, ProductController.fetch);
-router.get("/search-suggestions", ProductController.searchSuggestions);
-router.get("/filter-options", ProductController.getFilterOptions);
-router.get("/best-sellers",   ProductController.getBestSellers);
-router.get("/recommended",    ProductController.getRecommended);
-router.get("/sale-products",  ProductController.getSaleProducts);
-router.get("/new-arrivals",   ProductController.getNewArrivals);
+router.get("/list",              optionalAuth, ProductController.fetch);
+router.get("/fetch",             optionalAuth, ProductController.fetch);
+router.get("/get/:id",           optionalAuth, ProductController.fetch);
+router.get("/related/:bagcheeId",             ProductController.getRelatedProducts);
+router.get("/search-suggestions",             ProductController.searchSuggestions);
+router.get("/filter-options",                 ProductController.getFilterOptions);
+router.get("/best-sellers",                   ProductController.getBestSellers);
+router.get("/recommended",                    ProductController.getRecommended);
+router.get("/sale-products",                  ProductController.getSaleProducts);
+router.get("/new-arrivals",                   ProductController.getNewArrivals);
 
 // ADMIN — product mutations
 router.post("/save",          adminAuth, ProductController.save);

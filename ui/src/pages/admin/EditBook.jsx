@@ -303,8 +303,10 @@ const EditBook = () => {
                 const cache = {};
                 book.authors.forEach(a => {
                     const id = a.authorId || a.author?.id;
-                    const name = a.author?.fullName || `${a.author?.firstName || ''} ${a.author?.lastName || ''}`.trim();
-                    if (id && name) cache[String(id)] = name;
+                    const name = a.author?.fullName ||
+                        `${a.author?.firstName || ''} ${a.author?.lastName || ''}`.trim() ||
+                        `Author #${id}`;
+                    if (id) cache[String(id)] = name;
                 });
                 setSelectedAuthorsCache(cache);
             }
@@ -473,7 +475,9 @@ const EditBook = () => {
                 if (res.status) {
                     toast.success("Author added!", { id: toastId });
                     setAuthors(prev => [...prev, res.data]);
-                    setFormData(prev => ({ ...prev, authors: [...prev.authors, res.data._id] }));
+                    const newId = res.data.id || res.data._id;
+                    setFormData(prev => ({ ...prev, authors: [...prev.authors, newId] }));
+                    setSelectedAuthorsCache(prev => ({ ...prev, [String(newId)]: `${newAuthorData.first_name} ${newAuthorData.last_name}`.trim() }));
                     setIsAuthorPanelOpen(false);
                     setNewAuthorData({ first_name: '', last_name: '', origin: '' });
                     setNewAuthorProfile('');

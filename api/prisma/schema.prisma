@@ -514,6 +514,7 @@ model OrderItem {
 
   order         Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product       Product @relation(fields: [productId], references: [id])
+  courier       Courier? @relation(fields: [courierId], references: [id])
 
   @@index([orderId])
   @@map("product_to_order")
@@ -750,10 +751,11 @@ model Coupon {
 }
 
 model Courier {
-  id           Int     @id @default(autoincrement())
+  id           Int         @id @default(autoincrement())
   title        String
-  trackingPage String  @default("") @map("tracking_page") // URL template for tracking
-  active       Boolean @default(true)
+  trackingPage String      @default("") @map("tracking_page")
+  active       Boolean     @default(true)
+  orderItems   OrderItem[]
 
   @@map("couriers")
 }

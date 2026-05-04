@@ -669,44 +669,46 @@ const Cart = () => {
                   )}
                 </div>}
 
-                {/* ─── SHIPPING OPTIONS SECTION ─── */}
-                {/* <div className="space-y-2">
-                  <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide flex items-center gap-1">
-                    <Truck size={13} /> Shipping ({totalBooks} {totalBooks === 1 ? 'book' : 'books'})
-                  </p>
-                  {shippingOptions.map((option) => {
-                    const optId = option.id || option._id;
-                    const tieredUsd = isFreeShippingUnlocked ? 0 : getTieredShippingUsd(optId, totalBooks);
-                    const isSelected = (appliedShipping?.id || appliedShipping?._id) === optId;
+{/* ─── SHIPPING OPTIONS SECTION ─── */}
+<div className="space-y-2">
+  <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide flex items-center gap-1">
+    <Truck size={13} /> Shipping ({totalBooks} {totalBooks === 1 ? 'book' : 'books'})
+  </p>
+  {shippingOptions.map((option) => {
+    const optId = option.id || option._id;
+    const dbPriceUsd = option.priceUsd || option.price_usd || 0;
+    const isSelected = (appliedShipping?.id || appliedShipping?._id) === optId;
 
-                    let displayPrice;
-                    if (currency === 'EUR') displayPrice = `€${(tieredUsd * (exchangeRates?.EUR || 0.92)).toFixed(2)}`;
-                    else if (currency === 'GBP') displayPrice = `£${(tieredUsd * (exchangeRates?.GBP || 0.78)).toFixed(2)}`;
-                    else if (currency === 'USD') displayPrice = `$${tieredUsd.toFixed(2)}`;
-                    else displayPrice = `${symbols?.[currency] || ''}${(tieredUsd * (exchangeRates?.[currency] || 1)).toFixed(2)}`;
+    let displayPrice;
+    if (currency === 'EUR') {
+      const eurPrice = option.priceEur || option.price_eur || dbPriceUsd * (exchangeRates?.EUR || 0.92);
+      displayPrice = `€${Number(eurPrice).toFixed(2)}`;
+    } else if (currency === 'GBP') displayPrice = `£${(dbPriceUsd * (exchangeRates?.GBP || 0.78)).toFixed(2)}`;
+    else if (currency === 'USD') displayPrice = `$${dbPriceUsd.toFixed(2)}`;
+    else displayPrice = `${symbols?.[currency] || ''}${(dbPriceUsd * (exchangeRates?.[currency] || 1)).toFixed(2)}`;
 
-                    return (
-                      <label key={optId} className={`flex items-start justify-between p-3 cursor-pointer rounded border transition-colors ${isSelected ? 'bg-primary/5 border-primary/30' : 'border-gray-100 hover:border-gray-200'}`}>
-                        <div className="flex items-start gap-2 min-w-0 flex-1">
-                          <input
-                            type="radio"
-                            name="shipping"
-                            checked={isSelected}
-                            onChange={() => setAppliedShipping(option)}
-                            className="w-4 h-4 text-primary mt-1 shrink-0"
-                          />
-                          <div className='min-w-0 flex-1'>
-                            <span className="text-sm font-semibold text-text-main block truncate sm:whitespace-normal">{option.title}</span>
-                            {tieredUsd === 0 && <span className="text-[10px] text-green-600 font-bold">FREE</span>}
-                          </div>
-                        </div>
-                        <span className="text-sm font-bold text-primary shrink-0 ml-2">
-                          {tieredUsd === 0 ? 'Free' : displayPrice}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div> */}
+    return (
+      <label key={optId} className={`flex items-start justify-between p-3 cursor-pointer rounded border transition-colors ${isSelected ? 'bg-primary/5 border-primary/30' : 'border-gray-100 hover:border-gray-200'}`}>
+        <div className="flex items-start gap-2 min-w-0 flex-1">
+          <input
+            type="radio"
+            name="shipping"
+            checked={isSelected}
+            onChange={() => setAppliedShipping(option)}
+            className="w-4 h-4 text-primary mt-1 shrink-0"
+          />
+          <div className='min-w-0 flex-1'>
+            <span className="text-sm font-semibold text-text-main block truncate sm:whitespace-normal">{option.title}</span>
+            {dbPriceUsd === 0 && <span className="text-[10px] text-green-600 font-bold">FREE</span>}
+          </div>
+        </div>
+        <span className="text-sm font-bold text-primary shrink-0 ml-2">
+          {dbPriceUsd === 0 ? 'Free' : displayPrice}
+        </span>
+      </label>
+    );
+  })}
+</div>
 
                 {/* ─── TOTALS ─── */}
                 <div className="border-t border-gray-200 pt-4 space-y-2">
@@ -731,17 +733,17 @@ const Cart = () => {
                   )}
 
                   {/* Shipping line */}
-                  {/* {appliedShipping && !hasOnlyGiftCards && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Shipping</span>
-                      <span className={`font-bold ${finalShippingUSD === 0 ? "text-primary" : "text-text-main"}`}>
-                        {finalShippingUSD === 0
-                          ? 'Free'
-                          : formatPrice(finalShippingUSD, null, finalShippingUSD)
-                        }
-                      </span>
-                    </div>
-                  )} */}
+                  {appliedShipping && (() => {
+                    const shippingUsd = appliedShipping.priceUsd || appliedShipping.price_usd || 0;
+                    return (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Shipping</span>
+                        <span className="font-medium text-text-main">
+                          {shippingUsd === 0 ? 'Free' : formatPrice(shippingUsd, null, shippingUsd)}
+                        </span>
+                      </div>
+                    );
+                  })()}
 
                   <div className="flex justify-between items-baseline pt-2 border-t border-gray-100">
                     <span className="text-sm text-gray-600">
@@ -749,7 +751,7 @@ const Cart = () => {
                     </span>
                     <span className="text-2xl font-bold text-text-main">
                       {(() => {
-                       
+                        const shippingUsd = appliedShipping?.priceUsd || appliedShipping?.price_usd || 0;
                         const baseUsd = subtotalAfterItemDiscount;
                         const membershipUsd = membershipAdded ? (mData.usd || 0) : 0;
                         const totalUsd = baseUsd  + membershipUsd;

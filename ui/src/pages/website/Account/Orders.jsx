@@ -38,7 +38,7 @@ const navigate = useNavigate();
     queryFn: async () => {
       if (!userId) return [];
       const res = await axios.get('/orders/my-orders', {
-        params: { customer_id: userId }
+        params: { customer_id: userId, limit: 500 }
       });
       return res.data.status ? (res.data.data || []) : [];
     },

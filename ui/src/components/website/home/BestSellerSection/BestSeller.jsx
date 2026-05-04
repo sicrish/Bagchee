@@ -1,7 +1,7 @@
 import React, { useState, useContext, memo, useCallback } from 'react';
 import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, ChevronLeft, ChevronRight, Heart, ShoppingCart } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, Eye, Heart, ShoppingCart } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query'; // 🟢 React Query
 import { getProductImageUrl } from '../../../../utils/imageUrl';
 import { CurrencyContext } from '../../../../context/CurrencyContext.jsx';
@@ -155,13 +155,12 @@ const Bestsellers = () => {
                         </div>
                       )}
 
-                      {/* 🟢 View Detail Overlay -> Modal Open */}
-                      <div
-                        className="absolute bottom-0 left-0 w-full bg-primary/80 backdrop-blur-sm text-white text-center py-2 translate-y-full group-hover:translate-y-0 transition-transform duration-300 hidden md:block"
-                        onClick={(e) => openModal(e, book)}
+                      <button
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); openModal(e, book); }}
+                        className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-white/90 text-primary text-[10px] font-bold px-3 py-1.5 rounded-full shadow-md flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-primary hover:text-white font-montserrat whitespace-nowrap z-10"
                       >
-                        <span className="text-sm font-semibold font-montserrat uppercase">Quick View</span>
-                      </div>
+                        <Eye size={12} /> Quick View
+                      </button>
                     </div>
 
                     {/* Content Area */}
