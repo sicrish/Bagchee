@@ -18,7 +18,7 @@ const ProductListing = ({ type }) => {
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [totalProducts, setTotalProducts] = useState(0);
-    const [viewMode, setViewMode] = useState('grid');
+    const [viewMode, setViewMode] = useState(type === 'search' ? 'list' : 'grid');
     const [showMobileFilter, setShowMobileFilter] = useState(false);
 
     // Modal State
