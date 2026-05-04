@@ -190,8 +190,7 @@ const Cart = () => {
   // Check karna ki kya cart mein SIRF gift cards hain (physical books 0 hain)
   const hasOnlyGiftCards = cart.length > 0 && totalBooks === 0;
 
-  // Free shipping threshold — DB setting or hardcoded $50 fallback
-  const freeShippingThresholdUSD = Number(settings?.free_shipping_over || settings?.freeShippingOver || 50);
+  const freeShippingThresholdUSD = 50;
 
   const subtotal = subtotalAfterItemDiscount; // Ye line add karein taaki coupon logic chale
 

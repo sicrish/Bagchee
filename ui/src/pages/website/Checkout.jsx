@@ -364,7 +364,7 @@ const Checkout = () => {
     return acc + (Number(p) * item.quantity);
   }, 0);
 
-  const freeShippingThresholdUSD = Number(settings?.free_shipping_over || settings?.freeShippingOver || 50);
+  const freeShippingThresholdUSD = 50;
   const isFreeShippingUnlocked = subtotalAfterItemDiscountUSD >= freeShippingThresholdUSD;
   const STANDARD_SHIPPING_FEE = 12;
   const getDbShippingUsd = (option) => {
