@@ -61,6 +61,10 @@ export const normalizeProduct = (p) => {
 
         // --- Physical Details ---
         weight:       p.weight       || '',
+        pages:        p.pages        ?? p.total_pages ?? null,
+        total_pages:  p.pages        ?? p.total_pages ?? null,
+        pagesDesc:    p.pagesDesc    || p.pages_desc  || '',
+        pages_desc:   p.pagesDesc    || p.pages_desc  || '',
 
         // --- Shipping ---
         shipDays:    p.shipDays    ?? p.ship_days    ?? null,
@@ -81,6 +85,26 @@ export const normalizeProduct = (p) => {
         table_of_contents: p.tableOfContents || p.table_of_contents || '',
         criticsNote:      p.criticsNote      || p.critics_note      || '',
         critics_note:     p.criticsNote      || p.critics_note      || '',
+
+        // --- Booleans (Prisma returns isX, old UI reads non-prefixed) ---
+        isActive:       p.isActive      ?? p.active         ?? true,
+        active:         p.isActive      ?? p.active         ?? true,
+        isNewRelease:   p.isNewRelease  ?? p.new_release    ?? false,
+        new_release:    p.isNewRelease  ?? p.new_release    ?? false,
+        isRecommended:  p.isRecommended ?? p.recommended    ?? false,
+        recommended:    p.isRecommended ?? p.recommended    ?? false,
+        isExclusive:    !!(p.isExclusive || p.exclusive || (p.exclusiveFor && p.exclusiveFor !== 'all')),
+        exclusive:      !!(p.isExclusive || p.exclusive || (p.exclusiveFor && p.exclusiveFor !== 'all')),
+        exclusiveFor:   p.exclusiveFor  || p.exclusive_for  || null,
+        exclusive_for:  p.exclusiveFor  || p.exclusive_for  || null,
+
+        // --- IDs ---
+        publisherId:    p.publisherId   ?? p.publisher_id   ?? null,
+        publisher_id:   p.publisherId   ?? p.publisher_id   ?? null,
+        seriesId:       p.seriesId      ?? p.series_id      ?? null,
+        series_id:      p.seriesId      ?? p.series_id      ?? null,
+        discountInr:    p.discountInr   ?? p.discount_inr   ?? 0,
+        discount_inr:   p.discountInr   ?? p.discount_inr   ?? 0,
 
         // --- Category (extract first category ID for legacy UI) ---
         categoryId: p.leadingCategoryId || (Array.isArray(p.categories) && p.categories.length > 0 ? p.categories[0].categoryId || p.categories[0].category?.id : undefined),
