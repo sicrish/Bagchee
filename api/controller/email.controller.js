@@ -385,3 +385,74 @@ export const sendPaymentLinkEmail = async (email, order, paymentLink) => {
         throw error;
     }
 };
+
+export const sendInvoiceEmail = async (email, order) => {
+    try {
+        const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+        });
+
+        const orderNum = order.orderNumber || order.order_number || order.id;
+        const currency = order.currency || 'USD';
+        const items = order.items || [];
+        const itemRows = items.map(item => `
+            <tr>
+                <td style="padding:10px 8px;border-bottom:1px solid #e6decd;color:${theme.textMain};">${escapeHtml(item.name || item.product?.title || 'Item')}</td>
+                <td style="padding:10px 8px;border-bottom:1px solid #e6decd;text-align:center;color:${theme.textMain};">${Number(item.quantity) || 1}</td>
+                <td style="padding:10px 8px;border-bottom:1px solid #e6decd;text-align:right;color:${theme.textMain};">${currency} ${Number(item.price || 0).toFixed(2)}</td>
+            </tr>`).join('');
+
+        const shippingName = [order.shippingFirstName, order.shippingLastName].filter(Boolean).join(' ');
+        const shippingAddr = [order.shippingAddress1, order.shippingCity, order.shippingState, order.shippingPostcode, order.shippingCountry].filter(Boolean).join(', ');
+
+        const template = `
+            <div style="font-family:'Inter',Helvetica,Arial,sans-serif;background-color:${theme.cream};padding:40px 0;">
+              <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 15px rgba(0,0,0,0.1);border:1px solid #e6decd;">
+                <div style="background:${theme.primary};padding:35px;text-align:center;">
+                  <h1 style="color:#fff;margin:0;font-size:26px;font-weight:700;">Bagchee</h1>
+                  <p style="color:#fff;margin-top:5px;opacity:0.9;font-size:14px;">Invoice</p>
+                </div>
+                <div style="padding:36px 32px;">
+                  <h2 style="color:${theme.textMain};font-size:20px;margin-bottom:4px;">Invoice #${escapeHtml(String(orderNum))}</h2>
+                  <p style="color:#6b7280;font-size:13px;margin-bottom:24px;">Date: ${new Date(order.createdAt || Date.now()).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' })}</p>
+
+                  <table style="width:100%;border-collapse:collapse;">
+                    <thead>
+                      <tr>
+                        <th style="text-align:left;padding-bottom:8px;border-bottom:2px solid #e6decd;color:${theme.textMuted};font-size:12px;text-transform:uppercase;">Item</th>
+                        <th style="text-align:center;padding-bottom:8px;border-bottom:2px solid #e6decd;color:${theme.textMuted};font-size:12px;text-transform:uppercase;">Qty</th>
+                        <th style="text-align:right;padding-bottom:8px;border-bottom:2px solid #e6decd;color:${theme.textMuted};font-size:12px;text-transform:uppercase;">Price</th>
+                      </tr>
+                    </thead>
+                    <tbody>${itemRows}</tbody>
+                  </table>
+
+                  <div style="margin-top:20px;text-align:right;border-top:2px solid #e6decd;padding-top:16px;">
+                    <p style="font-size:20px;font-weight:700;color:${theme.textMain};">Total: ${currency} ${Number(order.total || 0).toFixed(2)}</p>
+                  </div>
+
+                  ${shippingName ? `
+                  <div style="margin-top:24px;background:#f9f5ee;border-radius:8px;padding:16px;font-size:13px;color:${theme.textMain};">
+                    <strong>Shipped to:</strong><br/>
+                    ${escapeHtml(shippingName)}<br/>
+                    ${escapeHtml(shippingAddr)}
+                  </div>` : ''}
+                </div>
+                <div style="background:#fffdf5;padding:20px;text-align:center;border-top:1px solid #e6decd;">
+                  <p style="font-size:12px;color:${theme.textMuted};margin:0;">&copy; ${new Date().getFullYear()} Bagchee. All rights reserved.</p>
+                </div>
+              </div>
+            </div>`;
+
+        await transporter.sendMail({
+            from: `"Bagchee" <${process.env.EMAIL_USER}>`,
+            to: email,
+            subject: `Your Invoice — Order #${orderNum}`,
+            html: template
+        });
+    } catch (error) {
+        console.error('Invoice email failed:', error.message);
+        throw error;
+    }
+};

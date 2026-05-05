@@ -26,6 +26,7 @@ router.post("/:id/approve",                adminAuth, OrderController.approveOrd
 router.post("/:id/resend-payment-link",    adminAuth, OrderController.resendPaymentLink);
 router.post("/:id/send-shipped-email", adminAuth, OrderController.sendShippedEmail);
 router.post("/:id/send-status-email",  adminAuth, OrderController.sendStatusEmail);
+router.post("/:id/send-invoice",       authMiddleware, OrderController.sendInvoice);
 router.post("/:id/cancel",             authMiddleware, OrderController.cancelOrder);
 
 export default router;

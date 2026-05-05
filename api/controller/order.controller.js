@@ -1,6 +1,6 @@
 import prisma from '../lib/prisma.js';
 import crypto from 'crypto';
-import { sendOrderConfirmation, sendOrderShippedEmail, sendOrderStatusEmail, sendPaymentLinkEmail } from './email.controller.js';
+import { sendOrderConfirmation, sendOrderShippedEmail, sendOrderStatusEmail, sendPaymentLinkEmail, sendInvoiceEmail } from './email.controller.js';
 import { calcDiscount } from './coupon.controller.js';
 import { createGiftCardsForOrder, applyWalletBalance } from './giftCard.controller.js';
 
@@ -510,6 +510,26 @@ export const resendPaymentLink = async (req, res) => {
     } catch (error) {
         console.error('Resend Payment Link Error:', error);
         res.status(500).json({ status: false, msg: 'Failed to resend payment link' });
+    }
+};
+
+// POST /orders/:id/send-invoice — customer emails themselves their invoice
+export const sendInvoice = async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) return res.status(400).json({ status: false, msg: 'Invalid ID' });
+
+        const order = await prisma.order.findUnique({ where: { id }, include: { customer: true, items: { include: { product: true } } } });
+        if (!order) return res.status(404).json({ status: false, msg: 'Order not found' });
+
+        const email = order.shippingEmail || order.customer?.email;
+        if (!email) return res.status(400).json({ status: false, msg: 'No customer email found' });
+
+        await sendInvoiceEmail(email, order);
+        res.json({ status: true, msg: 'Invoice sent to ' + email });
+    } catch (error) {
+        console.error('Send Invoice Error:', error);
+        res.status(500).json({ status: false, msg: 'Failed to send invoice' });
     }
 };
 

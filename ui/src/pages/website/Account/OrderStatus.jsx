@@ -21,6 +21,7 @@ const OrderStatus = () => {
     const [order, setOrder] = useState(location.state?.orderData || null);
     const [cancelling, setCancelling] = useState(false);
     const [showInvoiceMenu, setShowInvoiceMenu] = useState(false);
+    const [emailingInvoice, setEmailingInvoice] = useState(false);
 
     const API_BASE_URL = process.env.REACT_APP_API_URL || '';
 
@@ -55,6 +56,22 @@ const OrderStatus = () => {
         w.document.open();
         w.document.write(html);
         w.document.close();
+    };
+
+    const handleEmailInvoice = async () => {
+        setEmailingInvoice(true);
+        try {
+            const res = await axios.post(`${API_BASE_URL}/orders/${orderId}/send-invoice`);
+            if (res.data?.status) {
+                toast.success('Invoice sent to your email!');
+            } else {
+                toast.error(res.data?.msg || 'Failed to send invoice');
+            }
+        } catch (err) {
+            toast.error(err.response?.data?.msg || 'Failed to send invoice');
+        } finally {
+            setEmailingInvoice(false);
+        }
     };
 
     if (!order) {
@@ -335,8 +352,9 @@ const OrderStatus = () => {
                                         <button onClick={handleViewInvoice} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg bg-primary-50 text-primary font-bold text-xs hover:bg-primary hover:text-white transition-all">
                                             <Eye className="w-3.5 h-3.5" /> VIEW
                                         </button>
-                                        <button className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg bg-gray-100 text-gray-600 font-bold text-xs hover:bg-secondary hover:text-white transition-all">
-                                            <Mail className="w-3.5 h-3.5" /> EMAIL
+                                        <button onClick={handleEmailInvoice} disabled={emailingInvoice} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg bg-gray-100 text-gray-600 font-bold text-xs hover:bg-secondary hover:text-white transition-all disabled:opacity-50">
+                                            {emailingInvoice ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />}
+                                            {emailingInvoice ? 'SENDING...' : 'EMAIL'}
                                         </button>
                                     </div>
                                 </div>
