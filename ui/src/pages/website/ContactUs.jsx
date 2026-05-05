@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight, Mail, Phone, MapPin, Clock, Send, MessageCircle } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
@@ -26,6 +26,18 @@ const ContactUs = () => {
   const [formStatus, setFormStatus] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [whatsappHref, setWhatsappHref] = useState('');
+
+  useEffect(() => {
+    axios.get(`${process.env.REACT_APP_API_URL}/socials/list`)
+      .then(res => {
+        if (res.data?.status && res.data?.data) {
+          const wa = res.data.data.find(s => s.title?.toLowerCase().includes('whatsapp'));
+          if (wa?.link) setWhatsappHref(wa.link);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -124,18 +136,22 @@ const contactInfo = [
                           {info.title}
                         </h4>
                         <div className="space-y-0.5 mb-2">
-                          {info.details.map((detail, idx) => (
-                            info.whatsapp ? (
-                              <a
-                                key={idx}
-                                href={`https://wa.me/${info.whatsapp}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="font-semibold text-primary text-sm hover:underline flex items-center gap-1"
-                              >
-                                {detail}
-                              </a>
-                            ) : (
+                          {info.details.map((detail, idx) => {
+                            const isWA = info.title === 'WhatsApp';
+                            if (isWA && whatsappHref) {
+                              return (
+                                <a
+                                  key={idx}
+                                  href={whatsappHref}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="font-semibold text-primary text-sm hover:underline flex items-center gap-1"
+                                >
+                                  {detail}
+                                </a>
+                              );
+                            }
+                            return (
                               <p
                                 key={idx}
                                 className="font-semibold text-primary text-sm"
@@ -143,8 +159,8 @@ const contactInfo = [
                               >
                                 {detail}
                               </p>
-                            )
-                          ))}
+                            );
+                          })}
                         </div>
                         {/* <p className="text-gray-600 text-sm font-body">
                           {info.description}
