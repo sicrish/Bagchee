@@ -226,13 +226,21 @@ const CategoriesDropdown = memo(({ onLinkClick }) => {
     refetchOnWindowFocus: false,
   });
 
+  // Find the parentId that has the most direct children (the main "Books" root)
+  const childCount = {};
+  allCats.forEach(c => {
+    const pid = c.parentId ?? c.parent_id;
+    if (pid) childCount[pid] = (childCount[pid] || 0) + 1;
+  });
+  const dominantParentId = Number(Object.entries(childCount).sort((a, b) => b[1] - a[1])[0]?.[0] || 2);
+
   const mainCats = allCats
-    .filter(c => c.title && c.title.trim() && (c.parentId === 2 || c.parent_id === 2))
+    .filter(c => c.title && c.title.trim() && (c.parentId === dominantParentId || c.parent_id === dominantParentId))
     .sort((a, b) => a.title.localeCompare(b.title));
 
   const displayCats = mainCats.length > 0
     ? mainCats
-    : allCats.filter(c => c.title && c.title.trim() && (c.parentId === 0 || c.parent_id === 0))
+    : allCats.filter(c => c.title && c.title.trim() && !(c.parentId || c.parent_id))
         .sort((a, b) => a.title.localeCompare(b.title));
 
   // Top categories: search entire allCats, deduplicate by title

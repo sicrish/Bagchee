@@ -17,9 +17,15 @@ const Categories = () => {
         ]);
         if (catRes.data.status) {
           const rawData = (catRes.data.data || catRes.data.categories || []);
-          // Only show main categories (parentId=2 = visible root, same as header dropdown)
+          // Find the parentId with the most children (the main "Books" root, whatever its DB id)
+          const childCount = {};
+          rawData.forEach(c => {
+            const pid = c.parentId ?? c.parent_id;
+            if (pid) childCount[pid] = (childCount[pid] || 0) + 1;
+          });
+          const dominantParentId = Number(Object.entries(childCount).sort((a, b) => b[1] - a[1])[0]?.[0] || 2);
           const mainCats = rawData
-            .filter(c => c.active !== false && (c.parentId === 2 || c.parent_id === 2) && (c.title || '').trim())
+            .filter(c => c.active !== false && (c.parentId === dominantParentId || c.parent_id === dominantParentId) && (c.title || '').trim())
             .sort((a, b) => (a.title || '').localeCompare(b.title || ''));
           // Attach their children
           setCategories(buildCategoryTree(rawData, mainCats));
