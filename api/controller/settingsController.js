@@ -89,6 +89,9 @@ const mapBody = (b) => {
     const nat = f('newArrivalTime','new_arrival_time');
     if (nat !== undefined) d.newArrivalTime = nat || '';
 
+    const msd = f('maxShippingDays','max_shipping_days');
+    if (msd !== undefined) d.maxShippingDays = int(msd);
+
     // Payment gateway mode
     const pgm = f('paymentGatewayMode','payment_gateway_mode');
     if (pgm !== undefined) d.paymentGatewayMode = pgm || 'deferred';

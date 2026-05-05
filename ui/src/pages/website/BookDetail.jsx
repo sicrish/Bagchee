@@ -832,7 +832,16 @@ const BookDetail = () => {
                       </div>
                       <div className="flex items-center gap-2">
                         <Truck className="w-4 h-4 text-primary shrink-0" />
-                        <p className="text-xs text-gray-700">Ships in {book.shipDays || book.ship_days || '2-10'} days from New Delhi</p>
+                        <p className="text-xs text-gray-700">Ships in {(() => {
+                          const raw = book.shipDays || book.ship_days || '2-10';
+                          const extra = Number(settings?.maxShippingDays || settings?.max_shipping_days || 0);
+                          if (!extra) return `${raw} days`;
+                          // Parse range like "3-7" or single "5"
+                          const parts = String(raw).split('-').map(Number).filter(n => !isNaN(n));
+                          if (parts.length === 2) return `${parts[0]}-${parts[1] + extra} days`;
+                          if (parts.length === 1) return `${parts[0]}-${parts[0] + extra} days`;
+                          return `${raw} days`;
+                        })()} from New Delhi</p>
                       </div>
                     </div>
                   )}

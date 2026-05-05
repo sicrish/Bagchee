@@ -1188,6 +1188,7 @@ model Settings {
   // "direct"   = customer goes straight to payment gateway
   paymentGatewayMode     String  @default("deferred") @map("payment_gateway_mode")
   newArrivalTime         String  @default("") @map("new_arrival_time")
+  maxShippingDays        Int     @default(0)  @map("max_shipping_days")
 
   // Per-currency wire transfer bank details
   bankNameUsd            String  @default("") @map("bank_name_usd")

@@ -26,6 +26,7 @@ const EditSettings = () => {
         membership_cart_price: '',
         new_arrival_time: '',
         free_shipping_over: '',
+        max_shipping_days: '',
         order_accepted_promo: '',
         show_promo_over_usd: '',
         show_promo_over_eur: '',
@@ -71,6 +72,7 @@ const EditSettings = () => {
                 membership_cart_price: settingsData.membershipCartPriceInr ?? settingsData.membership_cart_price ?? '',
                 new_arrival_time: settingsData.new_arrival_time || '',
                 free_shipping_over: settingsData.freeShippingOver ?? settingsData.free_shipping_over ?? '',
+                max_shipping_days: settingsData.maxShippingDays ?? settingsData.max_shipping_days ?? '',
                 order_accepted_promo: settingsData.order_accepted_promo || '',
                 show_promo_over_usd: settingsData.showPromoOverUsd ?? settingsData.show_promo_over_usd ?? '',
                 show_promo_over_eur: settingsData.showPromoOverEur ?? settingsData.show_promo_over_eur ?? '',
@@ -236,6 +238,13 @@ const EditSettings = () => {
                             <label className={labelClass}>Free shipping over</label>
                             <div className="col-span-12 md:col-span-9">
                                 <input name="free_shipping_over" value={formData.free_shipping_over} onChange={handleChange} className={inputClass} />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4">
+                            <label className={labelClass}>Max shipping days (added to product ship days for delivery estimate)</label>
+                            <div className="col-span-12 md:col-span-9">
+                                <input type="number" name="max_shipping_days" value={formData.max_shipping_days} onChange={handleChange} className={inputClass} placeholder="e.g. 15" />
                             </div>
                         </div>
 
