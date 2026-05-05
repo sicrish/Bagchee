@@ -48,6 +48,11 @@ const OrderStatus = () => {
             <br/><button onclick="window.print()">🖨 Print / Save as PDF</button>
             </body></html>`;
         const w = window.open('', '_blank');
+        if (!w) {
+            toast.error('Popup blocked. Please allow popups for this site to view the invoice.');
+            return;
+        }
+        w.document.open();
         w.document.write(html);
         w.document.close();
     };

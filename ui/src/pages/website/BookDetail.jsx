@@ -665,46 +665,32 @@ const BookDetail = () => {
                 </p>
               )}
 
-              {/* 🟢 STEP: Top Dynamic Rating Section using Reviews Array */}
+              {/* Rating Section */}
               <div className="flex items-center gap-4 mt-4 pb-3 border-b border-gray-100">
-                {((reviews && reviews.length > 0) || ((book?.ratedTimes || book?.rated_times) > 0) || (book?.rating > 0)) ? (
-                  <>
-                    <div className="flex items-center gap-1">
-                      {[...Array(5)].map((_, i) => {
-                        // Average Rating Calculation: reviews array se average nikalna
-                        const calculatedAvg = reviews.length > 0
-                          ? (reviews.reduce((acc, curr) => acc + curr.rating, 0) / reviews.length)
-                          : (book?.rating || 0);
-
-                        return (
+                {(() => {
+                  const calculatedAvg = reviews.length > 0
+                    ? (reviews.reduce((acc, curr) => acc + curr.rating, 0) / reviews.length)
+                    : (book?.rating || 0);
+                  const ratingCount = reviews.length > 0 ? reviews.length : (book?.ratedTimes || book?.rated_times || 0);
+                  return (
+                    <>
+                      <div className="flex items-center gap-1">
+                        {[...Array(5)].map((_, i) => (
                           <Star
                             key={i}
                             size={16}
                             className={`w-4 h-4 ${i < Math.floor(calculatedAvg) ? "fill-amber-400 text-amber-400" : "text-gray-300"}`}
                           />
-                        );
-                      })}
-                    </div>
-                    <span className="text-sm text-gray-600 font-montserrat font-medium">
-                      {/* Average Rating (toFixed use kiya hai taaki decimal sahi dikhe) */}
-                      {reviews.length > 0
-                        ? (reviews.reduce((acc, curr) => acc + curr.rating, 0) / reviews.length).toFixed(1)
-                        : (book?.rating || 0).toFixed(1)}
-                      {" "}
-                      ({reviews.length > 0 ? reviews.length : (book?.ratedTimes || book?.rated_times || 0)} ratings)
-                    </span>
-                  </>
-                ) : <div className="flex items-center gap-1">
-                  {[...Array(5)].map((_, i) => (
-                    <Star
-                      key={i}
-                      size={16}
-                      className="w-4 h-4 text-gray-300" // Khali star ka color gray-300 (outline)
-                    />
-                  ))}
-                </div>
-
-                }
+                        ))}
+                      </div>
+                      {calculatedAvg > 0 && (
+                        <span className="text-sm text-gray-600 font-montserrat font-medium">
+                          {calculatedAvg.toFixed(1)} ({ratingCount} ratings)
+                        </span>
+                      )}
+                    </>
+                  );
+                })()}
 
                 {/* Write a Review Button (Scroll trigger ke sath) */}
                 <button
