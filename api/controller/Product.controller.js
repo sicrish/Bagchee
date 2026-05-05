@@ -355,18 +355,18 @@ export const update = async (req, res) => {
             updateData.newReleaseUntil = req.body.new_release_until ? new Date(req.body.new_release_until) : null;
 
         // ── Numbers ───────────────────────────────────────────────────────────
-        if (req.body.price        !== undefined) updateData.price       = Number(req.body.price);
-        if (req.body.inr_price    !== undefined) updateData.inrPrice    = Number(req.body.inr_price);
-        if (req.body.real_price   !== undefined) updateData.realPrice   = Number(req.body.real_price);
-        if (req.body.discount     !== undefined) updateData.discount    = Number(req.body.discount);
+        if (req.body.price        !== undefined) updateData.price       = Number(req.body.price)       || 0;
+        if (req.body.inr_price    !== undefined) updateData.inrPrice    = Number(req.body.inr_price)   || 0;
+        if (req.body.real_price   !== undefined) updateData.realPrice   = Number(req.body.real_price)  || 0;
+        if (req.body.discount     !== undefined) updateData.discount    = Number(req.body.discount)    || 0;
         if (req.body.pages        !== undefined) updateData.pages       = req.body.pages       ? (parseInt(req.body.pages)        || null) : null;
         if (req.body.total_pages  !== undefined) updateData.pages       = req.body.total_pages ? (parseInt(req.body.total_pages)  || null) : null;
-        if (req.body.rating       !== undefined) updateData.rating      = Number(req.body.rating);
-        if (req.body.rated_times  !== undefined) updateData.ratedTimes  = Number(req.body.rated_times);
+        if (req.body.rating       !== undefined) updateData.rating      = Number(req.body.rating)      || 0;
+        if (req.body.rated_times  !== undefined) updateData.ratedTimes  = parseInt(req.body.rated_times) || 0;
         if (req.body.ship_days    !== undefined) updateData.shipDays    = req.body.ship_days    ? (parseInt(req.body.ship_days)    || null) : null;
         if (req.body.deliver_days !== undefined) updateData.deliverDays = req.body.deliver_days ? (parseInt(req.body.deliver_days) || null) : null;
         if (req.body.pages_desc   !== undefined) updateData.pagesDesc   = req.body.pages_desc   || null;
-        if (req.body.availability !== undefined) updateData.availability= Number(req.body.availability);
+        if (req.body.availability !== undefined) updateData.availability= parseInt(req.body.availability) || 0;
 
         // ── FK IDs ────────────────────────────────────────────────────────────
         if (req.body.publisher !== undefined) {
@@ -482,8 +482,12 @@ export const update = async (req, res) => {
         cache.invalidatePrefix(`related:`);
         res.status(200).json({ status: true, msg: 'Product updated successfully', data: result });
     } catch (error) {
-        console.error('Update Error:', error);
-        res.status(500).json({ status: false, msg: 'Internal Server Error' });
+        console.error('Update Error [code=%s]:', error?.code || error?.name, error?.message || error);
+        res.status(500).json({
+            status: false,
+            msg: 'Internal Server Error',
+            ...(process.env.NODE_ENV !== 'production' && { detail: error?.message, code: error?.code }),
+        });
     }
 };
 
@@ -522,7 +526,7 @@ export const getRelatedProducts = async (req, res) => {
                 rootCategoryId ? prisma.product.findMany({
                     where: { AND: [{ isActive: true }, { OR: [{ leadingCategoryId: rootCategoryId }, { categories: { some: { categoryId: rootCategoryId } } }] }, { NOT: { id } }] },
                     include: PRODUCT_LIST_INCLUDE,
-                    orderBy: { salesCount: 'desc' },
+                    orderBy: { soldCount: 'desc' },
                     take: 20
                 }) : Promise.resolve([]),
                 seriesId ? prisma.product.findMany({
@@ -534,7 +538,7 @@ export const getRelatedProducts = async (req, res) => {
                 publisherId ? prisma.product.findMany({
                     where: { publisherId, isActive: true, NOT: { id } },
                     include: PRODUCT_LIST_INCLUDE,
-                    orderBy: { salesCount: 'desc' },
+                    orderBy: { soldCount: 'desc' },
                     take: 20
                 }) : Promise.resolve([]),
             ]);

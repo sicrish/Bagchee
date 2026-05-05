@@ -135,9 +135,12 @@ app.use(decryptBody);
 
 app.use(fileupload({
     createParentPath: true,
-    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+    limits: {
+        fileSize: 10 * 1024 * 1024,   // 10MB per file
+        fieldSize: 10 * 1024 * 1024,  // 10MB per text field (covers large Jodit HTML)
+    },
     abortOnLimit: true,
-    responseOnLimit: "File size limit has been exceeded. Max 10MB allowed.", // 🟢 Custom message bhejega
+    responseOnLimit: "File size limit has been exceeded. Max 10MB allowed.",
     limitHandler: (req, res, next) => {
         return res.status(413).json({ status: false, msg: "File too large! Max 10MB allowed." });
     }

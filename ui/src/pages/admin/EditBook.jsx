@@ -654,7 +654,7 @@ const EditBook = () => {
             data.append('new_release_until', formData.new_release_until || '');
             data.append('exclusive', formData.exclusive);
             data.append('exclusive_for', formData.exclusive_for || 'all');
-            data.append('pages_desc', formData.total_pages || '');
+            data.append('pages_desc', formData.pages_desc || formData.total_pages || '');
             data.append('ship_days', formData.ship_days || '');
             data.append('deliver_days', formData.deliver_days || '');
             data.append('pub_date', formData.pub_date || '');
