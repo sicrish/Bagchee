@@ -626,7 +626,7 @@ export const searchSuggestions = async (req, res) => {
 
         const kw = keyword.trim();
 
-        const [products, authors, categories, series, publishers] = await Promise.all([
+        const [products, authors, categories, series, publishers, tags] = await Promise.all([
             prisma.product.findMany({
                 where: {
                     isActive: true,
@@ -677,6 +677,11 @@ export const searchSuggestions = async (req, res) => {
                 select: { id: true, title: true, slug: true },
                 take: 5,
             }),
+            prisma.tag.findMany({
+                where: { title: { contains: kw, mode: 'insensitive' } },
+                select: { id: true, title: true },
+                take: 5,
+            }),
         ]);
 
         const data = [];
@@ -703,8 +708,12 @@ export const searchSuggestions = async (req, res) => {
         });
 
         categories.forEach(c => data.push({ id: c.id, title: c.title, slug: c.slug, type: 'category' }));
-        series.forEach(s => data.push({ id: s.id, title: s.title, type: 'series' }));
+        series.forEach(s => {
+            const seriesSlug = s.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+            data.push({ id: s.id, title: s.title, slug: seriesSlug, type: 'series' });
+        });
         publishers.forEach(p => data.push({ id: p.id, title: p.title, slug: p.slug, type: 'publisher' }));
+        tags.forEach(t => data.push({ id: t.id, title: t.title, type: 'tag' }));
 
         res.json({ status: true, data });
     } catch (error) {

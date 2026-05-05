@@ -816,7 +816,7 @@ const PremiumHeader = () => {
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search by title, author, ISBN..."
+                placeholder="Search by title, author, keyword, categories, publisher or ISBN"
                 className="w-full pl-10 pr-4 py-3 text-sm text-text-main bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all font-body shadow-inner"
                 autoComplete="off"
               />
@@ -1182,11 +1182,13 @@ const SearchSuggestions = memo(({ suggestions, isSearching, searchTerm, onSelect
               linkTo = item.slug ? `/books/${item.slug}` : `/books?keyword=${encodeURIComponent(displayTitle)}`;
             } else if (type === 'series') {
               typeLabel = "Series";
-              const seriesSlug = displayTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-              linkTo = `/series/${seriesSlug}`;
+              linkTo = `/series/${item.slug || displayTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}`;
             } else if (type === 'publisher') {
               typeLabel = "Publisher";
               linkTo = item.slug ? `/publisher/${item.slug}` : `/books?keyword=${encodeURIComponent(displayTitle)}`;
+            } else if (type === 'tag') {
+              typeLabel = "Tag";
+              linkTo = `/books?tag=${encodeURIComponent(displayTitle)}`;
             }
 
             return (

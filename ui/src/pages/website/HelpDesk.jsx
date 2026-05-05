@@ -152,7 +152,7 @@ const HelpDesk = () => {
           {/* ─── HELP CATEGORIES SECTION ─── */}
           <section className="mb-12 md:mb-16">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
-              {helpPages.map((page) => {
+              {helpPages.filter(page => !page.isCommonQuestion && !page.is_common_question && !page.title?.toLowerCase().includes('common')).map((page) => {
 
                 // 🟢 Dynamic Icon Logic: Title ke basis par icon choose karna
                 // Icon change karne ke liye yahan return kiye gaye icon ka naam badal dein
@@ -215,6 +215,7 @@ const HelpDesk = () => {
             </div>
           </section>
           {/* ─── COMMON QUESTIONS SECTION (Accordion Style) ─── */}
+          {helpPages.some(page => page.isCommonQuestion || page.is_common_question || page.title?.toLowerCase().includes('common')) && (
           <section className="mt-16 mb-12 animate-fadeIn">
             <div className="text-center mb-10">
               <h2 className="text-3xl md:text-4xl font-display italic text-text-main">
@@ -255,6 +256,7 @@ const HelpDesk = () => {
               ))}
             </div>
           </section>
+          )}
 
 
         </div>

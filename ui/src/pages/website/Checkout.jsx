@@ -766,35 +766,24 @@ const Checkout = () => {
         return;
       }
     } else {
-      const {
-        email,
-        firstName,
-        lastName,
-        address1,
-        city,
-        state,
-        postalCode,
-        phone,
-      } = guestAddress;
-      if (
-        !email ||
-        !firstName ||
-        !address1 ||
-        !city ||
-        !state ||
-        !postalCode ||
-        !phone
-      ) {
-        toast.error("Please fill all required delivery fields");
+      const { email, firstName, lastName, address1, city, state, postalCode, phone } = guestAddress;
+      if (!email) {
+        toast.error("Please enter your email address");
         return;
       }
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         toast.error("Please enter a valid email address");
         return;
       }
-      if (!/^\+?[\d\s\-()]{7,20}$/.test(phone)) {
-        toast.error("Please enter a valid phone number");
-        return;
+      if (!hasOnlyGiftCards) {
+        if (!firstName || !address1 || !city || !state || !postalCode || !phone) {
+          toast.error("Please fill all required delivery fields");
+          return;
+        }
+        if (!/^\+?[\d\s\-()]{7,20}$/.test(phone)) {
+          toast.error("Please enter a valid phone number");
+          return;
+        }
       }
     }
     if (cart.length === 0) {
@@ -849,6 +838,14 @@ const Checkout = () => {
           city: addr.city || "",
           postcode: addr.pincode || "",
           phone: addr.phone || "",
+        };
+      } else if (hasOnlyGiftCards) {
+        shippingDetails = {
+          email: guestAddress.email,
+          firstName: guestAddress.firstName || "",
+          lastName: guestAddress.lastName || "",
+          address1: "", address2: "", company: "",
+          country: "", state: "", city: "", postcode: "", phone: "",
         };
       } else {
         shippingDetails = {
@@ -1931,7 +1928,7 @@ const Checkout = () => {
                       )}
                     </div>
                   </div>
-                  <><div>
+                  {!hasOnlyGiftCards && <><div>
                     <select
                       value={guestAddress.country}
                       onChange={(e) =>
@@ -2067,7 +2064,7 @@ const Checkout = () => {
                         className="w-full px-3 py-2.5 border border-gray-300 text-sm focus:outline-none focus:border-primary"
                       />
                     </div>
-                  </>
+                  </>}
                 </div>
               )}
             </div>
