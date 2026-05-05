@@ -400,6 +400,9 @@ const Checkout = () => {
     return Number(settings.membership_cost) || 35;
   }, [membershipAdded, settings, currency, exchangeRates]);
 
+  // When cart has ONLY gift cards: restrict payment to PayPal/credit card, hide redeem box
+  const hasOnlyGiftCards = cart.length > 0 && cart.every(i => i.itemType === 'gift_card');
+
   // ─── 🟢 STEP 3: SHIPPING COST (tiered options always charge, standard uses threshold) ───
   const shippingCost = (() => {
     if (!appliedShipping || hasOnlyGiftCards) return 0;
@@ -469,8 +472,6 @@ const Checkout = () => {
     return mode === 'deferred' && !forcesDirect;
   };
 
-  // When cart has ONLY gift cards: restrict payment to PayPal/credit card, hide redeem box
-  const hasOnlyGiftCards = cart.length > 0 && cart.every(i => i.itemType === 'gift_card');
   const visiblePaymentMethods = hasOnlyGiftCards
     ? paymentMethods.filter(m => isCardOrPayPalMethod(m))
     : paymentMethods;
