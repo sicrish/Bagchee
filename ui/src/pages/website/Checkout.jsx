@@ -1928,7 +1928,7 @@ const Checkout = () => {
                       )}
                     </div>
                   </div>
-                  {!showLoginDropdown && !hasOnlyGiftCards && <><div>
+                  {!hasOnlyGiftCards && <><div>
                     <select
                       value={guestAddress.country}
                       onChange={(e) =>
@@ -2772,7 +2772,7 @@ const Checkout = () => {
                 ) : (
                   (() => {
                     if (isPurchaseOrderMethod(selectedPayment) || isWireTransferMethod(selectedPayment)) return "Place Order";
-                    if (isCardOrPayPalMethod(selectedPayment) && !isDeferredFlow()) return "Continue to PayPal";
+                    if (isPayPalMethod(selectedPayment) && !isDeferredFlow()) return "Continue to PayPal";
                     return "Continue to Pay";
                   })()
                 )}
