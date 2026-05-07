@@ -22,7 +22,7 @@ const ProductListing = ({ type }) => {
 
     // Reset viewMode when type changes (React reuses component across routes)
     useEffect(() => {
-        setViewMode('grid');
+        setViewMode('list');
     }, [type]);
     const [showMobileFilter, setShowMobileFilter] = useState(false);
 
