@@ -506,7 +506,7 @@ const ProductListing = ({ type }) => {
                     {loading ? (
                         <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div></div>
                     ) : products.length > 0 ? (
-                        <div className={viewMode === 'grid' ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5" : "flex flex-col gap-6"}>
+                        <div className={viewMode === 'grid' ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-5" : "flex flex-col gap-6"}>
                             {products.map(product => (
                                 viewMode === 'grid'
                                     ? <ProductCardGrid key={product._id} data={product} onQuickView={openQuickView} />
