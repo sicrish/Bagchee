@@ -11,6 +11,7 @@ const OrderReceipt = () => {
   const { formatPrice, symbols, currency } = useContext(CurrencyContext);
   const rawOrder = location.state?.orderDetails;
   const bankDetails = location.state?.bankDetails || null;
+  const paymentConfirmed = location.state?.paymentConfirmed || false;
   const [settings, setSettings] = useState(null);
 
   useEffect(() => {
@@ -97,12 +98,14 @@ const OrderReceipt = () => {
                 </div>
                 <div>
                   <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">
-                    {isApprovalPending ? 'Order Received!' : isPurchaseOrder ? 'Order Confirmed!' : 'Order Receipt Generated'}
+                    {isApprovalPending ? 'Order Received!' : (isPurchaseOrder || paymentConfirmed) ? 'Order Confirmed!' : 'Order Receipt Generated'}
                   </p>
                   <h1 className="text-3xl font-display font-bold text-text-main">
                     {isApprovalPending
                       ? `Thank You, ${order.shippingFirstName || 'Customer'}!`
-                      : `Review Your Order, ${order.shippingFirstName || 'Customer'}!`}
+                      : paymentConfirmed
+                        ? `Thank You, ${order.shippingFirstName || 'Customer'}!`
+                        : `Review Your Order, ${order.shippingFirstName || 'Customer'}!`}
                   </h1>
                 </div>
               </div>

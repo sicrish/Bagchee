@@ -1049,7 +1049,7 @@ const Checkout = () => {
             if (verifyRes.data?.status) {
               toast.success("Payment successful!");
               clearCart();
-              navigate("/order-receipt", { state: { orderDetails: savedOrder }, replace: true });
+              navigate("/order-receipt", { state: { orderDetails: savedOrder, paymentConfirmed: true }, replace: true });
             } else {
               toast.error("Payment verification failed. Please contact support.");
             }
