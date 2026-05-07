@@ -224,7 +224,11 @@ const Cart = () => {
 
   // Pre-compute grand total so it's transparent and testable
   const membershipUsdForTotal = membershipAdded ? (getMembershipData().usd || 0) : 0;
-  const grandTotalUSD = subtotalAfterItemDiscount + membershipUsdForTotal + finalShippingUSD;
+  const memberDiscountPercent = Number(settings?.member_discount || settings?.memberDiscount) || 10;
+  const memberDiscountUSD = membershipAdded
+    ? Math.round((subtotalAfterItemDiscount + membershipUsdForTotal) * (memberDiscountPercent / 100) * 100) / 100
+    : 0;
+  const grandTotalUSD = subtotalAfterItemDiscount + membershipUsdForTotal - memberDiscountUSD + finalShippingUSD;
 
   // 3. Display Variables
   // Yahan null ki jagah original totals bhejna zaroori hai
@@ -737,6 +741,15 @@ const Cart = () => {
                       <span className="text-gray-600">Membership</span>
                       <span className="font-medium text-text-main">
                         {membershipPriceUI}
+                      </span>
+                    </div>
+                  )}
+
+                  {membershipAdded && memberDiscountUSD > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-green-600">Member Discount ({memberDiscountPercent}%)</span>
+                      <span className="font-medium text-green-600">
+                        -{formatPrice(memberDiscountUSD, null, memberDiscountUSD)}
                       </span>
                     </div>
                   )}

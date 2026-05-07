@@ -475,7 +475,7 @@ const Checkout = () => {
     return mode === 'deferred' && !forcesDirect;
   };
 
-  const visiblePaymentMethods = hasOnlyGiftCards
+  const visiblePaymentMethods = (hasOnlyGiftCards || membershipAdded)
     ? paymentMethods.filter(m => isCardOrPayPalMethod(m))
     : paymentMethods;
 

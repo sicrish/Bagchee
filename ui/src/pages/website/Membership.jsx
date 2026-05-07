@@ -1,10 +1,12 @@
 'use client';
 
 import React, { useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query'; // React Query hook
 import { Check, Truck, Star, BookOpen, Smartphone, Globe, ArrowRight, UserPlus, ShoppingCart } from 'lucide-react';
 import logoImg from '../../assets/images/common/logo.png';
 import { CurrencyContext } from '../../context/CurrencyContext';
+import { useCart } from '../../context/CartContext';
 import axios from '../../utils/axiosConfig';
 import { differenceInDays, isAfter } from 'date-fns';
 
@@ -12,6 +14,8 @@ import { differenceInDays, isAfter } from 'date-fns';
 const Membership = () => {
 
   const { formatPrice } = useContext(CurrencyContext);
+  const { setMembershipAdded } = useCart();
+  const navigate = useNavigate();
   const API_BASE_URL = process.env.REACT_APP_API_URL;
 
 
@@ -123,6 +127,15 @@ const Membership = () => {
     );
   };
 
+  const today = new Date();
+  const expiryDate = authData?.membershipEnd ? new Date(authData.membershipEnd) : null;
+  const isActiveMember = authData?.membership === 'active' && expiryDate && isAfter(expiryDate, today);
+
+  const handleJoinNow = () => {
+    setMembershipAdded(true);
+    navigate('/cart');
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 font-body">
 
@@ -162,9 +175,14 @@ const Membership = () => {
             </p>
 
             <div className="flex flex-col sm:flex-row items-center gap-6 justify-center lg:justify-start">
-              <button className="group bg-primary hover:bg-white text-white hover:text-primary py-5 px-12 rounded-full font-black uppercase tracking-slick text-sm transition-all duration-500 shadow-[0_20px_40px_-10px_rgba(0,141,218,0.5)] flex items-center gap-3">
-                Join Now <ArrowRight size={20} className="group-hover:translate-x-2 transition-transform" />
-              </button>
+              {!isActiveMember && (
+                <button
+                  onClick={handleJoinNow}
+                  className="group bg-primary hover:bg-white text-white hover:text-primary py-5 px-12 rounded-full font-black uppercase tracking-slick text-sm transition-all duration-500 shadow-[0_20px_40px_-10px_rgba(0,141,218,0.5)] flex items-center gap-3"
+                >
+                  Join Now <ArrowRight size={20} className="group-hover:translate-x-2 transition-transform" />
+                </button>
+              )}
 
               <div className="flex flex-col items-center lg:items-start">
                 <span className="text-xs uppercase tracking-widest text-gray-500 font-bold">Annual Subscription</span>
