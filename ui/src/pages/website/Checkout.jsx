@@ -206,6 +206,7 @@ const Checkout = () => {
   const [placedOrderDetails, setPlacedOrderDetails] = useState(null);
   const [purchaseOrderNumber, setPurchaseOrderNumber] = useState('');
   const [orderNotes, setOrderNotes] = useState('');
+  const [paymentTooltipId, setPaymentTooltipId] = useState(null);
 
   const [membershipPrice, setMembershipPrice] = useState(0);
 
@@ -2253,6 +2254,28 @@ const Checkout = () => {
                           <span className="font-medium text-text-main text-sm flex-1">
                             {method.title}
                           </span>
+                          {/* Info tooltip icon */}
+                          {(method.additionalTextActive || method.isAdditionalTextActive) && method.additionalText && (
+                            <div
+                              className="relative shrink-0"
+                              onMouseEnter={() => setPaymentTooltipId(method.id)}
+                              onMouseLeave={() => setPaymentTooltipId(null)}
+                              onClick={e => { e.preventDefault(); setPaymentTooltipId(paymentTooltipId === method.id ? null : method.id); }}
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400 hover:text-primary cursor-pointer" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              {paymentTooltipId === method.id && (
+                                <div className="absolute bottom-full right-0 mb-2 w-64 p-3 bg-white border border-gray-200 rounded-lg shadow-xl text-xs text-gray-600 z-50">
+                                  <div
+                                    className="rich-content"
+                                    dangerouslySetInnerHTML={createSafeHtml(method.additionalText)}
+                                  />
+                                  <div className="absolute top-full right-3 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-200" />
+                                </div>
+                              )}
+                            </div>
+                          )}
                           {/* Logos on the right */}
                           {isCC && (
                             <div className="flex items-center gap-1 shrink-0">
@@ -2266,18 +2289,6 @@ const Checkout = () => {
                             <img src={paypalLogo} alt="PayPal" className="h-5 w-auto object-contain shrink-0" />
                           )}
                         </label>
-
-                        {/* Additional text for selected payment method */}
-                        {isSelected &&
-                          (method.additionalTextActive || method.isAdditionalTextActive) &&
-                          method.additionalText && (
-                            <div className="px-4 pb-4 border-t border-gray-100 bg-gray-50">
-                              <div
-                                className="text-sm text-gray-600 pt-3 rich-content"
-                                dangerouslySetInnerHTML={createSafeHtml(method.additionalText)}
-                              />
-                            </div>
-                          )}
                       </div>
                     );
                   })
