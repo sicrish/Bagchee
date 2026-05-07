@@ -2240,55 +2240,56 @@ const Checkout = () => {
                     return (
                       <div
                         key={method.id}
-                        className={`border transition-all overflow-hidden rounded ${isSelected ? "border-primary" : "border-gray-200 hover:border-gray-300"}`}
+                        className={`border transition-all rounded ${isSelected ? "border-primary" : "border-gray-200 hover:border-gray-300"}`}
                       >
                         {/* Method row */}
-                        <label className="flex items-center gap-3 px-4 py-3 cursor-pointer w-full">
-                          <input
-                            type="radio"
-                            name="paymentMethod"
-                            checked={isSelected}
-                            onChange={() => setSelectedPayment(method)}
-                            className="w-4 h-4 text-primary border-gray-300 focus:ring-primary shrink-0"
-                          />
-                          <span className="font-medium text-text-main text-sm flex-1">
-                            {method.title}
-                          </span>
-                          {/* Info tooltip icon */}
+                        <div className="flex items-center">
+                          <label className="flex items-center gap-3 px-4 py-3 cursor-pointer flex-1">
+                            <input
+                              type="radio"
+                              name="paymentMethod"
+                              checked={isSelected}
+                              onChange={() => setSelectedPayment(method)}
+                              className="w-4 h-4 text-primary border-gray-300 focus:ring-primary shrink-0"
+                            />
+                            <span className="font-medium text-text-main text-sm flex-1">
+                              {method.title}
+                            </span>
+                            {/* Logos on the right */}
+                            {isCC && (
+                              <div className="flex items-center gap-1 shrink-0">
+                                <img src={visaLogo} alt="Visa" className="h-5 w-auto object-contain" />
+                                <img src={mastercardLogo} alt="Mastercard" className="h-5 w-auto object-contain" />
+                                <img src={discoverLogo} alt="Discover" className="h-5 w-auto object-contain" />
+                                <img src={amexLogo} alt="Amex" className="h-5 w-auto object-contain" />
+                              </div>
+                            )}
+                            {isPP && (
+                              <img src={paypalLogo} alt="PayPal" className="h-5 w-auto object-contain shrink-0" />
+                            )}
+                          </label>
+                          {/* Info tooltip icon — outside label to avoid form interaction */}
                           {(method.additionalTextActive || method.isAdditionalTextActive) && method.additionalText && (
                             <div
-                              className="relative shrink-0"
+                              className="relative pr-4 shrink-0"
                               onMouseEnter={() => setPaymentTooltipId(method.id)}
                               onMouseLeave={() => setPaymentTooltipId(null)}
-                              onClick={e => { e.preventDefault(); setPaymentTooltipId(paymentTooltipId === method.id ? null : method.id); }}
+                              onClick={() => setPaymentTooltipId(paymentTooltipId === method.id ? null : method.id)}
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400 hover:text-primary cursor-pointer" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
                               {paymentTooltipId === method.id && (
-                                <div className="absolute bottom-full right-0 mb-2 w-64 p-3 bg-white border border-gray-200 rounded-lg shadow-xl text-xs text-gray-600 z-50">
+                                <div className="absolute right-0 top-6 w-64 p-3 bg-white border border-gray-200 rounded-lg shadow-xl text-xs text-gray-600 z-50">
                                   <div
                                     className="rich-content"
                                     dangerouslySetInnerHTML={createSafeHtml(method.additionalText)}
                                   />
-                                  <div className="absolute top-full right-3 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-200" />
                                 </div>
                               )}
                             </div>
                           )}
-                          {/* Logos on the right */}
-                          {isCC && (
-                            <div className="flex items-center gap-1 shrink-0">
-                              <img src={visaLogo} alt="Visa" className="h-5 w-auto object-contain" />
-                              <img src={mastercardLogo} alt="Mastercard" className="h-5 w-auto object-contain" />
-                              <img src={discoverLogo} alt="Discover" className="h-5 w-auto object-contain" />
-                              <img src={amexLogo} alt="Amex" className="h-5 w-auto object-contain" />
-                            </div>
-                          )}
-                          {isPP && (
-                            <img src={paypalLogo} alt="PayPal" className="h-5 w-auto object-contain shrink-0" />
-                          )}
-                        </label>
+                        </div>
                       </div>
                     );
                   })
