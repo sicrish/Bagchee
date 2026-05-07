@@ -1,6 +1,6 @@
 import prisma from '../lib/prisma.js';
 import crypto from 'crypto';
-import { sendOrderConfirmation, sendOrderShippedEmail, sendOrderStatusEmail, sendPaymentLinkEmail, sendInvoiceEmail } from './email.controller.js';
+import { sendOrderConfirmation, sendOrderShippedEmail, sendOrderStatusEmail, sendPaymentLinkEmail, sendInvoiceEmail, sendCustomConfirmationEmail } from './email.controller.js';
 import { calcDiscount } from './coupon.controller.js';
 import { createGiftCardsForOrder, applyWalletBalance } from './giftCard.controller.js';
 
@@ -801,5 +801,30 @@ export const getInvoice = async (req, res) => {
     } catch (error) {
         console.error('Get invoice error:', error);
         res.status(500).json({ status: false, msg: 'Failed to generate invoice' });
+    }
+};
+
+// POST /orders/:id/send-confirmation-email — admin edits and sends a custom confirmation email
+export const sendConfirmationEmail = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { subject, body } = req.body;
+        if (!subject?.trim() || !body?.trim())
+            return res.status(400).json({ status: false, msg: 'Subject and body are required' });
+
+        const order = await prisma.order.findUnique({
+            where: { id: parseInt(id) },
+            include: { customer: true }
+        });
+        if (!order) return res.status(404).json({ status: false, msg: 'Order not found' });
+
+        const email = order.shippingEmail || order.customer?.email;
+        if (!email) return res.status(400).json({ status: false, msg: 'No email address found for this order' });
+
+        await sendCustomConfirmationEmail(email, subject, body);
+        res.json({ status: true, msg: 'Email sent successfully' });
+    } catch (error) {
+        console.error('sendConfirmationEmail error:', error);
+        res.status(500).json({ status: false, msg: 'Failed to send email' });
     }
 };

@@ -25,6 +25,7 @@ router.delete("/delete/:id",adminAuth, OrderController.deleteOrder);
 router.get("/:id/invoice",                 adminAuth, OrderController.getInvoice);
 router.post("/:id/approve",                adminAuth, OrderController.approveOrder);
 router.post("/:id/resend-payment-link",    adminAuth, OrderController.resendPaymentLink);
+router.post("/:id/send-confirmation-email", adminAuth, OrderController.sendConfirmationEmail);
 router.post("/:id/send-shipped-email", adminAuth, OrderController.sendShippedEmail);
 router.post("/:id/send-status-email",  adminAuth, OrderController.sendStatusEmail);
 router.post("/:id/send-invoice",       authMiddleware, OrderController.sendInvoice);

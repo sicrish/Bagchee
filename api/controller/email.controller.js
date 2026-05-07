@@ -386,6 +386,39 @@ export const sendPaymentLinkEmail = async (email, order, paymentLink) => {
     }
 };
 
+export const sendCustomConfirmationEmail = async (email, subject, bodyHtml) => {
+    try {
+        const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+        });
+        const html = `
+            <div style="font-family:'Inter',Helvetica,Arial,sans-serif;background-color:${theme.cream};padding:40px 0;">
+              <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 15px rgba(0,0,0,.1);border:1px solid #e6decd;">
+                <div style="background:${theme.primary};padding:35px;text-align:center;">
+                  <h1 style="color:#fff;margin:0;font-size:26px;font-weight:700;">Bagchee</h1>
+                  <p style="color:#fff;margin-top:5px;opacity:.9;font-size:14px;">Your Favorite Bookstore</p>
+                </div>
+                <div style="padding:40px 30px;font-size:15px;line-height:1.7;color:${theme.textMain};">
+                  ${bodyHtml}
+                </div>
+                <div style="background:#fffdf5;padding:20px;text-align:center;border-top:1px solid #e6decd;">
+                  <p style="font-size:12px;color:${theme.textMuted};margin:0;">&copy; ${new Date().getFullYear()} Bagchee. All rights reserved.</p>
+                </div>
+              </div>
+            </div>`;
+        await transporter.sendMail({
+            from: `"Bagchee Team" <${process.env.EMAIL_USER}>`,
+            to: email,
+            subject,
+            html
+        });
+    } catch (error) {
+        console.error('sendCustomConfirmationEmail failed:', error.message);
+        throw error;
+    }
+};
+
 export const sendInvoiceEmail = async (email, order) => {
     try {
         const transporter = nodemailer.createTransport({

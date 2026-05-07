@@ -37,12 +37,20 @@ const EditOrders = () => {
     "Vatican City", "Venezuela", "Vietnam", "Yemen", "Zambia", "Zimbabwe"
   ];
 
+  const emailEditor = useRef(null);
+
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [approving, setApproving] = useState(false);
   const [paymentLink, setPaymentLink] = useState('');
   const [resending, setResending] = useState(false);
   const [purchaseOrderNumber, setPurchaseOrderNumber] = useState('');
+
+  // Order Confirmation Email modal
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailBody, setEmailBody] = useState('');
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   // Dropdown Data
   const [customers, setCustomers] = useState([]);
@@ -455,6 +463,56 @@ const EditOrders = () => {
     }
   };
 
+  const openEmailModal = () => {
+    const firstName = formData.shipping_first_name || '';
+    const lastName  = formData.shipping_last_name  || '';
+    const customerName = [firstName, lastName].filter(Boolean).join(' ') || 'Valued Customer';
+    const orderNum  = formData.order_number || id;
+    const currency  = formData.currency || 'USD';
+    const dueDate   = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    const itemRows  = orderProducts.map(p =>
+      `<li>${p.name || p.product?.title || 'Item'} &times; ${p.quantity || 1} &mdash; ${currency} ${Number(p.price || 0).toFixed(2)}</li>`
+    ).join('');
+    const total = `${currency} ${Number(formData.total || 0).toFixed(2)}`;
+    const link  = paymentLink || '[Payment link will be sent separately]';
+
+    setEmailSubject(`Action Required: Payment Link for Bagchee Order ${orderNum}`);
+    setEmailBody(`<p>Dear ${customerName},</p>
+<p>Thank you for your order! We have received and approved your following order request.</p>
+<p><strong>Order Number:</strong> ${orderNum}<br>
+<strong>Items:</strong><ul>${itemRows}</ul>
+<strong>Total Outstanding Balance:</strong> ${total}<br>
+<strong>Due Date:</strong> ${dueDate}</p>
+<p>Please click the link below to complete your payment:<br>
+<a href="${link}" style="color:#008DDA;font-weight:bold;">${link}</a></p>
+<p><em>Note: Your order will be processed immediately upon receipt of this payment.</em></p>
+<p>Thanks,<br><strong>Bagchee Team</strong></p>`);
+    setEmailModalOpen(true);
+  };
+
+  const handleSendConfirmationEmail = async () => {
+    if (!emailSubject.trim() || !emailBody.trim()) return toast.error('Subject and body are required');
+    setSendingEmail(true);
+    const toastId = toast.loading('Sending email...');
+    try {
+      const API_URL = process.env.REACT_APP_API_URL;
+      const res = await axios.post(`${API_URL}/orders/${id}/send-confirmation-email`, {
+        subject: emailSubject,
+        body: emailBody
+      });
+      if (res.data.status) {
+        toast.success('Email sent successfully!', { id: toastId });
+        setEmailModalOpen(false);
+      } else {
+        toast.error(res.data.msg || 'Failed to send', { id: toastId });
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.msg || 'Failed to send email', { id: toastId });
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
   // Jodit Config
   const config = useMemo(() => ({
     readonly: false,
@@ -484,6 +542,65 @@ const EditOrders = () => {
         <h1 className="text-lg font-bold text-white uppercase tracking-slick font-display">Edit Orders</h1>
       </div>
 
+      {/* ─── Order Confirmation Email Modal ─── */}
+      {emailModalOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 shrink-0">
+              <h2 className="text-sm font-bold uppercase tracking-wider font-montserrat text-text-main">Order Confirmation Email</h2>
+              <button type="button" onClick={() => setEmailModalOpen(false)} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {/* Subject */}
+              <div>
+                <label className="block text-[11px] font-bold uppercase text-gray-500 mb-1">Subject</label>
+                <input
+                  type="text"
+                  value={emailSubject}
+                  onChange={e => setEmailSubject(e.target.value)}
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+                />
+              </div>
+              {/* Body */}
+              <div>
+                <label className="block text-[11px] font-bold uppercase text-gray-500 mb-1">Email Body</label>
+                <div className="border border-gray-300 rounded overflow-hidden">
+                  <JoditEditor
+                    ref={emailEditor}
+                    value={emailBody}
+                    config={config}
+                    onBlur={newContent => setEmailBody(newContent)}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200 shrink-0">
+              <button
+                type="button"
+                onClick={() => setEmailModalOpen(false)}
+                className="bg-white border border-gray-300 hover:bg-gray-50 text-text-main px-5 py-2 rounded text-[11px] font-bold uppercase tracking-wider"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSendConfirmationEmail}
+                disabled={sendingEmail}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded text-[11px] font-bold uppercase tracking-wider flex items-center gap-2 disabled:opacity-50"
+              >
+                {sendingEmail ? <Loader2 size={12} className="animate-spin" /> : <Mail size={12} />}
+                Send Mail
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-[95%] mx-auto p-6 mt-4">
         <form className="bg-white rounded border border-cream-200 shadow-sm overflow-hidden">
 
@@ -501,6 +618,13 @@ const EditOrders = () => {
                   Approve & Send Payment Link
                 </button>
               )}
+              <button
+                type="button"
+                onClick={openEmailModal}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all"
+              >
+                <Mail size={12} /> Order Confirmation Email
+              </button>
               <button type="button" onClick={() => navigate('/admin/orders')} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
             </div>
           </div>
