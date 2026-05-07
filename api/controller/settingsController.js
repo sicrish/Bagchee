@@ -92,6 +92,15 @@ const mapBody = (b) => {
     const msd = f('maxShippingDays','max_shipping_days');
     if (msd !== undefined) d.maxShippingDays = int(msd);
 
+    const oap = f('orderAcceptedPromo','order_accepted_promo');
+    if (oap !== undefined) d.orderAcceptedPromo = bool(oap);
+
+    const pc = f('promoCode','promo_code');
+    if (pc !== undefined) d.promoCode = pc || '';
+
+    const pm = f('promoMessage','promo_message');
+    if (pm !== undefined) d.promoMessage = pm || '';
+
     // Payment gateway mode
     const pgm = f('paymentGatewayMode','payment_gateway_mode');
     if (pgm !== undefined) d.paymentGatewayMode = pgm || 'deferred';
@@ -201,6 +210,10 @@ export const getPublicConfig = async (req, res) => {
             topbarPromotion:        s.topbarPromotion        || false,
             topbarPromotionText:    s.topbarPromotionText    || '',
             paymentGatewayMode:     s.paymentGatewayMode     || 'deferred',
+            maxShippingDays:        s.maxShippingDays        || 0,
+            orderAcceptedPromo:     s.orderAcceptedPromo     ?? true,
+            promoCode:              s.promoCode              || 'SAVE10',
+            promoMessage:           s.promoMessage           || 'Thank you for choosing us. Use this code for 10% OFF on your next purchase.',
             bankDetails: {
                 usd: { name: s.bankNameUsd, iban: s.bankIbanUsd, bic: s.bankBicUsd, owner: s.bankOwnerUsd },
                 eur: { name: s.bankNameEur, iban: s.bankIbanEur, bic: s.bankBicEur, owner: s.bankOwnerEur },

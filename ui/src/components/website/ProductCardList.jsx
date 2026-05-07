@@ -1,6 +1,6 @@
 import React, { useState, useContext, memo, useMemo, useCallback } from 'react';
 import { createSafeHtml } from '../../utils/sanitize';
-import { Heart, ShoppingCart, Globe, Truck, Eye } from 'lucide-react';
+import { Heart, ShoppingCart, Globe, Truck } from 'lucide-react';
 import { useCart } from '../../context/CartContext.jsx';
 import { CurrencyContext } from '../../context/CurrencyContext.jsx';
 import { Link } from 'react-router-dom';
@@ -195,15 +195,6 @@ const ProductCardList = ({ data, onQuickView }) => {
                     >
                         Buy Now
                     </Link>
-                    )}
-
-                    {onQuickView && (
-                        <button
-                            onClick={() => onQuickView(data)}
-                            className="w-full border border-primary text-primary py-2 rounded font-bold text-xs md:text-sm transition-all uppercase tracking-slick font-montserrat hover:bg-primary hover:text-white flex items-center justify-center gap-1.5 active:scale-95"
-                        >
-                            <Eye size={14} /> Quick View
-                        </button>
                     )}
 
                     <button

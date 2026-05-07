@@ -56,7 +56,7 @@ const EGiftcardBanner = () => {
           <img 
             src={getFullImageUrl(banner.desktopImage)}  
             alt="E-Gift Card Banner" 
-            className="block w-full h-auto lg:max-h-[400px] object-cover object-center transition-transform duration-700 group-hover:scale-105"
+            className="block w-full h-auto lg:max-h-[400px] object-cover object-center"
             loading="lazy" 
           />
         </picture>

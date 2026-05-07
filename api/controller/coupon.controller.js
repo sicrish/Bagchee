@@ -296,28 +296,87 @@ export const sendCouponEmail = async (req, res) => {
         const shopUrl = process.env.FRONTEND_URL || 'https://bagchee.com';
         const subject = `Your Coupon Code: ${coupon.code} – Bagchee`;
 
-        // Wrap admin content in branded email shell
-        const htmlBody = `
-            <div style="font-family:'Inter',Helvetica,Arial,sans-serif;background-color:#F7EEDD;padding:40px 0;">
-                <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 15px rgba(0,0,0,0.1);border:1px solid #e6decd;">
-                    <div style="background-color:#008DDA;padding:30px;text-align:center;">
-                        <h1 style="color:#fff;margin:0;font-size:24px;font-weight:700;letter-spacing:0.5px;">Bagchee</h1>
-                        <p style="color:#fff;margin-top:5px;opacity:0.9;font-size:13px;">Your Favorite Bookstore</p>
-                    </div>
-                    <div style="padding:10px 30px 30px;">
-                        ${emailContent}
-                    </div>
-                    <div style="background:#fffdf5;padding:16px 30px;text-align:center;border-top:1px solid #e6decd;">
-                        <p style="font-size:12px;color:#4A6fa5;margin:0;">
-                            Use code <strong style="color:#008DDA;letter-spacing:1px;">${coupon.code}</strong> at checkout.
-                            Valid till ${new Date(coupon.validTo).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })}.
-                        </p>
-                        <a href="${shopUrl}" style="display:inline-block;margin-top:12px;background:#008DDA;color:#fff;text-decoration:none;padding:10px 24px;font-size:13px;font-weight:bold;border-radius:6px;">Shop Now</a>
-                        <p style="font-size:11px;color:#9ca3af;margin-top:16px;margin-bottom:0;">&copy; ${new Date().getFullYear()} Bagchee. All rights reserved.</p>
-                    </div>
+        const validTill = new Date(coupon.validTo).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+        const isFlat   = coupon.fixAmount || coupon.couponType === 'flat_amount';
+        const discount = isFlat
+            ? `₹${coupon.flatDeduction || coupon.amount || 0} OFF`
+            : `${coupon.amount || 0}% OFF`;
+
+        const htmlBody = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background-color:#F7EEDD;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#F7EEDD;padding:40px 0;">
+  <tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,0.12);border:1px solid #e6decd;">
+
+      <!-- HEADER -->
+      <tr>
+        <td style="background:linear-gradient(135deg,#008DDA 0%,#0073c4 100%);padding:32px 30px;text-align:center;">
+          <div style="display:inline-block;background:rgba(255,255,255,0.15);border-radius:12px;padding:10px 22px;border:1px solid rgba(255,255,255,0.3);">
+            <span style="color:#ffffff;font-size:26px;font-weight:800;letter-spacing:2px;text-transform:uppercase;">BAGCHEE</span>
+            <div style="color:rgba(255,255,255,0.8);font-size:10px;letter-spacing:3px;text-transform:uppercase;margin-top:2px;">Books That Stick</div>
+          </div>
+        </td>
+      </tr>
+
+      <!-- MESSAGE BODY -->
+      <tr>
+        <td style="padding:32px 36px 24px;">
+          <div style="font-size:15px;color:#374151;line-height:1.7;">
+            ${emailContent}
+          </div>
+        </td>
+      </tr>
+
+      <!-- COUPON CARD -->
+      <tr>
+        <td style="padding:0 36px 32px;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="border:2px dashed #008DDA;border-radius:12px;overflow:hidden;">
+            <!-- Top half: discount + label -->
+            <tr>
+              <td style="background:linear-gradient(135deg,#e8f6ff 0%,#f0faff 100%);padding:24px 28px;text-align:center;border-bottom:2px dashed #008DDA;">
+                <div style="font-size:44px;font-weight:900;color:#008DDA;letter-spacing:-1px;line-height:1;">${discount}</div>
+                <div style="font-size:13px;color:#6b7280;margin-top:6px;text-transform:uppercase;letter-spacing:1px;">Your Exclusive Discount</div>
+              </td>
+            </tr>
+            <!-- Bottom half: coupon code + validity -->
+            <tr>
+              <td style="background:#ffffff;padding:20px 28px;text-align:center;">
+                <div style="font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px;">Use Code at Checkout</div>
+                <div style="display:inline-block;background:#f9fafb;border:1.5px solid #d1d5db;border-radius:8px;padding:12px 32px;">
+                  <span style="font-family:'Courier New',Courier,monospace;font-size:28px;font-weight:800;color:#1f2937;letter-spacing:4px;">${coupon.code}</span>
                 </div>
-            </div>
-        `;
+                <div style="font-size:12px;color:#6b7280;margin-top:14px;">
+                  Valid till <strong style="color:#374151;">${validTill}</strong>
+                  ${coupon.minimumBuy > 0 ? `&nbsp;·&nbsp; Min. order <strong style="color:#374151;">₹${coupon.minimumBuy}</strong>` : ''}
+                </div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+
+      <!-- CTA BUTTON -->
+      <tr>
+        <td style="padding:0 36px 36px;text-align:center;">
+          <a href="${shopUrl}" style="display:inline-block;background:#008DDA;color:#ffffff;text-decoration:none;padding:14px 40px;font-size:15px;font-weight:700;border-radius:8px;letter-spacing:0.5px;">Shop Now →</a>
+        </td>
+      </tr>
+
+      <!-- FOOTER -->
+      <tr>
+        <td style="background:#f9fafb;padding:20px 36px;text-align:center;border-top:1px solid #e6decd;">
+          <p style="margin:0;font-size:11px;color:#9ca3af;">© ${new Date().getFullYear()} Bagchee. All rights reserved.</p>
+          <p style="margin:6px 0 0;font-size:11px;color:#c4b5a0;">This email was sent because you are a valued Bagchee customer.</p>
+        </td>
+      </tr>
+
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`;
 
         let sent = 0, failed = 0;
         for (const email of recipientEmails) {

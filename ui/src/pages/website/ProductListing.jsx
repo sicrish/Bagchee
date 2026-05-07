@@ -18,11 +18,11 @@ const ProductListing = ({ type }) => {
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [totalProducts, setTotalProducts] = useState(0);
-    const [viewMode, setViewMode] = useState('list');
+    const [viewMode, setViewMode] = useState('grid');
 
     // Reset viewMode when type changes (React reuses component across routes)
     useEffect(() => {
-        setViewMode('list');
+        setViewMode('grid');
     }, [type]);
     const [showMobileFilter, setShowMobileFilter] = useState(false);
 
@@ -101,9 +101,9 @@ const ProductListing = ({ type }) => {
                     setFlatCats(flatCategories);
 
                     if (slug && type !== 'publisher' && type !== 'series') {
-                        // Find current category by slug from flat list
+                        // Find current category by slug from flat list (guard null slugs)
                         const foundCat = flatCategories.find(
-                            c => c.slug === slug || c.slug.endsWith('/' + slug)
+                            c => c.slug && (c.slug === slug || c.slug.endsWith('/' + slug))
                         );
                         if (foundCat) {
                             const title = foundCat.categorytitle || foundCat.title;
@@ -136,9 +136,21 @@ const ProductListing = ({ type }) => {
                             const t = type ? type.replace(/-/g, ' ') : 'category';
                             setPageTitle(t);
                             setBaseTitleRef(t);
-                            // No slug = special page (recommended/bestsellers etc.) — show root categories
-                            const rootCategories = flatCategories.filter(c => !(c.parentId || c.parentid) || c.level === 0);
-                            setSubcategoriesList(rootCategories);
+                            // Special pages (sale, bestsellers, etc.) — show first level of titled categories.
+                            // The DB has invisible root placeholders (id=1, id=2) with empty titles; skip them
+                            // and show their children (the actual named book categories) instead.
+                            const rootCats = flatCategories.filter(c => !(c.parentId || c.parentid) || c.level === 0);
+                            const visibleRoots = rootCats.filter(c => c.title || c.categorytitle);
+                            if (visibleRoots.length > 0) {
+                                setSubcategoriesList(visibleRoots);
+                            } else {
+                                const invisibleIds = new Set(rootCats.map(c => String(c.id || c._id)));
+                                const firstLevel = flatCategories.filter(c => {
+                                    const pid = String(c.parentId || c.parentid || '');
+                                    return invisibleIds.has(pid) && (c.title || c.categorytitle);
+                                });
+                                setSubcategoriesList(firstLevel);
+                            }
                         }
                     }
                 }
@@ -193,6 +205,7 @@ const ProductListing = ({ type }) => {
                 // 🟢 NAYA LOGIC: URL se search parameter read karna
                 const params = new URLSearchParams(location.search);
                 const searchKeyword = params.get('keyword');
+                const tagParam = params.get('tags');
 
                 query.append('page', currentPage);
                 query.append('limit', 36);
@@ -200,6 +213,9 @@ const ProductListing = ({ type }) => {
                 // 🟢 SEARCH LOGIC: Agar URL me search query hai, toh use 'keyword' bana kar API ko bhejo
                 if (searchKeyword) {
                     query.append('keyword', searchKeyword);
+                }
+                if (tagParam) {
+                    query.append('tags', tagParam);
                 }
 
                 // 🟢 STEP 1: Pehle sidebar ke manually checked IDs lo

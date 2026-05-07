@@ -125,7 +125,7 @@ const NewAndNotable = () => {
                     </button>
 
                     {/* Grid */}
-                    <div className={`grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6 min-h-[350px] transition-opacity duration-200 ${isPlaceholderData ? 'opacity-50' : 'opacity-100'}`}>
+                    <div className={`grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-6 min-h-[350px] transition-opacity duration-200 ${isPlaceholderData ? 'opacity-50' : 'opacity-100'}`}>
                         {isLoading ? (
                             Array(itemsPerPage).fill(0).map((_, i) => <ProductSkeleton key={i} />)
                         ) : (

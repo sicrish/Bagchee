@@ -1,8 +1,9 @@
-import React, { useContext } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { FileText, Package, ArrowRight, Tag, Copy, ShoppingBag, MapPin, CreditCard, ChevronRight } from "lucide-react";
 import { CurrencyContext } from "../../context/CurrencyContext";
 import toast from "react-hot-toast";
+import axios from "../../utils/axiosConfig";
 
 const OrderReceipt = () => {
   const location = useLocation();
@@ -10,6 +11,13 @@ const OrderReceipt = () => {
   const { formatPrice, symbols, currency } = useContext(CurrencyContext);
   const rawOrder = location.state?.orderDetails;
   const bankDetails = location.state?.bankDetails || null;
+  const [settings, setSettings] = useState(null);
+
+  useEffect(() => {
+    axios.get(`${process.env.REACT_APP_API_URL}/settings/public-config`)
+      .then(r => { if (r.data?.status) setSettings(r.data.data); })
+      .catch(() => {});
+  }, []);
 
   // Normalize camelCase (Prisma) + snake_case / nested (legacy) shapes into one object.
   const sd = rawOrder?.shipping_details || {};
@@ -132,6 +140,16 @@ const OrderReceipt = () => {
                 </div>
               )}
 
+              {/* ─── Purchase Order notice ─── */}
+              {isPurchaseOrder && (
+                <div className="mb-6 p-5 bg-blue-50 border border-blue-200 rounded-xl">
+                  <p className="text-sm font-bold text-blue-800 mb-1 uppercase tracking-wide">Purchase Order</p>
+                  <p className="text-sm text-blue-700 leading-relaxed">
+                    Due. Net 30. Please Pay within 30 days when this invoice is issued.
+                  </p>
+                </div>
+              )}
+
               <div className="space-y-8">
                 {/* Receipt Info */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-5 bg-gray-50 rounded-xl border border-gray-100">
@@ -207,24 +225,26 @@ const OrderReceipt = () => {
           {/* ════ RIGHT COLUMN: YOUR ORDER SUMMARY ════ */}
           <div className="lg:col-span-1 space-y-6">
 
-            {/* 🟢 SPECIAL COUPON BOX (Shifted to Top) */}
-            <div className="bg-primary/5 border-2 border-dashed border-primary/20 rounded-xl p-6 relative overflow-hidden animate-fadeIn">
-              <div className="relative z-10">
-                <h3 className="text-primary font-display font-bold text-base mb-1">Exclusive Discount!</h3>
-                <p className="text-[11px] text-gray-600 mb-4 leading-relaxed">
-                  Thank you for choosing us. Use this code for <span className="font-bold text-text-main">10% OFF</span> on your next purchase.
-                </p>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 bg-white border border-primary/30 px-3 py-2 rounded-lg font-display font-bold text-primary text-base tracking-widest shadow-sm text-center">
-                    SAVE10
+            {/* 🟢 SPECIAL COUPON BOX — shown only when Order Accepted Promo = Yes */}
+            {settings?.orderAcceptedPromo && (
+              <div className="bg-primary/5 border-2 border-dashed border-primary/20 rounded-xl p-6 relative overflow-hidden animate-fadeIn">
+                <div className="relative z-10">
+                  <h3 className="text-primary font-display font-bold text-base mb-1">Exclusive Discount!</h3>
+                  <p className="text-[11px] text-gray-600 mb-4 leading-relaxed">
+                    {settings?.promoMessage || 'Thank you for choosing us. Use this code for 10% OFF on your next purchase.'}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 bg-white border border-primary/30 px-3 py-2 rounded-lg font-display font-bold text-primary text-base tracking-widest shadow-sm text-center">
+                      {settings?.promoCode || 'SAVE10'}
+                    </div>
+                    <button onClick={() => copyToClipboard(settings?.promoCode || 'SAVE10')} className="p-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors shrink-0">
+                      <Copy size={18} />
+                    </button>
                   </div>
-                  <button onClick={() => copyToClipboard("SAVE10")} className="p-2.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors shrink-0">
-                    <Copy size={18} />
-                  </button>
                 </div>
+                <Tag className="absolute -right-6 -bottom-6 w-24 h-24 text-primary/5 -rotate-12" />
               </div>
-              <Tag className="absolute -right-6 -bottom-6 w-24 h-24 text-primary/5 -rotate-12" />
-            </div>
+            )}
 
             <div className="bg-white border border-gray-200 rounded-xl shadow-sm sticky top-24 overflow-hidden">
               <div className="bg-gray-50 px-5 py-4 border-b border-gray-100 flex items-center justify-between font-montserrat">

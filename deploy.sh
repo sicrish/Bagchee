@@ -1,27 +1,52 @@
 #!/bin/bash
-# Deploy both services to Railway
-# Usage: ./deploy.sh          → deploy both
+# Deploy Bagchee to VPS at www.bagchee.com
+# Usage: ./deploy.sh          → deploy both API + UI
 #        ./deploy.sh api       → deploy API only
 #        ./deploy.sh ui        → deploy UI only
 
-API_SERVICE="fc663c89-f3e3-4b63-944e-1ba12540bb22"
-UI_SERVICE="259f1fd6-af2f-4e64-ba2c-9a9f9bd36d42"
+SERVER="root@84.21.171.24"
+SERVER_PASS="73zkEV0c9JqMS"
+SSH="sshpass -p $SERVER_PASS ssh -o StrictHostKeyChecking=no -o PasswordAuthentication=yes -o PubkeyAuthentication=no"
+RSYNC="sshpass -p $SERVER_PASS rsync -avz --delete -e 'ssh -o StrictHostKeyChecking=no -o PasswordAuthentication=yes -o PubkeyAuthentication=no'"
 PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 
 deploy_api() {
-  echo "→ Deploying API..."
-  railway service link "$API_SERVICE"
-  railway up --service "$API_SERVICE" --detach
-  echo "✓ API deploy triggered"
+  echo "→ Uploading API..."
+  sshpass -p "$SERVER_PASS" rsync -avz --delete \
+    --exclude='node_modules' \
+    --exclude='.env' \
+    --exclude='*.log' \
+    -e 'ssh -o StrictHostKeyChecking=no -o PasswordAuthentication=yes -o PubkeyAuthentication=no' \
+    "$PROJECT_ROOT/api/" "$SERVER:/opt/bagchee/api/"
+
+  echo "→ Installing dependencies & restarting..."
+  $SSH "$SERVER" "
+    cd /opt/bagchee/api
+    npm install --production --silent
+    npx prisma db push --skip-generate 2>&1 | tail -2
+    npx prisma generate --silent 2>/dev/null
+    pm2 restart bagchee-api --update-env
+    pm2 save
+  "
+  echo "✓ API deployed and restarted"
 }
 
 deploy_ui() {
-  echo "→ Deploying UI..."
-  railway service link "$UI_SERVICE"
+  echo "→ Building React UI..."
   cd "$PROJECT_ROOT/ui"
-  railway up --service "$UI_SERVICE" --detach
+  REACT_APP_API_URL=https://www.bagchee.com/api \
+  REACT_APP_EXCHANGE_RATE_API_KEY=01b425d377751fbbed67dcdc \
+  REACT_APP_ENCRYPTION_SECRET=metXFqhCDc39LVSNnwthDmdYQLGZZVx10rR8Qzybw7Au3C2lW/JqdunzKD9ieoQ+ \
+  REACT_APP_RAZORPAY_KEY_ID=rzp_test_SLp1axPzfknnrQ \
+  npm run build
+
+  echo "→ Uploading build to server..."
+  sshpass -p "$SERVER_PASS" rsync -avz --delete \
+    -e 'ssh -o StrictHostKeyChecking=no -o PasswordAuthentication=yes -o PubkeyAuthentication=no' \
+    "$PROJECT_ROOT/ui/build/" "$SERVER:/var/www/html/bagchee-react/"
+
+  echo "✓ UI deployed"
   cd "$PROJECT_ROOT"
-  echo "✓ UI deploy triggered (React build takes ~3-4 min)"
 }
 
 case "${1:-both}" in
@@ -30,7 +55,3 @@ case "${1:-both}" in
   both) deploy_api && deploy_ui ;;
   *)    echo "Usage: ./deploy.sh [api|ui|both]" && exit 1 ;;
 esac
-
-# Always reset link to UI service after deploying
-railway service link "$UI_SERVICE"
-echo "✓ Service link reset to UI"

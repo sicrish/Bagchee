@@ -321,9 +321,12 @@ const Checkout = () => {
         if (shipRes.data.status) {
           const active = shipRes.data.data.filter((o) => o.active || o.isActive);
           setShippingOptions(active);
-          // If cart has appliedShipping, validate it still exists; else default to first
-          if (!appliedShipping && active.length > 0) {
-            setAppliedShipping(active[0]);
+          // Always refresh from API so title/price changes in admin take effect immediately
+          if (active.length > 0) {
+            const fresh = appliedShipping
+              ? (active.find(o => o.id === appliedShipping.id) || active[0])
+              : active[0];
+            setAppliedShipping(fresh);
           }
         }
 
@@ -1680,7 +1683,7 @@ const Checkout = () => {
         </div>
       </header>
 
-      <main className="max-w-full mx-auto px-4 py-8 overflow-x-hidden">
+      <main className="w-full mx-auto px-4 py-8 overflow-x-hidden max-w-[100vw]">
         {/* Page title */}
 
 
@@ -2097,22 +2100,24 @@ const Checkout = () => {
                 ) : (
                   shippingOptions.map((option) => {
                     const price = getShippingPrice(option);
-                    // Estimated delivery date based on maxDayLimit
+                    // Estimated delivery date: shipping transit + product prep days + global shipping buffer
+                    const globalShipBuffer = Number(settings?.maxShippingDays || settings?.max_shipping_days || 0);
+                    const totalPrepDays = maxShipDays + globalShipBuffer;
                     const deliveryDate =
                       option.maxDayLimit > 0
                         ? (() => {
                           const d = new Date();
-                          d.setDate(d.getDate() + option.maxDayLimit + maxShipDays);
+                          d.setDate(d.getDate() + option.maxDayLimit + totalPrepDays);
                           return d.toLocaleDateString("en-US", {
                             day: "numeric",
                             month: "short",
                             year: "numeric",
                           });
                         })()
-                        : maxShipDays > 0
+                        : totalPrepDays > 0
                           ? (() => {
                             const d = new Date();
-                            d.setDate(d.getDate() + maxShipDays);
+                            d.setDate(d.getDate() + totalPrepDays);
                             return d.toLocaleDateString("en-US", {
                               day: "numeric",
                               month: "short",

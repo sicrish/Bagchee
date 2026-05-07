@@ -225,8 +225,8 @@ model Product {
   soldCount         Int       @default(0) @map("ordered_items")  // total units sold
 
   // --- Shipping ---
-  shipDays          Int?      @map("ship_in_days")
-  deliverDays       Int?      @map("deliver_in_days")
+  shipDays          String?   @map("ship_in_days")
+  deliverDays       String?   @map("deliver_in_days")
 
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime  @updatedAt
@@ -1189,6 +1189,9 @@ model Settings {
   paymentGatewayMode     String  @default("deferred") @map("payment_gateway_mode")
   newArrivalTime         String  @default("") @map("new_arrival_time")
   maxShippingDays        Int     @default(0)  @map("max_shipping_days")
+  orderAcceptedPromo     Boolean @default(true) @map("order_accepted_promo")
+  promoCode              String  @default("SAVE10") @map("promo_code")
+  promoMessage           String  @default("Thank you for choosing us. Use this code for 10% OFF on your next purchase.") @map("promo_message")
 
   // Per-currency wire transfer bank details
   bankNameUsd            String  @default("") @map("bank_name_usd")

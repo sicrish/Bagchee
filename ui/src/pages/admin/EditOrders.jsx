@@ -395,6 +395,24 @@ const EditOrders = () => {
     }
   };
 
+  const handlePrintInvoice = async () => {
+    try {
+      const token = localStorage.getItem('token') || (() => {
+        try { return JSON.parse(localStorage.getItem('auth') || '{}').token; } catch { return null; }
+      })();
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/orders/${id}/invoice`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      if (!res.ok) { toast.error('Failed to generate invoice'); return; }
+      const html = await res.text();
+      const win = window.open('', '_blank');
+      win.document.write(html);
+      win.document.close();
+    } catch {
+      toast.error('Failed to generate invoice');
+    }
+  };
+
   // Approve deferred order — changes status to "payment pending" + emails customer payment link
   const handleApproveOrder = async () => {
     if (!window.confirm('Approve this order and send a payment link to the customer?')) return;
@@ -440,7 +458,8 @@ const EditOrders = () => {
   // Jodit Config
   const config = useMemo(() => ({
     readonly: false,
-    height: 200,
+    height: 350,
+    minHeight: 200,
     toolbar: true,
     showCharsCounter: false,
     showWordsCounter: false,
@@ -846,8 +865,8 @@ const EditOrders = () => {
 
             {/* --- COMMENT --- */}
             <div className="grid grid-cols-12 gap-4 items-start mt-6">
-              <label className={labelClass}>Comment</label>
-              <div className="col-span-9 border border-gray-300 rounded overflow-hidden shadow-sm">
+              <label className="col-span-12 sm:col-span-3 text-left sm:text-right text-[11px] font-bold text-text-muted uppercase font-montserrat pt-2">Comment</label>
+              <div className="col-span-12 sm:col-span-9 border border-gray-300 rounded overflow-hidden shadow-sm min-h-[200px]">
                 <JoditEditor ref={editor} value={commentContent} config={config} onBlur={newContent => setCommentContent(newContent)} />
               </div>
             </div>
@@ -877,8 +896,8 @@ const EditOrders = () => {
             <div className="grid grid-cols-12 gap-4 items-center">
               <label className={labelClass}>Invoice</label>
               <div className="col-span-9">
-                <button type="button" className="bg-gray-100 border border-gray-300 px-3 py-1 rounded text-[11px] font-bold hover:bg-gray-200 flex items-center gap-1 text-text-muted">
-                  <Printer size={12} /> Print invoice
+                <button type="button" onClick={handlePrintInvoice} className="bg-gray-100 border border-gray-300 px-3 py-1 rounded text-[11px] font-bold hover:bg-gray-200 flex items-center gap-1 text-text-muted">
+                  <Printer size={12} /> Print / Download Invoice
                 </button>
               </div>
             </div>

@@ -179,9 +179,9 @@ const PRODUCT_INCLUDE = {
     tags:         { include: { tag: { select: { id: true, title: true } } } },
     formats:      { include: { format: { select: { id: true, title: true } } } },
     languages:    { include: { language: { select: { id: true, title: true } } } },
-    images:       { orderBy: { ord: 'asc' } },
-    tocImages:    { orderBy: { ord: 'asc' } },
-    sampleImages: { orderBy: { ord: 'asc' } },
+    images:       { orderBy: { ord: 'asc' }, take: 20 },
+    tocImages:    { orderBy: { ord: 'asc' }, take: 20 },
+    sampleImages: { orderBy: { ord: 'asc' }, take: 20 },
 };
 
 // Lightweight include for list/grid views (smaller response, faster queries)
@@ -281,8 +281,8 @@ export const save = async (req, res) => {
                 exclusiveFor:   req.body.exclusive_for || null,
                 rating:         Number(req.body.rating)      || 0,
                 ratedTimes:     Number(req.body.rated_times) || 0,
-                shipDays:       req.body.ship_days    ? (parseInt(req.body.ship_days)    || null) : null,
-                deliverDays:    req.body.deliver_days ? (parseInt(req.body.deliver_days) || null) : null,
+                shipDays:       req.body.ship_days    ? String(req.body.ship_days).trim()    || null : null,
+                deliverDays:    req.body.deliver_days ? String(req.body.deliver_days).trim() || null : null,
                 pagesDesc:      req.body.pages_desc   || null,
                 metaTitle:      req.body.meta_title       || null,
                 metaKeywords:   req.body.meta_keywords    || null,
@@ -363,8 +363,8 @@ export const update = async (req, res) => {
         if (req.body.total_pages  !== undefined) updateData.pages       = req.body.total_pages ? (parseInt(req.body.total_pages)  || null) : null;
         if (req.body.rating       !== undefined) updateData.rating      = Number(req.body.rating)      || 0;
         if (req.body.rated_times  !== undefined) updateData.ratedTimes  = parseInt(req.body.rated_times) || 0;
-        if (req.body.ship_days    !== undefined) updateData.shipDays    = req.body.ship_days    ? (parseInt(req.body.ship_days)    || null) : null;
-        if (req.body.deliver_days !== undefined) updateData.deliverDays = req.body.deliver_days ? (parseInt(req.body.deliver_days) || null) : null;
+        if (req.body.ship_days    !== undefined) updateData.shipDays    = req.body.ship_days    ? String(req.body.ship_days).trim()    || null : null;
+        if (req.body.deliver_days !== undefined) updateData.deliverDays = req.body.deliver_days ? String(req.body.deliver_days).trim() || null : null;
         if (req.body.pages_desc   !== undefined) updateData.pagesDesc   = req.body.pages_desc   || null;
         if (req.body.availability !== undefined) updateData.availability= parseInt(req.body.availability) || 0;
 

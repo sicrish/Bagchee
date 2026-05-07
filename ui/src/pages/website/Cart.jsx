@@ -118,9 +118,12 @@ const Cart = () => {
         if (shippingRes.data.status) {
           const active = shippingRes.data.data.filter(o => o.active || o.isActive);
           setShippingOptions(active);
-          // Auto-select first if none selected yet
-          if (!appliedShipping && active.length > 0) {
-            setAppliedShipping(active[0]);
+          // Always refresh from API so title/price changes in admin take effect immediately
+          if (active.length > 0) {
+            const fresh = appliedShipping
+              ? (active.find(o => o.id === appliedShipping.id) || active[0])
+              : active[0];
+            setAppliedShipping(fresh);
           }
         }
 
@@ -216,8 +219,8 @@ const Cart = () => {
   const finalShippingUSD = (hasOnlyGiftCards || !appliedShipping)
     ? 0
     : isTieredOption
-      ? getTieredShippingUsd(appliedShipping, totalBooks)
-      : (isFreeShippingUnlocked ? 0 : STANDARD_SHIPPING_FEE);
+      ? (Number(appliedShipping.priceUsd || appliedShipping.price_usd) || 0)
+      : (isFreeShippingUnlocked ? 0 : (Number(appliedShipping.priceUsd || appliedShipping.price_usd) || STANDARD_SHIPPING_FEE));
 
   // Pre-compute grand total so it's transparent and testable
   const membershipUsdForTotal = membershipAdded ? (getMembershipData().usd || 0) : 0;
@@ -334,6 +337,11 @@ const Cart = () => {
     navigate('/checkout');
   };
 
+  const createSlug = (title) => {
+    if (!title) return 'book';
+    return title.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');
+  };
+
   const getImageUrl = (image) => {
     if (!image) return 'https://placehold.co/80x110?text=No+Image';
     return image.startsWith('http') ? image : `${API_BASE_URL}${image}`;
@@ -425,7 +433,7 @@ const Cart = () => {
                       <div className="flex gap-4">
                         {/* Book cover */}
                         <Link
-                          to={`/books/${item.bagcheeId || item._id}/${item.slug || "book"}`}
+                          to={`/books/${item.bagcheeId || item._id}/${item.slug || createSlug(item.name || item.title)}`}
                           className="shrink-0"
                         >
                           <img
@@ -446,7 +454,7 @@ const Cart = () => {
                           <div className="flex justify-between gap-2 mb-1">
                             <div className="flex-1 min-w-0">
                               <Link
-                                to={`/books/${item.bagcheeId || item._id}/${item.slug || "book"}`}
+                                to={`/books/${item.bagcheeId || item._id}/${item.slug || createSlug(item.name || item.title)}`}
                                 className="font-semibold text-text-main hover:text-primary transition-colors leading-snug block"
                               >
                                 {item.name || item.title}
@@ -527,8 +535,8 @@ const Cart = () => {
             </div>
 
             {/* ─── MEMBERSHIP ROW ─── */}
-            {/* Show only if logged in and membership is not already active */}
-            {user && user.membership !== "active" && settings && (
+            {/* Show for guests and logged-in non-members */}
+            {(!user || user.membership !== "active") && settings && (
               <div className="bg-cream-100 border border-gray-200 shadow-sm overflow-hidden">
                 <div className="p-4 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
                   {/* Membership badge */}
@@ -686,9 +694,7 @@ const Cart = () => {
     const optId = option.id || option._id;
     const isTiered = TIERED_OPTION_IDS.has(optId);
     // Tiered options use book-count lookup; standard uses DB price / $12 fallback
-    const rawUsd = isTiered
-      ? getTieredShippingUsd(option, totalBooks)
-      : (Number(option.priceUsd || option.price_usd) || STANDARD_SHIPPING_FEE);
+    const rawUsd = Number(option.priceUsd || option.price_usd) || STANDARD_SHIPPING_FEE;
     // Free threshold only applies to standard (non-tiered) options
     const effectiveUsd = (isTiered || !isFreeShippingUnlocked) ? rawUsd : 0;
     const isSelected = (appliedShipping?.id || appliedShipping?._id) === optId;

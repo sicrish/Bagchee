@@ -57,9 +57,9 @@ export const saveBooksOfMonth = async (req, res) => {
 
 export const getActiveBooksOfMonth = async (req, res) => {
     try {
-        const today = new Date();
         const data = await prisma.booksOfMonth.findFirst({
-            where: { isActive: true, expiryDate: { gt: today } },
+            where: { isActive: true },
+            orderBy: { id: 'desc' },
             include: {
                 products: {
                     include: {

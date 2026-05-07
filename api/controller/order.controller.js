@@ -610,6 +610,7 @@ export const getOrderForPayment = async (req, res) => {
             currency: order.currency,
             status: order.status,
             items: order.items,
+            paymentType: order.paymentType,
         }});
     } catch (error) {
         res.status(500).json({ status: false, msg: 'Server Error' });
@@ -701,5 +702,104 @@ export const cancelOrder = async (req, res) => {
     } catch (error) {
         console.error('Cancel order error:', error);
         res.status(500).json({ status: false, msg: 'Failed to cancel order' });
+    }
+};
+
+// GET /orders/:id/invoice — returns print-ready HTML invoice (admin only)
+export const getInvoice = async (req, res) => {
+    try {
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) return res.status(400).json({ status: false, msg: 'Invalid ID' });
+
+        const order = await prisma.order.findUnique({
+            where: { id },
+            include: { customer: true, items: { include: { product: true } } }
+        });
+        if (!order) return res.status(404).json({ status: false, msg: 'Order not found' });
+
+        const orderNum  = order.orderNumber || order.id;
+        const currency  = order.currency || 'USD';
+        const esc       = (s) => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        const dateStr   = new Date(order.createdAt || Date.now()).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+
+        const shippingName = [order.shippingFirstName, order.shippingLastName].filter(Boolean).join(' ');
+        const shippingAddr = [order.shippingAddress1, order.shippingAddress2, order.shippingCity, order.shippingState, order.shippingPostcode, order.shippingCountry].filter(Boolean).join(', ');
+        const billingName  = [order.billingFirstName,  order.billingLastName ].filter(Boolean).join(' ');
+        const billingAddr  = [order.billingAddress1,   order.billingAddress2,  order.billingCity,  order.billingState,  order.billingPostcode,  order.billingCountry ].filter(Boolean).join(', ');
+
+        const rows = (order.items || []).map(item => `
+            <tr>
+              <td>${esc(item.name || item.product?.title || 'Item')}</td>
+              <td style="text-align:center">${Number(item.quantity) || 1}</td>
+              <td style="text-align:right">${currency} ${Number(item.price || 0).toFixed(2)}</td>
+              <td style="text-align:right">${currency} ${(Number(item.price || 0) * (Number(item.quantity) || 1)).toFixed(2)}</td>
+            </tr>`).join('');
+
+        const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Invoice #${esc(String(orderNum))}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Helvetica,Arial,sans-serif;font-size:13px;color:#2d2d2d;background:#fff;padding:30px}
+    .header{background:#008DDA;color:#fff;padding:24px 32px;border-radius:8px 8px 0 0;display:flex;justify-content:space-between;align-items:center}
+    .header h1{font-size:22px;font-weight:700}
+    .header p{font-size:12px;opacity:0.85;margin-top:2px}
+    .body{padding:28px 32px;border:1px solid #e6decd;border-top:none;border-radius:0 0 8px 8px}
+    .meta{display:flex;justify-content:space-between;margin-bottom:24px}
+    .meta-block{font-size:12px;line-height:1.7;color:#555}
+    .meta-block strong{display:block;font-size:13px;color:#2d2d2d;margin-bottom:4px}
+    table{width:100%;border-collapse:collapse;margin-top:8px}
+    th{text-align:left;padding:8px 6px;border-bottom:2px solid #008DDA;font-size:11px;text-transform:uppercase;color:#888}
+    td{padding:9px 6px;border-bottom:1px solid #e6decd;vertical-align:top}
+    .totals{margin-top:16px;text-align:right}
+    .totals table{width:auto;float:right}
+    .totals td{border:none;padding:4px 8px;font-size:13px}
+    .totals .grand{font-size:16px;font-weight:700;color:#008DDA;border-top:2px solid #008DDA}
+    .footer{margin-top:32px;text-align:center;font-size:11px;color:#aaa;border-top:1px solid #e6decd;padding-top:12px}
+    @media print{body{padding:0}@page{margin:15mm}}
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div><h1>Bagchee</h1><p>books &amp; more</p></div>
+    <div style="text-align:right"><p style="font-size:16px;font-weight:700">Invoice #${esc(String(orderNum))}</p><p>Date: ${dateStr}</p></div>
+  </div>
+  <div class="body">
+    <div class="meta">
+      ${shippingName ? `<div class="meta-block"><strong>Ship To</strong>${esc(shippingName)}<br/>${esc(shippingAddr)}</div>` : '<div></div>'}
+      ${billingName  ? `<div class="meta-block"><strong>Bill To</strong>${esc(billingName)}<br/>${esc(billingAddr)}</div>` : '<div></div>'}
+      <div class="meta-block" style="text-align:right">
+        <strong>Order Details</strong>
+        Status: ${esc(order.status || '—')}<br/>
+        Payment: ${esc(order.paymentType || '—')}<br/>
+        Shipping: ${esc(order.shippingType || '—')}
+      </div>
+    </div>
+
+    <table>
+      <thead><tr><th>Item</th><th style="text-align:center">Qty</th><th style="text-align:right">Unit Price</th><th style="text-align:right">Total</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+
+    <div class="totals">
+      <table>
+        ${order.shippingCost ? `<tr><td>Shipping</td><td>${currency} ${Number(order.shippingCost).toFixed(2)}</td></tr>` : ''}
+        <tr class="grand"><td>Grand Total</td><td>${currency} ${Number(order.total || 0).toFixed(2)}</td></tr>
+      </table>
+      <div style="clear:both"></div>
+    </div>
+  </div>
+  <div class="footer">&copy; ${new Date().getFullYear()} Bagchee. All rights reserved. &mdash; 4384/4A Ansari Road, New Delhi 110002, India</div>
+  <script>window.onload = () => window.print();</script>
+</body>
+</html>`;
+
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.send(html);
+    } catch (error) {
+        console.error('Get invoice error:', error);
+        res.status(500).json({ status: false, msg: 'Failed to generate invoice' });
     }
 };

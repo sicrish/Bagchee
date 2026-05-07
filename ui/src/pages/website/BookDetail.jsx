@@ -431,7 +431,8 @@ const BookDetail = () => {
   const sampleImages = book.sampleImages || book.sample_images || [];
   if (Array.isArray(sampleImages)) {
     sampleImages.forEach(imgObj => {
-      if (imgObj?.image) allImages.push(getFullImageUrl(imgObj.image));
+      const src = imgObj?.file || imgObj?.image;
+      if (src) allImages.push(getFullImageUrl(src));
     });
   }
 
@@ -439,7 +440,8 @@ const BookDetail = () => {
   const tocImages = book.tocImages || book.toc_images || [];
   if (Array.isArray(tocImages)) {
     tocImages.forEach(imgObj => {
-      if (imgObj?.image) allImages.push(getFullImageUrl(imgObj.image));
+      const src = imgObj?.file || imgObj?.image;
+      if (src) allImages.push(getFullImageUrl(src));
     });
   }
 
@@ -461,8 +463,16 @@ const BookDetail = () => {
     }).filter(Boolean).filter(c => c.name)
     : [];
 
-  // Tags
-  const tags = Array.isArray(book.productTags || book.product_tags) ? (book.productTags || book.product_tags).filter(Boolean) : [];
+  // Tags — Prisma returns book.tags as junction objects {tagId, tag:{id,title}}
+  const rawTags = book.tags || book.productTags || book.product_tags;
+  const tags = Array.isArray(rawTags)
+    ? rawTags.map(t => {
+        if (t?.tag?.id) return { id: t.tag.id, title: t.tag.title || '' };
+        if (t?.id) return { id: t.id, title: t.title || t.name || '' };
+        if (typeof t === 'string') return { id: t, title: t };
+        return null;
+      }).filter(t => t?.title)
+    : [];
 
   // 🟢 Helper Function: HTML tags ko hatane ke liye
   const stripHtml = (htmlString) => {
@@ -637,7 +647,7 @@ const BookDetail = () => {
               )} */}
 
               {/* Author */}
-              <p className="text-base text-gray-700 mb-2">
+              <p className="text-base text-gray-700 mb-1">
                 by{" "}
                 <Link
                   to={`/books/${createAuthorSlug(book.author)}`}
@@ -646,6 +656,15 @@ const BookDetail = () => {
                   {getAuthorName(book.author)}
                 </Link>
               </p>
+
+              {/* Page count */}
+              {(book.pages || book.total_pages || book.pagesDesc || book.pages_desc) && (
+                <p className="text-sm text-gray-500 mb-2 font-body">
+                  {book.pages || book.total_pages
+                    ? `${book.pages || book.total_pages} Pages`
+                    : (book.pagesDesc || book.pages_desc)}
+                </p>
+              )}
 
               {/* 🟢 Series Display */}
               {book.series && (
@@ -827,7 +846,7 @@ const BookDetail = () => {
                       <div className="flex items-center gap-2">
                         <Package className="w-4 h-4 text-primary shrink-0" />
                         <p className="text-xs text-gray-700 leading-tight">
-                          FREE delivery worldwide over $60
+                          FREE delivery worldwide over ${settings?.freeShippingOver || settings?.free_shipping_over || 60}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -1101,10 +1120,10 @@ const BookDetail = () => {
                     {tags.map((tag, idx) => (
                       <Link
                         key={idx}
-                        to={`/sale?tag=${encodeURIComponent(tag)}`}
+                        to={`/books?tags=${tag.id}`}
                         className="px-2.5 py-1 border border-gray-200 text-gray-600 text-xs rounded-full hover:border-primary hover:text-primary transition-colors"
                       >
-                        {tag}
+                        {tag.title}
                       </Link>
                     ))}
                   </div>
@@ -1254,17 +1273,18 @@ const BookDetail = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
                 {(() => {
                   // 1. Data Selection Logic
+                  const getImgSrc = (i) => i?.file || i?.image || (typeof i === 'string' ? i : null);
                   const dataList = previewTab === 'content'
-                    ? tocImages
+                    ? tocImages.map(i => getImgSrc(i)).filter(Boolean)
                     : (previewTab === 'images'
-                      ? [defaultImage, ...(book.relatedImages || book.related_images || []).map(i => i.image || i)]
-                      : sampleImages.map(i => i?.image || i)
+                      ? [defaultImage, ...(book.images || book.relatedImages || book.related_images || []).map(i => getImgSrc(i))]
+                      : sampleImages.map(i => getImgSrc(i))
                     ).filter(Boolean);
 
                   if (dataList.length === 0) return <EmptyState message={`No ${previewTab} available`} />;
 
                   return dataList.map((img, idx) => {
-                    const imgSrc = previewTab === 'content' ? img.image : (img.image || img);
+                    const imgSrc = img;
 
                     return (
                       <div

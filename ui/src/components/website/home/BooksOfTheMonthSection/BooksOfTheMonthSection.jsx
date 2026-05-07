@@ -1,6 +1,6 @@
 import React, { useState, memo, useCallback } from 'react';
 import axios from '../../../../utils/axiosConfig.js';
-import { ArrowRight, Star, Loader2 } from 'lucide-react';
+import { ArrowRight, Star, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query'; // 🟢 React Query Import
 import ProductCardGrid from '../../../website/ProductCardGrid.jsx';
@@ -22,9 +22,10 @@ const SectionSkeleton = () => (
 );
 
 const BooksOfTheMonthSection = () => {
-    // 🟢 Modal States
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [page, setPage] = useState(1);
+    const itemsPerPage = 6;
 
     // 🟢 React Query: Fetching Logic
     const { data: queryResponse, isLoading } = useQuery({
@@ -86,24 +87,46 @@ const BooksOfTheMonthSection = () => {
                 <div className="min-h-[300px]">
                     {isLoading ? (
                         <SectionSkeleton />
-                    ) : (
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-6 transition-all duration-500">
-                            {data?.products?.slice(0, 6).map((item) => (
-                                <div key={item.id} className="relative group/card transform transition-all duration-300 hover:-translate-y-1">
-                                    <div className="absolute top-2 right-2 z-20 transform group-hover/card:scale-110 transition-transform">
-                                        <div className="bg-accent p-1.5 rounded-full shadow-md">
-                                            <Star fill="#0B2F3A" size={12} className="text-text-main" />
-                                        </div>
-                                    </div>
+                    ) : (() => {
+                        const allProducts = data?.products || [];
+                        const totalPages = Math.ceil(allProducts.length / itemsPerPage);
+                        const pageProducts = allProducts.slice((page - 1) * itemsPerPage, page * itemsPerPage);
+                        return (
+                            <div className="relative">
+                                <button
+                                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                                    disabled={page === 1}
+                                    className={`absolute top-1/2 -left-2 md:-left-5 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 bg-cream-100 border border-cream-200 rounded-full flex items-center justify-center text-text-muted shadow-lg z-20 transition-all duration-300 ${page === 1 ? 'opacity-30 cursor-not-allowed' : 'hover:text-primary hover:border-primary hover:scale-110'}`}
+                                >
+                                    <ChevronLeft size={20} />
+                                </button>
 
-                                    <ProductCardGrid
-                                        data={item.product}
-                                        onQuickView={handleOpenModal}
-                                    />
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-6 transition-all duration-500">
+                                    {pageProducts.map((item) => (
+                                        <div key={item.id} className="relative group/card transform transition-all duration-300 hover:-translate-y-1">
+                                            <div className="absolute top-2 right-2 z-20 transform group-hover/card:scale-110 transition-transform">
+                                                <div className="bg-accent p-1.5 rounded-full shadow-md">
+                                                    <Star fill="#0B2F3A" size={12} className="text-text-main" />
+                                                </div>
+                                            </div>
+                                            <ProductCardGrid
+                                                data={item.product}
+                                                onQuickView={handleOpenModal}
+                                            />
+                                        </div>
+                                    ))}
                                 </div>
-                            ))}
-                        </div>
-                    )}
+
+                                <button
+                                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={page >= totalPages}
+                                    className={`absolute top-1/2 -right-2 md:-right-5 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 bg-cream-100 border border-cream-200 rounded-full flex items-center justify-center text-text-muted shadow-lg z-20 transition-all duration-300 ${page >= totalPages ? 'opacity-30 cursor-not-allowed' : 'hover:text-primary hover:border-primary hover:scale-110'}`}
+                                >
+                                    <ChevronRight size={20} />
+                                </button>
+                            </div>
+                        );
+                    })()}
                 </div>
             </div>
 

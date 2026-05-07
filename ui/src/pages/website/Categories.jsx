@@ -181,7 +181,7 @@ const TagPill = ({ tag }) => {
   return (
     <button
       type="button"
-      onClick={() => tag.slug && navigate(`/books/${tag.slug}`)}
+      onClick={() => navigate(`/books?tags=${tag.id}`)}
       className="w-full flex items-center gap-3 bg-primary hover:bg-primary/90 text-white rounded-lg px-4 py-3 transition-colors duration-150"
     >
       <Tag size={16} className="flex-shrink-0 opacity-90" />

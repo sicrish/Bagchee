@@ -92,8 +92,9 @@ const OrderStatus = () => {
         const t = paymentMethod.toLowerCase();
         const s = orderStatus;
         return (t.includes('wire') || t.includes('bank transfer') || t.includes('western union'))
-            && s !== 'paid' && s !== 'delivered' && s !== 'completed' && s !== 'cancelled';
+            && s !== 'paid' && s !== 'delivered' && s !== 'completed' && s !== 'cancelled' && s !== 'in process' && s !== 'in_process';
     })();
+    const isPurchaseOrder = paymentMethod.toLowerCase().includes('purchase order');
 
     const shippingName = order.shippingFirstName
         ? `${order.shippingFirstName} ${order.shippingLastName}`.trim()
@@ -315,6 +316,16 @@ const OrderStatus = () => {
                                             Use order <strong>#{orderNum}</strong> as your payment reference.
                                         </p>
                                     )}
+                                </div>
+                            )}
+
+                            {/* Purchase Order net-30 notice */}
+                            {isPurchaseOrder && (
+                                <div className="rounded-xl bg-blue-50 border border-blue-200 p-4">
+                                    <p className="text-xs font-black text-blue-800 uppercase tracking-wide mb-2">Purchase Order</p>
+                                    <p className="text-xs text-blue-700 leading-relaxed">
+                                        Due. Net 30. Please Pay within 30 days when this invoice is issued.
+                                    </p>
                                 </div>
                             )}
 

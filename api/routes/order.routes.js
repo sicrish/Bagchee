@@ -22,6 +22,7 @@ router.get("/admin/get/:id", adminAuth, OrderController.getOrderById);
 router.get("/list",         adminAuth, OrderController.getAllOrders);
 router.patch("/update/:id", adminAuth, OrderController.updateOrder);
 router.delete("/delete/:id",adminAuth, OrderController.deleteOrder);
+router.get("/:id/invoice",                 adminAuth, OrderController.getInvoice);
 router.post("/:id/approve",                adminAuth, OrderController.approveOrder);
 router.post("/:id/resend-payment-link",    adminAuth, OrderController.resendPaymentLink);
 router.post("/:id/send-shipped-email", adminAuth, OrderController.sendShippedEmail);

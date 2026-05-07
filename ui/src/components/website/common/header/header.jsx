@@ -1196,7 +1196,7 @@ const SearchSuggestions = memo(({ suggestions, isSearching, searchTerm, onSelect
               linkTo = item.slug ? `/publisher/${item.slug}` : `/books?keyword=${encodeURIComponent(displayTitle)}`;
             } else if (type === 'tag') {
               typeLabel = "Tag";
-              linkTo = `/books?tag=${encodeURIComponent(displayTitle)}`;
+              linkTo = `/books?tags=${item.id}`;
             }
 
             return (

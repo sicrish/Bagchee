@@ -28,6 +28,8 @@ const EditSettings = () => {
         free_shipping_over: '',
         max_shipping_days: '',
         order_accepted_promo: '',
+        promo_code: '',
+        promo_message: '',
         show_promo_over_usd: '',
         show_promo_over_eur: '',
         topbar_promotion: 'Yes',
@@ -73,7 +75,9 @@ const EditSettings = () => {
                 new_arrival_time: settingsData.new_arrival_time || '',
                 free_shipping_over: settingsData.freeShippingOver ?? settingsData.free_shipping_over ?? '',
                 max_shipping_days: settingsData.maxShippingDays ?? settingsData.max_shipping_days ?? '',
-                order_accepted_promo: settingsData.order_accepted_promo || '',
+                order_accepted_promo: settingsData.orderAcceptedPromo === true ? 'Yes' : (settingsData.order_accepted_promo || ''),
+                promo_code: settingsData.promoCode || settingsData.promo_code || '',
+                promo_message: settingsData.promoMessage || settingsData.promo_message || '',
                 show_promo_over_usd: settingsData.showPromoOverUsd ?? settingsData.show_promo_over_usd ?? '',
                 show_promo_over_eur: settingsData.showPromoOverEur ?? settingsData.show_promo_over_eur ?? '',
                 topbar_promotion: (settingsData.topbarPromotion === true || settingsData.topbar_promotion === 'Yes') ? 'Yes' : 'No',
@@ -262,6 +266,22 @@ const EditSettings = () => {
                                     <option value="Yes">Yes</option>
                                     <option value="No">No</option>
                                 </select>
+                            </div>
+                        </div>
+
+                        {/* --- Promo Code --- */}
+                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4">
+                            <label className={labelClass}>Promo Code</label>
+                            <div className="col-span-12 md:col-span-9">
+                                <input name="promo_code" value={formData.promo_code} onChange={handleChange} className={inputClass} placeholder="e.g. SAVE10" />
+                            </div>
+                        </div>
+
+                        {/* --- Promo Message --- */}
+                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4">
+                            <label className={labelClass}>Promo Message</label>
+                            <div className="col-span-12 md:col-span-9">
+                                <textarea name="promo_message" value={formData.promo_message} onChange={handleChange} className={inputClass} rows={2} placeholder="Thank you for choosing us. Use this code for 10% OFF on your next purchase." />
                             </div>
                         </div>
 

@@ -1,18 +1,13 @@
 /**
  * fixShipDeliverDays.js
  *
- * The main migration imported ship_in_days / deliver_in_days from MySQL, but
- * toInt(0, default) returns 0 (not the default), so every product whose old-DB
- * column was 0 came in as 0 in Neon.
- *
- * This script patches those products. It tries to connect to the old MySQL DB
- * first. If MySQL is reachable, it reads the real per-product values and writes
- * them; otherwise it falls back to resetting all-zero rows to (3, 7).
+ * Imports ship_in_days (e.g. "1-2"), deliver_in_days (e.g. "10-18"), and
+ * total_pages (e.g. "xv+244p., 22cm.") from the old MySQL bagchee DB into Neon.
+ * MySQL id == Neon id (confirmed — IDs were preserved during migration).
  *
  * Run from the api/ directory:
  *   node scripts/fixShipDeliverDays.js
- *   # or with an explicit fallback (no MySQL needed):
- *   node scripts/fixShipDeliverDays.js --fallback
+ *   node scripts/fixShipDeliverDays.js --fallback   (apply defaults only, no MySQL)
  */
 
 import 'dotenv/config';
@@ -21,31 +16,29 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 const log = (m) => console.log(`[${new Date().toISOString().slice(11, 19)}] ${m}`);
 
-const DEFAULT_SHIP_DAYS    = 3;
-const DEFAULT_DELIVER_DAYS = 7;
+const DEFAULT_SHIP    = '3-5';
+const DEFAULT_DELIVER = '10-18';
 
-// ── Fallback mode: reset all products where shipDays=0 or deliverDays=0 ──────
+// ── Fallback: set defaults only for products with no ship data ────────────────
 
 async function applyDefaults() {
-    log('Fallback mode: setting defaults for products with 0-value ship/deliver days');
-
+    log('Fallback mode: setting defaults for products with missing ship/deliver days');
     const [shipResult, deliverResult] = await Promise.all([
         prisma.product.updateMany({
-            where: { shipDays: { lte: 0 } },
-            data: { shipDays: DEFAULT_SHIP_DAYS },
+            where: { OR: [{ shipDays: null }, { shipDays: '' }] },
+            data: { shipDays: DEFAULT_SHIP },
         }),
         prisma.product.updateMany({
-            where: { deliverDays: { lte: 0 } },
-            data: { deliverDays: DEFAULT_DELIVER_DAYS },
+            where: { OR: [{ deliverDays: null }, { deliverDays: '' }] },
+            data: { deliverDays: DEFAULT_DELIVER },
         }),
     ]);
-
-    log(`  shipDays   reset → ${DEFAULT_SHIP_DAYS}:    ${shipResult.count} products updated`);
-    log(`  deliverDays reset → ${DEFAULT_DELIVER_DAYS}: ${deliverResult.count} products updated`);
+    log(`  shipDays   defaults applied: ${shipResult.count} products`);
+    log(`  deliverDays defaults applied: ${deliverResult.count} products`);
     log('Done.');
 }
 
-// ── MySQL mode: copy actual values from old DB ────────────────────────────────
+// ── MySQL mode: copy real values from old DB ──────────────────────────────────
 
 async function copyFromMysql() {
     let mysql;
@@ -58,63 +51,68 @@ async function copyFromMysql() {
 
     let pool;
     try {
+        // Try socket auth first (for servers where root uses unix socket, no password)
+        const socketPath = process.env.OLD_DB_SOCKET || '/run/mysqld/mysqld.sock';
+        const useSocket = !process.env.OLD_DB_HOST && !process.env.OLD_DB_PASS;
         pool = await mysql.createPool({
-            host:            process.env.OLD_DB_HOST     || '127.0.0.1',
-            port:            parseInt(process.env.OLD_DB_PORT || '3306'),
-            user:            process.env.OLD_DB_USER     || 'bagchee_migrator',
-            password:        process.env.OLD_DB_PASS     || 'migrator_pw',
-            database:        process.env.OLD_DB_NAME     || 'bagchee_old',
-            connectionLimit: 3,
+            ...(useSocket
+                ? { socketPath }
+                : { host: process.env.OLD_DB_HOST || '127.0.0.1', port: parseInt(process.env.OLD_DB_PORT || '3306') }
+            ),
+            user:            process.env.OLD_DB_USER || 'root',
+            password:        process.env.OLD_DB_PASS || '',
+            database:        process.env.OLD_DB_NAME || 'bagchee',
+            connectionLimit: 5,
         });
-        // quick connectivity check
         await pool.query('SELECT 1');
         log('MySQL connected');
     } catch (err) {
-        log(`MySQL unreachable (${err.message.slice(0, 60)}) — switching to fallback mode`);
+        log(`MySQL unreachable (${err.message.slice(0, 80)}) — switching to fallback mode`);
         return applyDefaults();
     }
 
     try {
-        log('Reading ship_in_days / deliver_in_days from old MySQL products table…');
+        log('Reading ship_in_days, deliver_in_days, total_pages from old MySQL…');
         const [rows] = await pool.query(
-            'SELECT product_id, ship_in_days, deliver_in_days FROM products WHERE ship_in_days > 0 OR deliver_in_days > 0'
+            `SELECT id, ship_in_days, deliver_in_days, total_pages
+             FROM products
+             WHERE ship_in_days != '' OR deliver_in_days != '' OR (total_pages IS NOT NULL AND total_pages != '')`
         );
-        log(`  Found ${rows.length} products with non-zero values in old DB`);
+        log(`  Found ${rows.length} rows with data in old DB`);
 
-        let updated = 0;
+        let updated = 0, skipped = 0;
         const BATCH = 500;
+
         for (let i = 0; i < rows.length; i += BATCH) {
             const chunk = rows.slice(i, i + BATCH);
             await Promise.all(chunk.map(async (r) => {
-                const ship    = r.ship_in_days    > 0 ? r.ship_in_days    : DEFAULT_SHIP_DAYS;
-                const deliver = r.deliver_in_days > 0 ? r.deliver_in_days : DEFAULT_DELIVER_DAYS;
+                const data = {};
+
+                const ship = r.ship_in_days ? String(r.ship_in_days).trim() : null;
+                if (ship) data.shipDays = ship;
+
+                const deliver = r.deliver_in_days ? String(r.deliver_in_days).trim() : null;
+                if (deliver) data.deliverDays = deliver;
+
+                const pages = r.total_pages ? String(r.total_pages).trim() : null;
+                if (pages) data.pagesDesc = pages;
+
+                if (!Object.keys(data).length) { skipped++; return; }
+
                 try {
-                    await prisma.product.update({
-                        where: { id: r.product_id },
-                        data: { shipDays: ship, deliverDays: deliver },
-                    });
+                    await prisma.product.update({ where: { id: r.id }, data });
                     updated++;
                 } catch {
-                    // product was deleted or id mismatch — skip
+                    skipped++;
                 }
             }));
-            if ((i + BATCH) % 5000 < BATCH) log(`  progress: ${i + BATCH}`);
+            if (i > 0 && i % 5000 < BATCH) log(`  progress: ${i + BATCH}`);
         }
-        log(`  Updated from old DB: ${updated} products`);
 
-        // Now apply defaults to anything still at 0 (products that weren't in old DB rows)
-        const [shipResult, deliverResult] = await Promise.all([
-            prisma.product.updateMany({
-                where: { shipDays: { lte: 0 } },
-                data: { shipDays: DEFAULT_SHIP_DAYS },
-            }),
-            prisma.product.updateMany({
-                where: { deliverDays: { lte: 0 } },
-                data: { deliverDays: DEFAULT_DELIVER_DAYS },
-            }),
-        ]);
-        if (shipResult.count > 0)    log(`  shipDays   fallback default applied: ${shipResult.count} products`);
-        if (deliverResult.count > 0) log(`  deliverDays fallback default applied: ${deliverResult.count} products`);
+        log(`  Updated: ${updated} products, skipped/not-found: ${skipped}`);
+
+        // Fill any remaining products that still have no ship data
+        await applyDefaults();
 
         log('Done.');
     } finally {
@@ -122,10 +120,7 @@ async function copyFromMysql() {
     }
 }
 
-// ── Entry point ───────────────────────────────────────────────────────────────
-
 const forceFallback = process.argv.includes('--fallback');
-
 (forceFallback ? applyDefaults() : copyFromMysql())
     .catch(e => { console.error(e); process.exit(1); })
     .finally(() => prisma.$disconnect());

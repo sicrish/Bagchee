@@ -236,11 +236,10 @@ const Footer = () => {
         }
 
         // Ab Email print karo (Mail Icon ke sath)
-        const emailLink = `<a href="mailto:${line}" style="color: inherit; text-decoration: none;">${line}</a>`;
         resultHtml += `
           <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 8px; line-height: 1.5;">
             ${mailIcon}
-            <div style="flex: 1; word-break: break-word;">${emailLink}</div>
+            <div style="flex: 1; word-break: break-word;">${line}</div>
           </div>
         `;
       } else {
@@ -260,6 +259,11 @@ const Footer = () => {
     }
 
     return resultHtml;
+  };
+
+  const stripMailto = (html) => {
+    if (!html) return html;
+    return html.replace(/<a[^>]*href=["']mailto:[^"']*["'][^>]*>(.*?)<\/a>/gi, '$1');
   };
 
   const FooterColumn = ({ title, content, colKey }) => {
@@ -291,7 +295,7 @@ const Footer = () => {
           <div
             className="footer-dynamic-content text-gray-300 text-sm"
             onClick={handleContentClick}
-            dangerouslySetInnerHTML={createSafeHtml(content)}
+            dangerouslySetInnerHTML={createSafeHtml(stripMailto(content))}
           />
         </div>
       </div>
