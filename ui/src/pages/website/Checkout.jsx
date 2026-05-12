@@ -276,8 +276,11 @@ const Checkout = () => {
       } catch (e) {
         /* ignore */
       }
+    } else if (membershipAdded) {
+      // Membership requires an account — send guest to login immediately
+      navigate('/login', { state: { from: '/checkout' } });
     }
-  }, [navigate]);
+  }, [navigate, membershipAdded]);
 
   // ─── Load saved addresses + gift card wallet balance ───
   useEffect(() => {
@@ -353,11 +356,14 @@ const Checkout = () => {
   const maxShipDays = cart
     .filter(i => i.itemType !== 'gift_card')
     .reduce((max, item) => {
-      const raw = String(item.shipDays ?? item.ship_days ?? '0');
+      const raw = String(item.shipDays || item.ship_days || '0');
       const parts = raw.split('-').map(Number).filter(n => !isNaN(n));
       const d = parts.length > 0 ? Math.max(...parts) : 0;
       return d > max ? d : max;
     }, 0);
+
+  // Total prep days = product dispatch time + global shipping buffer from settings
+  const totalPrepDays = maxShipDays + Number(settings?.maxShippingDays || 0);
 
   const getShippingPrice = (option) => {
     if (!option) return 0;
@@ -2111,9 +2117,6 @@ const Checkout = () => {
                 ) : (
                   shippingOptions.map((option) => {
                     const price = getShippingPrice(option);
-                    // Estimated delivery date: shipping transit + product prep days + global shipping buffer
-                    const globalShipBuffer = Number(settings?.maxShippingDays || settings?.max_shipping_days || 0);
-                    const totalPrepDays = maxShipDays + globalShipBuffer;
                     const deliveryDate =
                       option.maxDayLimit > 0
                         ? (() => {
@@ -2951,13 +2954,22 @@ const Checkout = () => {
                           option.maxDayLimit > 0
                             ? (() => {
                               const d = new Date();
-                              d.setDate(d.getDate() + option.maxDayLimit);
+                              d.setDate(d.getDate() + option.maxDayLimit + totalPrepDays);
                               return d.toLocaleDateString("en-US", {
                                 day: "numeric",
                                 month: "short",
                               });
                             })()
-                            : null;
+                            : totalPrepDays > 0
+                              ? (() => {
+                                const d = new Date();
+                                d.setDate(d.getDate() + totalPrepDays);
+                                return d.toLocaleDateString("en-US", {
+                                  day: "numeric",
+                                  month: "short",
+                                });
+                              })()
+                              : null;
                         return (
                           <label
                             key={option.id}

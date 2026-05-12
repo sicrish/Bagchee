@@ -474,10 +474,36 @@ const EditOrders = () => {
       `<li>${p.name || p.product?.title || 'Item'} &times; ${p.quantity || 1} &mdash; ${currency} ${Number(p.price || 0).toFixed(2)}</li>`
     ).join('');
     const total = `${currency} ${Number(formData.total || 0).toFixed(2)}`;
-    const link  = paymentLink || '[Payment link will be sent separately]';
 
-    setEmailSubject(`Action Required: Payment Link for Bagchee Order ${orderNum}`);
-    setEmailBody(`<p>Dear ${customerName},</p>
+    const paymentType = (formData.payment_type || '').toLowerCase();
+    const isWireTransfer = paymentType.includes('wire') || paymentType.includes('bank transfer') || paymentType.includes('western union');
+
+    if (isWireTransfer) {
+      // Find wire transfer payment method to get bank details from additionalText
+      const wireMethod = paymentMethods.find(pm => {
+        const t = (pm.title || pm.type || '').toLowerCase();
+        return t.includes('wire') || t.includes('bank transfer') || t.includes('western union');
+      });
+      const bankDetails = wireMethod?.additionalText || '[Bank details not found — please check admin payment settings]';
+
+      setEmailSubject(`Action Required: Payment Information for Bagchee Order #${orderNum}`);
+      setEmailBody(`<p>Hi ${firstName || customerName},</p>
+<p>Thank you for your purchase with Bagchee! We're excited to confirm your order.</p>
+<p><strong>Order Summary:</strong></p>
+<p><strong>Order Number:</strong> #${orderNum}<br>
+<strong>Items:</strong><ul>${itemRows}</ul>
+<strong>Total Amount:</strong> ${total}<br>
+<strong>Due:</strong> ${dueDate}</p>
+<p><strong>Payment Instructions:</strong></p>
+${bankDetails}
+<p><em>Note: Please use your order number (#${orderNum}) as the reference for your transfer.</em></p>
+<p>We will notify you when your order is processed.</p>
+<p>Please contact customer support for any questions or concerns.</p>
+<p>Best regards,<br><strong>Bagchee</strong></p>`);
+    } else {
+      const link = paymentLink || '[Payment link will be sent separately]';
+      setEmailSubject(`Action Required: Payment Link for Bagchee Order ${orderNum}`);
+      setEmailBody(`<p>Dear ${customerName},</p>
 <p>Thank you for your order! We have received and approved your following order request.</p>
 <p><strong>Order Number:</strong> ${orderNum}<br>
 <strong>Items:</strong><ul>${itemRows}</ul>
@@ -487,6 +513,7 @@ const EditOrders = () => {
 <a href="${link}" style="color:#008DDA;font-weight:bold;">${link}</a></p>
 <p><em>Note: Your order will be processed immediately upon receipt of this payment.</em></p>
 <p>Thanks,<br><strong>Bagchee Team</strong></p>`);
+    }
     setEmailModalOpen(true);
   };
 
