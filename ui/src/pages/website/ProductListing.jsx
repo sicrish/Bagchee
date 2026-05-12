@@ -96,7 +96,11 @@ const ProductListing = ({ type }) => {
 
                 if (catRes.data.status) {
                     const flatCategories = catRes.data.data; // flat array, all categories
-                    const treeData = buildCategoryTree(flatCategories);
+                    let treeData = buildCategoryTree(flatCategories);
+                    // Skip single artificial root node (e.g. "Root Category")
+                    if (treeData.length === 1 && treeData[0].children?.length > 0) {
+                        treeData = treeData[0].children;
+                    }
                     setAllCategories(treeData);
                     setFlatCats(flatCategories);
 
@@ -137,17 +141,20 @@ const ProductListing = ({ type }) => {
                             setPageTitle(t);
                             setBaseTitleRef(t);
                             // Special pages (sale, bestsellers, etc.) — show first level of titled categories.
-                            // The DB has invisible root placeholders (id=1, id=2) with empty titles; skip them
-                            // and show their children (the actual named book categories) instead.
+                            // Skip artificial root nodes like "Root Category" and show their children instead.
                             const rootCats = flatCategories.filter(c => !(c.parentId || c.parentid) || c.level === 0);
                             const visibleRoots = rootCats.filter(c => c.title || c.categorytitle);
-                            if (visibleRoots.length > 0) {
-                                setSubcategoriesList(visibleRoots);
+                            const meaningfulRoots = visibleRoots.filter(c => {
+                                const title = (c.title || c.categorytitle || '').trim().toLowerCase();
+                                return title !== 'root category';
+                            });
+                            if (meaningfulRoots.length > 0) {
+                                setSubcategoriesList(meaningfulRoots);
                             } else {
-                                const invisibleIds = new Set(rootCats.map(c => String(c.id || c._id)));
+                                const skipIds = new Set(visibleRoots.map(c => String(c.id || c._id)));
                                 const firstLevel = flatCategories.filter(c => {
                                     const pid = String(c.parentId || c.parentid || '');
-                                    return invisibleIds.has(pid) && (c.title || c.categorytitle);
+                                    return skipIds.has(pid) && (c.title || c.categorytitle);
                                 });
                                 setSubcategoriesList(firstLevel);
                             }

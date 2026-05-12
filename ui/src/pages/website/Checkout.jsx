@@ -353,7 +353,9 @@ const Checkout = () => {
   const maxShipDays = cart
     .filter(i => i.itemType !== 'gift_card')
     .reduce((max, item) => {
-      const d = parseInt(item.shipDays ?? item.ship_days ?? 0) || 0;
+      const raw = String(item.shipDays ?? item.ship_days ?? '0');
+      const parts = raw.split('-').map(Number).filter(n => !isNaN(n));
+      const d = parts.length > 0 ? Math.max(...parts) : 0;
       return d > max ? d : max;
     }, 0);
 
@@ -760,6 +762,12 @@ const Checkout = () => {
 
   // ─── Place order ───
   const handlePlaceOrder = async () => {
+    // Membership requires a logged-in account
+    if (membershipAdded && !user) {
+      toast.error("Please sign in or create an account to purchase a membership.");
+      setShowLoginDropdown(true);
+      return;
+    }
     // Validation
     if (user) {
       if (!selectedAddress && !hasOnlyGiftCards) {
@@ -1692,8 +1700,10 @@ const Checkout = () => {
         {!user && (
           <div className="max-w-4xl mx-auto mb-6 bg-primary/5 border border-primary/20 rounded p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <p className="text-sm text-gray-600">
-              <span className="font-semibold text-text-main">Have an account?</span>{" "}
-              Sign in for faster checkout — your addresses and order history will be saved.
+              {membershipAdded
+                ? <><span className="font-semibold text-text-main">You must be logged in to purchase a membership.</span>{" "}Please sign in or create an account to continue.</>
+                : <><span className="font-semibold text-text-main">Have an account?</span>{" "}Sign in for faster checkout — your addresses and order history will be saved.</>
+              }
             </p>
             <button
               type="button"
@@ -2129,15 +2139,15 @@ const Checkout = () => {
                     return (
                       <label
                         key={option.id}
-                        className={`flex items-center justify-between px-4 py-3 border cursor-pointer transition-all ${appliedShipping?.id === option.id ? "border-primary bg-blue-50" : "border-gray-200 hover:border-primary"}`}
+                        className={`flex items-start justify-between px-4 py-3 border cursor-pointer transition-all ${appliedShipping?.id === option.id ? "border-primary bg-blue-50" : "border-gray-200 hover:border-primary"}`}
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-start gap-3">
                           <input
                             type="radio"
                             name="checkoutShipping"
                             checked={appliedShipping?.id === option.id}
                             onChange={() => setAppliedShipping(option)}
-                            className="w-3.5 h-3.5 text-primary border-gray-400 focus:ring-primary"
+                            className="w-3.5 h-3.5 text-primary border-gray-400 focus:ring-primary mt-0.5 shrink-0"
                           />
                           <div>
                             <span className="text-sm text-text-main font-medium">
@@ -2150,7 +2160,7 @@ const Checkout = () => {
                             )}
                           </div>
                         </div>
-                        <span className="text-sm font-bold text-text-main">
+                        <span className="text-sm font-bold text-text-main shrink-0 mt-0.5">
                           {price === 0 ? (
                             <span className="text-primary">Free</span>
                           ) : (

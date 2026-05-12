@@ -19,6 +19,7 @@ import { PrismaClient } from '@prisma/client';
 import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
 import path from 'path';
+import { execSync } from 'child_process';
 
 const prisma = new PrismaClient();
 
@@ -32,6 +33,7 @@ const log = (m) => console.log(`[${new Date().toISOString().slice(11,19)}] ${m}`
 
 // Common image root locations on Bagchee VPS (tried in order)
 const IMAGE_ROOTS = (process.env.IMAGE_ROOT ? [process.env.IMAGE_ROOT] : [
+    '/var/www/html/bagchee/assets/images',
     '/var/www/bagchee.com/webroot/assets/images',
     '/var/www/bagchee.com/assets/images',
     '/var/www/www.bagchee.com/webroot/assets/images',
@@ -46,17 +48,29 @@ const GALLERY_SUBDIRS = ['books', 'products', 'items', 'gallery', ''];
 
 /**
  * Resolve a filename to an actual path on disk.
- * Tries each IMAGE_ROOT + each subdir combination.
+ * First tries flat subdirectory combinations, then falls back to recursive `find`
+ * to handle year/month/productId nested structures.
  */
 function findFile(filename, subdirs = COVER_SUBDIRS) {
     if (!filename) return null;
-    // Strip any leading slashes or path components — we only want the bare filename
     const bare = path.basename(filename);
+    // 1. Fast flat check
     for (const root of IMAGE_ROOTS) {
         for (const sub of subdirs) {
             const full = sub ? path.join(root, sub, bare) : path.join(root, bare);
             if (fs.existsSync(full)) return full;
         }
+    }
+    // 2. Recursive fallback (handles year/month/productId directory trees)
+    for (const root of IMAGE_ROOTS) {
+        if (!fs.existsSync(root)) continue;
+        try {
+            const result = execSync(
+                `find ${root} -name ${JSON.stringify(bare)} -type f 2>/dev/null | head -1`,
+                { encoding: 'utf8', timeout: 5000 }
+            ).trim();
+            if (result) return result;
+        } catch { /* skip */ }
     }
     return null;
 }

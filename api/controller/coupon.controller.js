@@ -1,5 +1,5 @@
 import prisma from '../lib/prisma.js';
-import nodemailer from 'nodemailer';
+import { createTransporter } from '../lib/mailer.js';
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -288,10 +288,7 @@ export const sendCouponEmail = async (req, res) => {
 
         if (recipientEmails.length === 0) return res.status(400).json({ status: false, msg: 'No valid email addresses found for this recipient group.' });
 
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
-        });
+        const transporter = createTransporter();
 
         const shopUrl = process.env.FRONTEND_URL || 'https://bagchee.com';
         const subject = `Your Coupon Code: ${coupon.code} – Bagchee`;

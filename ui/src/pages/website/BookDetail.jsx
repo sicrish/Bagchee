@@ -657,14 +657,6 @@ const BookDetail = () => {
                 </Link>
               </p>
 
-              {/* Page count */}
-              {(book.pages || book.total_pages || book.pagesDesc || book.pages_desc) && (
-                <p className="text-sm text-gray-500 mb-2 font-body">
-                  {book.pages || book.total_pages
-                    ? `${book.pages || book.total_pages} Pages`
-                    : (book.pagesDesc || book.pages_desc)}
-                </p>
-              )}
 
               {/* 🟢 Series Display */}
               {book.series && (
@@ -741,7 +733,13 @@ const BookDetail = () => {
                   {/* Pages Pill */}
                   {(book.pagesDesc || book.pages_desc || book.pages || book.total_pages) && (
                     <span className="inline-flex items-center bg-gray-100 text-gray-600 text-[10px] font-bold px-3 py-1.5 rounded-full border border-gray-200 uppercase tracking-widest font-montserrat">
-                      {book.pagesDesc || book.pages_desc || `${book.pages || book.total_pages} Pages`}
+                      {(() => {
+                        const n = book.pages || book.total_pages;
+                        if (n) return `${n} Pages`;
+                        const raw = book.pagesDesc || book.pages_desc || '';
+                        const m = raw.match(/^(\d+)/);
+                        return m ? `${m[1]} Pages` : null;
+                      })()}
                     </span>
                   )}
 
@@ -1197,6 +1195,7 @@ const BookDetail = () => {
                       )}
                     </div>
                     <div className="p-2">
+                      <p className="text-xs font-semibold text-text-main line-clamp-2 mb-1">{relatedBook.title}</p>
                       <p className="text-sm font-bold text-primary">
                         {formatPrice(relMrp, Number(relatedBook.inrPrice || relatedBook.inr_price || 0), hasRelatedDiscount ? relSell : relMrp)}
                       </p>
@@ -1853,13 +1852,13 @@ const MembershipPromoBox = ({ formatPrice, isChecked, onToggle, settingsData }) 
   return (
     <label className="bg-gray-50 border border-gray-100 rounded p-4 mb-4 flex items-start gap-3 shadow-sm cursor-pointer group hover:border-primary/30 transition-all block">
       <div className="relative flex items-center mt-1">
-        {/* <input
+        <input
           type="checkbox"
           checked={isChecked}
           onChange={onToggle}
           className="peer h-5 w-5 cursor-pointer appearance-none rounded border-2 border-gray-300 bg-white checked:bg-primary checked:border-primary transition-all"
         />
-        <Check size={14} strokeWidth={4} className="absolute text-white opacity-0 peer-checked:opacity-100 left-0.5 pointer-events-none" /> */}
+        <Check size={14} strokeWidth={4} className="absolute text-white opacity-0 peer-checked:opacity-100 left-0.5 pointer-events-none" />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex justify-between items-start gap-2">

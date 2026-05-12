@@ -281,7 +281,7 @@ const navigate = useNavigate();
 
                     {/* Header Actions */}
                     <div className="flex items-center gap-3 flex-wrap">
-                      {(order.status || '').toLowerCase() === 'payment pending' && (order.paymentLink || order.payment_link) && (
+                      {(order.status || '').toLowerCase() === 'payment pending' && (() => { const l = order.paymentLink || order.payment_link; return l && l.startsWith('http'); })() && (
                         <a
                           href={order.paymentLink || order.payment_link}
                           target="_blank"
@@ -538,4 +538,3 @@ const navigate = useNavigate();
   );
 }
 export default Orders;
-

@@ -1,14 +1,10 @@
-import React, { useState, useContext, memo, useCallback } from 'react';
+import React, { useState, memo } from 'react';
 import axios from 'axios';
-import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, ChevronLeft, ChevronRight, Eye, Heart, ShoppingCart } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query'; // 🟢 React Query
-import { CurrencyContext } from '../../../../context/CurrencyContext.jsx';
-import { useCart } from '../../../../context/CartContext.jsx';
-import ProductModal from '../../ProductModal.jsx'; // 🟢 Modal Import
-import toast from 'react-hot-toast';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import ProductCardGrid from '../../ProductCardGrid.jsx';
+import ProductModal from '../../ProductModal.jsx';
 
-// 🟢 Skeleton Loader for Fast UX Feel
 const ProductSkeleton = () => (
     <div className="bg-cream-100 rounded-lg overflow-hidden animate-pulse border border-gray-100">
         <div className="aspect-[3/4] bg-gray-200" />
@@ -20,82 +16,30 @@ const ProductSkeleton = () => (
     </div>
 );
 
-const FeaturedToday = () => { // 🟢 Naam change kar diya
-    const navigate = useNavigate();
-    const { formatPrice } = useContext(CurrencyContext);
-    const { addToCart, toggleWishlist, isInWishlist } = useCart();
-
-    // Pagination State
+const FeaturedToday = () => {
     const [page, setPage] = useState(1);
     const itemsPerPage = 6;
-
-    // 🟢 Modal States
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
-    // 🟢 React Query: Data Fetching with Caching
     const { data: queryData, isLoading, isPlaceholderData } = useQuery({
-        queryKey: ['featured-today', page], // 🟢 Cache key change ki (Dhyan rakhein, har section ki alag honi chahiye)
+        queryKey: ['featured-today', page],
         queryFn: async () => {
             const API_URL = process.env.REACT_APP_API_URL;
-            
-            // ⚠️ ATTENTION ⚠️ 
-            // Yahan par apne Featured Today wale controller ka sahi route URL daliye
-            // Main assume kar raha hu wo section 1 hai.
             const res = await axios.get(`${API_URL}/home-sections/products/section-one/list?page=${page}&limit=${itemsPerPage}`);
             return res.data;
         },
-        placeholderData: (previousData) => previousData, // 🟢 Layout shift rokne ke liye
-        staleTime: 300000, // 5 mins cache
+        placeholderData: (previousData) => previousData,
+        staleTime: 300000,
     });
 
-    // Derived values
     const products = queryData?.data || [];
-    
-    // 🟢 API se direct Title aur Tagline aayega, agar nahi aaya toh default "FEATURED TODAY" dikhega
     const sectionTitle = queryData?.sectionTitle || "FEATURED TODAY";
     const sectionTagline = queryData?.sectionTagline || "";
-    
     const totalPages = Math.ceil((queryData?.total || products.length) / itemsPerPage);
-
-    // 🛠️ Image URL Logic
-    const getImageUrl = useCallback((book) => {
-        if (!book) return "https://placehold.co/300x450?text=No+Image";
-        const imgRaw = book.defaultImage || book.default_image || book.producticonname;
-        if (!imgRaw) return "https://placehold.co/300x450?text=No+Image";
-        if (imgRaw.startsWith('http')) return imgRaw;
-        const API_BASE = process.env.REACT_APP_API_URL?.replace('/api', '');
-        return `${API_BASE}${imgRaw.startsWith('/') ? '' : '/'}${imgRaw}`;
-    }, []);
-
-    // 🟢 Handlers
-    const openModal = useCallback((e, product) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setSelectedProduct(product);
-        setIsModalOpen(true);
-    }, []);
-
-    const handleAddToCart = useCallback((e, product) => {
-        e.preventDefault();
-        e.stopPropagation();
-        addToCart(product);
-        toast.success(`${product.title?.substring(0, 20) || 'Item'}... added to cart!`);
-    }, [addToCart]);
-
-    const handleWishlist = useCallback((e, product) => {
-        e.preventDefault();
-        e.stopPropagation();
-        toggleWishlist(product);
-    }, [toggleWishlist]);
 
     const handleNext = () => { if (page < totalPages) setPage(prev => prev + 1); };
     const handlePrev = () => { if (page > 1) setPage(prev => prev - 1); };
-
-    const createSlug = (title) => {
-        if (!title) return '';
-        return title.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');
-    };
 
     if (!isLoading && products.length === 0) return null;
 
@@ -103,7 +47,6 @@ const FeaturedToday = () => { // 🟢 Naam change kar diya
         <section className="py-10 md:py-16 bg-cream-50 font-body">
             <div className="w-full px-4 md:px-4 group/section">
 
-                {/* --- HEADER --- */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 md:mb-10 gap-2 md:gap-4 border-b border-primary-200 pb-4">
                     <div>
                         <h2 className="text-2xl md:text-3xl font-display text-text-main tracking-tight uppercase">
@@ -115,16 +58,9 @@ const FeaturedToday = () => { // 🟢 Naam change kar diya
                             </p>
                         )}
                     </div>
-                    {/* 🟢 Route for 'See All' can be changed here */}
-                    {/* <Link to="/featured" className="flex items-center gap-2 text-xs md:text-sm uppercase tracking-wider text-text-main hover:text-primary transition-colors self-end md:self-auto font-montserrat">
-                        See All <ArrowRight size={16} />
-                    </Link> */}
                 </div>
 
-                {/* --- SLIDER CONTAINER --- */}
                 <div className="relative">
-
-                    {/* Left Arrow */}
                     <button
                         onClick={handlePrev}
                         disabled={page === 1}
@@ -133,106 +69,25 @@ const FeaturedToday = () => { // 🟢 Naam change kar diya
                         <ChevronLeft size={20} />
                     </button>
 
-                    {/* Grid */}
                     <div className={`grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-6 min-h-[350px] transition-opacity duration-200 ${isPlaceholderData ? 'opacity-50' : 'opacity-100'}`}>
                         {isLoading ? (
                             Array(itemsPerPage).fill(0).map((_, i) => <ProductSkeleton key={i} />)
                         ) : (
                             products.map((item) => {
-                                // Prisma: item.product, MongoDB: item.productId — support both
                                 const book = item.product || item.productId || item;
-
-                                if (!book?.id && !book?._id) return null;
-                                const bookId = book.id || book._id;
-                                const bagcheeId = book.bagcheeId || book.bagchee_id || bookId;
-
-                                // 2. Pricing Variables (Relative Discount Logic)
-                                const mPrice = Number(book.price || 0);
-                                const rPrice = Number(book.realPrice ?? book.real_price ?? 0);
-                                const iPrice = Number(book.inrPrice ?? book.inr_price ?? 0);
-
-                                const imageUrl = getImageUrl(book);
-                                const authorObj = book.authors?.[0]?.author;
-                                const authorName = authorObj
-                                    ? (authorObj.fullName || `${authorObj.firstName || authorObj.first_name || ''} ${authorObj.lastName || authorObj.last_name || ''}`.trim())
-                                    : (typeof book.author === 'object' ? (book.author?.name || book.author?.first_name || '') : (book.author || ''));
-
+                                const bookId = book?.id || book?._id;
+                                if (!bookId) return null;
                                 return (
-                                    <div key={bookId} className="bg-cream-100 hover:shadow-xl transition-all group cursor-pointer flex flex-col block rounded-lg overflow-hidden border border-transparent hover:border-primary-100 relative">
-
-                                        {/* Image Area (Click -> Details Page) */}
-                                        <div className="relative aspect-[3/4] overflow-hidden bg-gray-200" onClick={() => {
-                                            const slug = createSlug(book.title);
-                                            navigate(`/books/${bagcheeId}/${slug}`);
-                                        }}>
-                                            <img
-                                                src={imageUrl}
-                                                alt={book.title || 'Book Image'}
-                                                loading="lazy"
-                                                className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
-                                                onError={(e) => { e.target.src = "https://placehold.co/300x450?text=Error"; }}
-                                            />
-
-                                            {Number(book.discount) >= 20 && (
-                                                <div className="absolute top-2 left-2 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-sm shadow-sm z-10 font-montserrat">
-                                                    {book.discount}%
-                                                </div>
-                                            )}
-
-                                            <button
-                                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); openModal(e, book); }}
-                                                className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-white/90 text-primary text-[10px] font-bold px-3 py-1.5 rounded-full shadow-md flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-primary hover:text-white font-montserrat whitespace-nowrap z-10"
-                                            >
-                                                <Eye size={12} /> Quick View
-                                            </button>
-                                        </div>
-
-                                        {/* Content Area */}
-                                        <div className="text-left px-3 pt-3 flex flex-col flex-1 pb-3">
-                                            <Link to={`/books/${bagcheeId}/${createSlug(book.title)}`}>
-                                                <h3 className="font-display font-bold text-text-main text-xs md:text-sm truncate" title={book.title}>
-                                                    {book.title || "Untitled"}
-                                                </h3>
-                                            </Link>
-                                            <h3 className="text-text-muted text-[10px] md:text-xs truncate mt-0.5 font-body">
-                                                {authorName || "Unknown Author"}
-                                            </h3>
-
-                                            <div className="mt-auto pt-3 flex items-center justify-between gap-1">
-                                                <div className="flex flex-col leading-none">
-                                                    {mPrice > rPrice && (
-                                                        <span className="text-[10px] md:text-xs text-text-muted line-through font-body opacity-60">
-                                                            {formatPrice(mPrice, iPrice, mPrice)}
-                                                        </span>
-                                                    )}
-                                                    <p className="text-primary font-bold text-sm md:text-base font-montserrat">
-                                                        {formatPrice(mPrice, iPrice, rPrice)}
-                                                    </p>
-                                                </div>
-
-                                                <div className="flex items-center gap-1">
-                                                    <button
-                                                        className={`p-1 md:p-1.5 rounded-full transition-all ${isInWishlist(bookId) ? 'text-red-500 bg-red-50' : 'text-text-muted hover:text-red-500 hover:bg-red-50'}`}
-                                                        onClick={(e) => handleWishlist(e, book)}
-                                                    >
-                                                        <Heart size={16} fill={isInWishlist(bookId) ? "currentColor" : "none"} className="md:w-[18px] md:h-[18px]" />
-                                                    </button>
-                                                    <button
-                                                        className="text-text-muted hover:text-primary hover:bg-primary/10 p-1 md:p-1.5 rounded-full transition-all"
-                                                        onClick={(e) => handleAddToCart(e, book)}
-                                                    >
-                                                        <ShoppingCart size={16} className="md:w-[18px] md:h-[18px]" />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+                                    <ProductCardGrid
+                                        key={bookId}
+                                        data={book}
+                                        onQuickView={(product) => { setSelectedProduct(product); setIsModalOpen(true); }}
+                                    />
                                 );
                             })
                         )}
                     </div>
 
-                    {/* Right Arrow */}
                     <button
                         onClick={handleNext}
                         disabled={page >= totalPages}
@@ -243,7 +98,6 @@ const FeaturedToday = () => { // 🟢 Naam change kar diya
                 </div>
             </div>
 
-            {/* 🟢 Render Product Modal */}
             <ProductModal
                 product={selectedProduct}
                 isOpen={isModalOpen}
@@ -253,4 +107,4 @@ const FeaturedToday = () => { // 🟢 Naam change kar diya
     );
 };
 
-export default memo(FeaturedToday); // 🟢 Export naam change kar diya
+export default memo(FeaturedToday);

@@ -95,8 +95,12 @@ const Sale = () => {
     try {
       const response = await axios.get(`${process.env.REACT_APP_API_URL}/category/fetch`);
       if (response.data.status) {
-        // Build hierarchical category tree like ProductListing
-        setCategories(buildCategoryTree(response.data.data));
+        let tree = buildCategoryTree(response.data.data);
+        // Skip single artificial root node (e.g. "Root Category")
+        if (tree.length === 1 && tree[0].children?.length > 0) {
+          tree = tree[0].children;
+        }
+        setCategories(tree);
       }
     } catch (error) {
       console.error('Error fetching categories:', error);
@@ -339,7 +343,8 @@ const Sale = () => {
 
   // Recursive Category Checkbox Component (like ProductListing)
   const CategoryCheckbox = ({ cat, level = 0 }) => {
-    const isChecked = filters.categories.includes(cat._id);
+    const catId = cat.id || cat._id;
+    const isChecked = filters.categories.includes(catId);
     const hasChildren = cat.children && cat.children.length > 0;
     const [isExpanded, setIsExpanded] = useState(false);
 
@@ -349,9 +354,9 @@ const Sale = () => {
           <FilterOption
             type="checkbox"
             name="categories"
-            value={cat._id}
+            value={catId}
             checked={isChecked}
-            onChange={() => handleFilterChange('categories', cat._id)}
+            onChange={() => handleFilterChange('categories', catId)}
             label={cat.categorytitle || cat.title}
           />
           {hasChildren && (
@@ -366,7 +371,7 @@ const Sale = () => {
         {hasChildren && isExpanded && (
           <div className="mt-1">
             {cat.children.map(child => (
-              <CategoryCheckbox key={child._id} cat={child} level={level + 1} />
+              <CategoryCheckbox key={child.id || child._id} cat={child} level={level + 1} />
             ))}
           </div>
         )}
@@ -413,7 +418,7 @@ const Sale = () => {
         <FilterSection title="Category" sectionKey="category">
           {categories?.length > 0 ? (
             categories.map((cat) => (
-              <CategoryCheckbox key={cat._id} cat={cat} />
+              <CategoryCheckbox key={cat.id || cat._id} cat={cat} />
             ))
           ) : (
             <p className="text-xs text-gray-500 italic">Loading...</p>
@@ -546,7 +551,7 @@ const Sale = () => {
           <FilterSection title="Category" sectionKey="category">
             {categories?.length > 0 ? (
               categories.map((cat) => (
-                <CategoryCheckbox key={cat._id} cat={cat} />
+                <CategoryCheckbox key={cat.id || cat._id} cat={cat} />
               ))
             ) : (
               <p className="text-xs text-gray-500 italic">Loading...</p>
@@ -888,13 +893,13 @@ const Sale = () => {
 
 // Helper function to build category tree (like ProductListing)
 const buildCategoryTree = (categories) => {
-  const map = {};
-  const tree = [];
-  categories.forEach((c) => (map[c._id] = { ...c, children: [] }));
-  categories.forEach((c) => {
-    if (c.parentid && map[c.parentid])
-      map[c.parentid].children.push(map[c._id]);
-    else tree.push(map[c._id]);
+  const map = {}; const tree = [];
+  categories.forEach(c => { const id = c.id || c._id; map[id] = { ...c, children: [] }; });
+  categories.forEach(c => {
+    const id = c.id || c._id;
+    const parentId = c.parentId || c.parentid;
+    if (parentId && map[parentId]) map[parentId].children.push(map[id]);
+    else tree.push(map[id]);
   });
   return tree;
 };

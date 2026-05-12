@@ -25,6 +25,14 @@ const OrderStatus = () => {
 
     const API_BASE_URL = process.env.REACT_APP_API_URL || '';
 
+    // Fetch full order details to get paymentAdditionalText and fresh status
+    React.useEffect(() => {
+        if (!orderId) return;
+        axios.get(`${API_BASE_URL}/orders/${orderId}`)
+            .then(r => { if (r.data?.status && r.data?.data) setOrder(r.data.data); })
+            .catch(() => {});
+    }, [orderId, API_BASE_URL]);
+
     const handleViewInvoice = () => {
         const o = order;
         const num = o.orderNumber || o.order_number || orderId;
@@ -330,7 +338,7 @@ const OrderStatus = () => {
                             )}
 
                             {/* Payment link for deferred/pending orders */}
-                            {(order.status || '').toLowerCase() === 'payment pending' && (order.paymentLink || order.payment_link) && (
+                            {(order.status || '').toLowerCase() === 'payment pending' && (() => { const l = order.paymentLink || order.payment_link; return l && l.startsWith('http'); })() && (
                                 <a
                                     href={order.paymentLink || order.payment_link}
                                     target="_blank"

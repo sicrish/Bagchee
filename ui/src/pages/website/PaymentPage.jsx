@@ -57,8 +57,8 @@ const PaymentPage = () => {
   const items = order?.items || order?.products || [];
 
   const paymentType = (order?.paymentType || order?.payment_type || '').toLowerCase();
-  const isStripe  = paymentType.includes('stripe') || paymentType.includes('credit card') || paymentType.includes('debit card');
-  const isPayPal  = paymentType.includes('paypal');
+  const isStripe  = paymentType.includes('stripe');
+  const isPayPal  = paymentType.includes('paypal') || paymentType.includes('credit card') || paymentType.includes('debit card');
 
   const gatewayLabel   = isStripe ? 'Stripe'  : isPayPal ? 'PayPal'  : 'Secure Gateway';
   const gatewayDesc    = isStripe

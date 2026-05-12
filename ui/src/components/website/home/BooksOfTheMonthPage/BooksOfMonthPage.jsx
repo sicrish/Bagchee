@@ -8,8 +8,8 @@ import { Loader2 } from 'lucide-react';
 
 // 🟢 Skeleton Component: Layout flicker rokne ke liye
 const GridSkeleton = () => (
-    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6 md:gap-8">
-        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((item) => (
+    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6 md:gap-8">
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((item) => (
             <div key={item} className="bg-white rounded-lg p-2 animate-pulse shadow-sm border border-gray-100">
                 <div className="aspect-[2/3] bg-gray-200 rounded-md mb-3" />
                 <div className="h-4 bg-gray-200 rounded w-3/4 mb-2" />
@@ -109,7 +109,7 @@ const BooksOfMonthPage = () => {
                 {isLoading ? (
                     <GridSkeleton />
                 ) : (
-                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6 md:gap-8 transition-opacity duration-500 opacity-100">
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6 md:gap-8 transition-opacity duration-500 opacity-100">
                         {data.products.map((rawBook) => {
                             const book = normalizeProduct(rawBook.product || rawBook);
                             // 🟢 Generate Slug and URL

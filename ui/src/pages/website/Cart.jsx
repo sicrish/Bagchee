@@ -410,6 +410,28 @@ const Cart = () => {
 
 
               <div className="divide-y divide-gray-100">
+                {membershipAdded && (
+                  <div className="p-5 flex gap-4">
+                    <div className="shrink-0 w-20 h-28 rounded-lg bg-gradient-to-br from-primary to-primary-dark flex flex-col items-center justify-center shadow">
+                      <Crown size={28} className="text-white mb-1" />
+                      <span className="text-white font-bold text-[10px] uppercase font-montserrat">Member</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between gap-2 mb-1">
+                        <p className="font-semibold text-text-main">Bagchee Membership</p>
+                        <p className="text-xl font-bold text-text-main shrink-0">{formatPrice(mData.usd, mData.inr, mData.usd)}</p>
+                      </div>
+                      <p className="text-xs text-gray-500 mb-3">Annual membership — save {settings?.member_discount || settings?.memberDiscount || 10}% on all orders</p>
+                      <button
+                        onClick={handleRemoveMembership}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-red-50 text-red-600 hover:bg-red-600 hover:text-white transition-all duration-300 text-[11px] font-bold uppercase font-montserrat shadow-sm active:scale-95"
+                      >
+                        <X size={14} />
+                        REMOVE
+                      </button>
+                    </div>
+                  </div>
+                )}
                 {cart.map((item) => (
                   <div key={item.id || item._id} className="p-5">
                     {item.itemType === 'gift_card' ? (

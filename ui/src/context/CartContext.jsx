@@ -139,8 +139,8 @@ export const CartProvider = ({ children }) => {
 
   // --- CALCULATIONS (Subtotal, Item Count) ---
   const cartItemCount = useMemo(() => {
-    return cart.reduce((total, item) => total + item.quantity, 0);
-  }, [cart]);
+    return cart.reduce((total, item) => total + item.quantity, 0) + (membershipAdded ? 1 : 0);
+  }, [cart, membershipAdded]);
 
   const cartTotal = useMemo(() => {
     return cart.reduce((total, item) => total + (item.price * item.quantity), 0);

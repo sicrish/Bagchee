@@ -555,7 +555,7 @@ const navigate = useNavigate();
                     </button>
                   </div>
                   {/* Payment link for approved deferred orders */}
-                  {(order.status || '').toLowerCase() === 'payment pending' && (order.paymentLink || order.payment_link) && (
+                  {(order.status || '').toLowerCase() === 'payment pending' && (() => { const l = order.paymentLink || order.payment_link; return l && l.startsWith('http'); })() && (
                     <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg flex items-center justify-between gap-3">
                       <p className="text-xs text-orange-700 font-medium">Payment link ready</p>
                       <a

@@ -1,4 +1,4 @@
-import nodemailer from 'nodemailer';
+import { createTransporter } from '../lib/mailer.js';
 import dotenv from 'dotenv';
 import prisma from '../lib/prisma.js';
 
@@ -28,13 +28,7 @@ const escapeHtml = (str) => {
 
 const sendMail = async (email, name) => {
     try {
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS
-            }
-        });
+        const transporter = createTransporter();
 
         const shopUrl = process.env.FRONTEND_URL || 'https://bagchee.com';
 
@@ -89,13 +83,7 @@ export default sendMail;
 
 export const sendPasswordResetEmail = async (email, name, resetLink) => {
     try {
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS
-            }
-        });
+        const transporter = createTransporter();
 
         const emailTemplate = `
             <div style="font-family: 'Inter', Helvetica, Arial, sans-serif; background-color: ${theme.cream}; padding: 40px 0;">
@@ -157,10 +145,7 @@ export const sendPasswordResetEmail = async (email, name, resetLink) => {
 
 export const sendOrderConfirmation = async (email, order) => {
     try {
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
-        });
+        const transporter = createTransporter();
 
         // Read admin BCC addresses from settings
         let bccAddresses = null;
@@ -229,10 +214,7 @@ export const sendOrderConfirmation = async (email, order) => {
 
 export const sendOrderShippedEmail = async (email, order) => {
     try {
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
-        });
+        const transporter = createTransporter();
 
         const template = `
             <div style="font-family: 'Inter', Helvetica, Arial, sans-serif; background-color: ${theme.cream}; padding: 40px 0;">
@@ -276,10 +258,7 @@ export const sendOrderShippedEmail = async (email, order) => {
 
 export const sendOrderStatusEmail = async (email, order) => {
     try {
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
-        });
+        const transporter = createTransporter();
 
         const statusColor = {
             'Delivered': '#16a34a',
@@ -328,10 +307,7 @@ export const sendOrderStatusEmail = async (email, order) => {
 // Payment link email — sent to customer when admin approves a deferred CC/PayPal order
 export const sendPaymentLinkEmail = async (email, order, paymentLink) => {
     try {
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
-        });
+        const transporter = createTransporter();
 
         const firstName = escapeHtml(order.shippingFirstName || order.customer?.name?.split(' ')[0] || 'Valued Customer');
         const orderNum  = escapeHtml(order.orderNumber || `#${order.id}`);
@@ -388,10 +364,7 @@ export const sendPaymentLinkEmail = async (email, order, paymentLink) => {
 
 export const sendCustomConfirmationEmail = async (email, subject, bodyHtml) => {
     try {
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
-        });
+        const transporter = createTransporter();
         const html = `
             <div style="font-family:'Inter',Helvetica,Arial,sans-serif;background-color:${theme.cream};padding:40px 0;">
               <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 15px rgba(0,0,0,.1);border:1px solid #e6decd;">
@@ -421,10 +394,7 @@ export const sendCustomConfirmationEmail = async (email, subject, bodyHtml) => {
 
 export const sendInvoiceEmail = async (email, order) => {
     try {
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
-        });
+        const transporter = createTransporter();
 
         const orderNum = order.orderNumber || order.order_number || order.id;
         const currency = order.currency || 'USD';

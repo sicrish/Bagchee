@@ -1,4 +1,4 @@
-import nodemailer from 'nodemailer';
+import { createTransporter } from '../lib/mailer.js';
 import prisma from '../lib/prisma.js';
 
 const theme = {
@@ -17,16 +17,6 @@ const escapeHtml = (str) => {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
-};
-
-const createTransporter = () => {
-    return nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASS
-        }
-    });
 };
 
 const wrapInTemplate = (subject, bodyHtml, unsubscribeUrl = null) => {

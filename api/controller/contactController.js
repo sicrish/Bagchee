@@ -1,4 +1,4 @@
-import nodemailer from 'nodemailer';
+import { createTransporter } from '../lib/mailer.js';
 
 export const submitContact = async (req, res) => {
     try {
@@ -7,14 +7,11 @@ export const submitContact = async (req, res) => {
             return res.status(400).json({ status: false, msg: 'Name, email, subject and message are required.' });
         }
 
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
-        });
+        const transporter = createTransporter();
 
         await transporter.sendMail({
-            from: process.env.EMAIL_USER,
-            to: process.env.EMAIL_USER,
+            from: `"Bagchee" <${process.env.EMAIL_USER}>`,
+            to: process.env.EMAIL_CONTACT_TO || process.env.EMAIL_USER,
             replyTo: email.trim(),
             subject: `[Contact Form] ${subject.trim()}`,
             html: `

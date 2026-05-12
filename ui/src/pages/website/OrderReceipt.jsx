@@ -15,7 +15,7 @@ const OrderReceipt = () => {
   const [settings, setSettings] = useState(null);
 
   useEffect(() => {
-    axios.get(`${process.env.REACT_APP_API_URL}/settings/public-config`)
+    axios.get(`${process.env.REACT_APP_API_URL}/settings/public`)
       .then(r => { if (r.data?.status) setSettings(r.data.data); })
       .catch(() => {});
   }, []);
