@@ -39,7 +39,14 @@ const HelpDesk = () => {
     const fetchHelpPages = async () => {
       try {
         const response = await axiosInstance.get("/help-pages/list");
-        const activePages = (response.data.data || []).sort((a, b) => (a.displayOrder ?? a.display_order ?? a.ord ?? 0) - (b.displayOrder ?? b.display_order ?? b.ord ?? 0));
+        const activePages = (response.data.data || []).sort((a, b) => {
+          const aOrd = a.ord ?? a.displayOrder ?? a.display_order ?? 0;
+          const bOrd = b.ord ?? b.displayOrder ?? b.display_order ?? 0;
+          if (aOrd === 0 && bOrd === 0) return 0;
+          if (aOrd === 0) return 1;
+          if (bOrd === 0) return -1;
+          return aOrd - bOrd;
+        });
 
         setHelpPages(activePages);
         if (activePages.length > 0) {
