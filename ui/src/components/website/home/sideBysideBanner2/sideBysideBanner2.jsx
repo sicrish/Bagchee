@@ -3,15 +3,12 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import axios from "axios";
 
-/* 🔥 ANTI-FLICKER STYLE (Optimized for GPU) */
-const gpuLockStyle = {
+const containerStyle = {
   contain: "paint layout",
   WebkitMaskImage: "-webkit-radial-gradient(white, black)",
   overflow: "hidden",
   isolation: "isolate",
   borderRadius: "8px",
-  transform: "translate3d(0, 0, 0)",
-  willChange: "transform",
 };
 
 // 🟢 Sirf component ka naam change kiya hai
@@ -108,7 +105,7 @@ const DualBannerTwo = () => {
             <div
               key={banner.id}
               className="relative w-full h-[340px] xl:h-[400px] rounded-lg bg-gray-200 group"
-              style={gpuLockStyle}
+              style={containerStyle}
             >
               <Link to={banner.link} className="block w-full h-full">
                 <img
@@ -120,7 +117,7 @@ const DualBannerTwo = () => {
                   {...(index === 0 ? { fetchpriority: "high" } : {})}
                   decoding="async"
                   draggable="false"
-                  style={{ transform: "translateZ(0)", backfaceVisibility: "hidden" }}
+                  style={{ backfaceVisibility: "hidden" }}
                   onError={(e) => (e.target.style.display = "none")}
                 />
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 pointer-events-none z-10"></div>
@@ -133,7 +130,7 @@ const DualBannerTwo = () => {
         <div className="block lg:hidden w-full max-w-md mx-auto">
           <div
             className="relative w-full h-[280px] sm:h-[320px] rounded-lg bg-gray-200 shadow-md"
-            style={gpuLockStyle}
+            style={containerStyle}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
