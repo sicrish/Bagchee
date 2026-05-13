@@ -41,7 +41,7 @@ const EGiftcardBanner = () => {
     <div className="w-full bg-cream-50 py-4 md:py-8 flex items-center justify-center">
       <Link 
         to="/gift-card-detail" 
-        className="block w-full cursor-pointer group overflow-hidden"
+        className="block w-full cursor-pointer group"
       >
         <picture className="block w-full">
           {/* 🟢 Mobile Image (Screen < 1024px) */}

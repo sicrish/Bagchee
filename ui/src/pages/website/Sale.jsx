@@ -93,14 +93,31 @@ const Sale = () => {
 
   const fetchCategories = async () => {
     try {
-      const response = await axios.get(`${process.env.REACT_APP_API_URL}/category/fetch`);
+      const response = await axios.get(`${process.env.REACT_APP_API_URL}/category/fetch?limit=200`);
       if (response.data.status) {
-        let tree = buildCategoryTree(response.data.data);
-        // Skip single artificial root node (e.g. "Root Category")
-        if (tree.length === 1 && tree[0].children?.length > 0) {
-          tree = tree[0].children;
+        const allCats = response.data.data;
+
+        // Find the parent with the most children — this is the "Books" root
+        const childCount = {};
+        allCats.forEach(c => {
+          const pid = c.parentId ?? c.parentid ?? c.parent_id;
+          if (pid) childCount[String(pid)] = (childCount[String(pid)] || 0) + 1;
+        });
+        const dominantParentId = Object.entries(childCount)
+          .sort((a, b) => b[1] - a[1])[0]?.[0];
+
+        if (dominantParentId) {
+          const bookSubcats = allCats
+            .filter(c => String(c.parentId ?? c.parentid ?? c.parent_id) === dominantParentId)
+            .sort((a, b) => (a.categorytitle || a.title || '').localeCompare(b.categorytitle || b.title || ''));
+          setCategories(bookSubcats);
+        } else {
+          let tree = buildCategoryTree(allCats);
+          if (tree.length === 1 && tree[0].children?.length > 0) {
+            tree = tree[0].children;
+          }
+          setCategories(tree);
         }
-        setCategories(tree);
       }
     } catch (error) {
       console.error('Error fetching categories:', error);

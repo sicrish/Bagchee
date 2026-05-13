@@ -38,10 +38,13 @@ export const saveFileLocal = async (file, folderName = '') => {
         const folder = folderName ? `bagchee/${folderName}` : 'bagchee';
 
         if (isImage) {
-            // Optimize with Sharp: resize to 800px max width, convert to WebP @ 80%
+            // Banners need full width (1920px+); other images capped at 800px
+            const bannerFolders = ['homesliders', 'side-banners', 'egiftcard-banners'];
+            const isBanner = bannerFolders.some(f => folderName?.includes(f));
+            const maxWidth = isBanner ? 1920 : 800;
             const optimized = await sharp(file.data)
-                .resize(800, null, { withoutEnlargement: true, fit: 'inside' })
-                .webp({ quality: 80 })
+                .resize(maxWidth, null, { withoutEnlargement: true, fit: 'inside' })
+                .webp({ quality: 85 })
                 .toBuffer();
 
             // Upload buffer to Cloudinary

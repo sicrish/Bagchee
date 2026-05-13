@@ -71,10 +71,9 @@ const HeroSlider = () => {
       const isActive = index === currentIndex;
       
       return (
-        <div 
+        <div
           key={banner._id || index}
           className={`absolute inset-0 w-full h-full transition-opacity duration-1000 ease-in-out ${isActive ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
-          style={{ willChange: 'opacity' }} // GPU optimization
         >
            <Link 
              to={banner.link || "/shop"} 

@@ -5,18 +5,18 @@
 #        ./deploy.sh ui        → deploy UI only
 
 SERVER="root@84.21.171.24"
-SERVER_PASS="73zkEV0c9JqMS"
-SSH="sshpass -p $SERVER_PASS ssh -o StrictHostKeyChecking=no -o PasswordAuthentication=yes -o PubkeyAuthentication=no"
-RSYNC="sshpass -p $SERVER_PASS rsync -avz --delete -e 'ssh -o StrictHostKeyChecking=no -o PasswordAuthentication=yes -o PubkeyAuthentication=no'"
+SSH_KEY="$HOME/.ssh/bagchee_vps"
+SSH="ssh -i $SSH_KEY -o StrictHostKeyChecking=no"
+RSYNC="rsync -avz --delete -e 'ssh -i $SSH_KEY -o StrictHostKeyChecking=no'"
 PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 
 deploy_api() {
   echo "→ Uploading API..."
-  sshpass -p "$SERVER_PASS" rsync -avz --delete \
+  rsync -avz --delete \
     --exclude='node_modules' \
     --exclude='.env' \
     --exclude='*.log' \
-    -e 'ssh -o StrictHostKeyChecking=no -o PasswordAuthentication=yes -o PubkeyAuthentication=no' \
+    -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=no" \
     "$PROJECT_ROOT/api/" "$SERVER:/opt/bagchee/api/"
 
   echo "→ Installing dependencies & restarting..."
@@ -41,8 +41,8 @@ deploy_ui() {
   npm run build
 
   echo "→ Uploading build to server..."
-  sshpass -p "$SERVER_PASS" rsync -avz --delete \
-    -e 'ssh -o StrictHostKeyChecking=no -o PasswordAuthentication=yes -o PubkeyAuthentication=no' \
+  rsync -avz --delete \
+    -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=no" \
     "$PROJECT_ROOT/ui/build/" "$SERVER:/var/www/html/bagchee-react/"
 
   echo "✓ UI deployed"
