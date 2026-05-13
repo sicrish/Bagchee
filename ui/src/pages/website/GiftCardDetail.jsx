@@ -85,7 +85,7 @@ const GiftCardDetail = () => {
                 </div>
 
                 <div className="absolute top-8 right-10 flex flex-col items-end">
-                  <span className="text-white font-display text-5xl font-bold drop-shadow-lg">
+                  <span className="text-white font-display text-2xl md:text-5xl font-bold drop-shadow-lg">
                     {formData.amount ? `$${parseFloat(formData.amount || 0).toFixed(2)}` : '$0.00'}
                   </span>
                 </div>
