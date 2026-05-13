@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Check, Eye, EyeOff, RefreshCw, ShieldCheck } from 'lucide-react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import axios from '../../utils/axiosConfig.js';
 import toast from 'react-hot-toast';
 
@@ -12,6 +12,8 @@ import { encryptData } from '../../utils/encryption.js'; // 🔒 Encryption Util
 
 const Login = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = location.state?.from || '/account';
 
   // 1. States
   const [email, setEmail] = useState("");
@@ -68,7 +70,7 @@ const Login = () => {
         if (userRole === 'admin') {
           navigate('/admin');
         } else {
-          navigate('/account');
+          navigate(from, { replace: true });
         }
       } else {
         toast.error(data.msg);
