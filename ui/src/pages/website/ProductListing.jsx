@@ -140,23 +140,27 @@ const ProductListing = ({ type }) => {
                             const t = type ? type.replace(/-/g, ' ') : 'category';
                             setPageTitle(t);
                             setBaseTitleRef(t);
-                            // Special pages (sale, bestsellers, etc.) — show first level of titled categories.
-                            // Skip artificial root nodes like "Root Category" and show their children instead.
-                            const rootCats = flatCategories.filter(c => !(c.parentId || c.parentid) || c.level === 0);
-                            const visibleRoots = rootCats.filter(c => c.title || c.categorytitle);
-                            const meaningfulRoots = visibleRoots.filter(c => {
-                                const title = (c.title || c.categorytitle || '').trim().toLowerCase();
-                                return title !== 'root category';
+                            // Show book subcategories (children of the category with most children = "Books")
+                            const childCount = {};
+                            flatCategories.forEach(c => {
+                                const pid = c.parentId || c.parentid;
+                                if (pid) childCount[String(pid)] = (childCount[String(pid)] || 0) + 1;
                             });
-                            if (meaningfulRoots.length > 0) {
-                                setSubcategoriesList(meaningfulRoots);
+                            const dominantParentId = Object.entries(childCount)
+                                .sort((a, b) => b[1] - a[1])[0]?.[0];
+                            if (dominantParentId) {
+                                const bookSubcats = flatCategories
+                                    .filter(c => String(c.parentId || c.parentid) === dominantParentId)
+                                    .sort((a, b) => (a.categorytitle || a.title || '').localeCompare(b.categorytitle || b.title || ''));
+                                setSubcategoriesList(bookSubcats);
                             } else {
-                                const skipIds = new Set(visibleRoots.map(c => String(c.id || c._id)));
-                                const firstLevel = flatCategories.filter(c => {
-                                    const pid = String(c.parentId || c.parentid || '');
-                                    return skipIds.has(pid) && (c.title || c.categorytitle);
+                                const rootCats = flatCategories.filter(c => !(c.parentId || c.parentid) || c.level === 0);
+                                const visibleRoots = rootCats.filter(c => c.title || c.categorytitle);
+                                const meaningfulRoots = visibleRoots.filter(c => {
+                                    const title = (c.title || c.categorytitle || '').trim().toLowerCase();
+                                    return title !== 'root category';
                                 });
-                                setSubcategoriesList(firstLevel);
+                                setSubcategoriesList(meaningfulRoots.length > 0 ? meaningfulRoots : []);
                             }
                         }
                     }
