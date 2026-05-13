@@ -1708,12 +1708,12 @@ const Checkout = () => {
             <p className="text-sm text-gray-600">
               {membershipAdded
                 ? <><span className="font-semibold text-text-main">You must be logged in to purchase a membership.</span>{" "}Please sign in or create an account to continue.</>
-                : <><span className="font-semibold text-text-main">Have an account?</span>{" "}Sign in for faster checkout — your addresses and order history will be saved.</>
+                : <><span className="font-semibold text-text-main">Have an account?</span>{" "}Sign in for faster checkout</>
               }
             </p>
             <button
               type="button"
-              onClick={() => setShowLoginDropdown(true)}
+              onClick={() => navigate('/login', { state: { from: '/checkout' } })}
               className="shrink-0 bg-primary text-white text-xs font-bold px-5 py-2 uppercase tracking-wider hover:bg-primary-dark transition-colors"
             >
               Sign In
@@ -1725,9 +1725,14 @@ const Checkout = () => {
 
           {/* ═══════════════════════════════════════ LEFT COLUMN ═══════════════════════════════════════ */}
           <div className="lg:col-span-2 space-y-5">
-            <h1 className="text-2xl font-display font-bold text-text-main text-left mb-8 uppercase tracking-wide  items-center ">
-              SECURE CHECKOUT
-            </h1>
+            <div className="mb-8">
+              <h1 className="text-2xl font-display font-bold text-text-main text-left uppercase tracking-wide items-center">
+                {user ? 'SECURE CHECKOUT' : 'GUEST CHECKOUT'}
+              </h1>
+              {!user && (
+                <p className="text-sm text-gray-500 mt-1">You will have a chance to create an account during checkout process</p>
+              )}
+            </div>
 
             {/* ─── 1. DELIVERY ADDRESS ─── */}
             <div className="bg-cream-100 border border-gray-200 shadow-sm">
@@ -1910,13 +1915,13 @@ const Checkout = () => {
                     {/* ─── NAYA INLINE LOGIN OPTION ─── */}
                     <div className="mt-3 bg-primary/5 border border-primary/10 rounded-lg p-3">
                       <p className="text-xs text-gray-500 mb-2">
-                        Already have an account?
+                        Already have an account?{" "}
                         <button
                           type="button"
-                          onClick={() => setShowLoginDropdown(!showLoginDropdown)}
-                          className="text-primary font-bold hover:underline ml-1 uppercase"
+                          onClick={() => navigate('/login', { state: { from: '/checkout' } })}
+                          className="text-primary font-bold hover:underline uppercase"
                         >
-                          {showLoginDropdown ? "Close Login" : "Sign In"}
+                          Sign In
                         </button>
                       </p>
 
