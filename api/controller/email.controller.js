@@ -192,6 +192,15 @@ export const sendOrderConfirmation = async (email, order) => {
                             ${escapeHtml(order.shippingCity)}, ${escapeHtml(order.shippingState)} ${escapeHtml(order.shippingPostcode)}<br/>
                             ${escapeHtml(order.shippingCountry)}
                         </div>
+                        ${order.paymentAdditionalText ? `
+                        <div style="margin-top: 24px; background: #fff8e6; border: 1px solid #f59e0b; border-radius: 8px; padding: 16px; font-size: 13px; color: ${theme.textMain};">
+                            <strong style="color: #92400e;">Wire Transfer Payment Instructions:</strong><br/>
+                            <div style="margin-top: 8px;">${order.paymentAdditionalText}</div>
+                            <p style="margin-top: 12px; font-size: 12px; color: #92400e;">
+                                Please use your order number <strong>#${escapeHtml(order.orderNumber)}</strong> as the payment reference.<br/>
+                                Your order will be processed once payment is confirmed.
+                            </p>
+                        </div>` : ''}
                     </div>
                     <div style="background-color: #fffdf5; padding: 20px; text-align: center; border-top: 1px solid #e6decd;">
                         <p style="font-size: 12px; color: ${theme.textMuted}; margin: 0;">&copy; ${new Date().getFullYear()} Bagchee. All rights reserved.</p>

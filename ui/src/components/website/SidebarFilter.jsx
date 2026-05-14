@@ -8,7 +8,7 @@ import {
   ChevronUp,
   ChevronRight,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom"; // 🟢 Navigation ke liye import
+import { useNavigate, useLocation } from "react-router-dom";
 
 const SidebarFilter = ({
   filters,
@@ -24,7 +24,8 @@ const SidebarFilter = ({
   isOpen,
   onClose,
 }) => {
-  const navigate = useNavigate(); // 🟢 Hook for redirection
+  const navigate = useNavigate();
+  const location = useLocation();
 
   // --- MOBILE ONLY STATE ---
   const [activeTab, setActiveTab] = useState("categories");
@@ -217,7 +218,7 @@ const SidebarFilter = ({
                         key={subcat.id || subcat._id}
                         onClick={() => {
                           const s = subcat.slug || '';
-                          navigate(`/books/${s.split('/').pop() || s}`);
+                          navigate(`/books/${s.split('/').pop() || s}`, { state: { fromSubcategory: true, parentPath: location.pathname } });
                           if (onClose) onClose();
                         }}
                         className="flex items-center justify-between py-3 border-b border-cream-50 cursor-pointer hover:bg-gray-50"
@@ -469,7 +470,7 @@ const SidebarFilter = ({
                         key={subcat.id || subcat._id}
                         onClick={() => {
                           const s = subcat.slug || '';
-                          navigate(`/books/${s.split('/').pop() || s}`);
+                          navigate(`/books/${s.split('/').pop() || s}`, { state: { fromSubcategory: true, parentPath: location.pathname } });
                           if (onClose) onClose();
                         }}
                         className="flex items-center space-x-3 cursor-pointer group py-1.5 hover:text-primary transition-colors select-none"

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import { normalizeProducts } from '../../utils/normalizeProduct';
 import { LayoutGrid, List, ChevronDown, SlidersHorizontal, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -13,6 +13,7 @@ import ProductModal from '../../components/website/ProductModal';
 const ProductListing = ({ type }) => {
     const { slug } = useParams();
     const location = useLocation();
+    const navigate = useNavigate();
 
     // --- States ---
     const [products, setProducts] = useState([]);
@@ -338,6 +339,9 @@ const ProductListing = ({ type }) => {
                 isNewRelease: false, isBestseller: false, isRecommended: false, isSale: false
             });
             setPageTitle(baseTitleRef);
+            if (location.state?.fromSubcategory && location.state?.parentPath) {
+                navigate(location.state.parentPath);
+            }
             return;
         }
         setFilters(prev => {

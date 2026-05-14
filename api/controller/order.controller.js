@@ -243,6 +243,19 @@ export const saveOrder = async (req, res) => {
         // Send confirmation email — fire and forget, never fail the order
         const customerEmail = order.shippingEmail || order.customer?.email;
         if (customerEmail) {
+            // Attach wire transfer bank info before sending (so email includes payment instructions)
+            if (isWireTransfer(paymentTitle)) {
+                try {
+                    const wireMethod = await prisma.payment.findFirst({
+                        where: { title: { contains: 'wire', mode: 'insensitive' } },
+                        select: { additionalText: true, additionalTextActive: true }
+                    });
+                    if (wireMethod) {
+                        order.paymentAdditionalText = wireMethod.additionalText;
+                        order.paymentAdditionalTextActive = wireMethod.additionalTextActive;
+                    }
+                } catch { /* non-critical */ }
+            }
             sendOrderConfirmation(customerEmail, order).catch(() => {});
         }
 

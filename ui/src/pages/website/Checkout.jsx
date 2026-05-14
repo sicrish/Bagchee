@@ -1206,7 +1206,7 @@ const Checkout = () => {
 
   // ─────────────────────── MAIN CHECKOUT ───────────────────────
   return (
-    <div className="min-h-screen bg-cream-50">
+    <div className="min-h-screen bg-cream-50 overflow-x-hidden">
       {/* ─── Add/Edit Address Modal ─── */}
       {showAddressModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-start sm:items-center justify-center p-4 pt-8 sm:pt-4 overflow-y-auto">
@@ -1698,7 +1698,7 @@ const Checkout = () => {
         </div>
       </header>
 
-      <main className="w-full mx-auto px-4 py-8 overflow-x-hidden max-w-[100vw]">
+      <main className="w-full mx-auto px-4 py-8 max-w-7xl">
         {/* Page title */}
 
 

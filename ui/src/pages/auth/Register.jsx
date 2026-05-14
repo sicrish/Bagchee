@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { Eye, EyeOff, RefreshCw, ShieldCheck } from 'lucide-react';
 import axios from '../../utils/axiosConfig.js';
 import toast from 'react-hot-toast';
@@ -11,6 +11,8 @@ import { encryptData } from '../../utils/encryption.js'; // 🔒 Encryption Util
 
 const Register = () => {
     const navigate = useNavigate();
+    const location = useLocation();
+    const from = location.state?.from || '/account';
 
     // 1. State Management
     const [formData, setFormData] = useState({
@@ -61,8 +63,14 @@ const Register = () => {
         },
         onSuccess: (data) => {
             if (data.status) {
-                toast.success(data.msg || "User registered successfully");
-                navigate('/login'); // Redirect to login
+                toast.success(data.msg || "Account created successfully");
+                if (data.token) {
+                    localStorage.setItem("token", data.token);
+                    localStorage.setItem("auth", JSON.stringify(data));
+                    navigate(from, { replace: true });
+                } else {
+                    navigate('/login', { state: { from } });
+                }
             } else {
                 toast.error(data.msg);
             }
