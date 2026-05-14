@@ -485,7 +485,7 @@ const Checkout = () => {
   };
 
   const visiblePaymentMethods = (hasOnlyGiftCards || membershipAdded)
-    ? paymentMethods.filter(m => isCardOrPayPalMethod(m))
+    ? paymentMethods.filter(m => isCardOrPayPalMethod(m) || (membershipAdded && isWireTransferMethod(m)))
     : paymentMethods;
 
   // UI Display Helper (Symbols ke saath)
@@ -2809,7 +2809,7 @@ const Checkout = () => {
                   (() => {
                     if (isPurchaseOrderMethod(selectedPayment) || isWireTransferMethod(selectedPayment)) return "Place Order";
                     if (isCardOrPayPalMethod(selectedPayment) && !isDeferredFlow()) {
-                      return isPayPalMethod(selectedPayment) ? "Continue to PayPal" : "Pay Now";
+                      return "Continue to PayPal";
                     }
                     return "Place Order";
                   })()
