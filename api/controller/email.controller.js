@@ -4,7 +4,7 @@ import prisma from '../lib/prisma.js';
 
 dotenv.config();
 
-// 🎨 YOUR TAILWIND THEME COLORS 
+// 🎨 YOUR TAILWIND THEME COLORS
 const theme = {
     primary: "#008DDA",      // Main Blue (Header, Button)
     primaryHover: "#006B9E", // Darker Blue
@@ -14,6 +14,21 @@ const theme = {
     textLight: "#FFFFFF",    // White Text
     textMuted: "#4A6fa5"     // Footer Text
 };
+
+const SITE_URL = process.env.FRONTEND_URL || 'https://app.bagchee.com';
+const LOGO_URL = `${SITE_URL}/logo1.png`;
+const SLOGAN   = 'Books that Stick';
+
+const emailHeader = () => `
+    <div style="background-color:${theme.primary};padding:24px 35px;text-align:center;">
+        <img src="${LOGO_URL}" alt="Bagchee" style="height:52px;width:auto;max-width:210px;display:block;margin:0 auto;" />
+        <p style="color:${theme.textLight};margin-top:6px;margin-bottom:0;opacity:0.9;font-size:13px;font-style:italic;">${escapeHtml(SLOGAN)}</p>
+    </div>`;
+
+const emailFooter = () => `
+    <div style="background-color:#fffdf5;padding:20px;text-align:center;border-top:1px solid #e6decd;">
+        <p style="font-size:12px;color:${theme.textMuted};margin:0;">&copy; ${new Date().getFullYear()} Bagchee. All rights reserved.</p>
+    </div>`;
 
 // Escape HTML to prevent injection in email templates
 const escapeHtml = (str) => {
@@ -36,30 +51,17 @@ const sendMail = async (email, name) => {
         const emailTemplate = `
             <div style="font-family: 'Inter', Helvetica, Arial, sans-serif; background-color: ${theme.cream}; padding: 40px 0;">
                 <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #e6decd;">
-
-                    <div style="background-color: ${theme.primary}; padding: 35px; text-align: center;">
-                        <h1 style="color: ${theme.textLight}; margin: 0; font-size: 26px; font-weight: 700; letter-spacing: 0.5px;">Bagchee</h1>
-                        <p style="color: ${theme.textLight}; margin-top: 5px; opacity: 0.9; font-size: 14px;">Your Favorite Bookstore</p>
-                    </div>
-
+                    ${emailHeader()}
                     <div style="padding: 40px 30px; text-align: center;">
                         <h2 style="color: ${theme.textMain}; font-size: 24px; margin-bottom: 20px; font-weight: 600;">Welcome, ${escapeHtml(name)}! 👋</h2>
-
                         <p style="color: ${theme.textMain}; font-size: 16px; line-height: 1.6; margin-bottom: 30px; opacity: 0.8;">
                             Thank you for joining <strong>Bagchee</strong>! We are excited to help you find your next great read.
                         </p>
-
                         <a href="${shopUrl}" style="display: inline-block; background-color: ${theme.primary}; color: ${theme.textLight}; text-decoration: none; padding: 14px 32px; font-size: 16px; font-weight: bold; border-radius: 8px;">
                             Start Shopping
                         </a>
                     </div>
-
-                    <div style="background-color: #fffdf5; padding: 20px; text-align: center; border-top: 1px solid #e6decd;">
-                        <p style="font-size: 12px; color: ${theme.textMuted}; margin: 0;">&copy; ${new Date().getFullYear()} Bagchee. All rights reserved.</p>
-                        <div style="margin-top: 8px;">
-                            <span style="font-size: 12px; color: ${theme.textMuted}; opacity: 0.7;">Indore, India</span>
-                        </div>
-                    </div>
+                    ${emailFooter()}
                 </div>
             </div>
         `;
@@ -88,44 +90,29 @@ export const sendPasswordResetEmail = async (email, name, resetLink) => {
         const emailTemplate = `
             <div style="font-family: 'Inter', Helvetica, Arial, sans-serif; background-color: ${theme.cream}; padding: 40px 0;">
                 <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #e6decd;">
-
-                    <div style="background-color: ${theme.primary}; padding: 35px; text-align: center;">
-                        <h1 style="color: ${theme.textLight}; margin: 0; font-size: 26px; font-weight: 700; letter-spacing: 0.5px;">Bagchee</h1>
-                        <p style="color: ${theme.textLight}; margin-top: 5px; opacity: 0.9; font-size: 14px;">Your Favorite Bookstore</p>
-                    </div>
-
+                    ${emailHeader()}
                     <div style="padding: 40px 30px; text-align: center;">
                         <h2 style="color: ${theme.textMain}; font-size: 22px; margin-bottom: 15px; font-weight: 600;">Reset Your Password</h2>
-
                         <p style="color: ${theme.textMain}; font-size: 15px; line-height: 1.6; margin-bottom: 10px; opacity: 0.8;">
                             Hi <strong>${escapeHtml(name)}</strong>,
                         </p>
                         <p style="color: ${theme.textMain}; font-size: 15px; line-height: 1.6; margin-bottom: 30px; opacity: 0.8;">
                             We received a request to reset your password. Click the button below to create a new password. This link will expire in <strong>15 minutes</strong>.
                         </p>
-
                         <a href="${resetLink}" style="display: inline-block; background-color: ${theme.primary}; color: ${theme.textLight}; text-decoration: none; padding: 14px 36px; font-size: 16px; font-weight: bold; border-radius: 8px;">
                             Reset Password
                         </a>
-
                         <p style="margin-top: 30px; font-size: 13px; color: ${theme.textMuted};">
                             If the button doesn't work, copy and paste this link:<br>
                             <a href="${resetLink}" style="color: ${theme.primary}; font-weight: 600; word-break: break-all;">${resetLink}</a>
                         </p>
-
                         <div style="margin-top: 30px; padding: 16px; background: #fff3cd; border-radius: 8px; border: 1px solid #ffc107;">
                             <p style="font-size: 13px; color: #856404; margin: 0;">
                                 If you didn't request a password reset, you can safely ignore this email. Your password will not be changed.
                             </p>
                         </div>
                     </div>
-
-                    <div style="background-color: #fffdf5; padding: 20px; text-align: center; border-top: 1px solid #e6decd;">
-                        <p style="font-size: 12px; color: ${theme.textMuted}; margin: 0;">&copy; ${new Date().getFullYear()} Bagchee. All rights reserved.</p>
-                        <div style="margin-top: 8px;">
-                            <span style="font-size: 12px; color: ${theme.textMuted}; opacity: 0.7;">Indore, India</span>
-                        </div>
-                    </div>
+                    ${emailFooter()}
                 </div>
             </div>
         `;
@@ -162,16 +149,24 @@ export const sendOrderConfirmation = async (email, order) => {
             </tr>
         `).join('');
 
+        const estimatedDeliveryStr = order.estimatedDelivery
+            ? new Date(order.estimatedDelivery).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })
+            : null;
+
         const template = `
             <div style="font-family: 'Inter', Helvetica, Arial, sans-serif; background-color: ${theme.cream}; padding: 40px 0;">
                 <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #e6decd;">
-                    <div style="background-color: ${theme.primary}; padding: 35px; text-align: center;">
-                        <h1 style="color: ${theme.textLight}; margin: 0; font-size: 26px; font-weight: 700;">Bagchee</h1>
-                        <p style="color: ${theme.textLight}; margin-top: 5px; opacity: 0.9; font-size: 14px;">Order Confirmed!</p>
-                    </div>
+                    ${emailHeader()}
                     <div style="padding: 40px 30px;">
                         <h2 style="color: ${theme.textMain}; font-size: 20px; margin-bottom: 6px;">Thank you for your order!</h2>
-                        <p style="color: ${theme.textMain}; opacity: 0.7; margin-bottom: 24px;">Order #<strong>${escapeHtml(order.orderNumber)}</strong> has been placed successfully.</p>
+                        <p style="color: ${theme.textMain}; opacity: 0.7; margin-bottom: 20px;">Order #<strong>${escapeHtml(order.orderNumber)}</strong> has been placed successfully.</p>
+
+                        <div style="text-align: center; margin: 0 0 28px;">
+                            <a href="${SITE_URL}/account/orders" style="display:inline-block;background-color:${theme.primary};color:#fff;text-decoration:none;padding:13px 32px;font-size:15px;font-weight:700;border-radius:8px;">
+                                Track Your Order
+                            </a>
+                        </div>
+
                         <table style="width: 100%; border-collapse: collapse;">
                             <thead>
                                 <tr>
@@ -187,10 +182,12 @@ export const sendOrderConfirmation = async (email, order) => {
                         </div>
                         <div style="margin-top: 24px; background: #f9f5ee; border-radius: 8px; padding: 16px; font-size: 13px; color: ${theme.textMain};">
                             <strong>Shipping to:</strong><br/>
+                            ${order.shippingCompany ? escapeHtml(order.shippingCompany) + '<br/>' : ''}
                             ${escapeHtml(order.shippingFirstName)} ${escapeHtml(order.shippingLastName)}<br/>
-                            ${escapeHtml(order.shippingAddress1)}${order.shippingAddress2 ? ', ' + escapeHtml(order.shippingAddress2) : ''}<br/>
+                            ${escapeHtml(order.shippingAddress1)}${order.shippingAddress2 ? '<br/>' + escapeHtml(order.shippingAddress2) : ''}<br/>
                             ${escapeHtml(order.shippingCity)}, ${escapeHtml(order.shippingState)} ${escapeHtml(order.shippingPostcode)}<br/>
                             ${escapeHtml(order.shippingCountry)}
+                            ${estimatedDeliveryStr ? `<br/><br/><strong>Estimated Delivery:</strong> ${estimatedDeliveryStr}` : ''}
                         </div>
                         ${order.paymentAdditionalText ? `
                         <div style="margin-top: 24px; background: #fff8e6; border: 1px solid #f59e0b; border-radius: 8px; padding: 16px; font-size: 13px; color: ${theme.textMain};">
@@ -202,9 +199,7 @@ export const sendOrderConfirmation = async (email, order) => {
                             </p>
                         </div>` : ''}
                     </div>
-                    <div style="background-color: #fffdf5; padding: 20px; text-align: center; border-top: 1px solid #e6decd;">
-                        <p style="font-size: 12px; color: ${theme.textMuted}; margin: 0;">&copy; ${new Date().getFullYear()} Bagchee. All rights reserved.</p>
-                    </div>
+                    ${emailFooter()}
                 </div>
             </div>
         `;
@@ -228,17 +223,15 @@ export const sendOrderShippedEmail = async (email, order) => {
         const template = `
             <div style="font-family: 'Inter', Helvetica, Arial, sans-serif; background-color: ${theme.cream}; padding: 40px 0;">
                 <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #e6decd;">
-                    <div style="background-color: ${theme.primary}; padding: 35px; text-align: center;">
-                        <h1 style="color: ${theme.textLight}; margin: 0; font-size: 26px; font-weight: 700;">Bagchee</h1>
-                        <p style="color: ${theme.textLight}; margin-top: 5px; opacity: 0.9; font-size: 14px;">Your order is on its way!</p>
-                    </div>
+                    ${emailHeader()}
                     <div style="padding: 40px 30px;">
                         <h2 style="color: ${theme.textMain}; font-size: 20px; margin-bottom: 6px;">Your order has been shipped! 📦</h2>
                         <p style="color: ${theme.textMain}; opacity: 0.7; margin-bottom: 24px;">Order #<strong>${escapeHtml(order.orderNumber)}</strong> is on its way to you.</p>
                         <div style="background: #f9f5ee; border-radius: 8px; padding: 16px; font-size: 13px; color: ${theme.textMain}; margin-bottom: 20px;">
                             <strong>Shipping to:</strong><br/>
+                            ${order.shippingCompany ? escapeHtml(order.shippingCompany) + '<br/>' : ''}
                             ${escapeHtml(order.shippingFirstName)} ${escapeHtml(order.shippingLastName)}<br/>
-                            ${escapeHtml(order.shippingAddress1)}${order.shippingAddress2 ? ', ' + escapeHtml(order.shippingAddress2) : ''}<br/>
+                            ${escapeHtml(order.shippingAddress1)}${order.shippingAddress2 ? '<br/>' + escapeHtml(order.shippingAddress2) : ''}<br/>
                             ${escapeHtml(order.shippingCity)}, ${escapeHtml(order.shippingState)} ${escapeHtml(order.shippingPostcode)}<br/>
                             ${escapeHtml(order.shippingCountry)}
                         </div>
@@ -246,9 +239,7 @@ export const sendOrderShippedEmail = async (email, order) => {
                         ${order.trackingId ? `<p style="font-size: 14px; color: ${theme.textMain};"><strong>Tracking ID:</strong> ${escapeHtml(String(order.trackingId))}</p>` : ''}
                         <p style="margin-top: 20px; font-size: 14px; color: ${theme.textMuted};">We'll notify you when your order is delivered. Thank you for shopping with Bagchee!</p>
                     </div>
-                    <div style="background-color: #fffdf5; padding: 20px; text-align: center; border-top: 1px solid #e6decd;">
-                        <p style="font-size: 12px; color: ${theme.textMuted}; margin: 0;">&copy; ${new Date().getFullYear()} Bagchee. All rights reserved.</p>
-                    </div>
+                    ${emailFooter()}
                 </div>
             </div>
         `;
@@ -281,10 +272,7 @@ export const sendOrderStatusEmail = async (email, order) => {
         const template = `
             <div style="font-family: 'Inter', Helvetica, Arial, sans-serif; background-color: ${theme.cream}; padding: 40px 0;">
                 <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #e6decd;">
-                    <div style="background-color: ${theme.primary}; padding: 35px; text-align: center;">
-                        <h1 style="color: ${theme.textLight}; margin: 0; font-size: 26px; font-weight: 700;">Bagchee</h1>
-                        <p style="color: ${theme.textLight}; margin-top: 5px; opacity: 0.9; font-size: 14px;">Order Status Update</p>
-                    </div>
+                    ${emailHeader()}
                     <div style="padding: 40px 30px; text-align: center;">
                         <h2 style="color: ${theme.textMain}; font-size: 20px; margin-bottom: 16px;">Order #${escapeHtml(order.orderNumber)}</h2>
                         <div style="display: inline-block; background-color: ${statusColor}; color: white; padding: 10px 28px; border-radius: 8px; font-size: 18px; font-weight: 700; letter-spacing: 0.5px;">
@@ -294,9 +282,7 @@ export const sendOrderStatusEmail = async (email, order) => {
                             Your order status has been updated. If you have any questions, please don't hesitate to contact us.
                         </p>
                     </div>
-                    <div style="background-color: #fffdf5; padding: 20px; text-align: center; border-top: 1px solid #e6decd;">
-                        <p style="font-size: 12px; color: ${theme.textMuted}; margin: 0;">&copy; ${new Date().getFullYear()} Bagchee. All rights reserved.</p>
-                    </div>
+                    ${emailFooter()}
                 </div>
             </div>
         `;
@@ -325,10 +311,7 @@ export const sendPaymentLinkEmail = async (email, order, paymentLink) => {
         const template = `
             <div style="font-family:'Inter',Helvetica,Arial,sans-serif;background-color:${theme.cream};padding:40px 0;">
               <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 15px rgba(0,0,0,.1);border:1px solid #e6decd;">
-                <div style="background:${theme.primary};padding:35px;text-align:center;">
-                  <h1 style="color:#fff;margin:0;font-size:26px;font-weight:700;">Bagchee</h1>
-                  <p style="color:#fff;margin-top:5px;opacity:.9;font-size:14px;">Your Favorite Bookstore</p>
-                </div>
+                ${emailHeader()}
                 <div style="padding:40px 30px;">
                   <h2 style="color:${theme.textMain};font-size:22px;margin-bottom:8px;font-weight:700;">Your Order Has Been Approved!</h2>
                   <p style="color:${theme.textMain};font-size:15px;line-height:1.7;margin-bottom:6px;">Hi <strong>${firstName}</strong>,</p>
@@ -352,9 +335,7 @@ export const sendPaymentLinkEmail = async (email, order, paymentLink) => {
                     </p>
                   </div>
                 </div>
-                <div style="background:#fffdf5;padding:20px;text-align:center;border-top:1px solid #e6decd;">
-                  <p style="font-size:12px;color:${theme.textMuted};margin:0;">&copy; ${new Date().getFullYear()} Bagchee. All rights reserved.</p>
-                </div>
+                ${emailFooter()}
               </div>
             </div>
         `;
@@ -377,16 +358,11 @@ export const sendCustomConfirmationEmail = async (email, subject, bodyHtml) => {
         const html = `
             <div style="font-family:'Inter',Helvetica,Arial,sans-serif;background-color:${theme.cream};padding:40px 0;">
               <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 15px rgba(0,0,0,.1);border:1px solid #e6decd;">
-                <div style="background:${theme.primary};padding:35px;text-align:center;">
-                  <h1 style="color:#fff;margin:0;font-size:26px;font-weight:700;">Bagchee</h1>
-                  <p style="color:#fff;margin-top:5px;opacity:.9;font-size:14px;">Your Favorite Bookstore</p>
-                </div>
+                ${emailHeader()}
                 <div style="padding:40px 30px;font-size:15px;line-height:1.7;color:${theme.textMain};">
                   ${bodyHtml}
                 </div>
-                <div style="background:#fffdf5;padding:20px;text-align:center;border-top:1px solid #e6decd;">
-                  <p style="font-size:12px;color:${theme.textMuted};margin:0;">&copy; ${new Date().getFullYear()} Bagchee. All rights reserved.</p>
-                </div>
+                ${emailFooter()}
               </div>
             </div>`;
         await transporter.sendMail({
@@ -421,10 +397,7 @@ export const sendInvoiceEmail = async (email, order) => {
         const template = `
             <div style="font-family:'Inter',Helvetica,Arial,sans-serif;background-color:${theme.cream};padding:40px 0;">
               <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 15px rgba(0,0,0,0.1);border:1px solid #e6decd;">
-                <div style="background:${theme.primary};padding:35px;text-align:center;">
-                  <h1 style="color:#fff;margin:0;font-size:26px;font-weight:700;">Bagchee</h1>
-                  <p style="color:#fff;margin-top:5px;opacity:0.9;font-size:14px;">Invoice</p>
-                </div>
+                ${emailHeader()}
                 <div style="padding:36px 32px;">
                   <h2 style="color:${theme.textMain};font-size:20px;margin-bottom:4px;">Invoice #${escapeHtml(String(orderNum))}</h2>
                   <p style="color:#6b7280;font-size:13px;margin-bottom:24px;">Date: ${new Date(order.createdAt || Date.now()).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' })}</p>
@@ -451,9 +424,7 @@ export const sendInvoiceEmail = async (email, order) => {
                     ${escapeHtml(shippingAddr)}
                   </div>` : ''}
                 </div>
-                <div style="background:#fffdf5;padding:20px;text-align:center;border-top:1px solid #e6decd;">
-                  <p style="font-size:12px;color:${theme.textMuted};margin:0;">&copy; ${new Date().getFullYear()} Bagchee. All rights reserved.</p>
-                </div>
+                ${emailFooter()}
               </div>
             </div>`;
 

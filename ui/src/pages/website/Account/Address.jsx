@@ -22,8 +22,10 @@ const Address = () => {
   const initialFormState = {
     type: 'Home',
     name: '',
+    company: '',
     houseNo: '',
     street: '',
+    address2: '',
     landmark: '',
     city: '',
     state: '',
@@ -130,8 +132,10 @@ const Address = () => {
       name:     addr.firstName && addr.lastName
                   ? `${addr.firstName} ${addr.lastName}`
                   : addr.name || '',
+      company:  addr.company  || '',
       houseNo:  addr.houseNo  || '',
       street:   addr.street   || '',
+      address2: addr.address2 || '',
       landmark: addr.landmark || '',
       city:     addr.city     || '',
       state:    addr.state    || '',
@@ -223,6 +227,9 @@ const Address = () => {
               </div>
 
               <div className="p-6 flex-grow space-y-4 text-sm">
+                {addr.company && (
+                  <p className="text-sm text-gray-500 font-medium">{addr.company}</p>
+                )}
                 <p className="font-bold text-lg text-gray-900">
                   {addr.firstName && addr.lastName
                     ? `${addr.firstName} ${addr.lastName}`
@@ -238,6 +245,9 @@ const Address = () => {
                       <span className="block text-gray-700">
                         {addr.houseNo}, {addr.street}
                       </span>
+                      {addr.address2 && (
+                        <span className="block text-gray-700">{addr.address2}</span>
+                      )}
                       {addr.landmark && (
                         <span className="block text-sm text-gray-500 italic mt-0.5">
                           ({addr.landmark})
@@ -325,6 +335,18 @@ const Address = () => {
                   />
                 </div>
               </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                  Company (Optional)
+                </label>
+                <input
+                  type="text"
+                  name="company"
+                  value={formData.company}
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
+                />
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
@@ -352,6 +374,19 @@ const Address = () => {
                     required
                   />
                 </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                  Address Line 2 (Optional)
+                </label>
+                <input
+                  type="text"
+                  name="address2"
+                  value={formData.address2}
+                  onChange={handleChange}
+                  placeholder="Apartment, suite, unit, building, floor, etc."
+                  className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
+                />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>

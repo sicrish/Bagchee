@@ -85,7 +85,20 @@ export const register = async (req, res) => {
 
         try { await sendMail(user.email, user.name); } catch (e) { /* email non-critical */ }
 
-        res.status(201).json({ status: true, msg: 'User registered successfully', userId: user.id });
+        const payload = { subject: user.email, userId: user.id, role: user.role };
+        const token = jwt.sign(payload, process.env.JWT_SECRET_KEY, { expiresIn: '1h' });
+
+        res.status(201).json({
+            status: true, msg: 'User registered successfully', token,
+            userDetails: {
+                id: user.id, name: user.name, email: user.email,
+                phone: user.phone, profileImage: user.profileImage,
+                role: user.role, membership: user.membership,
+                membershipStart: user.membershipStart,
+                membershipEnd: user.membershipEnd,
+                forceDirectPayment: user.forceDirectPayment
+            }
+        });
     } catch (error) {
         if (error.code === 'P2002') {
             const field = error.meta?.target?.[0] || 'field';
@@ -128,7 +141,7 @@ export const login = async (req, res) => {
 
 export const fetch = async (req, res) => {
     try {
-        const { page, limit, role, status: statusFilter, email } = req.query;
+        const { page, limit, role, status: statusFilter, email, name, membership } = req.query;
         const pageNum = Math.max(1, parseInt(page) || 1);
         const pageSize = Math.min(100, Math.max(1, parseInt(limit) || 10));
         const skip = (pageNum - 1) * pageSize;
@@ -137,6 +150,8 @@ export const fetch = async (req, res) => {
         if (role) where.role = role;
         if (statusFilter !== undefined && statusFilter !== '') where.status = parseInt(statusFilter);
         if (email) where.email = { contains: email, mode: 'insensitive' };
+        if (name) where.name = { contains: name, mode: 'insensitive' };
+        if (membership) where.membership = { contains: membership, mode: 'insensitive' };
 
         const [userList, total] = await Promise.all([
             prisma.user.findMany({

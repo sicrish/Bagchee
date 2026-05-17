@@ -184,7 +184,7 @@ const contactInfo = [
                 {formStatus === "submitted" && (
                   <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
                     <p className="text-green-800 font-semibold text-center">
-                      ✓ Thank you for your message! We'll get back to you within 24 hours.
+                      We've received your feedback and will respond shortly if required.
                     </p>
                   </div>
                 )}

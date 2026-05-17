@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Plus, Download, Printer, Search, RotateCw,
   Edit, Trash2, ChevronLeft, ChevronRight,
@@ -25,21 +25,25 @@ const UsersList = () => {
 
   // 🟢 1. Filtering States
   const [filters, setFilters] = useState({
-    username: "",
     email: "",
-    firstname: "",
-    lastname: "",
+    name: "",
     membership: ""
   });
+  const [pendingFilters, setPendingFilters] = useState({ email: "", name: "", membership: "" });
 
   const API_BASE_URL = process.env.REACT_APP_API_URL;
 
-  const fetchUsers = async (isExport = false) => {
+  const fetchUsers = useCallback(async (isExport = false) => {
     if (!isExport) setLoading(true);
     try {
       const params = new URLSearchParams();
       params.append("page", isExport ? 1 : currentPage);
       params.append("limit", isExport ? 100000 : itemsPerPage);
+      if (!isExport) {
+        if (filters.email) params.append("email", filters.email);
+        if (filters.name) params.append("name", filters.name);
+        if (filters.membership) params.append("membership", filters.membership);
+      }
 
       const res = await axios.get(`${API_BASE_URL}/user/fetch?${params.toString()}`);
       if (res.data.status) {
@@ -53,11 +57,11 @@ const UsersList = () => {
     } finally {
       if (!isExport) setLoading(false);
     }
-  };
+  }, [currentPage, itemsPerPage, filters, API_BASE_URL]);
 
   useEffect(() => {
     fetchUsers();
-  }, [currentPage, itemsPerPage]);
+  }, [fetchUsers]);
 
   // 🟢 3. Excel Export logic
   const handleExport = async () => {
@@ -84,31 +88,22 @@ const UsersList = () => {
 
   const handlePrint = () => window.print();
 
-  // 🟢 2. Filtering Logic (Memoized for Performance)
-  const filteredUsers = useMemo(() => {
-    return users.filter(user => {
-      // Name split logic for filtering based on First/Last name
-      const nameParts = user.name ? user.name.split(' ') : ["", ""];
-      const fName = (nameParts[0] || user.firstname || "").toLowerCase();
-      const lName = (nameParts.slice(1).join(' ') || user.lastname || "").toLowerCase();
-
-      return (
-        (user.username || user.email || "").toLowerCase().includes(filters.username.toLowerCase()) &&
-        (user.email || "").toLowerCase().includes(filters.email.toLowerCase()) &&
-        fName.includes(filters.firstname.toLowerCase()) &&
-        lName.includes(filters.lastname.toLowerCase()) &&
-        (user.membership || "inactive").toLowerCase().includes(filters.membership.toLowerCase())
-      );
-    });
-  }, [users, filters]);
+  const filteredUsers = users;
 
   const handleFilterChange = (e) => {
-    setFilters({ ...filters, [e.target.name]: e.target.value });
+    setPendingFilters(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const applyFilters = () => {
+    setFilters({ ...pendingFilters });
+    setCurrentPage(1);
   };
 
   const clearFilters = () => {
-    setFilters({ username: "", email: "", firstname: "", lastname: "", membership: "" });
-    fetchUsers();
+    const empty = { email: "", name: "", membership: "" };
+    setPendingFilters(empty);
+    setFilters(empty);
+    setCurrentPage(1);
   };
 
   const handleDelete = async (id) => {
@@ -154,7 +149,7 @@ const UsersList = () => {
             Clear filters
           </button>
           <div className="relative flex items-center">
-            <button onClick={fetchUsers} className="bg-primary text-white p-2 rounded hover:bg-primary-hover transition-colors shadow-sm">
+            <button onClick={applyFilters} className="bg-primary text-white p-2 rounded hover:bg-primary-hover transition-colors shadow-sm" title="Search">
               <Search size={16} />
             </button>
           </div>
@@ -164,43 +159,41 @@ const UsersList = () => {
       {/* --- DATA TABLE --- */}
       <div className="bg-white rounded border border-cream-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1200px] border-collapse text-sm">
+          <table className="w-full min-w-[900px] border-collapse text-sm">
             <thead>
               <tr className="bg-primary text-white border-b border-white/10 font-montserrat font-bold uppercase tracking-wider text-[11px]">
                 <th className="p-3 text-center w-16 border-r border-white/20">#</th>
-                <th className="p-3 text-left border-r border-white/20">Username</th>
                 <th className="p-3 text-left border-r border-white/20">Email</th>
-                <th className="p-3 text-left border-r border-white/20">Firstname</th>
-                <th className="p-3 text-left border-r border-white/20">Lastname</th>
+                <th className="p-3 text-left border-r border-white/20">Name</th>
                 <th className="p-3 text-left border-r border-white/20 w-40">Membership</th>
                 <th className="p-3 text-center w-28">Actions</th>
               </tr>
 
-              {/* 🟢 Filter Row with dynamic handlers */}
+              {/* Filter Row — server-side search, press Search or Enter */}
               <tr className="bg-primary border-b border-cream-200 align-top">
                 <td className="p-2 border-r border-white/20 text-center">
                   <input type="checkbox" className="h-4 w-4 rounded accent-primary bg-white cursor-pointer" />
                 </td>
                 <td className="p-2 border-r border-white/20">
-                  <input type="text" name="username" value={filters.username} onChange={handleFilterChange} className={filterInputClass} placeholder="Filter Username" />
+                  <input type="text" name="email" value={pendingFilters.email} onChange={handleFilterChange}
+                    onKeyDown={e => e.key === 'Enter' && applyFilters()}
+                    className={filterInputClass} placeholder="Search Email" />
                 </td>
                 <td className="p-2 border-r border-white/20">
-                  <input type="text" name="email" value={filters.email} onChange={handleFilterChange} className={filterInputClass} placeholder="Filter Email" />
+                  <input type="text" name="name" value={pendingFilters.name} onChange={handleFilterChange}
+                    onKeyDown={e => e.key === 'Enter' && applyFilters()}
+                    className={filterInputClass} placeholder="Search Name" />
                 </td>
                 <td className="p-2 border-r border-white/20">
-                  <input type="text" name="firstname" value={filters.firstname} onChange={handleFilterChange} className={filterInputClass} placeholder="Filter Firstname" />
-                </td>
-                <td className="p-2 border-r border-white/20">
-                  <input type="text" name="lastname" value={filters.lastname} onChange={handleFilterChange} className={filterInputClass} placeholder="Filter Lastname" />
-                </td>
-                <td className="p-2 border-r border-white/20">
-                  <input type="text" name="membership" value={filters.membership} onChange={handleFilterChange} className={filterInputClass} placeholder="Filter Status" />
-                  <div className="text-[10px] text-white mt-1.5 font-medium leading-tight opacity-90 pl-1">
-                    <div>member / inactive</div>
-                  </div>
+                  <select name="membership" value={pendingFilters.membership} onChange={handleFilterChange}
+                    className={filterInputClass}>
+                    <option value="">All Members</option>
+                    <option value="active">Member (active)</option>
+                    <option value="inactive">Non-member (inactive)</option>
+                  </select>
                 </td>
                 <td className="p-2 text-center">
-                  <button onClick={fetchUsers} className="text-white hover:rotate-180 transition-transform duration-500">
+                  <button onClick={applyFilters} className="text-white hover:rotate-180 transition-transform duration-500" title="Apply Search">
                     <RotateCw size={16} />
                   </button>
                 </td>
@@ -210,61 +203,49 @@ const UsersList = () => {
             <tbody className="divide-y divide-cream-50">
               {loading ? (
                 <tr>
-                  <td colSpan="7" className="p-10 text-center text-text-muted font-bold">
+                  <td colSpan="5" className="p-10 text-center text-text-muted font-bold">
                     <div className="flex justify-center items-center gap-2">
                       <Loader2 className="animate-spin text-primary" /> Loading Users...
                     </div>
                   </td>
                 </tr>
               ) : filteredUsers.length > 0 ? (
-                filteredUsers.map((item, index) => {
-                  let firstName = "-";
-                  let lastName = "-";
-                  if (item.name) {
-                    const nameParts = item.name.split(' ');
-                    firstName = nameParts[0] || "-";
-                    lastName = nameParts.slice(1).join(' ') || "-";
-                  } else {
-                    firstName = item.firstname || "-";
-                    lastName = item.lastname || "-";
-                  }
-
-                  return (
-                    <tr key={item.id || item._id} className="hover:bg-primary-50 transition-colors text-[13px]">
-                      <td className="p-3 border-r border-cream-50 text-center">
-                        <div className="flex items-center gap-2 px-1 justify-center">
-                          <input type="checkbox" className="h-4 w-4 rounded accent-primary cursor-pointer" />
-                          <span className="text-text-muted text-xs font-bold">{index + 1}</span>
-                        </div>
-                      </td>
-                      <td className="p-3 border-r border-cream-50 text-text-main">{item.username || item.email}</td>
-                      <td className="p-3 border-r border-cream-50 text-text-main">{item.email}</td>
-                      <td className="p-3 border-r border-cream-50 text-text-main font-medium">{firstName}</td>
-                      <td className="p-3 border-r border-cream-50 text-text-main font-medium">{lastName}</td>
-                      <td className="p-3 border-r border-cream-50 text-text-main">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${item.membership === 'active' || item.isMember
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-gray-100 text-gray-500'
-                          }`}>
-                          {item.membership || 'inactive'}
-                        </span>
-                      </td>
-                      <td className="p-3">
-                        <div className="flex justify-center gap-2">
-                          <button onClick={() => navigate(`/admin/edit-user/${item.id || item._id}`)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm active:scale-95">
-                            <Edit size={14} />
-                          </button>
-                          <button onClick={() => handleDelete(item.id || item._id)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 hover:border-red-600 transition-all shadow-sm active:scale-95">
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
+                filteredUsers.map((item, index) => (
+                  <tr key={item.id || item._id} className="hover:bg-primary-50 transition-colors text-[13px]">
+                    <td className="p-3 border-r border-cream-50 text-center">
+                      <div className="flex items-center gap-2 px-1 justify-center">
+                        <input type="checkbox" className="h-4 w-4 rounded accent-primary cursor-pointer" />
+                        <span className="text-text-muted text-xs font-bold">{(currentPage - 1) * itemsPerPage + index + 1}</span>
+                      </div>
+                    </td>
+                    <td className="p-3 border-r border-cream-50 text-text-main">{item.email}</td>
+                    <td className="p-3 border-r border-cream-50 text-text-main font-medium">
+                      {item.name || [item.firstName, item.lastName].filter(Boolean).join(' ') || '-'}
+                      {item.username && <span className="text-xs text-gray-400 block">@{item.username}</span>}
+                    </td>
+                    <td className="p-3 border-r border-cream-50 text-text-main">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${item.membership === 'active' || item.isMember
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-gray-100 text-gray-500'
+                        }`}>
+                        {item.membership || 'inactive'}
+                      </span>
+                    </td>
+                    <td className="p-3">
+                      <div className="flex justify-center gap-2">
+                        <button onClick={() => navigate(`/admin/edit-user/${item.id || item._id}`)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm active:scale-95">
+                          <Edit size={14} />
+                        </button>
+                        <button onClick={() => handleDelete(item.id || item._id)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 hover:border-red-600 transition-all shadow-sm active:scale-95">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
               ) : (
                 <tr>
-                  <td colSpan="7" className="p-10 text-center text-text-muted italic font-montserrat">No users found.</td>
+                  <td colSpan="5" className="p-10 text-center text-text-muted italic font-montserrat">No users found.</td>
                 </tr>
               )}
             </tbody>

@@ -972,6 +972,16 @@ const Checkout = () => {
         shipping_details: shippingDetails,
         billing_details: billingDetails,
         comment: orderNotes,
+        estimatedDelivery: (() => {
+          if (!appliedShipping || hasOnlyGiftCards) return null;
+          const maxDay = appliedShipping.maxDayLimit || appliedShipping.max_day_limit || 0;
+          if (maxDay > 0 || totalPrepDays > 0) {
+            const d = new Date();
+            d.setDate(d.getDate() + maxDay + totalPrepDays);
+            return d.toISOString();
+          }
+          return null;
+        })(),
         ...(isPurchaseOrderMethod(selectedPayment) && { purchaseOrderNumber }),
       };
 
