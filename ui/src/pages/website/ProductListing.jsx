@@ -19,19 +19,7 @@ const ProductListing = ({ type }) => {
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [totalProducts, setTotalProducts] = useState(0);
-    const getDefaultViewMode = (t, search) => {
-        if (t === 'search') {
-            const params = new URLSearchParams(search);
-            return params.get('tags') ? 'grid' : 'list';
-        }
-        return 'grid';
-    };
-    const [viewMode, setViewMode] = useState(() => getDefaultViewMode(type, window.location.search));
-
-    // Reset viewMode when type or search params change
-    useEffect(() => {
-        setViewMode(getDefaultViewMode(type, location.search));
-    }, [type, location.search]);
+    const [viewMode, setViewMode] = useState('grid');
     const [showMobileFilter, setShowMobileFilter] = useState(false);
 
     // Modal State

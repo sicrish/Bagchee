@@ -21,12 +21,11 @@ const Address = () => {
   // Form Initial State
   const initialFormState = {
     type: 'Home',
-    name: '',
+    firstName: '',
+    lastName: '',
     company: '',
     houseNo: '',
-    street: '',
     address2: '',
-    landmark: '',
     city: '',
     state: '',
     pincode: '',
@@ -73,11 +72,6 @@ const Address = () => {
   // 🟢 2. SAVE/UPDATE ADDRESS (useMutation)
   const saveMutation = useMutation({
     mutationFn: async (newAddress) => {
-      // Split "Full Name" into firstName / lastName for the backend
-      const nameParts = (newAddress.name || '').trim().split(' ');
-      const firstName = nameParts[0] || '';
-      const lastName  = nameParts.slice(1).join(' ') || '';
-
       if (isEditing) {
         await axios.post(`${API_BASE_URL}/user/delete-address`, {
           userId: user.id,
@@ -87,8 +81,6 @@ const Address = () => {
       const res = await axios.post(`${API_BASE_URL}/user/add-address`, {
         userId: user.id,
         ...newAddress,
-        firstName,
-        lastName,
       });
       return res.data;
     },
@@ -128,20 +120,21 @@ const Address = () => {
 
   const handleEdit = (addr) => {
     setFormData({
-      type:     addr.type     || 'Home',
-      name:     addr.firstName && addr.lastName
-                  ? `${addr.firstName} ${addr.lastName}`
-                  : addr.name || '',
-      company:  addr.company  || '',
-      houseNo:  addr.houseNo  || '',
-      street:   addr.street   || '',
-      address2: addr.address2 || '',
-      landmark: addr.landmark || '',
-      city:     addr.city     || '',
-      state:    addr.state    || '',
-      pincode:  addr.pincode  || '',
-      country:  addr.country  || 'India',
-      phone:    addr.phone    || '',
+      type:      addr.type      || 'Home',
+      firstName: addr.firstName || '',
+      lastName:  addr.lastName  || '',
+      company:   addr.company   || '',
+      // Combine legacy houseNo+street into a single address line 1
+      houseNo:   addr.houseNo && addr.street
+                   ? `${addr.houseNo}, ${addr.street}`
+                   : addr.houseNo || addr.street || '',
+      // Fold legacy landmark into address2 if address2 is empty
+      address2:  addr.address2  || addr.landmark || '',
+      city:      addr.city      || '',
+      state:     addr.state     || '',
+      pincode:   addr.pincode   || '',
+      country:   addr.country   || 'United States',
+      phone:     addr.phone     || '',
     });
     setIsEditing(true);
     setCurrentAddressId(addr.id || addr._id);
@@ -226,40 +219,35 @@ const Address = () => {
                 )}
               </div>
 
-              <div className="p-6 flex-grow space-y-4 text-sm">
+              <div className="p-6 flex-grow space-y-3 text-sm">
                 {addr.company && (
                   <p className="text-sm text-gray-500 font-medium">{addr.company}</p>
                 )}
                 <p className="font-bold text-lg text-gray-900">
-                  {addr.firstName && addr.lastName
-                    ? `${addr.firstName} ${addr.lastName}`
-                    : addr.name || '—'}
+                  {[addr.firstName, addr.lastName].filter(Boolean).join(' ') || '—'}
                 </p>
                 <div className="space-y-2">
                   <div className="flex gap-3 items-start">
-                    <MapPin
-                      size={18}
-                      className="shrink-0 text-primary mt-0.5"
-                    />
+                    <MapPin size={18} className="shrink-0 text-primary mt-0.5" />
                     <div>
-                      <span className="block text-gray-700">
-                        {addr.houseNo}, {addr.street}
-                      </span>
+                      {addr.houseNo && (
+                        <span className="block text-gray-700">{addr.houseNo}</span>
+                      )}
+                      {addr.street && (
+                        <span className="block text-gray-700">{addr.street}</span>
+                      )}
                       {addr.address2 && (
                         <span className="block text-gray-700">{addr.address2}</span>
                       )}
-                      {addr.landmark && (
-                        <span className="block text-sm text-gray-500 italic mt-0.5">
-                          ({addr.landmark})
-                        </span>
-                      )}
                       <p className="text-gray-700 mt-1">
-                        {addr.city}, {addr.state} -{" "}
-                        <span className="font-bold">{addr.pincode}</span>
+                        {[addr.city, addr.state].filter(Boolean).join(', ')}
+                        {addr.pincode && <span className="font-bold"> {addr.pincode}</span>}
                       </p>
-                      <p className="uppercase text-xs tracking-wider text-gray-400 pt-1">
-                        {addr.country}
-                      </p>
+                      {addr.country && (
+                        <p className="uppercase text-xs tracking-wider text-gray-400 pt-0.5">
+                          {addr.country}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -305,168 +293,80 @@ const Address = () => {
               </button>
             </div>
             <form onSubmit={handleSave} className="p-6 md:p-8 space-y-5">
+              {/* Row 1: Type + First Name + Last Name */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    Address Type
-                  </label>
-                  <select
-                    name="type"
-                    value={formData.type}
-                    onChange={handleChange}
-                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary bg-gray-50"
-                  >
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Address Type</label>
+                  <select name="type" value={formData.type} onChange={handleChange}
+                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary bg-gray-50">
                     <option>Home</option>
                     <option>Office</option>
                     <option>Other</option>
                   </select>
                 </div>
-                <div className="md:col-span-2">
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    Full Name
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
-                    required
-                  />
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">First Name *</label>
+                  <input type="text" name="firstName" value={formData.firstName} onChange={handleChange}
+                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary" required />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Last Name</label>
+                  <input type="text" name="lastName" value={formData.lastName} onChange={handleChange}
+                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary" />
                 </div>
               </div>
+              {/* Row 2: Address Line 1 */}
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                  Company (Optional)
-                </label>
-                <input
-                  type="text"
-                  name="company"
-                  value={formData.company}
-                  onChange={handleChange}
-                  className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
-                />
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Address Line 1 *</label>
+                <input type="text" name="houseNo" value={formData.houseNo} onChange={handleChange}
+                  placeholder="Street address, P.O. box, building"
+                  className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary" required />
               </div>
+              {/* Row 3: Address Line 2 */}
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Address Line 2 (Optional)</label>
+                <input type="text" name="address2" value={formData.address2} onChange={handleChange}
+                  placeholder="Apartment, suite, unit, floor, etc."
+                  className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary" />
+              </div>
+              {/* Row 4: Company */}
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Company (Optional)</label>
+                <input type="text" name="company" value={formData.company} onChange={handleChange}
+                  className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary" />
+              </div>
+              {/* Row 5: City + State */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    House / Flat No.
-                  </label>
-                  <input
-                    type="text"
-                    name="houseNo"
-                    value={formData.houseNo}
-                    onChange={handleChange}
-                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
-                    required
-                  />
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">City *</label>
+                  <input type="text" name="city" value={formData.city} onChange={handleChange}
+                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary" required />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    Street / Area
-                  </label>
-                  <input
-                    type="text"
-                    name="street"
-                    value={formData.street}
-                    onChange={handleChange}
-                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
-                    required
-                  />
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">State / Province / Region</label>
+                  <input type="text" name="state" value={formData.state} onChange={handleChange}
+                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary" />
                 </div>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                  Address Line 2 (Optional)
-                </label>
-                <input
-                  type="text"
-                  name="address2"
-                  value={formData.address2}
-                  onChange={handleChange}
-                  placeholder="Apartment, suite, unit, building, floor, etc."
-                  className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
-                />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    Landmark (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    name="landmark"
-                    value={formData.landmark}
-                    onChange={handleChange}
-                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    City
-                  </label>
-                  <input
-                    type="text"
-                    name="city"
-                    value={formData.city}
-                    onChange={handleChange}
-                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
-                    required
-                  />
-                </div>
-              </div>
+              {/* Row 6: Postal Code + Country + Phone */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    State / Province / Region
-                  </label>
-                  <input
-                    type="text"
-                    name="state"
-                    value={formData.state}
-                    onChange={handleChange}
-                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
-                  />
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Postal Code / ZIP</label>
+                  <input type="text" name="pincode" value={formData.pincode} onChange={handleChange}
+                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    Postal Code / ZIP
-                  </label>
-                  <input
-                    type="text"
-                    name="pincode"
-                    value={formData.pincode}
-                    onChange={handleChange}
-                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
-                  />
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Country</label>
+                  <select name="country" value={formData.country} onChange={handleChange}
+                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary bg-gray-50" required>
+                    {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    Phone
-                  </label>
-                  <input
-                    type="tel"
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleChange}
-                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
-                    required
-                  />
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Phone *</label>
+                  <input type="tel" name="phone" value={formData.phone} onChange={handleChange}
+                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary" required />
                 </div>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                  Country
-                </label>
-                <select
-                  name="country"
-                  value={formData.country}
-                  onChange={handleChange}
-                  className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary bg-gray-50"
-                  required
-                >
-                  {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
               </div>
               <div className="pt-6 flex justify-end gap-4 border-t border-gray-100">
                 <button

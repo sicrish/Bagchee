@@ -106,10 +106,9 @@ const Checkout = () => {
 
   const [newAddress, setNewAddress] = useState({
     type: "Home",
-    name: "",
+    firstName: "",
+    lastName: "",
     houseNo: "",
-    street: "",
-    landmark: "",
     address2: "",
     company: "",
     city: "",
@@ -156,10 +155,9 @@ const Checkout = () => {
   const [editBillingId, setEditBillingId] = useState(null);
   const [newBillingAddress, setNewBillingAddress] = useState({
     type: "Home",
-    name: "",
+    firstName: "",
+    lastName: "",
     houseNo: "",
-    street: "",
-    landmark: "",
     address2: "",
     company: "",
     city: "",
@@ -520,8 +518,8 @@ const Checkout = () => {
       toast.error("Please login to save address");
       return;
     }
-    const { name, phone, houseNo, city, state, pincode } = newAddress;
-    if (!name || !phone || !houseNo || !city || !state || !pincode) {
+    const { firstName, phone, houseNo, city } = newAddress;
+    if (!firstName || !phone || !houseNo || !city) {
       toast.error("Please fill all required fields");
       return;
     }
@@ -533,16 +531,9 @@ const Checkout = () => {
           addressId: editAddressId,
         });
       }
-      // Split full name into firstName and lastName
-      const nameParts = newAddress.name.trim().split(" ");
-      const firstName = nameParts[0] || "";
-      const lastName = nameParts.slice(1).join(" ") || "";
-
       const res = await axios.post(`${API_BASE_URL}/user/add-address`, {
         userId: user.id,
         ...newAddress,
-        firstName,
-        lastName,
       });
       if (res.data?.status) {
         toast.success(
@@ -555,10 +546,11 @@ const Checkout = () => {
         setEditAddressId(null);
         setNewAddress({
           type: "Home",
-          name: "",
+          firstName: "",
+          lastName: "",
           houseNo: "",
-          street: "",
-          landmark: "",
+          address2: "",
+          company: "",
           city: "",
           state: "",
           pincode: "",
@@ -579,9 +571,12 @@ const Checkout = () => {
   const handleEditAddress = (addr) => {
     setNewAddress({
       ...addr,
-      name: addr.firstName && addr.lastName
-        ? `${addr.firstName} ${addr.lastName}`
-        : addr.firstName || addr.lastName || `${addr.city || ""} Address` || "Address"
+      firstName: addr.firstName || '',
+      lastName:  addr.lastName  || '',
+      houseNo:   addr.houseNo && addr.street
+                   ? `${addr.houseNo}, ${addr.street}`
+                   : addr.houseNo || addr.street || '',
+      address2:  addr.address2 || addr.landmark || '',
     });
     setIsEditingAddress(true);
     setEditAddressId(addr.id);
@@ -626,16 +621,9 @@ const Checkout = () => {
           addressId: editBillingId,
         });
       }
-      // Split full name into firstName and lastName
-      const nameParts = newBillingAddress.name.trim().split(" ");
-      const firstName = nameParts[0] || "";
-      const lastName = nameParts.slice(1).join(" ") || "";
-
       const res = await axios.post(`${API_BASE_URL}/user/add-address`, {
         userId: user.id,
         ...newBillingAddress,
-        firstName,
-        lastName,
       });
       if (res.data?.status) {
         toast.success(
@@ -648,10 +636,11 @@ const Checkout = () => {
         setEditBillingId(null);
         setNewBillingAddress({
           type: "Home",
-          name: "",
+          firstName: "",
+          lastName: "",
           houseNo: "",
-          street: "",
-          landmark: "",
+          address2: "",
+          company: "",
           city: "",
           state: "",
           pincode: "",
@@ -672,9 +661,12 @@ const Checkout = () => {
   const handleEditBillingAddress = (addr) => {
     setNewBillingAddress({
       ...addr,
-      name: addr.firstName && addr.lastName
-        ? `${addr.firstName} ${addr.lastName}`
-        : addr.firstName || addr.lastName || `${addr.city || ""} Address` || "Address"
+      firstName: addr.firstName || '',
+      lastName:  addr.lastName  || '',
+      houseNo:   addr.houseNo && addr.street
+                   ? `${addr.houseNo}, ${addr.street}`
+                   : addr.houseNo || addr.street || '',
+      address2:  addr.address2 || addr.landmark || '',
     });
     setIsEditingBilling(true);
     setEditBillingId(addr.id);
@@ -1239,158 +1231,78 @@ const Checkout = () => {
             <form onSubmit={handleSaveAddress} className="p-6 md:p-8 space-y-5">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    Address Type
-                  </label>
-                  <select
-                    value={newAddress.type}
-                    onChange={(e) =>
-                      setNewAddress({ ...newAddress, type: e.target.value })
-                    }
-                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary bg-gray-50"
-                  >
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Address Type</label>
+                  <select value={newAddress.type} onChange={(e) => setNewAddress({ ...newAddress, type: e.target.value })}
+                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary bg-gray-50">
                     <option>Home</option>
                     <option>Office</option>
                     <option>Other</option>
                   </select>
                 </div>
-                <div className="md:col-span-2">
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    Full Name *
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Full Name"
-                    required
-                    value={newAddress.name}
-                    onChange={(e) =>
-                      setNewAddress({ ...newAddress, name: e.target.value })
-                    }
-                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
-                  />
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">First Name *</label>
+                  <input type="text" placeholder="First name" required value={newAddress.firstName || ""}
+                    onChange={(e) => setNewAddress({ ...newAddress, firstName: e.target.value })}
+                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Last Name</label>
+                  <input type="text" placeholder="Last name" value={newAddress.lastName || ""}
+                    onChange={(e) => setNewAddress({ ...newAddress, lastName: e.target.value })}
+                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary" />
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                  Address Line 1 *
-                </label>
-                <input
-                  type="text"
-                  placeholder="Street address, P.O. box"
-                  required
-                  value={newAddress.houseNo}
-                  onChange={(e) =>
-                    setNewAddress({ ...newAddress, houseNo: e.target.value })
-                  }
-                  className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
-                />
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Address Line 1 *</label>
+                <input type="text" placeholder="Street address, P.O. box, building" required value={newAddress.houseNo}
+                  onChange={(e) => setNewAddress({ ...newAddress, houseNo: e.target.value })}
+                  className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary" />
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                  Company (Optional)
-                </label>
-                <input
-                  type="text"
-                  placeholder="Company name"
-                  value={newAddress.company || ""}
-                  onChange={(e) =>
-                    setNewAddress({ ...newAddress, company: e.target.value })
-                  }
-                  className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
-                />
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Address Line 2 (Optional)</label>
+                <input type="text" placeholder="Apartment, suite, unit, floor, etc." value={newAddress.address2 || ""}
+                  onChange={(e) => setNewAddress({ ...newAddress, address2: e.target.value })}
+                  className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary" />
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                  Address Line 2 (Optional)
-                </label>
-                <input
-                  type="text"
-                  placeholder="Apartment, suite, etc."
-                  value={newAddress.address2 || ""}
-                  onChange={(e) =>
-                    setNewAddress({ ...newAddress, address2: e.target.value })
-                  }
-                  className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
-                />
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Company (Optional)</label>
+                <input type="text" placeholder="Company name" value={newAddress.company || ""}
+                  onChange={(e) => setNewAddress({ ...newAddress, company: e.target.value })}
+                  className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary" />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    City *
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="City"
-                    required
-                    value={newAddress.city}
-                    onChange={(e) =>
-                      setNewAddress({ ...newAddress, city: e.target.value })
-                    }
-                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
-                  />
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">City *</label>
+                  <input type="text" placeholder="City" required value={newAddress.city}
+                    onChange={(e) => setNewAddress({ ...newAddress, city: e.target.value })}
+                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    State / Province *
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="State / Province / Region"
-                    required
-                    value={newAddress.state}
-                    onChange={(e) =>
-                      setNewAddress({ ...newAddress, state: e.target.value })
-                    }
-                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
-                  />
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">State / Province</label>
+                  <input type="text" placeholder="State / Province / Region" value={newAddress.state}
+                    onChange={(e) => setNewAddress({ ...newAddress, state: e.target.value })}
+                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary" />
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    ZIP / Postal Code *
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="ZIP / Postal Code"
-                    required
-                    value={newAddress.pincode}
-                    onChange={(e) =>
-                      setNewAddress({ ...newAddress, pincode: e.target.value })
-                    }
-                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
-                  />
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">ZIP / Postal Code</label>
+                  <input type="text" placeholder="ZIP / Postal Code" value={newAddress.pincode}
+                    onChange={(e) => setNewAddress({ ...newAddress, pincode: e.target.value })}
+                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    Country *
-                  </label>
-                  <select
-                    value={newAddress.country}
-                    onChange={(e) =>
-                      setNewAddress({ ...newAddress, country: e.target.value })
-                    }
-                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary bg-white"
-                  >
-                    {countries.map((c) => (
-                      <option key={c}>{c}</option>
-                    ))}
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Country *</label>
+                  <select value={newAddress.country} onChange={(e) => setNewAddress({ ...newAddress, country: e.target.value })}
+                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary bg-white">
+                    {countries.map((c) => <option key={c}>{c}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    Phone *
-                  </label>
-                  <input
-                    type="tel"
-                    placeholder="Phone number"
-                    required
-                    value={newAddress.phone}
-                    onChange={(e) =>
-                      setNewAddress({ ...newAddress, phone: e.target.value })
-                    }
-                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
-                  />
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Phone *</label>
+                  <input type="tel" placeholder="Phone number" required value={newAddress.phone}
+                    onChange={(e) => setNewAddress({ ...newAddress, phone: e.target.value })}
+                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary" />
                 </div>
               </div>
               <div className="pt-6 flex justify-end gap-4 border-t border-gray-100">
@@ -1447,94 +1359,45 @@ const Checkout = () => {
             >
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    Address Type
-                  </label>
-                  <select
-                    value={newBillingAddress.type}
-                    onChange={(e) =>
-                      setNewBillingAddress({
-                        ...newBillingAddress,
-                        type: e.target.value,
-                      })
-                    }
-                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary bg-gray-50"
-                  >
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Address Type</label>
+                  <select value={newBillingAddress.type}
+                    onChange={(e) => setNewBillingAddress({ ...newBillingAddress, type: e.target.value })}
+                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary bg-gray-50">
                     <option>Home</option>
                     <option>Office</option>
                     <option>Other</option>
                   </select>
                 </div>
-                <div className="md:col-span-2">
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                    Full Name *
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Full Name"
-                    required
-                    value={newBillingAddress.name}
-                    onChange={(e) =>
-                      setNewBillingAddress({
-                        ...newBillingAddress,
-                        name: e.target.value,
-                      })
-                    }
-                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
-                  />
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">First Name *</label>
+                  <input type="text" placeholder="First name" required value={newBillingAddress.firstName || ""}
+                    onChange={(e) => setNewBillingAddress({ ...newBillingAddress, firstName: e.target.value })}
+                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Last Name</label>
+                  <input type="text" placeholder="Last name" value={newBillingAddress.lastName || ""}
+                    onChange={(e) => setNewBillingAddress({ ...newBillingAddress, lastName: e.target.value })}
+                    className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary" />
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                  Address Line 1 *
-                </label>
-                <input
-                  type="text"
-                  placeholder="Street address, P.O. box"
-                  required
-                  value={newBillingAddress.houseNo}
-                  onChange={(e) =>
-                    setNewBillingAddress({
-                      ...newBillingAddress,
-                      houseNo: e.target.value,
-                    })
-                  }
-                  className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
-                />
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Address Line 1 *</label>
+                <input type="text" placeholder="Street address, P.O. box, building" required value={newBillingAddress.houseNo}
+                  onChange={(e) => setNewBillingAddress({ ...newBillingAddress, houseNo: e.target.value })}
+                  className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary" />
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                  Company (Optional)
-                </label>
-                <input
-                  type="text"
-                  placeholder="Company name"
-                  value={newBillingAddress.company || ""}
-                  onChange={(e) =>
-                    setNewBillingAddress({
-                      ...newBillingAddress,
-                      company: e.target.value,
-                    })
-                  }
-                  className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
-                />
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Address Line 2 (Optional)</label>
+                <input type="text" placeholder="Apartment, suite, unit, floor, etc." value={newBillingAddress.address2 || ""}
+                  onChange={(e) => setNewBillingAddress({ ...newBillingAddress, address2: e.target.value })}
+                  className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary" />
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                  Address Line 2 (Optional)
-                </label>
-                <input
-                  type="text"
-                  placeholder="Apartment, suite, etc."
-                  value={newBillingAddress.address2 || ""}
-                  onChange={(e) =>
-                    setNewBillingAddress({
-                      ...newBillingAddress,
-                      address2: e.target.value,
-                    })
-                  }
-                  className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary"
-                />
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Company (Optional)</label>
+                <input type="text" placeholder="Company name" value={newBillingAddress.company || ""}
+                  onChange={(e) => setNewBillingAddress({ ...newBillingAddress, company: e.target.value })}
+                  className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary" />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
@@ -1808,41 +1671,32 @@ const Checkout = () => {
                             </h3>
                           </div>
                           <div className="p-4 flex-grow space-y-3 text-sm">
+                            {addr.company && (
+                              <p className="text-xs text-gray-500 font-medium">{addr.company}</p>
+                            )}
                             <p className="font-bold text-gray-900">
                               {[addr.firstName, addr.lastName].filter(Boolean).join(' ') || addr.name}
                             </p>
                             <div className="space-y-1.5">
                               <div className="flex gap-2 items-start">
-                                <MapPin
-                                  size={15}
-                                  className="shrink-0 text-primary mt-0.5"
-                                />
+                                <MapPin size={15} className="shrink-0 text-primary mt-0.5" />
                                 <div>
-                                  <span className="block text-gray-700">
-                                    {addr.houseNo}
-                                  </span>
-                                  {addr.street && (
-                                    <span className="block text-gray-700">
-                                      {addr.street}
-                                    </span>
-                                  )}
+                                  {addr.houseNo && <span className="block text-gray-700">{addr.houseNo}</span>}
+                                  {addr.street && <span className="block text-gray-700">{addr.street}</span>}
+                                  {addr.address2 && <span className="block text-gray-700">{addr.address2}</span>}
                                   <p className="text-gray-700 mt-0.5">
-                                    {addr.city}, {addr.state}{" "}
-                                    <span className="font-bold">
-                                      {addr.pincode}
-                                    </span>
+                                    {[addr.city, addr.state].filter(Boolean).join(', ')}
+                                    {addr.pincode && <span className="font-bold"> {addr.pincode}</span>}
                                   </p>
-                                  <p className="uppercase text-xs tracking-wider text-gray-400 pt-0.5">
-                                    {addr.country}
-                                  </p>
+                                  {addr.country && (
+                                    <p className="uppercase text-xs tracking-wider text-gray-400 pt-0.5">{addr.country}</p>
+                                  )}
                                 </div>
                               </div>
                             </div>
                             <p className="flex items-center gap-2 pt-2 border-t border-gray-100">
                               <Phone size={13} className="text-primary" />
-                              <span className="font-bold text-gray-900">
-                                {addr.phone}
-                              </span>
+                              <span className="font-bold text-gray-900">{addr.phone}</span>
                             </p>
                           </div>
                           <div className="p-3 border-t border-gray-100 flex gap-2 bg-cream-100">
@@ -2407,10 +2261,11 @@ const Checkout = () => {
                           onClick={() => {
                             setNewBillingAddress({
                               type: "Home",
-                              name: "",
+                              firstName: "",
+                              lastName: "",
                               houseNo: "",
-                              street: "",
-                              landmark: "",
+                              address2: "",
+                              company: "",
                               city: "",
                               state: "",
                               pincode: "",
@@ -2445,33 +2300,26 @@ const Checkout = () => {
                               </h3>
                             </div>
                             <div className="p-4 flex-grow space-y-3 text-sm">
+                              {addr.company && (
+                                <p className="text-xs text-gray-500 font-medium">{addr.company}</p>
+                              )}
                               <p className="font-bold text-gray-900">
                                 {[addr.firstName, addr.lastName].filter(Boolean).join(' ') || addr.name}
                               </p>
                               <div className="space-y-1.5">
                                 <div className="flex gap-2 items-start">
-                                  <MapPin
-                                    size={15}
-                                    className="shrink-0 text-primary mt-0.5"
-                                  />
+                                  <MapPin size={15} className="shrink-0 text-primary mt-0.5" />
                                   <div>
-                                    <span className="block text-gray-700">
-                                      {addr.houseNo}, {addr.street}
-                                    </span>
-                                    {addr.landmark && (
-                                      <span className="block text-xs text-gray-500 italic mt-0.5">
-                                        ({addr.landmark})
-                                      </span>
-                                    )}
+                                    {addr.houseNo && <span className="block text-gray-700">{addr.houseNo}</span>}
+                                    {addr.street && <span className="block text-gray-700">{addr.street}</span>}
+                                    {addr.address2 && <span className="block text-gray-700">{addr.address2}</span>}
                                     <p className="text-gray-700 mt-0.5">
-                                      {addr.city}, {addr.state} -{" "}
-                                      <span className="font-bold">
-                                        {addr.pincode}
-                                      </span>
+                                      {[addr.city, addr.state].filter(Boolean).join(', ')}
+                                      {addr.pincode && <span className="font-bold"> {addr.pincode}</span>}
                                     </p>
-                                    <p className="uppercase text-xs tracking-wider text-gray-400 pt-0.5">
-                                      {addr.country}
-                                    </p>
+                                    {addr.country && (
+                                      <p className="uppercase text-xs tracking-wider text-gray-400 pt-0.5">{addr.country}</p>
+                                    )}
                                   </div>
                                 </div>
                               </div>
@@ -2509,10 +2357,11 @@ const Checkout = () => {
                           onClick={() => {
                             setNewBillingAddress({
                               type: "Home",
-                              name: "",
+                              firstName: "",
+                              lastName: "",
                               houseNo: "",
-                              street: "",
-                              landmark: "",
+                              address2: "",
+                              company: "",
                               city: "",
                               state: "",
                               pincode: "",

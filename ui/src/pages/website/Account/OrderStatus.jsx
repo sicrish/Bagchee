@@ -104,16 +104,19 @@ const OrderStatus = () => {
     })();
     const isPurchaseOrder = paymentMethod.toLowerCase().includes('purchase order');
 
-    const shippingName = order.shippingFirstName
+    const shippingName    = order.shippingFirstName
         ? `${order.shippingFirstName} ${order.shippingLastName}`.trim()
         : order.shipping_details
             ? `${order.shipping_details.first_name || ''} ${order.shipping_details.last_name || ''}`.trim()
             : '';
-    const shippingAddr1 = order.shippingAddress1 || order.shipping_details?.address_1 || '';
-    const shippingCity  = order.shippingCity  || order.shipping_details?.city || '';
-    const shippingState = order.shippingState || order.shipping_details?.state_region || '';
-    const shippingPost  = order.shippingPostcode || order.shipping_details?.postcode || '';
-    const shippingPhone = order.shippingPhone || order.shipping_details?.phone || '';
+    const shippingCompany = order.shippingCompany  || order.shipping_details?.company   || '';
+    const shippingAddr1   = order.shippingAddress1 || order.shipping_details?.address_1 || '';
+    const shippingAddr2   = order.shippingAddress2 || order.shipping_details?.address_2 || order.shipping_details?.address2 || '';
+    const shippingCity    = order.shippingCity     || order.shipping_details?.city       || '';
+    const shippingState   = order.shippingState    || order.shipping_details?.state_region || '';
+    const shippingPost    = order.shippingPostcode || order.shipping_details?.postcode   || '';
+    const shippingCountry = order.shippingCountry  || order.shipping_details?.country    || '';
+    const shippingPhone   = order.shippingPhone    || order.shipping_details?.phone      || '';
 
     // ── Helpers ───────────────────────────────────────────────────────────────
     const formatAmount = (amount, currencyCode) => {
@@ -240,10 +243,13 @@ const OrderStatus = () => {
                                     <h3 className="text-sm font-display font-bold text-text-main uppercase tracking-slick">Shipping Address</h3>
                                 </div>
                                 {shippingName || shippingAddr1 ? (
-                                    <div className="bg-white/70 p-4 rounded-xl border border-white/50 shadow-sm text-sm space-y-1.5 text-text-muted">
+                                    <div className="bg-white/70 p-4 rounded-xl border border-white/50 shadow-sm text-sm space-y-1 text-text-muted">
+                                        {shippingCompany && <p className="text-xs text-gray-500 font-medium">{shippingCompany}</p>}
                                         {shippingName && <p className="font-bold text-text-main text-base">{shippingName}</p>}
                                         {shippingAddr1 && <p>{shippingAddr1}</p>}
+                                        {shippingAddr2 && <p>{shippingAddr2}</p>}
                                         {(shippingCity || shippingState) && <p>{[shippingCity, shippingState, shippingPost].filter(Boolean).join(', ')}</p>}
+                                        {shippingCountry && <p className="uppercase text-xs tracking-wider text-gray-400">{shippingCountry}</p>}
                                         {shippingPhone && <p className="pt-1 border-t border-gray-200/60 font-medium">Phone: <span className="text-primary font-bold">{shippingPhone}</span></p>}
                                     </div>
                                 ) : (
