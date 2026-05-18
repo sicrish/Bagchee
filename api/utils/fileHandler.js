@@ -39,7 +39,7 @@ export const saveFileLocal = async (file, folderName = '') => {
 
         if (isImage) {
             // Banners need full width (1920px+); other images capped at 800px
-            const bannerFolders = ['homesliders', 'side-banners', 'egiftcard-banners'];
+            const bannerFolders = ['homesliders', 'side-banners', 'egiftcard-banners', 'newsletter-banners'];
             const isBanner = bannerFolders.some(f => folderName?.includes(f));
             const maxWidth = isBanner ? 1920 : 800;
             const optimized = await sharp(file.data)

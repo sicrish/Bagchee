@@ -1,4 +1,5 @@
-import React, { memo, useCallback, useState } from 'react';
+import React, { memo, useCallback, useState, useContext } from 'react';
+import { useGeo } from '../../../../context/GeoContext.jsx';
 import { createSafeHtml } from '../../../../utils/sanitize';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -130,7 +131,7 @@ const PaymentCard = memo(({ src, alt }) => (
 
 const Footer = () => {
 
-
+  const { isIndia } = useGeo();
 
   const navigate = useNavigate();
   const authData = localStorage.getItem('auth');
@@ -351,7 +352,7 @@ const Footer = () => {
             </div>
 
            {/* 🟢 2. WHATSAPP SECTION (Email ke theek niche) */}
-            {whatsappLink && (
+            {!isIndia && whatsappLink && (
               <div className="mt-0">
                 <a
                   href={whatsappLink.link}

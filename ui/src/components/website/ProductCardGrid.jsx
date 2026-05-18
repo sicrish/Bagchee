@@ -1,6 +1,7 @@
 import React, { useContext, memo, useMemo, useCallback } from 'react';
 import { CurrencyContext } from '../../context/CurrencyContext.jsx';
 import { useCart } from '../../context/CartContext.jsx';
+import { useGeo } from '../../context/GeoContext.jsx';
 import { Heart, ShoppingCart, Eye } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getProductImageUrl } from '../../utils/imageUrl';
@@ -11,6 +12,7 @@ import axios from '../../utils/axiosConfig.js';
 const ProductCardGrid = ({ data, onQuickView }) => {
     const { formatPrice } = useContext(CurrencyContext);
     const { addToCart, toggleWishlist, isInWishlist } = useCart();
+    const { isIndia } = useGeo();
     const queryClient = useQueryClient();
 
     // 🟢 Optimization 1: Memoize Slug Creation
@@ -157,10 +159,11 @@ const ProductCardGrid = ({ data, onQuickView }) => {
                     </div>
 
                     {/* Action Buttons */}
+                    {!isIndia && (
                     <div className="flex gap-1.5 md:gap-2">
                         <button
                             onClick={handleWishlist}
-                            disabled={wishlistMutation.isPending} 
+                            disabled={wishlistMutation.isPending}
                             aria-label="Toggle Wishlist"
                             className={`p-2 rounded-full border transition-all duration-300 active:scale-75 ${
                                 isInWishlist(data._id)
@@ -180,6 +183,7 @@ const ProductCardGrid = ({ data, onQuickView }) => {
                             <ShoppingCart size={16} className="md:w-[18px] md:h-[18px]" />
                         </button>
                     </div>
+                    )}
                 </div>
             </div>
         </div>

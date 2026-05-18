@@ -221,7 +221,7 @@ const HelpDesk = () => {
               })}
             </div>
           </section>
-          {/* ─── COMMON QUESTIONS SECTION (Accordion Style) ─── */}
+          {/* ─── COMMON QUESTIONS SECTION (Always Open) ─── */}
           {helpPages.some(page => page.isCommonQuestion || page.is_common_question || page.title?.toLowerCase().includes('common')) && (
           <section className="mt-16 mb-12 animate-fadeIn">
             <div className="text-center mb-10">
@@ -235,29 +235,18 @@ const HelpDesk = () => {
               {helpPages.filter(page => page.isCommonQuestion || page.is_common_question || page.title?.toLowerCase().includes('common')).map((page) => (
                 <div
                   key={page.id}
-                  className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+                  className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm"
                 >
-                  <button
-                    onClick={() => setActiveTab(activeTab === String(page.id) ? null : String(page.id))}
-                    className="w-full flex items-center justify-between p-5 text-left group"
-                  >
-                    <span className={`font-display font-bold text-lg transition-colors ${activeTab === String(page.id) ? 'text-primary' : 'text-text-main'}`}>
+                  <div className="p-5 border-b border-gray-100">
+                    <span className="font-display font-bold text-lg text-primary">
                       {page.title}
                     </span>
-                    <div className={`p-1 rounded-full transition-transform duration-300 ${activeTab === String(page.id) ? 'rotate-180 bg-primary text-white' : 'bg-gray-100 text-gray-500'}`}>
-                      <ChevronDown size={20} />
-                    </div>
-                  </button>
-
-                  <div
-                    className={`overflow-hidden transition-all duration-300 ease-in-out ${activeTab === String(page.id) ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}
-                  >
-                    <div className="p-6 pt-0 border-t border-gray-50">
-                      <div
-                        className="prose prose-blue max-w-none text-gray-600 leading-relaxed font-body prose-headings:font-display prose-headings:text-text-main prose-p:mb-4 prose-strong:text-primary"
-                        dangerouslySetInnerHTML={createSafeHtml(page.pageContent)}
-                      />
-                    </div>
+                  </div>
+                  <div className="p-6">
+                    <div
+                      className="prose prose-blue max-w-none text-gray-600 leading-relaxed font-body prose-headings:font-display prose-headings:text-text-main prose-p:mb-4 prose-strong:text-primary"
+                      dangerouslySetInnerHTML={createSafeHtml(page.pageContent)}
+                    />
                   </div>
                 </div>
               ))}

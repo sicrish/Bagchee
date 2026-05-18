@@ -3,34 +3,33 @@ import {
     sendCampaignEmail,
     sendTestEmail,
     getRecipientsCount,
+    getAudienceCounts,
     scheduleCampaignEmail,
     getScheduledEmails,
     cancelScheduledEmail,
-    fetchProductsForEmail
+    getCampaignHistory,
+    resendCampaign,
+    fetchProductsForEmail,
+    uploadNewsletterBanner,
+    listNewsletterBanners,
+    deleteNewsletterBanner,
 } from '../controller/emailCampaignController.js';
 import adminAuth from '../middleware/adminAuth.middleware.js';
 
 const router = express.Router();
 
-// ADMIN ONLY — send campaign emails immediately
-router.post('/send', adminAuth, sendCampaignEmail);
-
-// ADMIN ONLY — schedule campaign for later
-router.post('/schedule', adminAuth, scheduleCampaignEmail);
-
-// ADMIN ONLY — list scheduled emails
-router.get('/scheduled', adminAuth, getScheduledEmails);
-
-// ADMIN ONLY — cancel a scheduled email
+router.post('/send',            adminAuth, sendCampaignEmail);
+router.post('/schedule',        adminAuth, scheduleCampaignEmail);
+router.get('/scheduled',        adminAuth, getScheduledEmails);
 router.delete('/scheduled/:id', adminAuth, cancelScheduledEmail);
-
-// ADMIN ONLY — send test email to single address
-router.post('/send-test', adminAuth, sendTestEmail);
-
-// ADMIN ONLY — get recipient count for preview
+router.post('/send-test',       adminAuth, sendTestEmail);
 router.get('/recipients-count', adminAuth, getRecipientsCount);
-
-// ADMIN ONLY — fetch product details by IDs for email product picker
-router.post('/products-preview', adminAuth, fetchProductsForEmail);
+router.get('/audience-counts',  adminAuth, getAudienceCounts);
+router.get('/history',          adminAuth, getCampaignHistory);
+router.post('/resend/:id',      adminAuth, resendCampaign);
+router.post('/products-preview',adminAuth, fetchProductsForEmail);
+router.post('/banner/upload',   adminAuth, uploadNewsletterBanner);
+router.get('/banner/list',      adminAuth, listNewsletterBanners);
+router.delete('/banner',        adminAuth, deleteNewsletterBanner);
 
 export default router;

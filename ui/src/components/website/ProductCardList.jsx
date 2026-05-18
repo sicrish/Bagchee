@@ -3,6 +3,7 @@ import { createSafeHtml } from '../../utils/sanitize';
 import { Heart, ShoppingCart, Globe, Truck } from 'lucide-react';
 import { useCart } from '../../context/CartContext.jsx';
 import { CurrencyContext } from '../../context/CurrencyContext.jsx';
+import { useGeo } from '../../context/GeoContext.jsx';
 import { Link } from 'react-router-dom';
 import { getProductImageUrl } from '../../utils/imageUrl';
 import toast from 'react-hot-toast';
@@ -13,6 +14,7 @@ const ProductCardList = ({ data, onQuickView }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const { formatPrice } = useContext(CurrencyContext);
     const { addToCart, toggleWishlist, isInWishlist } = useCart();
+    const { isIndia } = useGeo();
     const queryClient = useQueryClient();
 
     // 🟢 Optimization 1: Memoize Product URL (Slug Logic)
@@ -179,6 +181,12 @@ const ProductCardList = ({ data, onQuickView }) => {
                 </div>
 
                 {/* Buttons */}
+                {isIndia ? (
+                    <p className="text-xs text-text-muted mt-4 italic">
+                        If you wish to buy or need information of this book,{' '}
+                        <Link to="/contact-us" className="text-primary font-bold hover:underline">contact us</Link>.
+                    </p>
+                ) : (
                 <div className="flex flex-col gap-2 mt-4 md:mt-6">
                     <button
                         onClick={isOutOfStock ? undefined : handleAdd}
@@ -213,6 +221,7 @@ const ProductCardList = ({ data, onQuickView }) => {
                         {wishlistMutation.isPending ? 'Updating...' : (isInWishlist(data._id) ? 'In Wishlist' : 'Add to Wishlist')}
                     </button>
                 </div>
+                )}
 
             </div>
         </div>

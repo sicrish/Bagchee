@@ -136,7 +136,7 @@ const EditOrders = () => {
           axios.get(`${API_URL}/product/fetch`),
           axios.get(`${API_URL}/coupons/active`),
           axios.get(`${API_URL}/orders/admin/get/${id}`),  // admin-specific route
-          axios.get(`${API_URL}/payments/list`),
+          axios.get(`${API_URL}/payments/list?limit=100`),
           axios.get(`${API_URL}/shipping-options/list`),
           axios.get(`${API_URL}/couriers/list`),
           axios.get(`${API_URL}/order-status/list?limit=1000`)
@@ -479,11 +479,12 @@ const EditOrders = () => {
     const isWireTransfer = paymentType.includes('wire') || paymentType.includes('bank transfer') || paymentType.includes('western union');
 
     if (isWireTransfer) {
-      // Find wire transfer payment method to get bank details from additionalText
-      const wireMethod = paymentMethods.find(pm => {
-        const t = (pm.title || pm.type || '').toLowerCase();
-        return t.includes('wire') || t.includes('bank transfer') || t.includes('western union');
-      });
+      // Find payment method: exact title match first, then fuzzy fallback
+      const wireMethod = paymentMethods.find(pm => pm.title === formData.payment_type)
+        || paymentMethods.find(pm => {
+          const t = (pm.title || '').toLowerCase();
+          return t.includes('wire') || t.includes('bank transfer') || t.includes('western union');
+        });
       const bankDetails = wireMethod?.additionalText || '[Bank details not found — please check admin payment settings]';
 
       setEmailSubject(`Action Required: Payment Information for Bagchee Order #${orderNum}`);

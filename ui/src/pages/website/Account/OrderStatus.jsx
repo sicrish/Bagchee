@@ -244,8 +244,8 @@ const OrderStatus = () => {
                                 </div>
                                 {shippingName || shippingAddr1 ? (
                                     <div className="bg-white/70 p-4 rounded-xl border border-white/50 shadow-sm text-sm space-y-1 text-text-muted">
-                                        {shippingCompany && <p className="text-xs text-gray-500 font-medium">{shippingCompany}</p>}
                                         {shippingName && <p className="font-bold text-text-main text-base">{shippingName}</p>}
+                                        {shippingCompany && <p className="text-xs text-gray-500 font-medium">{shippingCompany}</p>}
                                         {shippingAddr1 && <p>{shippingAddr1}</p>}
                                         {shippingAddr2 && <p>{shippingAddr2}</p>}
                                         {(shippingCity || shippingState) && <p>{[shippingCity, shippingState, shippingPost].filter(Boolean).join(', ')}</p>}

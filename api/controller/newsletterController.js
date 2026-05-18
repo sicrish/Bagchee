@@ -30,10 +30,13 @@ export const getAllSubscribers = async (req, res) => {
         const pageNum = parseInt(req.query.page) || 1;
         const pageSize = parseInt(req.query.limit) || 25;
         const skip = (pageNum - 1) * pageSize;
+        const { categories } = req.query;
+        const catFilter = categories ? categories.split(',').map(c => c.trim()).filter(Boolean) : [];
+        const where = catFilter.length > 0 ? { categories: { hasSome: catFilter } } : {};
 
         const [subscribers, total] = await Promise.all([
-            prisma.newsletterSubscriber.findMany({ orderBy: { id: 'desc' }, skip, take: pageSize }),
-            prisma.newsletterSubscriber.count()
+            prisma.newsletterSubscriber.findMany({ where, orderBy: { id: 'desc' }, skip, take: pageSize }),
+            prisma.newsletterSubscriber.count({ where })
         ]);
         res.status(200).json({ status: true, data: subscribers, total, totalPages: Math.ceil(total / pageSize), page: pageNum });
     } catch (error) {

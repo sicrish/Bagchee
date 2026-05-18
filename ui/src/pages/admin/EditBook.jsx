@@ -433,7 +433,7 @@ const EditBook = () => {
     }, [relatedSearchQuery, isRelatedDropdownOpen]);
 
     const handleAddRelatedProduct = (product) => {
-        const idToAdd = product.bagchee_id || product._id;
+        const idToAdd = product.bagcheeId || product.bagchee_id;
         const titleToAdd = product.title;
         if (selectedRelatedItems.find(item => item.id === idToAdd)) {
             return toast.error("Product already linked!");
@@ -542,7 +542,7 @@ const EditBook = () => {
 
     const handleQuickPubSave = async (e) => {
         e.preventDefault();
-        if (!newPubData.title || !newPubData.category) return toast.error("Title and Category are required!");
+        if (!newPubData.title) return toast.error("Title is required!");
         const toastId = toast.loading("Saving publisher...");
         const data = new FormData();
         Object.keys(newPubData).forEach(k => { if (!(k === 'date' && !newPubData[k])) data.append(k, newPubData[k]); });
@@ -845,7 +845,7 @@ const EditBook = () => {
                                 {isCategoryDropdownOpen && (
                                     <div className="absolute z-20 top-full left-0 w-full bg-white border border-gray-300 rounded shadow-lg mt-1">
                                         <div className="p-2 border-b border-gray-100 bg-gray-50 rounded-t">
-                                            <input type="text" placeholder="Search categories..." value={categorySearch} onChange={(e) => setCategorySearch(e.target.value)} onClick={(e) => e.stopPropagation()} className="w-full text-xs p-1.5 border border-gray-300 rounded focus:border-primary outline-none bg-white" autoFocus />
+                                            <input type="text" placeholder="Search categories..." value={categorySearch} onChange={(e) => setCategorySearch(e.target.value)} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.stopPropagation()} className="w-full text-xs p-1.5 border border-gray-300 rounded focus:border-primary outline-none bg-white" autoFocus />
                                         </div>
                                         <div className="max-h-48 overflow-y-auto p-1 scrollbar-thin">
                                             {categories.filter((cat) => (cat.title || cat.categorytitle || '').toLowerCase().includes(categorySearch.toLowerCase())).map((cat) => {
@@ -882,7 +882,7 @@ const EditBook = () => {
                                 {isLanguageDropdownOpen && (
                                     <div className="absolute z-20 top-full left-0 w-full bg-white border border-gray-300 rounded shadow-lg mt-1">
                                         <div className="p-2 border-b border-gray-100 bg-gray-50 rounded-t">
-                                            <input type="text" placeholder="Search..." value={languageSearch} onChange={(e) => setLanguageSearch(e.target.value)} onClick={(e) => e.stopPropagation()} className="w-full text-xs p-1.5 border border-gray-300 rounded focus:border-primary outline-none" autoFocus />
+                                            <input type="text" placeholder="Search..." value={languageSearch} onChange={(e) => setLanguageSearch(e.target.value)} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.stopPropagation()} className="w-full text-xs p-1.5 border border-gray-300 rounded focus:border-primary outline-none" autoFocus />
                                         </div>
                                         <div className="max-h-48 overflow-y-auto p-1">
                                             {languages.filter(l => (l.title || l).toLowerCase().includes(languageSearch.toLowerCase())).map((lang, idx) => {
@@ -920,7 +920,7 @@ const EditBook = () => {
                                 {isTagDropdownOpen && (
                                     <div className="absolute z-20 top-full left-0 w-full bg-white border border-gray-300 rounded shadow-lg mt-1">
                                         <div className="p-2 border-b border-gray-100 bg-gray-50 rounded-t">
-                                            <input type="text" placeholder="Search..." value={tagSearch} onChange={(e) => setTagSearch(e.target.value)} onClick={(e) => e.stopPropagation()} className="w-full text-xs p-1.5 border border-gray-300 rounded focus:border-primary outline-none" autoFocus />
+                                            <input type="text" placeholder="Search..." value={tagSearch} onChange={(e) => setTagSearch(e.target.value)} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.stopPropagation()} className="w-full text-xs p-1.5 border border-gray-300 rounded focus:border-primary outline-none" autoFocus />
                                         </div>
                                         <div className="max-h-48 overflow-y-auto p-1">
                                             {tags.filter(t => (t.title || t).toLowerCase().includes(tagSearch.toLowerCase())).map((tag, idx) => {
@@ -955,7 +955,7 @@ const EditBook = () => {
                                     </div>
                                 )}
                                 <div className="relative">
-                                    <input type="text" value={relatedSearchQuery} onChange={(e) => { setRelatedSearchQuery(e.target.value); setIsRelatedDropdownOpen(true); }} onFocus={() => setIsRelatedDropdownOpen(true)} placeholder="Search product to link..." className="theme-input w-full" />
+                                    <input type="text" value={relatedSearchQuery} onChange={(e) => { setRelatedSearchQuery(e.target.value); setIsRelatedDropdownOpen(true); }} onFocus={() => setIsRelatedDropdownOpen(true)} onMouseDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.stopPropagation()} placeholder="Search product to link..." className="theme-input w-full relative z-20" />
                                     {isRelatedSearching && <Loader2 size={16} className="animate-spin absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />}
                                     {isRelatedDropdownOpen && relatedSearchQuery.length > 2 && (
                                         <div className="absolute z-50 top-full left-0 w-full bg-white border border-gray-300 rounded shadow-lg mt-1 max-h-60 overflow-y-auto">
@@ -994,7 +994,7 @@ const EditBook = () => {
                                     {isAuthorDropdownOpen && (
                                         <div className="absolute z-[100] top-full left-0 w-full bg-white border border-gray-300 rounded shadow-lg mt-1 flex flex-col overflow-hidden animate-in fade-in zoom-in-95">
                                             <div className="p-2 border-b border-gray-100 bg-gray-50 rounded-t">
-                                                <input type="text" placeholder="Search authors..." value={authorSearch} onChange={(e) => setAuthorSearch(e.target.value)} onClick={(e) => e.stopPropagation()} className="w-full text-xs p-1.5 border border-gray-300 rounded focus:border-primary outline-none bg-white" autoFocus />
+                                                <input type="text" placeholder="Search authors..." value={authorSearch} onChange={(e) => setAuthorSearch(e.target.value)} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.stopPropagation()} className="w-full text-xs p-1.5 border border-gray-300 rounded focus:border-primary outline-none bg-white" autoFocus />
                                             </div>
                                             <div className="max-h-48 overflow-y-auto p-1 scrollbar-thin">
                                                 {authorSearchLoading ? (
@@ -1098,7 +1098,7 @@ const EditBook = () => {
                                 {isFormatDropdownOpen && (
                                     <div className="absolute z-20 top-full left-0 w-full bg-white border border-gray-300 rounded shadow-lg mt-1 flex flex-col">
                                         <div className="p-2 border-b border-gray-100 bg-gray-50 rounded-t">
-                                            <input type="text" placeholder="Search..." value={formatSearch} onChange={(e) => setFormatSearch(e.target.value)} onClick={(e) => e.stopPropagation()} className="w-full text-xs p-1.5 border border-gray-300 rounded focus:border-primary outline-none" autoFocus />
+                                            <input type="text" placeholder="Search..." value={formatSearch} onChange={(e) => setFormatSearch(e.target.value)} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.stopPropagation()} className="w-full text-xs p-1.5 border border-gray-300 rounded focus:border-primary outline-none" autoFocus />
                                         </div>
                                         <div className="max-h-48 overflow-y-auto p-1">
                                             {formats.filter(f => (f.title || f).toLowerCase().includes(formatSearch.toLowerCase())).map((fmt, idx) => {
@@ -1182,7 +1182,7 @@ const EditBook = () => {
                                     <div key={item.id} className="flex flex-col sm:flex-row items-center gap-3 border p-3 rounded bg-gray-50">
                                         <div className="w-full sm:w-14 h-14 border bg-white flex-shrink-0 overflow-hidden rounded relative">
                                             {(item.file || item.image) ? (
-                                                <img src={item.file ? URL.createObjectURL(item.file) : `${process.env.REACT_APP_API_URL}${item.image}`} alt="preview" className="w-full h-full object-cover" />
+                                                <img src={item.file ? URL.createObjectURL(item.file) : (item.image?.startsWith('http') ? item.image : `${process.env.REACT_APP_API_URL}${item.image}`)} alt="preview" className="w-full h-full object-cover" />
                                             ) : <div className="flex items-center justify-center h-full bg-gray-100 text-[9px] text-gray-400">No Img</div>}
                                         </div>
                                         <div className="flex-1 w-full text-center sm:text-left">
@@ -1209,7 +1209,7 @@ const EditBook = () => {
                                     <div key={item.id} className="flex flex-col sm:flex-row items-center gap-3 border p-3 rounded bg-gray-50">
                                         <div className="w-full sm:w-14 h-14 border bg-white flex-shrink-0 overflow-hidden rounded relative">
                                             {(item.file || item.image) ? (
-                                                <img src={item.file ? URL.createObjectURL(item.file) : `${process.env.REACT_APP_API_URL}${item.image}`} alt="preview" className="w-full h-full object-cover" />
+                                                <img src={item.file ? URL.createObjectURL(item.file) : (item.image?.startsWith('http') ? item.image : `${process.env.REACT_APP_API_URL}${item.image}`)} alt="preview" className="w-full h-full object-cover" />
                                             ) : <div className="flex items-center justify-center h-full bg-gray-100 text-[9px] text-gray-400">No Img</div>}
                                         </div>
                                         <div className="flex-1 w-full text-center sm:text-left">
@@ -1236,7 +1236,7 @@ const EditBook = () => {
                                     <div key={item.id} className="flex flex-col sm:flex-row items-center gap-3 border p-3 rounded bg-gray-50">
                                         <div className="w-full sm:w-14 h-14 border bg-white flex-shrink-0 overflow-hidden rounded relative">
                                             {(item.file || item.image) ? (
-                                                <img src={item.file ? URL.createObjectURL(item.file) : `${process.env.REACT_APP_API_URL}${item.image}`} alt="preview" className="w-full h-full object-cover" />
+                                                <img src={item.file ? URL.createObjectURL(item.file) : (item.image?.startsWith('http') ? item.image : `${process.env.REACT_APP_API_URL}${item.image}`)} alt="preview" className="w-full h-full object-cover" />
                                             ) : <div className="flex items-center justify-center h-full bg-gray-100 text-[9px] text-gray-400">No Img</div>}
                                         </div>
                                         <div className="flex-1 w-full text-center sm:text-left">
@@ -1371,6 +1371,13 @@ const EditBook = () => {
                         <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4"><label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight">Series number</label><div className="col-span-9"><input name="series_number" type="number" value={formData.series_number || ""} onChange={handleChange} className="theme-input w-full md:w-1/3" /></div></div>
                         {/* 14. Pricing, Stock & Rich Text */}
                         <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4">
+                            <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">INR Price</label>
+                            <div className="col-span-9">
+                                <input name="inr_price" type="number" value={formData.inr_price || ""} onChange={handleChange} className="theme-input w-32" placeholder="Price in Indian Rupees" />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4">
                             <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase">Price*</label>
                             <div className="col-span-9">
                                 <input name="price" type="number" value={formData.price || ""} onChange={handleChange} className="theme-input w-32" />
@@ -1454,7 +1461,7 @@ const EditBook = () => {
                                     {isPublisherDropdownOpen && (
                                         <div className="absolute z-[100] top-full left-0 w-full md:w-1/2 bg-white border border-gray-300 rounded shadow-lg mt-1 flex flex-col overflow-hidden animate-in fade-in zoom-in-95">
                                             <div className="p-2 border-b bg-gray-50">
-                                                <input type="text" placeholder="Search..." value={publisherSearch} onChange={(e) => setPublisherSearch(e.target.value)} onClick={(e) => e.stopPropagation()} className="w-full text-xs p-1.5 border rounded outline-none bg-white" autoFocus />
+                                                <input type="text" placeholder="Search..." value={publisherSearch} onChange={(e) => setPublisherSearch(e.target.value)} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.stopPropagation()} className="w-full text-xs p-1.5 border rounded outline-none bg-white" autoFocus />
                                             </div>
                                             <div className="max-h-48 overflow-y-auto">
                                                 {publishers.filter(p => (p.title || "").toLowerCase().includes(publisherSearch.toLowerCase())).map(p => (
@@ -1476,14 +1483,7 @@ const EditBook = () => {
                                             <Plus size={16} strokeWidth={3} />
                                             <h3 className="text-xs font-bold uppercase font-montserrat">Quick Publisher Registration</h3>
                                         </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-1">
-                                                <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Category*</label>
-                                                <select value={newPubData.category} onChange={(e) => setNewPubData({ ...newPubData, category: e.target.value })} className="theme-input w-full bg-white text-xs">
-                                                    <option value="">Select Category</option>
-                                                    {categories.map(c => <option key={c.id || c.id || c._id} value={c.id || c.id || c._id}>{c.title || c.categorytitle}</option>)}
-                                                </select>
-                                            </div>
+                                        <div className="grid grid-cols-1 gap-4">
                                             <div className="space-y-1">
                                                 <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Title*</label>
                                                 <input type="text" value={newPubData.title} onChange={(e) => { const val = e.target.value; setNewPubData({ ...newPubData, title: val, slug: val.toLowerCase().replace(/\s+/g, '-') }); }} className="theme-input w-full bg-white text-xs" />

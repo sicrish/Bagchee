@@ -18,20 +18,20 @@ export const submitContact = async (req, res) => {
             return res.status(400).json({ status: false, msg: 'Name, email, subject and message are required.' });
         }
 
-        // Build recipient list: env var (EMAIL_CONTACT_TO) as primary; emailsCopy from settings as CC
-        const toAddresses = process.env.EMAIL_CONTACT_TO || process.env.EMAIL_USER || '';
-        let ccAddresses = '';
+        // Recipient list: use emailsCopy from settings (configured in Settings page)
+        let toAddresses = '';
         try {
             const settings = await prisma.settings.findFirst({ orderBy: { id: 'desc' }, select: { emailsCopy: true } });
-            if (settings?.emailsCopy?.trim()) ccAddresses = settings.emailsCopy.trim();
+            if (settings?.emailsCopy?.trim()) toAddresses = settings.emailsCopy.trim();
         } catch { /* non-critical */ }
+        // Fall back to EMAIL_USER if settings has no addresses configured
+        if (!toAddresses) toAddresses = process.env.EMAIL_USER || '';
 
         const transporter = createTransporter();
 
         await transporter.sendMail({
             from: `"Bagchee" <${process.env.EMAIL_USER}>`,
             to: toAddresses,
-            ...(ccAddresses ? { cc: ccAddresses } : {}),
             replyTo: email.trim(),
             subject: `[Contact Form] ${subject.trim()}`,
             html: `

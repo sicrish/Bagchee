@@ -184,12 +184,12 @@ const OrderReceipt = () => {
                       <MapPin size={14} /> Shipping Address
                     </h4>
                     <p className="text-sm text-gray-600 leading-relaxed bg-white border border-gray-50 p-4 rounded-lg shadow-sm">
-                      {order.shippingCompany && (
-                        <span className="block text-gray-500 text-xs mb-0.5">{order.shippingCompany}</span>
-                      )}
                       <span className="font-bold text-text-main block mb-1">
                         {order.shippingFirstName} {order.shippingLastName}
                       </span>
+                      {order.shippingCompany && (
+                        <span className="block text-gray-500 text-xs mb-0.5">{order.shippingCompany}</span>
+                      )}
                       {order.shippingAddress1}<br />
                       {order.shippingAddress2 && <>{order.shippingAddress2}<br /></>}
                       {order.shippingCity}, {order.shippingState} {order.shippingPostcode}<br />
