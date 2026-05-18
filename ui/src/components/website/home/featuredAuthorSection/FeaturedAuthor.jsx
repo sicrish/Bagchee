@@ -92,17 +92,17 @@ const FeaturedAuthors = () => {
               {item.role}
             </p>
 
-            <div className="flex items-center gap-2">
+            <Link to={authorDetailUrl} className="flex items-center gap-2 group/book">
               <div className="w-10 h-14 bg-white rounded shadow-sm border border-cream-200 overflow-hidden shrink-0">
                 <img
                   src={getFullUrl(book?.defaultImage || book?.default_image)}
                   alt="Featured Book"
-                  className="w-full h-full object-cover hover:scale-105 transition-transform"
+                  className="w-full h-full object-cover group-hover/book:scale-105 transition-transform"
                   onError={(e) => { e.target.src = "https://placehold.co/100x150?text=Book"; }}
                 />
               </div>
-              <Link to={authorDetailUrl} className="text-[10px] text-primary font-bold font-montserrat hover:underline">More</Link>
-            </div>
+              <span className="text-[11px] text-primary font-bold font-montserrat group-hover/book:underline">More</span>
+            </Link>
           </div>
         </div>
 
