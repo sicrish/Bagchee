@@ -9,6 +9,7 @@ router.get("/list",           AuthorController.getAllAuthors);
 router.get("/batch",          AuthorController.getAuthorsByIds);
 router.get("/by-slug/:slug",  AuthorController.getAuthorBySlug);
 router.get("/get/:id",        AuthorController.getAuthorById);
+router.get("/:id/books",      AuthorController.getBooksByAuthorId);
 
 // ADMIN — mutations
 router.post("/save",         adminAuth, AuthorController.saveAuthor);

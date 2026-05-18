@@ -37,11 +37,19 @@ export const getAllAuthors = async (req, res) => {
         const pageNum = parseInt(page) || 1;
         const pageSize = parseInt(limit) || 20;
         const skip = (pageNum - 1) * pageSize;
+        const parts = q ? q.trim().split(/\s+/) : [];
         const where = q ? {
             OR: [
                 { firstName: { contains: q, mode: 'insensitive' } },
                 { lastName: { contains: q, mode: 'insensitive' } },
-                { fullName: { contains: q, mode: 'insensitive' } }
+                { fullName: { contains: q, mode: 'insensitive' } },
+                // Match "First Last" even when fullName is null (migrated authors)
+                ...(parts.length >= 2 ? [{
+                    AND: [
+                        { firstName: { contains: parts[0], mode: 'insensitive' } },
+                        { lastName: { contains: parts.slice(1).join(' '), mode: 'insensitive' } }
+                    ]
+                }] : [])
             ]
         } : {};
         const [authors, total] = await Promise.all([
@@ -57,27 +65,63 @@ export const getAllAuthors = async (req, res) => {
 export const getAuthorBySlug = async (req, res) => {
     try {
         const { slug } = req.params;
-        const createSlug = (name) => name.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+        const createSlug = (name) => name ? name.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '') : '';
 
-        // Search by the last word of the slug (most distinctive — usually last name)
-        // e.g. "dp-chattopadhyaya" → search lastName contains "chattopadhyaya"
         const slugParts = slug.split('-');
         const lastWord = slugParts[slugParts.length - 1];
 
         const authors = await prisma.author.findMany({
             where: {
                 OR: [
-                    { lastName: { contains: lastWord, mode: 'insensitive' } },
+                    { lastName:  { contains: lastWord, mode: 'insensitive' } },
                     { firstName: { contains: lastWord, mode: 'insensitive' } },
+                    { fullName:  { contains: lastWord, mode: 'insensitive' } },
                 ]
             },
             take: 50
         });
 
-        // Find exact slug match among results
-        const found = authors.find(a => createSlug(`${a.firstName} ${a.lastName}`) === slug);
+        const found = authors.find(a =>
+            createSlug(`${a.firstName} ${a.lastName}`) === slug ||
+            createSlug(a.fullName || '') === slug
+        );
         if (!found) return res.status(404).json({ status: false, msg: 'Author not found' });
         res.status(200).json({ status: true, data: found });
+    } catch (error) {
+        res.status(500).json({ status: false, msg: 'Server Error' });
+    }
+};
+
+// GET /authors/:id/books — public, returns ALL books for an author regardless of isActive
+// Used by AuthorDetail page to match old-site behavior (showed all books including inactive)
+export const getBooksByAuthorId = async (req, res) => {
+    try {
+        const authorId = parseInt(req.params.id);
+        if (isNaN(authorId)) return res.status(400).json({ status: false, msg: 'Invalid author ID' });
+
+        const page  = Math.max(1, parseInt(req.query.page)  || 1);
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+        const skip  = (page - 1) * limit;
+
+        const where = { authors: { some: { authorId } } };
+
+        const [books, total] = await Promise.all([
+            prisma.product.findMany({
+                where,
+                select: {
+                    id: true, title: true, bagcheeId: true, defaultImage: true,
+                    price: true, realPrice: true, discount: true, rating: true,
+                    isActive: true,
+                    authors: { include: { author: { select: { id: true, fullName: true } } }, take: 2 },
+                },
+                orderBy: { createdAt: 'desc' },
+                skip,
+                take: limit,
+            }),
+            prisma.product.count({ where }),
+        ]);
+
+        res.json({ status: true, data: books, total, page, limit, totalPages: Math.ceil(total / limit) });
     } catch (error) {
         res.status(500).json({ status: false, msg: 'Server Error' });
     }

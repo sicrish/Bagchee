@@ -220,12 +220,12 @@ const Address = () => {
               </div>
 
               <div className="p-6 flex-grow space-y-3 text-sm">
-                {addr.company && (
-                  <p className="text-sm text-gray-500 font-medium">{addr.company}</p>
-                )}
                 <p className="font-bold text-lg text-gray-900">
                   {[addr.firstName, addr.lastName].filter(Boolean).join(' ') || '—'}
                 </p>
+                {addr.company && (
+                  <p className="text-sm text-gray-500 font-medium">{addr.company}</p>
+                )}
                 <div className="space-y-2">
                   <div className="flex gap-3 items-start">
                     <MapPin size={18} className="shrink-0 text-primary mt-0.5" />
@@ -315,24 +315,24 @@ const Address = () => {
                     className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary" />
                 </div>
               </div>
-              {/* Row 2: Address Line 1 */}
+              {/* Row 2: Company */}
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Company (Optional)</label>
+                <input type="text" name="company" value={formData.company} onChange={handleChange}
+                  className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary" />
+              </div>
+              {/* Row 3: Address Line 1 */}
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Address Line 1 *</label>
                 <input type="text" name="houseNo" value={formData.houseNo} onChange={handleChange}
                   placeholder="Street address, P.O. box, building"
                   className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary" required />
               </div>
-              {/* Row 3: Address Line 2 */}
+              {/* Row 4: Address Line 2 */}
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Address Line 2 (Optional)</label>
                 <input type="text" name="address2" value={formData.address2} onChange={handleChange}
                   placeholder="Apartment, suite, unit, floor, etc."
-                  className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary" />
-              </div>
-              {/* Row 4: Company */}
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Company (Optional)</label>
-                <input type="text" name="company" value={formData.company} onChange={handleChange}
                   className="w-full border border-gray-300 rounded p-2.5 text-sm focus:border-primary" />
               </div>
               {/* Row 5: City + State */}

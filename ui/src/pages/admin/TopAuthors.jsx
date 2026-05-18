@@ -97,14 +97,20 @@ const TopAuthors = () => {
     if (newPage >= 1 && newPage <= totalPages) setCurrentPage(newPage);
   };
 
+  const getImgSrc = (path) => {
+    if (!path) return '';
+    if (path.startsWith('http')) return path;
+    return `${process.env.REACT_APP_API_URL}${path}`;
+  };
+
   // 🟢 3. Export to Excel (Updated with Quotes and Roles)
   const handleExport = async () => {
     const exportData = authors.map((item) => ({
       "Order": item.order,
-      "Author": `${item.authorId?.first_name} ${item.authorId?.last_name}`,
+      "Author": `${item.authorId?.firstName || ''} ${item.authorId?.lastName || ''}`.trim(),
       "Book": item.bookId?.title || "N/A",
       "Award/Role": item.role || "N/A",
-      "Quote": item.quote || "N/A", // 🟢 Backend sync
+      "Quote": item.quote || "N/A",
       "Status": item.active ? "Active" : "Inactive"
     }));
     await exportToExcel(exportData, "Top Authors", "Top_Authors_Complete_Report");
@@ -184,12 +190,12 @@ const TopAuthors = () => {
                     <td className="p-4 border-r border-gray-50">
                       <div className="flex items-center gap-3">
                         <img
-                          src={`${process.env.REACT_APP_API_URL}${item.authorId?.picture}`}
+                          src={getImgSrc(item.authorId?.picture)}
                           className="w-12 h-12 rounded-full object-cover border-2 border-cream-200 p-0.5"
                           alt=""
                         />
                         <div>
-                          <p className="font-bold text-text-main text-sm">{item.authorId?.first_name} {item.authorId?.last_name}</p>
+                          <p className="font-bold text-text-main text-sm">{item.authorId?.firstName} {item.authorId?.lastName}</p>
                           <div className="flex items-center gap-1 text-[10px] text-primary font-bold uppercase tracking-tight">
                             <Award size={10} /> {item.role || 'No Award Linked'}
                           </div>
@@ -199,7 +205,7 @@ const TopAuthors = () => {
 
                     <td className="p-4 border-r border-gray-50">
                       <div className="flex items-center gap-2">
-                        <img src={`${process.env.REACT_APP_API_URL}${item.bookId?.default_image}`} className="w-8 h-12 object-cover rounded shadow-sm border border-cream-200" alt="" />
+                        <img src={getImgSrc(item.bookId?.defaultImage)} className="w-8 h-12 object-cover rounded shadow-sm border border-cream-200" alt="" />
                         <span className="text-xs font-medium text-gray-600 line-clamp-2">{item.bookId?.title || "No Book Linked"}</span>
                       </div>
                     </td>

@@ -60,11 +60,10 @@ const AuthorDetail = () => {
 
         try {
           const booksRes = await axios.get(
-            `${process.env.REACT_APP_API_URL}/product/fetch?authors=${foundAuthor.id}&limit=20&page=${currentPage}`
+            `${process.env.REACT_APP_API_URL}/authors/${foundAuthor.id}/books?limit=20&page=${currentPage}`
           );
           if (booksRes.data.status) {
             setBooks(booksRes.data.data || []);
-            // 🟢 Ye do lines add karein taaki buttons dikhen
             setTotalPages(booksRes.data.totalPages || Math.ceil(booksRes.data.total / 20));
             setTotalBooks(booksRes.data.total || 0);
           }

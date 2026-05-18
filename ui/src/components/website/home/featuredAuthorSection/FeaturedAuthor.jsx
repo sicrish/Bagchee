@@ -101,7 +101,7 @@ const FeaturedAuthors = () => {
                   onError={(e) => { e.target.src = "https://placehold.co/100x150?text=Book"; }}
                 />
               </div>
-              <span className="text-[10px] text-text-muted italic font-body">& more...</span>
+              <Link to={authorDetailUrl} className="text-[10px] text-primary font-bold font-montserrat hover:underline">More</Link>
             </div>
           </div>
         </div>

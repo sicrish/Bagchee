@@ -59,7 +59,7 @@ export const listTopAuthors = async (req, res) => {
         if (authorName && authorName.trim() !== '') {
             const searchLower = authorName.toLowerCase();
             data = data.filter(item => {
-                const a = item.authorData;
+                const a = item.authorId;
                 const fullName = `${a?.firstName || ''} ${a?.lastName || ''}`.toLowerCase();
                 return fullName.includes(searchLower);
             });

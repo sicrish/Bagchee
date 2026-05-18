@@ -43,7 +43,7 @@ const EditAuthors = () => {
           });
           setProfile(author.profile || '');
           if (author.picture) {
-            setPreviewImage(`${API_URL}${author.picture}`); // Purani image dikhane ke liye
+            setPreviewImage(author.picture.startsWith('http') ? author.picture : `${API_URL}${author.picture}`);
           }
         }
       } catch (error) {
