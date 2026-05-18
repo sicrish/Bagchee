@@ -67,19 +67,25 @@ export const getAuthorBySlug = async (req, res) => {
         const { slug } = req.params;
         const createSlug = (name) => name ? name.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '') : '';
 
+        // Convert slug back to a name string: "lokesh-chandra" → "lokesh chandra"
+        const nameFromSlug = slug.replace(/-/g, ' ');
         const slugParts = slug.split('-');
-        const lastWord = slugParts[slugParts.length - 1];
 
-        const authors = await prisma.author.findMany({
-            where: {
-                OR: [
-                    { lastName:  { contains: lastWord, mode: 'insensitive' } },
-                    { firstName: { contains: lastWord, mode: 'insensitive' } },
-                    { fullName:  { contains: lastWord, mode: 'insensitive' } },
+        // Build targeted conditions using full name — avoids the "take: 50 with 1000+ partial matches" problem
+        const conditions = [
+            { fullName: { contains: nameFromSlug, mode: 'insensitive' } },
+        ];
+        // Try every split point: e.g. "lokesh chandra" → firstName="lokesh" lastName="chandra"
+        for (let i = 1; i < slugParts.length; i++) {
+            conditions.push({
+                AND: [
+                    { firstName: { contains: slugParts.slice(0, i).join(' '), mode: 'insensitive' } },
+                    { lastName:  { contains: slugParts.slice(i).join(' '),    mode: 'insensitive' } },
                 ]
-            },
-            take: 50
-        });
+            });
+        }
+
+        const authors = await prisma.author.findMany({ where: { OR: conditions }, take: 50 });
 
         const found = authors.find(a =>
             createSlug(`${a.firstName} ${a.lastName}`) === slug ||
