@@ -85,14 +85,32 @@ const buildWhereClause = (query, { includeInactive = false } = {}) => {
         rating, daysOld
     } = query;
 
-    if (keyword) conditions.push({ OR: [
-        { title:     { contains: keyword, mode: 'insensitive' } },
-        { isbn13:    { contains: keyword, mode: 'insensitive' } },
-        { isbn10:    { contains: keyword, mode: 'insensitive' } },
-        { bagcheeId: { contains: keyword, mode: 'insensitive' } },
-        { publisher: { title: { contains: keyword, mode: 'insensitive' } } },
-        { series:    { title: { contains: keyword, mode: 'insensitive' } } },
-    ]});
+    if (keyword) {
+        const kwParts = keyword.trim().split(/\s+/);
+        const authorConditions = [
+            { fullName:  { contains: keyword, mode: 'insensitive' } },
+            { firstName: { contains: keyword, mode: 'insensitive' } },
+            { lastName:  { contains: keyword, mode: 'insensitive' } },
+        ];
+        // "Lokesh Chandra" → also try first word vs rest match
+        if (kwParts.length >= 2) {
+            authorConditions.push({
+                AND: [
+                    { firstName: { contains: kwParts[0],                    mode: 'insensitive' } },
+                    { lastName:  { contains: kwParts.slice(1).join(' '),     mode: 'insensitive' } },
+                ]
+            });
+        }
+        conditions.push({ OR: [
+            { title:     { contains: keyword, mode: 'insensitive' } },
+            { isbn13:    { contains: keyword, mode: 'insensitive' } },
+            { isbn10:    { contains: keyword, mode: 'insensitive' } },
+            { bagcheeId: { contains: keyword, mode: 'insensitive' } },
+            { publisher: { title: { contains: keyword, mode: 'insensitive' } } },
+            { series:    { title: { contains: keyword, mode: 'insensitive' } } },
+            { authors:   { some: { author: { OR: authorConditions } } } },
+        ]});
+    }
 
     if (title)     conditions.push({ title:     { contains: title,     mode: 'insensitive' } });
     if (isbn10)    conditions.push({ isbn10:    { contains: isbn10,    mode: 'insensitive' } });
@@ -500,11 +518,26 @@ export const getRelatedProducts = async (req, res) => {
         const result = await cache.get(`related:${bagcheeId}`, FIVE_MIN, async () => {
             const product = await prisma.product.findFirst({
                 where: { bagcheeId: { equals: bagcheeId, mode: 'insensitive' } },
-                select: { id: true, leadingCategoryId: true, seriesId: true, publisherId: true }
+                select: { id: true, leadingCategoryId: true, seriesId: true, publisherId: true, relatedProducts: true }
             });
             if (!product) return null;
 
-            const { id, leadingCategoryId, seriesId, publisherId } = product;
+            const { id, leadingCategoryId, seriesId, publisherId, relatedProducts } = product;
+
+            // Fetch admin-selected related products first (if any)
+            let adminRelated = [];
+            if (relatedProducts) {
+                const relIds = relatedProducts.split(',').map(s => s.trim()).filter(Boolean);
+                if (relIds.length > 0) {
+                    adminRelated = await prisma.product.findMany({
+                        where: { bagcheeId: { in: relIds }, isActive: true },
+                        include: PRODUCT_LIST_INCLUDE,
+                    });
+                    // Preserve admin order
+                    const order = Object.fromEntries(relIds.map((rid, i) => [rid.toLowerCase(), i]));
+                    adminRelated.sort((a, b) => (order[a.bagcheeId?.toLowerCase()] ?? 99) - (order[b.bagcheeId?.toLowerCase()] ?? 99));
+                }
+            }
 
             // Walk up category tree to find root category for broader related books
             let rootCategoryId = leadingCategoryId;
@@ -543,7 +576,9 @@ export const getRelatedProducts = async (req, res) => {
                 }) : Promise.resolve([]),
             ]);
 
-            return { related: relatedRaw, seriesBooks: seriesRaw, alsoBought: alsoBoughtRaw };
+            const adminRelatedIds = new Set(adminRelated.map(b => b.id));
+            const filteredRelated = relatedRaw.filter(b => !adminRelatedIds.has(b.id) && b.id !== id);
+            return { related: [...adminRelated, ...filteredRelated], seriesBooks: seriesRaw, alsoBought: alsoBoughtRaw };
         });
 
         if (!result) return res.status(404).json({ status: false, msg: 'Product not found' });
