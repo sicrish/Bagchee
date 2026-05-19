@@ -17,12 +17,24 @@ const theme = {
 
 const SITE_URL = process.env.FRONTEND_URL || 'https://app.bagchee.com';
 const LOGO_URL = `${SITE_URL}/logo1.png`;
-const SLOGAN   = 'Books that Stick';
 
-const emailHeader = () => `
-    <div style="background-color:${theme.primary};padding:24px 35px;text-align:center;">
-        <img src="${LOGO_URL}" alt="Bagchee" style="height:52px;width:auto;max-width:210px;display:block;margin:0 auto;" />
-        <p style="color:${theme.textLight};margin-top:6px;margin-bottom:0;opacity:0.9;font-size:13px;font-style:italic;">${escapeHtml(SLOGAN)}</p>
+const emailHeader = (title = null) => `
+    <div style="background-color:${theme.primary};padding:20px 35px;text-align:center;">
+        <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
+            <tr>
+                <td style="vertical-align:middle;padding-right:12px;">
+                    <div style="background-color:rgba(255,255,255,0.18);border-radius:10px;padding:7px;display:inline-block;">
+                        <img src="${LOGO_URL}" alt="Bagchee" style="height:62px;width:auto;display:block;" />
+                    </div>
+                </td>
+                <td style="vertical-align:middle;text-align:left;">
+                    <div style="color:#ffffff;font-size:26px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;font-family:Arial,sans-serif;line-height:1;">Bagchee</div>
+                    <div style="height:1px;background:rgba(255,255,255,0.3);margin:4px 0;"></div>
+                    <div style="color:rgba(255,255,255,0.75);font-size:9px;letter-spacing:0.4em;text-transform:uppercase;font-family:Arial,sans-serif;">Books That Stick</div>
+                </td>
+            </tr>
+        </table>
+        ${title ? `<p style="color:${theme.textLight};margin:14px 0 0;font-size:15px;font-weight:600;letter-spacing:0.05em;font-family:Arial,sans-serif;">${escapeHtml(title)}</p>` : ''}
     </div>`;
 
 const emailFooter = () => `
@@ -156,7 +168,7 @@ export const sendOrderConfirmation = async (email, order) => {
         const template = `
             <div style="font-family: 'Inter', Helvetica, Arial, sans-serif; background-color: ${theme.cream}; padding: 40px 0;">
                 <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #e6decd;">
-                    ${emailHeader()}
+                    ${emailHeader('Order Confirmed')}
                     <div style="padding: 40px 30px;">
                         <h2 style="color: ${theme.textMain}; font-size: 20px; margin-bottom: 6px;">Thank you for your order!</h2>
                         <p style="color: ${theme.textMain}; opacity: 0.7; margin-bottom: 20px;">Order #<strong>${escapeHtml(order.orderNumber)}</strong> has been placed successfully.</p>
@@ -182,8 +194,8 @@ export const sendOrderConfirmation = async (email, order) => {
                         </div>
                         <div style="margin-top: 24px; background: #f9f5ee; border-radius: 8px; padding: 16px; font-size: 13px; color: ${theme.textMain};">
                             <strong>Shipping to:</strong><br/>
-                            ${order.shippingCompany ? escapeHtml(order.shippingCompany) + '<br/>' : ''}
                             ${escapeHtml(order.shippingFirstName)} ${escapeHtml(order.shippingLastName)}<br/>
+                            ${order.shippingCompany ? escapeHtml(order.shippingCompany) + '<br/>' : ''}
                             ${escapeHtml(order.shippingAddress1)}${order.shippingAddress2 ? '<br/>' + escapeHtml(order.shippingAddress2) : ''}<br/>
                             ${escapeHtml(order.shippingCity)}, ${escapeHtml(order.shippingState)} ${escapeHtml(order.shippingPostcode)}<br/>
                             ${escapeHtml(order.shippingCountry)}
@@ -229,8 +241,8 @@ export const sendOrderShippedEmail = async (email, order) => {
                         <p style="color: ${theme.textMain}; opacity: 0.7; margin-bottom: 24px;">Order #<strong>${escapeHtml(order.orderNumber)}</strong> is on its way to you.</p>
                         <div style="background: #f9f5ee; border-radius: 8px; padding: 16px; font-size: 13px; color: ${theme.textMain}; margin-bottom: 20px;">
                             <strong>Shipping to:</strong><br/>
-                            ${order.shippingCompany ? escapeHtml(order.shippingCompany) + '<br/>' : ''}
                             ${escapeHtml(order.shippingFirstName)} ${escapeHtml(order.shippingLastName)}<br/>
+                            ${order.shippingCompany ? escapeHtml(order.shippingCompany) + '<br/>' : ''}
                             ${escapeHtml(order.shippingAddress1)}${order.shippingAddress2 ? '<br/>' + escapeHtml(order.shippingAddress2) : ''}<br/>
                             ${escapeHtml(order.shippingCity)}, ${escapeHtml(order.shippingState)} ${escapeHtml(order.shippingPostcode)}<br/>
                             ${escapeHtml(order.shippingCountry)}

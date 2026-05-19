@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useGeo } from '../../context/GeoContext.jsx';
 import axios from '../../utils/axiosConfig';
 import { normalizeProducts } from '../../utils/normalizeProduct';
 import { LayoutGrid, List, ChevronDown, SlidersHorizontal, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -14,6 +15,7 @@ const ProductListing = ({ type }) => {
     const { slug } = useParams();
     const location = useLocation();
     const navigate = useNavigate();
+    const { isIndia } = useGeo();
 
     // --- States ---
     const [products, setProducts] = useState([]);
@@ -216,6 +218,7 @@ const ProductListing = ({ type }) => {
 
                 query.append('page', currentPage);
                 query.append('limit', 36);
+                if (isIndia) query.append('inrOnly', 'true');
 
                 // 🟢 SEARCH LOGIC: Agar URL me search query hai, toh use 'keyword' bana kar API ko bhejo
                 if (searchKeyword) {

@@ -1,14 +1,16 @@
 import React from "react";
 import { Helmet } from "react-helmet-async";
-import { Outlet, useLocation } from "react-router-dom";
+import { Outlet, useLocation, Navigate } from "react-router-dom";
 import Header from "../components/website/common/header/header.jsx";
 import Footer from "../components/website/common/footer/footer.jsx";
 import PremiumOfferBar from "../components/website/home/offer/offerSection.jsx";
 import usePageMeta from "../hooks/usePageMeta.js";
+import { useGeo } from "../context/GeoContext.jsx";
 
 function WebsiteLayouts() {
   const location = useLocation();
   const pageMeta = usePageMeta();
+  const { isIndia, indiaMaintenance } = useGeo();
 
   // Check if current route is an account or cart page or checkout
   const isAccountOrCartPage =
@@ -16,6 +18,10 @@ function WebsiteLayouts() {
     // location.pathname.startsWith("/cart") ||
     location.pathname.startsWith("/checkout") ||
     location.pathname.startsWith("/pay/");
+  if (isIndia && indiaMaintenance && location.pathname !== '/under-maintenance') {
+    return <Navigate to="/under-maintenance" replace />;
+  }
+
   return (
     <>
       {pageMeta && (

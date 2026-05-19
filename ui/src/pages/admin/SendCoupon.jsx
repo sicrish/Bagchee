@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import BagcheeLogo from '../../assets/images/common/logo.png';
 import { useNavigate } from 'react-router-dom';
 import {
   Send, Ticket, Loader2, Users, ArrowLeft, Eye, X,
@@ -38,7 +39,7 @@ const RECIPIENT_OPTIONS = [
   },
 ];
 
-const buildPreviewHtml = (coupon, emailContent) => {
+const buildPreviewHtml = (coupon, emailContent, logoUrl) => {
   const validTill = coupon?.validTo
     ? new Date(coupon.validTo).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
     : null;
@@ -55,10 +56,8 @@ const buildPreviewHtml = (coupon, emailContent) => {
 
         <!-- Header -->
         <div style="background:#1a3a5c;border-radius:12px 12px 0 0;padding:28px 32px;text-align:center;">
-          <div style="display:inline-block;border:2px solid rgba(255,255,255,0.3);border-radius:8px;padding:6px 18px;margin-bottom:10px;">
-            <span style="color:#ffffff;font-size:22px;font-weight:900;letter-spacing:3px;text-transform:uppercase;">BAGCHEE</span>
-          </div>
-          <p style="color:rgba(255,255,255,0.7);margin:0;font-size:12px;letter-spacing:1px;text-transform:uppercase;">Your Trusted Bookstore</p>
+          ${logoUrl ? `<img src="${logoUrl}" alt="Bagchee" style="height:48px;width:auto;display:block;margin:0 auto 10px;" />` : `<div style="display:inline-block;border:2px solid rgba(255,255,255,0.3);border-radius:8px;padding:6px 18px;margin-bottom:10px;"><span style="color:#ffffff;font-size:22px;font-weight:900;letter-spacing:3px;text-transform:uppercase;">BAGCHEE</span></div>`}
+          <p style="color:rgba(255,255,255,0.7);margin:0;font-size:12px;letter-spacing:1px;text-transform:uppercase;">Books that stick</p>
         </div>
 
         <!-- Body -->
@@ -107,7 +106,7 @@ const buildPreviewHtml = (coupon, emailContent) => {
   `;
 };
 
-const PreviewModal = ({ coupon, emailContent, onClose, onConfirmSend, sending }) => (
+const PreviewModal = ({ coupon, emailContent, logoUrl, onClose, onConfirmSend, sending }) => (
   <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-start justify-center p-4 pt-8 overflow-y-auto">
     <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto">
       {/* Modal header */}
@@ -128,7 +127,7 @@ const PreviewModal = ({ coupon, emailContent, onClose, onConfirmSend, sending })
         </p>
         <div
           className="border border-gray-200 rounded-lg overflow-hidden"
-          dangerouslySetInnerHTML={{ __html: buildPreviewHtml(coupon, emailContent) }}
+          dangerouslySetInnerHTML={{ __html: buildPreviewHtml(coupon, emailContent, logoUrl) }}
         />
       </div>
 
@@ -242,6 +241,7 @@ const SendCoupon = () => {
         <PreviewModal
           coupon={selectedCoupon}
           emailContent={formData.emailContent}
+          logoUrl={BagcheeLogo}
           onClose={() => setShowPreview(false)}
           onConfirmSend={handleSend}
           sending={sending}
@@ -358,7 +358,7 @@ const SendCoupon = () => {
                       onChange={(val) => setFormData({ ...formData, emailContent: val })}
                       modules={quillModules}
                       className="bg-white"
-                      style={{ minHeight: '220px' }}
+                      style={{ minHeight: '320px' }}
                       placeholder="Write your email message here…"
                     />
                   </div>

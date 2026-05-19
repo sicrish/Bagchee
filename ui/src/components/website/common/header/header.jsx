@@ -10,6 +10,7 @@ import Logo from '../../../common/Logo.jsx';
 import logoImg from '../../../../assets/images/common/logo.png';
 import { CurrencyContext } from '../../../../context/CurrencyContext';
 import { useCart } from '../../../../context/CartContext.jsx';
+import { useGeo } from '../../../../context/GeoContext.jsx';
 import axios from '../../../../utils/axiosConfig.js';
 
 /* ---------------------------------------------------------
@@ -374,6 +375,7 @@ const PremiumHeader = () => {
 
   const { currency, setCurrency } = useContext(CurrencyContext);
   const { cartItemCount, wishlistCount } = useCart();
+  const { isIndia } = useGeo();
   const navigate = useNavigate();
 
   const [isScrolled, setIsScrolled] = useState(false);
@@ -386,7 +388,13 @@ const PremiumHeader = () => {
   // 🟢 NEW STATE: Mobile Search Dropdown Track Karne Ke Liye
   const [isMobileSearchVisible, setIsMobileSearchVisible] = useState(false);
 
-  const currencies = ['USD', 'EUR', 'GBP', 'INR'];
+  const auth = JSON.parse(localStorage.getItem('auth') || '{}');
+  const isAdmin = auth.userDetails?.role === 'admin';
+  const currencies = isAdmin
+    ? ['USD', 'EUR', 'GBP', 'INR']
+    : isIndia
+      ? ['INR']
+      : ['USD', 'EUR', 'GBP'];
   const [mobileCurrencyOpen, setMobileCurrencyOpen] = useState(false);
   const [mobileAccountOpen, setMobileAccountOpen] = useState(false);
 

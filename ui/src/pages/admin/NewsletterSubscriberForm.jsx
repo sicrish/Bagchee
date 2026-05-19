@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Check, RotateCcw, X, Loader2, ChevronDown } from 'lucide-react';
+import { Check, RotateCcw, X, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
 
@@ -10,11 +10,13 @@ const NewsletterSubscriberForm = () => {
   const [loading, setLoading] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
 
-  // States for Categories Dropdown (Multi-Select)
+  // States for Categories Dropdown (Multi-Select with subcategories)
   const [categoriesList, setCategoriesList] = useState([]);
+  const [subCategoriesList, setSubCategoriesList] = useState([]);
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
   const [categorySearch, setCategorySearch] = useState("");
+  const [expandedMainCats, setExpandedMainCats] = useState({});
 
   const [formData, setFormData] = useState({
     email: '',
@@ -29,12 +31,13 @@ const NewsletterSubscriberForm = () => {
   useEffect(() => {
     const initPage = async () => {
       try {
-        // Fetch Categories for Dropdown
-        const catRes = await axios.get(`${API_BASE_URL}/main-categories/list`); // Adjust endpoint
-        if (catRes.data.status) {
-            // Flatten categories if needed or use main list
-            setCategoriesList(catRes.data.data || []);
-        }
+        // Fetch Categories and Subcategories for Dropdown
+        const [catRes, subRes] = await Promise.all([
+            axios.get(`${API_BASE_URL}/main-categories/list`),
+            axios.get(`${API_BASE_URL}/subcategory/fetch`),
+        ]);
+        if (catRes.data.status) setCategoriesList(catRes.data.data || []);
+        if (subRes.data.status) setSubCategoriesList(subRes.data.data || []);
 
         // Check if Edit Mode
         if (id) {
@@ -60,17 +63,32 @@ const NewsletterSubscriberForm = () => {
     initPage();
   }, [id]);
 
+  // Subcategories grouped by main category id
+  const subsByMainCat = useMemo(() => {
+    const map = {};
+    subCategoriesList.forEach(s => {
+      const key = s.categoryId || s.category_id;
+      if (!map[key]) map[key] = [];
+      map[key].push(s);
+    });
+    return map;
+  }, [subCategoriesList]);
+
   // 🟢 2. Handlers
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const toggleCategory = (catName) => {
-    setSelectedCategories(prev => 
+    setSelectedCategories(prev =>
       prev.includes(catName)
-        ? prev.filter(c => c !== catName) // Remove
-        : [...prev, catName] // Add
+        ? prev.filter(c => c !== catName)
+        : [...prev, catName]
     );
+  };
+
+  const toggleMainCatExpand = (id) => {
+    setExpandedMainCats(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
   // 🟢 3. Submit Logic (Dynamic Add/Edit)
@@ -233,23 +251,62 @@ const NewsletterSubscriberForm = () => {
                                  autoFocus
                               />
                            </div>
-                           {/* List */}
+                           {/* List — hierarchical (main cats + subcats) */}
                            <div className="overflow-y-auto p-1">
                               {categoriesList
-                                 .filter(c => (c.categorytitle || c.title || "").toLowerCase().includes(categorySearch.toLowerCase()))
+                                 .filter(c => {
+                                   const catName = (c.categorytitle || c.title || '').toLowerCase();
+                                   const q = categorySearch.toLowerCase();
+                                   if (!q) return true;
+                                   if (catName.includes(q)) return true;
+                                   return (subsByMainCat[c.id] || []).some(s =>
+                                     (s.name || s.subcategoryname || '').toLowerCase().includes(q)
+                                   );
+                                 })
                                  .map((cat) => {
-                                    const catName = cat.categorytitle || cat.title || "Unnamed";
+                                    const catName = cat.categorytitle || cat.title || 'Unnamed';
                                     const isSelected = selectedCategories.includes(catName);
+                                    const subs = subsByMainCat[cat.id] || [];
+                                    const isExpanded = expandedMainCats[cat.id];
+                                    const q = categorySearch.toLowerCase();
+                                    const visibleSubs = q
+                                      ? subs.filter(s => (s.name || s.subcategoryname || '').toLowerCase().includes(q))
+                                      : subs;
                                     return (
-                                       <div 
-                                          key={cat.id || cat._id}
-                                          onClick={() => toggleCategory(catName)}
-                                          className={`flex items-center gap-2 p-2 cursor-pointer text-sm rounded hover:bg-blue-50 ${isSelected ? 'bg-blue-50 font-bold text-primary' : 'text-gray-700'}`}
-                                       >
-                                          <input type="checkbox" checked={isSelected} readOnly className="accent-primary pointer-events-none" />
-                                          {catName}
+                                       <div key={cat.id || cat._id}>
+                                         <div
+                                           className={`flex items-center justify-between gap-2 p-2 cursor-pointer text-sm rounded hover:bg-blue-50 ${isSelected ? 'bg-blue-50 font-bold text-primary' : 'text-gray-700'}`}
+                                         >
+                                           <div className="flex items-center gap-2 flex-1" onClick={() => toggleCategory(catName)}>
+                                             <input type="checkbox" checked={isSelected} readOnly className="accent-primary pointer-events-none" />
+                                             <span className="font-semibold">{catName}</span>
+                                           </div>
+                                           {subs.length > 0 && (
+                                             <button
+                                               type="button"
+                                               onClick={(e) => { e.stopPropagation(); toggleMainCatExpand(cat.id); }}
+                                               className="text-gray-400 hover:text-primary shrink-0 p-0.5"
+                                             >
+                                               {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                                             </button>
+                                           )}
+                                         </div>
+                                         {(isExpanded || q) && visibleSubs.map(sub => {
+                                           const subName = sub.name || sub.subcategoryname || '';
+                                           const isSubSelected = selectedCategories.includes(subName);
+                                           return (
+                                             <div
+                                               key={sub.id}
+                                               onClick={() => toggleCategory(subName)}
+                                               className={`flex items-center gap-2 p-2 pl-7 cursor-pointer text-sm rounded hover:bg-blue-50 ${isSubSelected ? 'bg-blue-50 font-bold text-primary' : 'text-gray-600'}`}
+                                             >
+                                               <input type="checkbox" checked={isSubSelected} readOnly className="accent-primary pointer-events-none" />
+                                               {subName}
+                                             </div>
+                                           );
+                                         })}
                                        </div>
-                                    )
+                                    );
                                  })
                               }
                            </div>

@@ -1,36 +1,32 @@
-import React, { createContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useState, useEffect, useCallback, useContext } from 'react';
 import axios from 'axios';
+import GeoContext from './GeoContext.jsx';
 
 export const CurrencyContext = createContext();
 
 export const CurrencyProvider = ({ children }) => {
-    const SUPPORTED = ['USD', 'EUR', 'GBP', 'INR'];
+    const { isIndia, geoLoaded } = useContext(GeoContext);
     const stored = localStorage.getItem('bagchee_currency');
-    const [currency, setCurrency] = useState(SUPPORTED.includes(stored) ? stored : 'USD');
+    const [currency, setCurrency] = useState(stored || 'USD');
     const [exchangeRates, setExchangeRates] = useState({ USD: 1, EUR: 0.92, GBP: 0.78, INR: 84 });
     const [loading, setLoading] = useState(true);
 
     const symbols = { USD: '$', EUR: '€', GBP: '£', INR: '₹' };
 
-    // 1. IP Based Currency Detection — INR excluded, fallback to USD
+    // Force INR for India, block INR for non-India (once geo is known)
     useEffect(() => {
-        const detectCurrency = async () => {
-            if (!localStorage.getItem('bagchee_currency')) {
-                try {
-                    const res = await axios.get('https://ipapi.co/json/');
-                    const detected = res.data?.currency;
-                    if (detected && SUPPORTED.includes(detected)) {
-                        setCurrency(detected);
-                    } else {
-                        setCurrency('USD');
-                    }
-                } catch (err) {
-                    console.error("IP Detection Failed:", err);
-                }
-            }
-        };
-        detectCurrency();
-    }, []);
+        if (!geoLoaded) return;
+        const auth = JSON.parse(localStorage.getItem('auth') || '{}');
+        const isAdmin = auth.userDetails?.role === 'admin';
+        if (isAdmin) return; // admins bypass geo currency restriction
+        if (isIndia) {
+            setCurrency('INR');
+            localStorage.setItem('bagchee_currency', 'INR');
+        } else if (currency === 'INR') {
+            setCurrency('USD');
+            localStorage.setItem('bagchee_currency', 'USD');
+        }
+    }, [isIndia, geoLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // 2. Fetch Latest Rates (Base USD rakhenge for better accuracy)
     useEffect(() => {

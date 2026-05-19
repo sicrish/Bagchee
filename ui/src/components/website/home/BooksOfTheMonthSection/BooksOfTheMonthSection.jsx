@@ -4,7 +4,8 @@ import { ArrowRight, Star, Loader2, ChevronLeft, ChevronRight } from 'lucide-rea
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query'; // 🟢 React Query Import
 import ProductCardGrid from '../../../website/ProductCardGrid.jsx';
-import ProductModal from '../../../website/ProductModal.jsx'; 
+import ProductModal from '../../../website/ProductModal.jsx';
+import { useGeo } from '../../../../context/GeoContext.jsx';
 
 // 🟢 Skeleton Component: Fast perceived loading ke liye
 const SectionSkeleton = () => (
@@ -24,6 +25,7 @@ const SectionSkeleton = () => (
 const BooksOfTheMonthSection = () => {
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const { isIndia } = useGeo();
     const [page, setPage] = useState(1);
     const itemsPerPage = 6;
 
@@ -53,7 +55,9 @@ const BooksOfTheMonthSection = () => {
     }, []);
 
     // If no data and not loading, hide section
-    if (!isLoading && (!data || !data.products || data.products.length === 0)) return null;
+    const allProducts = data?.products || [];
+    const visibleAllProducts = isIndia ? allProducts.filter(b => (b.inrPrice ?? b.inr_price ?? 0) > 0) : allProducts;
+    if (!isLoading && (!data || visibleAllProducts.length === 0)) return null;
 
     return (
         <section id='books-of-the-month' className="py-10 md:py-16 bg-cream-50 font-body">
@@ -88,9 +92,8 @@ const BooksOfTheMonthSection = () => {
                     {isLoading ? (
                         <SectionSkeleton />
                     ) : (() => {
-                        const allProducts = data?.products || [];
-                        const totalPages = Math.ceil(allProducts.length / itemsPerPage);
-                        const pageProducts = allProducts.slice((page - 1) * itemsPerPage, page * itemsPerPage);
+                        const totalPages = Math.ceil(visibleAllProducts.length / itemsPerPage);
+                        const pageProducts = visibleAllProducts.slice((page - 1) * itemsPerPage, page * itemsPerPage);
                         return (
                             <div className="relative">
                                 <button

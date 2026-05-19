@@ -187,9 +187,9 @@ const UsersList = () => {
                 <td className="p-2 border-r border-white/20">
                   <select name="membership" value={pendingFilters.membership} onChange={handleFilterChange}
                     className={filterInputClass}>
-                    <option value="">All Members</option>
-                    <option value="active">Member (active)</option>
-                    <option value="inactive">Non-member (inactive)</option>
+                    <option value="">All Users</option>
+                    <option value="active">Members Only</option>
+                    <option value="inactive">Non-Members Only</option>
                   </select>
                 </td>
                 <td className="p-2 text-center">
@@ -228,7 +228,7 @@ const UsersList = () => {
                         ? 'bg-green-100 text-green-700'
                         : 'bg-gray-100 text-gray-500'
                         }`}>
-                        {item.membership || 'inactive'}
+                        {item.membership === 'active' ? 'Member' : 'Non-Member'}
                       </span>
                     </td>
                     <td className="p-3">

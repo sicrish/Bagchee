@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { useGeo } from "../../context/GeoContext.jsx";
 import { Link } from "react-router-dom";
 import { ChevronRight, Mail, Phone, MapPin, Clock, Send, MessageCircle } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
 import axios from "../../utils/axiosConfig";
 
 const ContactUs = () => {
+  const { isIndia } = useGeo();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -26,6 +28,7 @@ const ContactUs = () => {
   const [formStatus, setFormStatus] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const successRef = useRef(null);
   const [whatsappHref, setWhatsappHref] = useState('');
 
   useEffect(() => {
@@ -72,12 +75,13 @@ const ContactUs = () => {
       const API_URL = process.env.REACT_APP_API_URL;
       await axios.post(`${API_URL}/contact/submit`, formData);
       setFormStatus("submitted");
+      setTimeout(() => successRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
       setTimeout(() => {
         setFormData({ name: "", email: "", subject: "", category: "general", message: "" });
         setCaptcha("");
         setCaptchaQuestion(generateCaptcha());
         setFormStatus("");
-      }, 3000);
+      }, 5000);
     } catch (err) {
       setSubmitError(err.response?.data?.msg || "Failed to send message. Please try again.");
     } finally {
@@ -127,7 +131,7 @@ const contactInfo = [
               {/* Contact Info Card */}
               <div className="md:col-span-1 bg-cream-100 rounded-xl border border-gray-200 p-8 md:p-10 shadow-sm">
                 <div className="space-y-4">
-                  {contactInfo.map((info, index) => (
+                  {contactInfo.filter(info => !(isIndia && info.title === 'WhatsApp')).map((info, index) => (
                     <div
                       key={index}
                       className="flex gap-4 p-4 bg-cream-100 rounded-lg border border-gray-200"
@@ -182,9 +186,12 @@ const contactInfo = [
                 </h2>
 
                 {formStatus === "submitted" && (
-                  <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-                    <p className="text-green-800 font-semibold text-center">
-                      We've received your feedback and will respond shortly if required.
+                  <div ref={successRef} className="mb-6 p-5 bg-green-50 border-2 border-green-400 rounded-lg shadow-md">
+                    <p className="text-green-800 font-bold text-center text-base">
+                      ✓ Your message has been sent successfully!
+                    </p>
+                    <p className="text-green-700 text-center text-sm mt-1">
+                      We've received your message and will respond shortly if required.
                     </p>
                   </div>
                 )}

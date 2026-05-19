@@ -82,7 +82,7 @@ const buildWhereClause = (query, { includeInactive = false } = {}) => {
         formats, languages, authors, publishers, series, tag, tags,
         title, bagchee_id, isbn10, isbn13, product_type,
         isFeatured, isNewRelease, isRecommended, isExclusive,
-        rating, daysOld
+        rating, daysOld, inrOnly
     } = query;
 
     if (keyword) {
@@ -184,6 +184,8 @@ const buildWhereClause = (query, { includeInactive = false } = {}) => {
         from.setDate(from.getDate() - Number(daysOld));
         conditions.push({ createdAt: { gte: from } });
     }
+
+    if (inrOnly === 'true') conditions.push({ inrPrice: { gt: 0 } });
 
     return { AND: conditions };
 };

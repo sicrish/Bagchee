@@ -13,6 +13,7 @@ import {
 import toast from 'react-hot-toast';
 import { useCart } from '../../context/CartContext';
 import { CurrencyContext } from '../../context/CurrencyContext';
+import { useGeo } from '../../context/GeoContext.jsx';
 
 const BookDetail = () => {
   const { bagcheeId, slug } = useParams();
@@ -20,6 +21,7 @@ const BookDetail = () => {
   const { addToCart, cart, updateQuantity, membershipAdded, setMembershipAdded } = useCart();
 
   const { formatPrice, currency } = useContext(CurrencyContext);
+  const { isIndia } = useGeo();
 
   const [book, setBook] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -139,8 +141,7 @@ const BookDetail = () => {
           if (relatedRes.status === 'fulfilled' && relatedRes.value?.data?.status) {
             const rel = relatedRes.value.data.data;
             if (Array.isArray(rel.related) && rel.related.length > 0) {
-              const shuffled = rel.related.map(normalizeProduct).sort(() => Math.random() - 0.5);
-              setRelatedBooks(shuffled.slice(0, 15));
+              setRelatedBooks(rel.related.map(normalizeProduct).slice(0, 15));
             }
             if (Array.isArray(rel.seriesBooks)) {
               setSeriesBooks(rel.seriesBooks.filter(b => b.id !== bookData.id).map(normalizeProduct));
@@ -649,12 +650,20 @@ const BookDetail = () => {
               {/* Author */}
               <p className="text-base text-gray-700 mb-1">
                 by{" "}
-                <Link
-                  to={`/books/${createAuthorSlug(book.author)}`}
-                  className="text-primary hover:underline font-medium"
-                >
-                  {getAuthorName(book.author)}
-                </Link>
+                {book.authors && book.authors.length > 0
+                  ? book.authors.map((a, i) => {
+                      const auth = a.author || a;
+                      const name = auth.fullName || `${auth.firstName || auth.first_name || ''} ${auth.lastName || auth.last_name || ''}`.trim();
+                      const slug = createAuthorSlug(auth);
+                      return (
+                        <span key={auth.id || i}>
+                          {i > 0 && ', '}
+                          <Link to={`/author/${slug}`} className="text-primary hover:underline font-medium">{name}</Link>
+                        </span>
+                      );
+                    })
+                  : <Link to={`/author/${createAuthorSlug(book.author)}`} className="text-primary hover:underline font-medium">{getAuthorName(book.author)}</Link>
+                }
               </p>
 
 
@@ -684,7 +693,12 @@ const BookDetail = () => {
                     : (book?.rating || 0);
                   const ratingCount = reviews.length > 0 ? reviews.length : (book?.ratedTimes || book?.rated_times || 0);
                   return (
-                    <>
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById('reviews-section')?.scrollIntoView({ behavior: 'smooth' })}
+                      className="flex items-center gap-2 hover:opacity-75 transition-opacity"
+                      title="See customer reviews"
+                    >
                       <div className="flex items-center gap-1">
                         {[...Array(5)].map((_, i) => (
                           <Star
@@ -695,11 +709,11 @@ const BookDetail = () => {
                         ))}
                       </div>
                       {calculatedAvg > 0 && (
-                        <span className="text-sm text-gray-600 font-montserrat font-medium">
+                        <span className="text-sm text-gray-600 font-montserrat font-medium hover:text-primary transition-colors">
                           {calculatedAvg.toFixed(1)} ({ratingCount} ratings)
                         </span>
                       )}
-                    </>
+                    </button>
                   );
                 })()}
 
@@ -878,6 +892,11 @@ const BookDetail = () => {
                         </p>
                       )}
                     </div>
+                  ) : isIndia ? (
+                    <div className="p-4 bg-cream-50 border border-cream-200 rounded-lg text-sm text-text-main font-body">
+                      If you wish to buy or need information of this book,{' '}
+                      <Link to="/contact-us" className="text-primary font-bold hover:underline">contact us</Link>.
+                    </div>
                   ) : (
                     <div className="space-y-3">
 
@@ -905,8 +924,9 @@ const BookDetail = () => {
                 </>
               )}
 
-              {/* Footer: Wishlist & Share (Sabhi ke liye common) */}
+              {/* Footer: Share only for India, Wishlist+Share for others */}
               <div className="flex gap-2 pt-2 border-t border-gray-100">
+                {!isIndia && (
                 <button
                   onClick={handleWishlist}
                   className={`flex-1 py-2 px-3 rounded text-[11px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 border ${isWishlisted ? "bg-red-50 text-red-500 border-red-200" : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"}`}
@@ -914,6 +934,7 @@ const BookDetail = () => {
                   <Heart size={14} className={isWishlisted ? "fill-current" : ""} />
                   {isWishlisted ? "Saved" : "Wishlist"}
                 </button>
+                )}
                 <button
                   onClick={handleShare}
                   className="flex-1 py-2 px-3 bg-gray-50 border border-gray-200 hover:bg-gray-100 rounded text-[11px] font-bold uppercase tracking-wider text-gray-600 transition-all flex items-center justify-center gap-1.5"

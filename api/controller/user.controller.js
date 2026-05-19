@@ -150,7 +150,11 @@ export const fetch = async (req, res) => {
         if (role) where.role = role;
         if (statusFilter !== undefined && statusFilter !== '') where.status = parseInt(statusFilter);
         if (email) where.email = { contains: email, mode: 'insensitive' };
-        if (name) where.name = { contains: name, mode: 'insensitive' };
+        if (name) where.OR = [
+            { name:      { contains: name, mode: 'insensitive' } },
+            { firstName: { contains: name, mode: 'insensitive' } },
+            { lastName:  { contains: name, mode: 'insensitive' } },
+        ];
         if (membership) where.membership = { contains: membership, mode: 'insensitive' };
 
         const [userList, total] = await Promise.all([

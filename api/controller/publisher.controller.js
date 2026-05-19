@@ -9,7 +9,6 @@ export const savePublisher = async (req, res) => {
     try {
         const { category, title, company, address, place, email, phone, fax, order, show, slug, ship_in_days } = req.body;
         if (!title) return res.status(400).json({ status: false, msg: 'Title is required.' });
-        if (!category) return res.status(400).json({ status: false, msg: 'Category is required.' });
         if (slug) {
             const existingSlug = await prisma.publisher.findFirst({ where: { slug } });
             if (existingSlug) return res.status(400).json({ status: false, msg: 'Slug already exists.' });

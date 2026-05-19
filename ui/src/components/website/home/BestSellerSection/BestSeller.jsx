@@ -5,6 +5,7 @@ import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import ProductCardGrid from '../../ProductCardGrid.jsx';
 import ProductModal from '../../ProductModal.jsx';
+import { useGeo } from '../../../../context/GeoContext.jsx';
 
 const ProductSkeleton = () => (
   <div className="bg-cream-100 rounded-lg overflow-hidden animate-pulse border border-gray-100">
@@ -22,6 +23,7 @@ const Bestsellers = () => {
   const itemsPerPage = 6;
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { isIndia } = useGeo();
 
   const { data, isLoading, isPlaceholderData } = useQuery({
     queryKey: ['bestsellers', page],
@@ -35,12 +37,13 @@ const Bestsellers = () => {
   });
 
   const products = data?.data || [];
+  const visibleProducts = isIndia ? products.filter(b => (b.inrPrice ?? b.inr_price ?? 0) > 0) : products;
   const totalPages = Math.ceil((data?.total || 0) / itemsPerPage);
 
   const handleNext = () => { if (page < totalPages) setPage(p => p + 1); };
   const handlePrev = () => { if (page > 1) setPage(p => p - 1); };
 
-  if (!isLoading && products.length === 0) return null;
+  if (!isLoading && visibleProducts.length === 0) return null;
 
   return (
     <section className="py-10 md:py-16 bg-cream-50 font-body">
@@ -73,7 +76,7 @@ const Bestsellers = () => {
             {isLoading ? (
               Array(itemsPerPage).fill(0).map((_, i) => <ProductSkeleton key={i} />)
             ) : (
-              products.map((book) => {
+              visibleProducts.map((book) => {
                 if (!book?.id && !book?._id) return null;
                 const bookId = book.id || book._id;
                 return (

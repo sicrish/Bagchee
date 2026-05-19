@@ -5,6 +5,7 @@ import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import ProductCardGrid from '../../ProductCardGrid.jsx';
 import ProductModal from '../../ProductModal.jsx';
+import { useGeo } from '../../../../context/GeoContext.jsx';
 
 const ProductSkeleton = () => (
     <div className="bg-cream-100 rounded-lg overflow-hidden animate-pulse border border-gray-100">
@@ -22,6 +23,7 @@ const RecommendedSection = () => {
     const itemsPerPage = 6;
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const { isIndia } = useGeo();
 
     const { data: queryData, isLoading, isPlaceholderData } = useQuery({
         queryKey: ['recommended-products', page],
@@ -35,12 +37,13 @@ const RecommendedSection = () => {
     });
 
     const products = queryData?.data || [];
+    const visibleProducts = isIndia ? products.filter(b => { const book = b.product || b; return (book.inrPrice ?? book.inr_price ?? 0) > 0; }) : products;
     const totalPages = Math.ceil((queryData?.total || 0) / itemsPerPage);
 
     const handleNext = () => { if (page < totalPages) setPage(p => p + 1); };
     const handlePrev = () => { if (page > 1) setPage(p => p - 1); };
 
-    if (!isLoading && products.length === 0) return null;
+    if (!isLoading && visibleProducts.length === 0) return null;
 
     return (
         <section className="py-10 md:py-16 bg-cream-50 font-body">
@@ -73,7 +76,7 @@ const RecommendedSection = () => {
                         {isLoading ? (
                             Array(itemsPerPage).fill(0).map((_, i) => <ProductSkeleton key={i} />)
                         ) : (
-                            products.map((item) => {
+                            visibleProducts.map((item) => {
                                 const book = item.product || item;
                                 const bookId = book.id || book._id;
                                 if (!book || !bookId) return null;

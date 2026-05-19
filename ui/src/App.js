@@ -14,6 +14,7 @@ import useScrollToHash from './hooks/useScrollToHash';
 import { CurrencyProvider } from './context/CurrencyContext';
 import { CartProvider } from './context/CartContext.jsx';
 import { ConfirmProvider } from './context/ConfirmContext';
+import { GeoProvider } from './context/GeoContext.jsx';
 
 // 1. Layouts
 import WebsiteLayout from './layouts/WebsiteLayout.jsx';
@@ -481,6 +482,7 @@ const NewsletterSubscribers = lazy(() => import('./pages/admin/NewsletterSubscri
 const NewsletterSubscriberForm = lazy(() => import('./pages/admin/NewsletterSubscriberForm.jsx'));
 
 const SendEmail = lazy(() => import('./pages/admin/SendEmail.jsx'));
+const NewsletterReport = lazy(() => import('./pages/admin/NewsletterReport.jsx'));
 
 // import TopAuthors from './pages/admin/TopAuthors.jsx';
 const TopAuthors = lazy(() => import('./pages/admin/TopAuthors.jsx'));
@@ -604,6 +606,7 @@ function App() {
   return (
     <HelmetProvider>
     <QueryClientProvider client={queryClient}>
+    <GeoProvider>
     <CurrencyProvider>
       <CartProvider>
         <ConfirmProvider>
@@ -841,6 +844,7 @@ function App() {
                 <Route path="add-newsletter-subscriber" element={<NewsletterSubscriberForm />} />
                 <Route path="edit-newsletter-subscriber/:id" element={<NewsletterSubscriberForm />} />
                 <Route path="send-email" element={<SendEmail />} />
+                <Route path="newsletter-report" element={<NewsletterReport />} />
                 <Route path="top-authors" element={<TopAuthors />} />
                 <Route path="add-top-author" element={<AddEditTopAuthor />} />
                 <Route path="edit-top-author/:id" element={<AddEditTopAuthor />} />
@@ -937,6 +941,7 @@ function App() {
         </ConfirmProvider>
       </CartProvider>
     </CurrencyProvider>
+    </GeoProvider>
     </QueryClientProvider>
     </HelmetProvider>
   );

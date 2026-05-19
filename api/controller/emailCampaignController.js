@@ -1,5 +1,13 @@
 import { createTransporter } from '../lib/mailer.js';
 import prisma from '../lib/prisma.js';
+import { saveFileLocal } from '../utils/fileHandler.js';
+import { v2 as cloudinary } from 'cloudinary';
+
+cloudinary.config({
+    cloud_name: process.env.CLOUD_NAME,
+    api_key: process.env.CLOUD_API_KEY,
+    api_secret: process.env.CLOUD_API_SECRET,
+});
 
 const theme = {
     primary: "#008DDA",
@@ -40,13 +48,8 @@ const wrapInTemplate = (subject, bodyHtml, unsubscribeUrl = null) => {
     `;
 };
 
-// Valid audience keys
 const VALID_AUDIENCES = ['subscribers', 'members', 'purchasers', 'categories', 'specific'];
 
-/**
- * Core send logic — sends emails to recipients based on audience array.
- * Returns { sent, failed }.
- */
 const generateUnsubscribeToken = (email) => {
     return require('crypto')
         .createHmac('sha256', process.env.ENCRYPTION_SECRET || 'bagchee-unsub-secret')
@@ -54,7 +57,7 @@ const generateUnsubscribeToken = (email) => {
         .digest('hex');
 };
 
-const sendToAudience = async (subject, bodyHtml, audience, specificEmails = []) => {
+const sendToAudience = async (subject, bodyHtml, audience, specificEmails = [], selectedCategories = []) => {
     const transporter = createTransporter();
 
     const FETCH_BATCH = 500;
@@ -106,7 +109,6 @@ const sendToAudience = async (subject, bodyHtml, audience, specificEmails = []) 
         }
     };
 
-    // audience is an array like ["subscribers", "members", "purchasers"]
     for (const aud of audience) {
         if (aud === 'subscribers') {
             await processModel(prisma.newsletterSubscriber, { isActive: true }, true);
@@ -118,10 +120,13 @@ const sendToAudience = async (subject, bodyHtml, audience, specificEmails = []) 
                 orders: { some: {} }
             });
         } else if (aud === 'categories') {
-            await processModel(prisma.newsletterSubscriber, {
-                isActive: true,
-                categories: { isEmpty: false }
-            }, true);
+            const where = { isActive: true };
+            if (selectedCategories.length > 0) {
+                where.categories = { hasSome: selectedCategories };
+            } else {
+                where.categories = { isEmpty: false };
+            }
+            await processModel(prisma.newsletterSubscriber, where, true);
         } else if (aud === 'specific' && specificEmails.length > 0) {
             const emails = specificEmails.filter(e => e && !seenEmails.has(e));
             emails.forEach(e => seenEmails.add(e));
@@ -145,14 +150,9 @@ const sendToAudience = async (subject, bodyHtml, audience, specificEmails = []) 
     return { sent, failed };
 };
 
-/**
- * POST /email-campaign/send
- * Body: { subject, body (HTML), audience: string[] }
- * Sends immediately or schedules if sendAt is provided.
- */
 export const sendCampaignEmail = async (req, res) => {
     try {
-        const { subject, body, audience, specificEmails } = req.body;
+        const { subject, body, audience, specificEmails, selectedCategories } = req.body;
 
         if (!subject || !body || !audience || !Array.isArray(audience) || audience.length === 0) {
             return res.status(400).json({ status: false, msg: 'Subject, body, and audience array are required.' });
@@ -163,10 +163,29 @@ export const sendCampaignEmail = async (req, res) => {
             return res.status(400).json({ status: false, msg: `Invalid audience: ${invalidAudience.join(', ')}` });
         }
 
-        const { sent, failed } = await sendToAudience(subject, body, audience, specificEmails || []);
+        const cats = Array.isArray(selectedCategories) ? selectedCategories : [];
+        const { sent, failed } = await sendToAudience(subject, body, audience, specificEmails || [], cats);
 
         if (sent === 0 && failed === 0) {
             return res.status(400).json({ status: false, msg: 'No recipients found for the selected audience.' });
+        }
+
+        // Record the campaign after sending
+        try {
+            await prisma.scheduledEmail.create({
+                data: {
+                    subject,
+                    body,
+                    audience,
+                    categories: cats,
+                    sendAt: new Date(),
+                    status: 'sent',
+                    sent,
+                    failed
+                }
+            });
+        } catch (dbErr) {
+            console.error('Campaign record save failed:', dbErr.message);
         }
 
         res.status(200).json({
@@ -182,14 +201,9 @@ export const sendCampaignEmail = async (req, res) => {
     }
 };
 
-/**
- * POST /email-campaign/schedule
- * Body: { subject, body (HTML), audience: string[], sendAt: ISO date string }
- * Saves the campaign for future sending.
- */
 export const scheduleCampaignEmail = async (req, res) => {
     try {
-        const { subject, body, audience, sendAt } = req.body;
+        const { subject, body, audience, sendAt, selectedCategories } = req.body;
 
         if (!subject || !body || !audience || !Array.isArray(audience) || audience.length === 0 || !sendAt) {
             return res.status(400).json({ status: false, msg: 'Subject, body, audience array, and sendAt are required.' });
@@ -210,6 +224,7 @@ export const scheduleCampaignEmail = async (req, res) => {
                 subject,
                 body,
                 audience,
+                categories: Array.isArray(selectedCategories) ? selectedCategories : [],
                 sendAt: sendAtDate,
                 status: 'pending'
             }
@@ -226,10 +241,6 @@ export const scheduleCampaignEmail = async (req, res) => {
     }
 };
 
-/**
- * GET /email-campaign/scheduled
- * Returns list of all scheduled emails (pending + completed).
- */
 export const getScheduledEmails = async (req, res) => {
     try {
         const emails = await prisma.scheduledEmail.findMany({
@@ -243,10 +254,6 @@ export const getScheduledEmails = async (req, res) => {
     }
 };
 
-/**
- * DELETE /email-campaign/scheduled/:id
- * Cancel a pending scheduled email.
- */
 export const cancelScheduledEmail = async (req, res) => {
     try {
         const { id } = req.params;
@@ -271,10 +278,6 @@ export const cancelScheduledEmail = async (req, res) => {
     }
 };
 
-/**
- * POST /email-campaign/send-test
- * Body: { subject, body (HTML), testEmail }
- */
 export const sendTestEmail = async (req, res) => {
     try {
         const { subject, body, testEmail } = req.body;
@@ -304,13 +307,9 @@ export const sendTestEmail = async (req, res) => {
     }
 };
 
-/**
- * GET /email-campaign/recipients-count?audience=subscribers,members,purchasers,categories
- * audience is a comma-separated string of audience keys.
- */
 export const getRecipientsCount = async (req, res) => {
     try {
-        const { audience } = req.query;
+        const { audience, selectedCategories } = req.query;
 
         if (!audience) {
             return res.status(400).json({ status: false, msg: 'audience query param required.' });
@@ -321,21 +320,28 @@ export const getRecipientsCount = async (req, res) => {
             return res.status(400).json({ status: false, msg: 'No valid audience keys provided.' });
         }
 
+        const cats = selectedCategories ? selectedCategories.split(',').map(c => c.trim()).filter(Boolean) : [];
         let count = 0;
 
         for (const aud of audienceArr) {
             if (aud === 'subscribers') {
-                count += await prisma.newsletterSubscriber.count();
+                count += await prisma.newsletterSubscriber.count({ where: { isActive: true } });
             } else if (aud === 'members') {
-                count += await prisma.user.count({ where: { role: 'user' } });
+                count += await prisma.user.count({ where: { membership: 'active' } });
             } else if (aud === 'purchasers') {
                 count += await prisma.user.count({
                     where: { role: 'user', orders: { some: {} } }
                 });
             } else if (aud === 'categories') {
-                count += await prisma.newsletterSubscriber.count({
-                    where: { categories: { isEmpty: false } }
-                });
+                if (cats.length > 0) {
+                    count += await prisma.newsletterSubscriber.count({
+                        where: { isActive: true, categories: { hasSome: cats } }
+                    });
+                } else {
+                    count += await prisma.newsletterSubscriber.count({
+                        where: { isActive: true, categories: { isEmpty: false } }
+                    });
+                }
             }
         }
 
@@ -347,9 +353,117 @@ export const getRecipientsCount = async (req, res) => {
 };
 
 /**
- * Processes pending scheduled emails that are due.
- * Called by setInterval in app.js every 60 seconds.
+ * GET /email-campaign/audience-counts?selectedCategories=cat1,cat2
+ * Returns individual counts for each audience type.
  */
+export const getAudienceCounts = async (req, res) => {
+    try {
+        const { selectedCategories } = req.query;
+        const cats = selectedCategories ? selectedCategories.split(',').map(c => c.trim()).filter(Boolean) : [];
+
+        const [subscribers, members, purchasers, categories] = await Promise.all([
+            prisma.newsletterSubscriber.count({ where: { isActive: true } }),
+            prisma.user.count({ where: { membership: 'active' } }),
+            prisma.user.count({ where: { role: 'user', orders: { some: {} } } }),
+            cats.length > 0
+                ? prisma.newsletterSubscriber.count({ where: { isActive: true, categories: { hasSome: cats } } })
+                : prisma.newsletterSubscriber.count({ where: { isActive: true, categories: { isEmpty: false } } })
+        ]);
+
+        res.status(200).json({ status: true, counts: { subscribers, members, purchasers, categories } });
+    } catch (error) {
+        console.error('Audience counts error:', error.message);
+        res.status(500).json({ status: false, msg: 'Server Error' });
+    }
+};
+
+/**
+ * GET /email-campaign/history
+ * Returns all campaigns (sent + scheduled), latest first.
+ */
+export const getCampaignHistory = async (req, res) => {
+    try {
+        const campaigns = await prisma.scheduledEmail.findMany({
+            orderBy: { createdAt: 'desc' },
+            take: 200,
+            select: {
+                id: true,
+                subject: true,
+                audience: true,
+                categories: true,
+                sendAt: true,
+                status: true,
+                sent: true,
+                failed: true,
+                createdAt: true,
+                updatedAt: true
+            }
+        });
+        res.status(200).json({ status: true, data: campaigns });
+    } catch (error) {
+        console.error('Campaign history error:', error.message);
+        res.status(500).json({ status: false, msg: 'Server Error' });
+    }
+};
+
+/**
+ * POST /email-campaign/resend/:id
+ * Body: { subject?, audience?, specificEmails?, selectedCategories? }
+ * Resends a campaign. Optionally override subject, audience, etc.
+ */
+export const resendCampaign = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { subject, audience, specificEmails, selectedCategories } = req.body;
+
+        const original = await prisma.scheduledEmail.findUnique({ where: { id: parseInt(id) } });
+        if (!original) {
+            return res.status(404).json({ status: false, msg: 'Campaign not found.' });
+        }
+
+        const finalSubject = subject || original.subject;
+        const finalAudience = Array.isArray(audience) && audience.length > 0 ? audience : original.audience;
+        const finalCategories = Array.isArray(selectedCategories) ? selectedCategories : (original.categories || []);
+        const finalSpecificEmails = Array.isArray(specificEmails) ? specificEmails : [];
+
+        const { sent, failed } = await sendToAudience(
+            finalSubject,
+            original.body,
+            finalAudience,
+            finalSpecificEmails,
+            finalCategories
+        );
+
+        if (sent === 0 && failed === 0) {
+            return res.status(400).json({ status: false, msg: 'No recipients found for the selected audience.' });
+        }
+
+        // Record the resend as a new campaign entry (only if emails were actually attempted)
+        await prisma.scheduledEmail.create({
+            data: {
+                subject: finalSubject,
+                body: original.body,
+                audience: finalAudience,
+                categories: finalCategories,
+                sendAt: new Date(),
+                status: 'sent',
+                sent,
+                failed
+            }
+        });
+
+        res.status(200).json({
+            status: true,
+            msg: `Resent! ${sent} delivered, ${failed} failed.`,
+            sent,
+            failed
+        });
+    } catch (error) {
+        console.error('Resend campaign error:', error.message);
+        res.status(500).json({ status: false, msg: 'Server Error' });
+    }
+};
+
 export const processScheduledEmails = async () => {
     try {
         const now = new Date();
@@ -371,13 +485,13 @@ export const processScheduledEmails = async () => {
 
         for (const email of pendingEmails) {
             try {
-                // Mark as sending to prevent duplicate processing
                 await prisma.scheduledEmail.update({
                     where: { id: email.id },
                     data: { status: 'sending' }
                 });
 
-                const { sent, failed } = await sendToAudience(email.subject, email.body, email.audience);
+                const cats = email.categories || [];
+                const { sent, failed } = await sendToAudience(email.subject, email.body, email.audience, [], cats);
 
                 await prisma.scheduledEmail.update({
                     where: { id: email.id },
@@ -398,11 +512,6 @@ export const processScheduledEmails = async () => {
     }
 };
 
-/**
- * POST /email-campaign/products-preview
- * Body: { ids: string[] }  — bagchee_id / isbn13 / isbn10 values
- * Returns product title, image, and ID for email preview.
- */
 export const fetchProductsForEmail = async (req, res) => {
     try {
         const { ids } = req.body;
@@ -433,10 +542,6 @@ export const fetchProductsForEmail = async (req, res) => {
     }
 };
 
-/**
- * GET /newsletter/unsubscribe?email=xxx&token=yyy
- * Public endpoint — marks subscriber as inactive (unsubscribe).
- */
 export const unsubscribeNewsletter = async (req, res) => {
     try {
         const { email, token } = req.query;
@@ -464,5 +569,51 @@ export const unsubscribeNewsletter = async (req, res) => {
     } catch (error) {
         console.error('Unsubscribe error:', error.message);
         res.status(500).send('<p>Something went wrong. Please try again.</p>');
+    }
+};
+
+export const uploadNewsletterBanner = async (req, res) => {
+    try {
+        if (!req.files || !req.files.banner) {
+            return res.status(400).json({ status: false, msg: 'No file uploaded. Field name must be "banner".' });
+        }
+        const url = await saveFileLocal(req.files.banner, 'newsletter-banners');
+        res.status(200).json({ status: true, url });
+    } catch (error) {
+        console.error('Banner upload error:', error.message);
+        res.status(500).json({ status: false, msg: error.message || 'Upload failed.' });
+    }
+};
+
+export const listNewsletterBanners = async (req, res) => {
+    try {
+        const result = await cloudinary.search
+            .expression('folder:bagchee/newsletter-banners')
+            .sort_by('created_at', 'desc')
+            .max_results(60)
+            .execute();
+        const banners = (result.resources || []).map(r => ({
+            publicId: r.public_id,
+            url: r.secure_url,
+            createdAt: r.created_at,
+            width: r.width,
+            height: r.height,
+        }));
+        res.status(200).json({ status: true, data: banners });
+    } catch (error) {
+        console.error('List banners error:', error.message);
+        res.status(500).json({ status: false, msg: 'Failed to list banners.' });
+    }
+};
+
+export const deleteNewsletterBanner = async (req, res) => {
+    try {
+        const { publicId } = req.body;
+        if (!publicId) return res.status(400).json({ status: false, msg: 'publicId is required.' });
+        await cloudinary.uploader.destroy(publicId);
+        res.status(200).json({ status: true, msg: 'Banner deleted.' });
+    } catch (error) {
+        console.error('Delete banner error:', error.message);
+        res.status(500).json({ status: false, msg: 'Failed to delete banner.' });
     }
 };
