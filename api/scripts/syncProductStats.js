@@ -29,7 +29,7 @@ const BATCH = 500;
 async function main() {
     log('Fetching product stats from MySQL...');
     const [rows] = await MYSQL.query(
-        'SELECT product_id, ordered_items, inr_price FROM products WHERE active = 1'
+        'SELECT id AS product_id, ordered_items, inr_price FROM products WHERE active = 1'
     );
     log(`Fetched ${rows.length} products from MySQL.`);
 
