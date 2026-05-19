@@ -4,7 +4,6 @@ import { Link } from 'react-router-dom';
 import {ChevronRight} from 'lucide-react'
 import { useQuery } from "@tanstack/react-query";
 import axiosInstance from "../../utils/axiosConfig";
-import UsefulLinks from "../../components/website/UsefulLinks";
 
 // Fetch Function
 const fetchAboutData = async () => {
@@ -50,20 +49,13 @@ const AboutUs = () => {
             </div>
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8 md:py-12 lg:py-16">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 lg:gap-8">
-          
-          {/* Useful Links Sidebar */}
-          <div className="md:col-span-1">
-            <UsefulLinks />
-          </div>
-
-          {/* Main Content Area */}
-          <div className="md:col-span-3">
+        <div className="max-w-4xl mx-auto">
             {/* Dynamic Page Title */}
             <div className="text-center mb-8 md:mb-12">
-              <h1 className="text-3xl md:text-4xl lg:text-5xl font-display  text-text-main uppercase tracking-tight">
+              <h1 className="text-3xl md:text-4xl lg:text-5xl font-display font-bold text-text-main uppercase tracking-tight mb-4">
                 {data?.title || "About Us"}
               </h1>
+              <div className="w-20 h-1 bg-primary mx-auto mt-4"></div>
             </div>
 
             {/* Dynamic Content Section */}
@@ -79,7 +71,6 @@ const AboutUs = () => {
                 />
               </div>
             </section>
-          </div>
         </div>
       </div>
 

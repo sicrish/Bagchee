@@ -4,7 +4,6 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronRight } from 'lucide-react';
 import axiosInstance from '../../utils/axiosConfig';
-import UsefulLinks from '../../components/website/UsefulLinks';
 
 const fetchDisclaimer = async () => {
     const { data } = await axiosInstance.get('/disclaimer/get');
@@ -47,15 +46,12 @@ const Disclaimer = () => {
             </div>
 
             <div className="container mx-auto px-4 py-8 md:py-12 lg:py-16">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 lg:gap-8">
-                    <div className="md:col-span-1">
-                        <UsefulLinks />
-                    </div>
-                    <div className="md:col-span-3">
+                <div className="max-w-4xl mx-auto">
                         <div className="text-center mb-8 md:mb-12">
-                            <h1 className="text-3xl md:text-4xl lg:text-5xl font-display text-text-main uppercase tracking-tight">
+                            <h1 className="text-3xl md:text-4xl lg:text-5xl font-display font-bold text-text-main uppercase tracking-tight mb-4">
                                 {data?.title || 'Disclaimer'}
                             </h1>
+                            <div className="w-20 h-1 bg-primary mx-auto mt-4"></div>
                         </div>
                         <section className="mb-10 md:mb-12">
                             <div className="bg-white rounded-2xl border border-gray-200 p-6 md:p-10 shadow-sm">
@@ -65,7 +61,6 @@ const Disclaimer = () => {
                                 />
                             </div>
                         </section>
-                    </div>
                 </div>
             </div>
 

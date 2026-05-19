@@ -46,8 +46,9 @@ const EditOrders = () => {
   const [resending, setResending] = useState(false);
   const [purchaseOrderNumber, setPurchaseOrderNumber] = useState('');
 
-  // Order Confirmation Email modal
+  // Notification Email modal
   const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [emailType, setEmailType] = useState('confirmation');
   const [emailSubject, setEmailSubject] = useState('');
   const [emailBody, setEmailBody] = useState('');
   const [sendingEmail, setSendingEmail] = useState(false);
@@ -463,7 +464,46 @@ const EditOrders = () => {
     }
   };
 
+  const openShippedEmailModal = () => {
+    const firstName = formData.shipping_first_name || '';
+    const lastName  = formData.shipping_last_name  || '';
+    const customerName = [firstName, lastName].filter(Boolean).join(' ') || 'Valued Customer';
+    const orderNum  = formData.order_number || id;
+    const trackingRows = orderProducts.map(p => {
+      const courier = courierList.find(c => String(c.id || c._id) === String(p.courierId));
+      const courierName = courier?.title || 'N/A';
+      return `<li><strong>${p.name || 'Item'}</strong> &mdash; Courier: ${courierName}, Tracking: ${p.trackingCode || 'N/A'}</li>`;
+    }).join('');
+    setEmailType('shipped');
+    setEmailSubject(`Your Bagchee Order #${orderNum} Has Been Shipped!`);
+    setEmailBody(`<p>Dear ${customerName},</p>
+<p>Great news! Your Bagchee order <strong>#${orderNum}</strong> has been shipped.</p>
+<p><strong>Tracking Details:</strong><ul>${trackingRows}</ul></p>
+<p>Please use the above tracking information to monitor your shipment. If you have any questions, please contact us.</p>
+<p>Best regards,<br><strong>Bagchee Team</strong></p>`);
+    setEmailModalOpen(true);
+  };
+
+  const openStatusEmailModal = () => {
+    const firstName = formData.shipping_first_name || '';
+    const lastName  = formData.shipping_last_name  || '';
+    const customerName = [firstName, lastName].filter(Boolean).join(' ') || 'Valued Customer';
+    const orderNum  = formData.order_number || id;
+    const statusRows = orderProducts.map(p =>
+      `<li><strong>${p.name || 'Item'}</strong>: ${p.status || 'Processing'}</li>`
+    ).join('');
+    setEmailType('status');
+    setEmailSubject(`Update on Your Bagchee Order #${orderNum}`);
+    setEmailBody(`<p>Dear ${customerName},</p>
+<p>Here is the current status of your Bagchee order <strong>#${orderNum}</strong>:</p>
+<ul>${statusRows}</ul>
+<p>We will keep you updated as your order progresses. For any queries, please contact our support team.</p>
+<p>Best regards,<br><strong>Bagchee Team</strong></p>`);
+    setEmailModalOpen(true);
+  };
+
   const openEmailModal = () => {
+    setEmailType('confirmation');
     const firstName = formData.shipping_first_name || '';
     const lastName  = formData.shipping_last_name  || '';
     const customerName = [firstName, lastName].filter(Boolean).join(' ') || 'Valued Customer';
@@ -575,7 +615,9 @@ ${bankDetails}
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 shrink-0">
-              <h2 className="text-sm font-bold uppercase tracking-wider font-montserrat text-text-main">Order Confirmation Email</h2>
+              <h2 className="text-sm font-bold uppercase tracking-wider font-montserrat text-text-main">
+                {emailType === 'shipped' ? 'Order Shipped Email' : emailType === 'status' ? 'Order Status Email' : 'Order Confirmation Email'}
+              </h2>
               <button type="button" onClick={() => setEmailModalOpen(false)} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
             </div>
 
@@ -651,6 +693,20 @@ ${bankDetails}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all"
               >
                 <Mail size={12} /> Order Confirmation Email
+              </button>
+              <button
+                type="button"
+                onClick={openShippedEmailModal}
+                className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-1.5 rounded text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all"
+              >
+                <Mail size={12} /> Order Shipped Email
+              </button>
+              <button
+                type="button"
+                onClick={openStatusEmailModal}
+                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-1.5 rounded text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all"
+              >
+                <Mail size={12} /> Order Status Email
               </button>
               <button type="button" onClick={() => navigate('/admin/orders')} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
             </div>

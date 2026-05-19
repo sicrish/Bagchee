@@ -1671,12 +1671,12 @@ const Checkout = () => {
                             </h3>
                           </div>
                           <div className="p-4 flex-grow space-y-3 text-sm">
-                            {addr.company && (
-                              <p className="text-xs text-gray-500 font-medium">{addr.company}</p>
-                            )}
                             <p className="font-bold text-gray-900">
                               {[addr.firstName, addr.lastName].filter(Boolean).join(' ') || addr.name}
                             </p>
+                            {addr.company && (
+                              <p className="text-xs text-gray-500 font-medium">{addr.company}</p>
+                            )}
                             <div className="space-y-1.5">
                               <div className="flex gap-2 items-start">
                                 <MapPin size={15} className="shrink-0 text-primary mt-0.5" />
@@ -2300,12 +2300,12 @@ const Checkout = () => {
                               </h3>
                             </div>
                             <div className="p-4 flex-grow space-y-3 text-sm">
-                              {addr.company && (
-                                <p className="text-xs text-gray-500 font-medium">{addr.company}</p>
-                              )}
                               <p className="font-bold text-gray-900">
                                 {[addr.firstName, addr.lastName].filter(Boolean).join(' ') || addr.name}
                               </p>
+                              {addr.company && (
+                                <p className="text-xs text-gray-500 font-medium">{addr.company}</p>
+                              )}
                               <div className="space-y-1.5">
                                 <div className="flex gap-2 items-start">
                                   <MapPin size={15} className="shrink-0 text-primary mt-0.5" />

@@ -918,8 +918,8 @@ export const getNewArrivals = async (req, res) => {
             data:  { isNewRelease: false, newReleaseUntil: null }
         }).catch(() => {});
 
-        // Default to 30 days window (settings schema doesn't have newArrivalTime yet)
-        const days     = 30;
+        const settings = await getCachedSettings();
+        const days     = parseInt(settings?.newArrivalTime) || 30;
         const dateFrom = new Date();
         dateFrom.setDate(dateFrom.getDate() - days);
 
