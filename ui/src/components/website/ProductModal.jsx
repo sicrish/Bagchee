@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import { useCart } from '../../context/CartContext.jsx';
 import { getProductImageUrl } from '../../utils/imageUrl';
 import { CurrencyContext } from '../../context/CurrencyContext.jsx';
+import { useGeo } from '../../context/GeoContext.jsx';
 import toast from 'react-hot-toast';
 import { useMutation, useQueryClient } from '@tanstack/react-query'; // 🟢 Mutations use karenge
 import axios from '../../utils/axiosConfig.js';
@@ -13,6 +14,7 @@ import axios from '../../utils/axiosConfig.js';
 const ProductModal = ({ product, isOpen, onClose }) => {
     const { addToCart, toggleWishlist, isInWishlist } = useCart();
     const { formatPrice } = useContext(CurrencyContext);
+    const { isIndia } = useGeo();
     const queryClient = useQueryClient();
 
     // 🟢 Wishlist Mutation (Syncing with backend in background)
@@ -133,35 +135,44 @@ const ProductModal = ({ product, isOpen, onClose }) => {
 
                                     {/* --- BOTTOM ACTIONS --- */}
                                     <div className="mt-auto pt-4 border-t border-gray-100 bg-white space-y-3">
-                                        <button 
-                                            onClick={handleAddToCart}
-                                            className="w-full bg-primary hover:bg-primary-hover text-white py-3 rounded-lg font-bold uppercase tracking-wide flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-md font-montserrat"
-                                        >
-                                            <ShoppingCart size={20} /> Add to Cart
-                                        </button>
-                                        
+                                        {isIndia ? (
+                                            <p className="text-xs text-text-muted italic text-center py-2">
+                                                If you wish to buy or need information of this book,{' '}
+                                                <Link to="/contact-us" onClick={onClose} className="text-primary font-bold hover:underline">contact us</Link>.
+                                            </p>
+                                        ) : (
+                                            <button
+                                                onClick={handleAddToCart}
+                                                className="w-full bg-primary hover:bg-primary-hover text-white py-3 rounded-lg font-bold uppercase tracking-wide flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-md font-montserrat"
+                                            >
+                                                <ShoppingCart size={20} /> Add to Cart
+                                            </button>
+                                        )}
+
                                         <div className="flex gap-3">
-                                            <Link 
+                                            <Link
                                                 to={`/books/${product.bagcheeId || product.bagchee_id || product._id || product.id}/${product.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
                                                 className="flex-1 bg-gray-100 hover:bg-gray-200 text-text-main py-3 rounded-lg font-bold uppercase text-[11px] sm:text-xs tracking-wider transition-colors flex items-center justify-center font-montserrat"
                                             >
                                                 View Full Details
                                             </Link>
-                                            <button 
+                                            {!isIndia && (
+                                            <button
                                                 onClick={handleWishlist}
                                                 disabled={wishlistMutation.isPending}
                                                 className={`px-4 rounded-lg transition-colors ${
-                                                    isInWishlist(product._id) 
-                                                    ? 'bg-red-50 text-red-600 border border-red-100' 
+                                                    isInWishlist(product._id)
+                                                    ? 'bg-red-50 text-red-600 border border-red-100'
                                                     : 'bg-gray-100 hover:bg-red-50 hover:text-red-500 border border-transparent'
                                                 }`}
                                             >
-                                                <Heart 
-                                                    size={20} 
+                                                <Heart
+                                                    size={20}
                                                     fill={isInWishlist(product._id) ? "currentColor" : "none"}
                                                     className={wishlistMutation.isPending ? "animate-pulse" : ""}
                                                 />
                                             </button>
+                                            )}
                                         </div>
                                     </div>
                                 </div>

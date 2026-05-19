@@ -1,0 +1,14 @@
+Options -MultiViews
+RewriteEngine On
+
+# Maintenance mode
+RewriteCond /var/www/html/.maintenance -f
+RewriteCond %{REQUEST_URI} !=/maintenance.html
+RewriteRule ^ /maintenance.html [R=503,L]
+
+# SPA fallback — serve index.html for any non-existent path
+RewriteBase /
+RewriteRule ^index\.html$ - [L]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . /index.html [L]

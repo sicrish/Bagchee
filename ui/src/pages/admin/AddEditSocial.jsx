@@ -20,14 +20,23 @@ const AddSocial = () => {
   const [formData, setFormData] = useState({
     title: '',
     link: '',
+    whatsappPhone: '',
     order: '',
-    icon_image: null,          
+    icon_image: null,
   active: 'true',        // active (Not isActive/is_active)
   share: 'false',        // share (Not isShareActive)
   showInFooter: 'true',  // CamelCase as per Console
   showInProduct: 'false',
   showInCategory: 'false'
   });
+
+  const isWhatsApp = formData.title.toLowerCase().includes('whatsapp');
+
+  const extractPhone = (link) => {
+    if (!link) return '';
+    const m = link.match(/(?:wa\.me\/|phone=)(\d+)/);
+    return m ? m[1] : '';
+  };
 
   // 🚀 OPTIMIZATION 1: Fetch Existing Data with React Query
   const { data: socialData, isLoading: fetching } = useQuery({
@@ -50,6 +59,7 @@ const AddSocial = () => {
       setFormData({
         title: d.title || '',
         link: d.link || '',
+        whatsappPhone: extractPhone(d.link || ''),
         order: d.order || '',
         active: d.active ? 'true' : 'false',
       share: d.share ? 'true' : 'false',
@@ -74,6 +84,15 @@ const AddSocial = () => {
   // Safe handler using useCallback
   const handleChange = useCallback((e) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  }, []);
+
+  const handlePhoneChange = useCallback((e) => {
+    const phone = e.target.value.replace(/\D/g, '');
+    setFormData((prev) => ({
+      ...prev,
+      whatsappPhone: phone,
+      link: phone ? `https://wa.me/${phone}` : '',
+    }));
   }, []);
 
   // 🟢 Image Handler with Validation
@@ -111,14 +130,17 @@ const AddSocial = () => {
   // 🟢 2. DYNAMIC SUBMIT (Add vs Update)
   const handleSubmit = (e, actionType) => {
     e.preventDefault();
-    if (!formData.title || !formData.link) return toast.error("Title and Link are required!");
+    const resolvedLink = isWhatsApp && formData.whatsappPhone
+      ? `https://wa.me/${formData.whatsappPhone}`
+      : formData.link;
+    if (!formData.title || !resolvedLink) return toast.error("Title and Link are required!");
 
 
     const toastId = toast.loading(isEdit ? "Updating..." : "Saving...");
 
     const data = new FormData();
    data.append('title', formData.title);
-data.append('link', formData.link);
+data.append('link', resolvedLink);
 
 // 🔥 IMPORTANT MAPPING
 data.append('isActive', formData.active);
@@ -229,13 +251,34 @@ data.append('showInCategory', formData.showInCategory);
               </div>
             </div>
 
-            {/* Link */}
-            <div className="grid grid-cols-12 gap-2 md:gap-4 items-center border-b border-gray-50 pb-4">
-              <label className={labelClass}>Link</label>
-              <div className={colSpanClass}>
-                <input type="text" name="link" value={formData.link} onChange={handleChange} className={inputClass} placeholder="https://facebook.com/page" />
+            {/* Link / WhatsApp Phone */}
+            {isWhatsApp ? (
+              <div className="grid grid-cols-12 gap-2 md:gap-4 items-start border-b border-gray-50 pb-4">
+                <label className={labelClass}>WhatsApp Number</label>
+                <div className={colSpanClass}>
+                  <input
+                    type="tel"
+                    name="whatsappPhone"
+                    value={formData.whatsappPhone}
+                    onChange={handlePhoneChange}
+                    className={inputClass}
+                    placeholder="e.g. 919868161641 (with country code, digits only)"
+                  />
+                  {formData.link && (
+                    <p className="text-xs text-text-muted mt-1">
+                      Generated link: <span className="text-primary font-mono">{formData.link}</span>
+                    </p>
+                  )}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="grid grid-cols-12 gap-2 md:gap-4 items-center border-b border-gray-50 pb-4">
+                <label className={labelClass}>Link</label>
+                <div className={colSpanClass}>
+                  <input type="text" name="link" value={formData.link} onChange={handleChange} className={inputClass} placeholder="https://facebook.com/page" />
+                </div>
+              </div>
+            )}
 
             {/* Order */}
             <div className="grid grid-cols-12 gap-2 md:gap-4 items-center border-b border-gray-50 pb-4">

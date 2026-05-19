@@ -7,7 +7,8 @@ export const CurrencyContext = createContext();
 export const CurrencyProvider = ({ children }) => {
     const { isIndia, geoLoaded } = useContext(GeoContext);
     const stored = localStorage.getItem('bagchee_currency');
-    const [currency, setCurrency] = useState(stored || 'USD');
+    // Never initialise to INR from localStorage — geo controls that, not user preference
+    const [currency, setCurrency] = useState((stored && stored !== 'INR') ? stored : 'USD');
     const [exchangeRates, setExchangeRates] = useState({ USD: 1, EUR: 0.92, GBP: 0.78, INR: 84 });
     const [loading, setLoading] = useState(true);
 
