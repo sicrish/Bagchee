@@ -1089,18 +1089,6 @@ ${bankDetails}
               <div className="col-span-9"><input type="text" name="transaction_id" value={formData.transaction_id} onChange={handleChange} className={inputClass} /></div>
             </div>
 
-            {/* Notification & Invoice Buttons */}
-            <div className="grid grid-cols-12 gap-4 items-center">
-              <label className={labelClass}>Notification email</label>
-              <div className="col-span-9 flex gap-2">
-                <button type="button" className="bg-gray-100 border border-gray-300 px-3 py-1 rounded text-[11px] font-bold hover:bg-gray-200 flex items-center gap-1 text-text-muted">
-                  <Mail size={12} /> Send order shipped email
-                </button>
-                <button type="button" className="bg-gray-100 border border-gray-300 px-3 py-1 rounded text-[11px] font-bold hover:bg-gray-200 flex items-center gap-1 text-text-muted">
-                  <Mail size={12} /> Send order status email
-                </button>
-              </div>
-            </div>
             <div className="grid grid-cols-12 gap-4 items-center">
               <label className={labelClass}>Invoice</label>
               <div className="col-span-9">

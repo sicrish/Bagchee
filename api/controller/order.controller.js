@@ -241,6 +241,18 @@ export const saveOrder = async (req, res) => {
             createGiftCardsForOrder(giftCardItems, order.id).catch(() => {});
         }
 
+        // Increment soldCount for each physical product — fire and forget
+        if (itemsData.length > 0) {
+            prisma.$transaction(
+                itemsData.map(item =>
+                    prisma.product.update({
+                        where: { id: item.productId },
+                        data: { soldCount: { increment: item.quantity } }
+                    })
+                )
+            ).catch(() => {});
+        }
+
         // Send confirmation email — fire and forget, never fail the order
         const customerEmail = order.shippingEmail || order.customer?.email;
         if (customerEmail) {
@@ -257,6 +269,7 @@ export const saveOrder = async (req, res) => {
                     }
                 } catch { /* non-critical */ }
             }
+            if (giftCardItems.length > 0) order.giftCardItems = giftCardItems;
             sendOrderConfirmation(customerEmail, order).catch(() => {});
         }
 

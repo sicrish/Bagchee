@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import axios from '../../utils/axiosConfig.js';
 import toast from 'react-hot-toast';
 import { Search, ShoppingBag, Mail, ArrowRight, Fingerprint, RefreshCw, ShieldCheck, Lock, Check, Package, ChevronLeft } from 'lucide-react';
@@ -11,7 +11,8 @@ import Logo from '../../components/common/Logo.jsx';
 
 const TraceOrder = () => {
     const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState('returning'); // 'returning' | 'guest'
+    const [searchParams] = useSearchParams();
+    const [activeTab, setActiveTab] = useState(searchParams.get('tab') === 'guest' ? 'guest' : 'returning');
     const [tracedOrder, setTracedOrder] = useState(null);
 
     // --- Captcha Logic ---

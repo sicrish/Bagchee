@@ -279,7 +279,6 @@ export const save = async (req, res) => {
                 edition:        req.body.edition  || null,
                 volume:         req.body.volume   || null,
                 pubDate:        req.body.pub_date || null,
-                newReleaseUntil: req.body.new_release_until ? new Date(req.body.new_release_until) : null,
                 synopsis:       req.body.synopsis      || '',
                 criticsNote:    req.body.critics_note  || req.body.criticsNote  || '',
                 searchText:     req.body.search_text   || req.body.searchText   || '',
@@ -293,6 +292,7 @@ export const save = async (req, res) => {
                 isActive:       parseBoolean(req.body.active),
                 isFeatured:     parseBoolean(req.body.isFeatured),
                 isNewRelease:   parseBoolean(req.body.new_release),
+                newReleaseUntil: req.body.new_release_until ? new Date(req.body.new_release_until) : null,
                 isRecommended:  parseBoolean(req.body.recommended),
                 upcoming:       parseBoolean(req.body.upcoming),
                 upcomingDate:   req.body.upcoming === 'active' && req.body.upcoming_date
@@ -920,16 +920,8 @@ export const getNewArrivals = async (req, res) => {
             data:  { isNewRelease: false, newReleaseUntil: null }
         }).catch(() => {});
 
-        const settings = await getCachedSettings();
-        const days     = parseInt(settings?.newArrivalTime) || 30;
-        const dateFrom = new Date();
-        dateFrom.setDate(dateFrom.getDate() - days);
-
         const where = buildWhereClause(req.query);
-        where.AND.push({ OR: [
-            { isNewRelease: true },
-            { createdAt: { gte: dateFrom } }
-        ]});
+        where.AND.push({ isNewRelease: true });
 
         const [products, total] = await Promise.all([
             prisma.product.findMany({

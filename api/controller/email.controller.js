@@ -161,6 +161,18 @@ export const sendOrderConfirmation = async (email, order) => {
             </tr>
         `).join('');
 
+        const giftCardRows = (order.giftCardItems || []).map(gc => `
+            <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #e6decd; color: ${theme.textMain};">E-gift Card${gc.recipientName ? ` (for ${escapeHtml(gc.recipientName)})` : ''}</td>
+                <td style="padding: 8px 0; border-bottom: 1px solid #e6decd; text-align: center; color: ${theme.textMain};">1</td>
+                <td style="padding: 8px 0; border-bottom: 1px solid #e6decd; text-align: right; color: ${theme.textMain};">${escapeHtml(order.currency || 'USD')} ${Number(gc.amount).toFixed(2)}</td>
+            </tr>
+        `).join('');
+
+        const trackOrderUrl = order.customerId
+            ? `${SITE_URL}/account/orders`
+            : `${SITE_URL}/trace-order?tab=guest`;
+
         const estimatedDeliveryStr = order.estimatedDelivery
             ? new Date(order.estimatedDelivery).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })
             : null;
@@ -174,7 +186,7 @@ export const sendOrderConfirmation = async (email, order) => {
                         <p style="color: ${theme.textMain}; opacity: 0.7; margin-bottom: 20px;">Order #<strong>${escapeHtml(order.orderNumber)}</strong> has been placed successfully.</p>
 
                         <div style="text-align: center; margin: 0 0 28px;">
-                            <a href="${SITE_URL}/account/orders" style="display:inline-block;background-color:${theme.primary};color:#fff;text-decoration:none;padding:13px 32px;font-size:15px;font-weight:700;border-radius:8px;">
+                            <a href="${trackOrderUrl}" style="display:inline-block;background-color:${theme.primary};color:#fff;text-decoration:none;padding:13px 32px;font-size:15px;font-weight:700;border-radius:8px;">
                                 Track Your Order
                             </a>
                         </div>
@@ -187,7 +199,7 @@ export const sendOrderConfirmation = async (email, order) => {
                                     <th style="text-align: right; padding-bottom: 8px; border-bottom: 2px solid #e6decd; color: ${theme.textMuted}; font-size: 13px;">Price</th>
                                 </tr>
                             </thead>
-                            <tbody>${itemRows}</tbody>
+                            <tbody>${itemRows}${giftCardRows}</tbody>
                         </table>
                         <div style="margin-top: 20px; text-align: right;">
                             <p style="font-size: 18px; font-weight: 700; color: ${theme.textMain};">Total: ${order.currency || 'USD'} ${Number(order.total).toFixed(2)}</p>
@@ -232,6 +244,13 @@ export const sendOrderShippedEmail = async (email, order) => {
     try {
         const transporter = createTransporter();
 
+        const estDeliveryStr = (order.shippedAt && order.estimatedDelivery)
+            ? new Date(order.estimatedDelivery).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })
+            : null;
+        const trackPackageUrl = order.customerId
+            ? `${SITE_URL}/trace-order`
+            : `${SITE_URL}/trace-order?tab=guest`;
+
         const template = `
             <div style="font-family: 'Inter', Helvetica, Arial, sans-serif; background-color: ${theme.cream}; padding: 40px 0;">
                 <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #e6decd;">
@@ -249,6 +268,12 @@ export const sendOrderShippedEmail = async (email, order) => {
                         </div>
                         ${order.courierName ? `<p style="font-size: 14px; color: ${theme.textMain};"><strong>Courier:</strong> ${escapeHtml(String(order.courierName))}</p>` : ''}
                         ${order.trackingId ? `<p style="font-size: 14px; color: ${theme.textMain};"><strong>Tracking ID:</strong> ${escapeHtml(String(order.trackingId))}</p>` : ''}
+                        ${estDeliveryStr ? `<p style="font-size: 14px; color: ${theme.textMain};"><strong>Estimated Delivery Date:</strong> ${estDeliveryStr}</p>` : ''}
+                        <div style="text-align: center; margin: 24px 0;">
+                            <a href="${trackPackageUrl}" style="display:inline-block;background-color:${theme.primary};color:#fff;text-decoration:none;padding:12px 28px;font-size:14px;font-weight:700;border-radius:8px;">
+                                Track Package
+                            </a>
+                        </div>
                         <p style="margin-top: 20px; font-size: 14px; color: ${theme.textMuted};">We'll notify you when your order is delivered. Thank you for shopping with Bagchee!</p>
                     </div>
                     ${emailFooter()}

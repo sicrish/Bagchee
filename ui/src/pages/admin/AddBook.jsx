@@ -119,7 +119,7 @@ const AddBook = () => {
         recommended: 'inactive',
         upcoming: 'inactive',
         upcoming_date: '',
-        new_release: 'inactive',
+        new_release: 'active',
         exclusive: 'inactive',
         series: [],
         series_number: '',
@@ -130,7 +130,7 @@ const AddBook = () => {
         source: '',
         rating: '',
         rated_times: '',
-        new_release_until: ''
+        new_release_until: (() => { const d = new Date(); d.setDate(d.getDate() + 120); return d.toISOString().split('T')[0]; })()
     });
 
     // =======================================================================
@@ -176,6 +176,12 @@ const AddBook = () => {
             setSeriesList(masterData.series);
             setPublishers(masterData.publishers);
             setArrivalDays(masterData.arrivalDays);
+            // Recalculate new_release_until with the actual setting value
+            const d = new Date();
+            d.setDate(d.getDate() + Number(masterData.arrivalDays || 120));
+            const until = d.toISOString().split('T')[0];
+            setFormData(prev => ({ ...prev, new_release_until: until }));
+            setUserSelectedDate(until);
         }
     }, [masterData]);
 
