@@ -32,6 +32,7 @@ const NewsletterSubscribers = () => {
   const [categoryPanelOpen, setCategoryPanelOpen] = useState(false);
   const [expandedMainCats, setExpandedMainCats] = useState({});
   const [catLoading, setCatLoading] = useState(false);
+  const [catSearchQuery, setCatSearchQuery] = useState('');
 
   const API_BASE_URL = process.env.REACT_APP_API_URL;
 
@@ -245,11 +246,30 @@ const NewsletterSubscribers = () => {
               </div>
             ) : (
               <>
+                <div className="relative mb-3">
+                  <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    value={catSearchQuery}
+                    onChange={(e) => setCatSearchQuery(e.target.value)}
+                    placeholder="Search categories & subcategories..."
+                    className="w-full border border-gray-300 rounded-lg pl-8 pr-3 py-2 text-xs outline-none focus:border-primary font-montserrat"
+                  />
+                </div>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-72 overflow-y-auto pr-1">
-                  {mainCategories.map(cat => {
+                  {mainCategories.filter(cat => {
+                    const catName = (cat.title || cat.categorytitle || '').toLowerCase();
+                    const q = catSearchQuery.toLowerCase();
+                    if (!q) return true;
+                    if (catName.includes(q)) return true;
+                    return (subsByMainCat[cat.id] || []).some(s => (s.name || s.subcategoryname || '').toLowerCase().includes(q));
+                  }).map(cat => {
                     const catName = cat.title || cat.categorytitle || '';
-                    const subs = subsByMainCat[cat.id] || [];
-                    const isExpanded = expandedMainCats[cat.id];
+                    const allSubs = subsByMainCat[cat.id] || [];
+                    const subs = allSubs.filter(s =>
+                      !catSearchQuery || (s.name || s.subcategoryname || '').toLowerCase().includes(catSearchQuery.toLowerCase()) || catName.toLowerCase().includes(catSearchQuery.toLowerCase())
+                    );
+                    const isExpanded = expandedMainCats[cat.id] || !!catSearchQuery;
                     const isMainChecked = selectedCategoryFilters.includes(catName);
                     return (
                       <div key={cat.id} className="border border-gray-100 rounded-lg overflow-hidden">
@@ -263,7 +283,7 @@ const NewsletterSubscribers = () => {
                             />
                             <span className="text-xs font-bold text-gray-700 truncate font-montserrat">{catName}</span>
                           </label>
-                          {subs.length > 0 && (
+                          {allSubs.length > 0 && !catSearchQuery && (
                             <button onClick={() => toggleMainCatExpand(cat.id)} className="ml-1 text-gray-400 hover:text-primary shrink-0">
                               {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                             </button>

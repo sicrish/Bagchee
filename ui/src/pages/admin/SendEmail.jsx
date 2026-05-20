@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import {
   Send, Users, Mail, Loader2, ArrowLeft, FileText, FlaskConical, Clock,
   Trash2, Package, X, PlusCircle, Eye, ChevronDown, ChevronUp,
-  Plus, Image, Tag
+  Plus, Image, Tag, Search
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import JoditEditor from '../../components/admin/LazyJoditEditor';
@@ -16,26 +16,35 @@ const FRONTEND_URL = process.env.REACT_APP_FRONTEND_URL || 'https://www.bagchee.
 const STRUCTURED_TEMPLATES = {
   'single-book': {
     name: 'Single Book Highlight',
-    description: '1 featured book — large display',
+    description: '1 featured book + synopsis + 4 "You May Also Like" books',
     headings: [
       { key: 'mainHeading', label: 'Main Heading', default: 'Book of the Month' },
       { key: 'subHeading', label: 'Sub Heading', default: 'Our Top Pick This Month' },
-      { key: 'description', label: 'Description (optional)', default: '', multiline: true },
+      { key: 'description', label: 'Synopsis (4-6 lines from book page)', default: '', multiline: true },
+      { key: 'youMayAlsoLikeHeading', label: '"You May Also Like" Heading', default: 'You May Also Like' },
     ],
-    bookSlots: [{ key: 'book1', label: 'Featured Book' }],
+    bookSlots: [
+      { key: 'book1', label: 'Featured Book' },
+      { key: 'book2', label: 'You May Also Like — Book 1' },
+      { key: 'book3', label: 'You May Also Like — Book 2' },
+      { key: 'book4', label: 'You May Also Like — Book 3' },
+      { key: 'book5', label: 'You May Also Like — Book 4' },
+    ],
     maxBanners: 2,
   },
   'new-arrivals': {
     name: 'Category New Arrivals',
-    description: '2 highlights + 12 books in 2-column grid',
+    description: '1–2 highlights + 12 books in 2-column grid + editable CTA',
     headings: [
       { key: 'mainHeading', label: 'Main Heading', default: 'New Arrivals' },
       { key: 'categoryName', label: 'Category Name', default: '' },
       { key: 'introText', label: 'Intro Text (optional)', default: '', multiline: true },
+      { key: 'ctaText', label: 'Bottom Button Text', default: 'Browse All New Arrivals →' },
+      { key: 'ctaUrl', label: 'Bottom Button Link (URL)', default: `${FRONTEND_URL}/new-arrivals` },
     ],
     bookSlots: [
       { key: 'highlight1', label: 'Highlight Book 1 (top — larger)' },
-      { key: 'highlight2', label: 'Highlight Book 2 (top — larger)' },
+      { key: 'highlight2', label: 'Highlight Book 2 (leave blank for single-highlight mode)' },
       { key: 'book1', label: 'Book 1' }, { key: 'book2', label: 'Book 2' },
       { key: 'book3', label: 'Book 3' }, { key: 'book4', label: 'Book 4' },
       { key: 'book5', label: 'Book 5' }, { key: 'book6', label: 'Book 6' },
@@ -43,25 +52,29 @@ const STRUCTURED_TEMPLATES = {
       { key: 'book9', label: 'Book 9' }, { key: 'book10', label: 'Book 10' },
       { key: 'book11', label: 'Book 11' }, { key: 'book12', label: 'Book 12' },
     ],
-    maxBanners: 1,
+    maxBanners: 2,
   },
   'curated-picks': {
     name: 'Curated Collection',
-    description: '4 books in 2×2 grid',
+    description: '8 books in 2×4 grid + editable CTA button',
     headings: [
       { key: 'mainHeading', label: 'Main Heading', default: "Editor's Picks" },
       { key: 'subHeading', label: 'Sub Heading', default: 'Handpicked for you' },
       { key: 'introText', label: 'Intro Text (optional)', default: '', multiline: true },
+      { key: 'ctaText', label: 'Bottom Button Text (leave blank to hide)', default: 'See More Recommended Books' },
+      { key: 'ctaUrl', label: 'Bottom Button Link (URL)', default: `${FRONTEND_URL}/recommended` },
     ],
     bookSlots: [
       { key: 'book1', label: 'Book 1' }, { key: 'book2', label: 'Book 2' },
       { key: 'book3', label: 'Book 3' }, { key: 'book4', label: 'Book 4' },
+      { key: 'book5', label: 'Book 5' }, { key: 'book6', label: 'Book 6' },
+      { key: 'book7', label: 'Book 7' }, { key: 'book8', label: 'Book 8' },
     ],
     maxBanners: 2,
   },
   'weekly-digest': {
     name: 'Weekly Digest',
-    description: '5 featured books with intro & outro',
+    description: '8 featured books with intro & outro',
     headings: [
       { key: 'mainHeading', label: 'Main Heading', default: 'Your Weekly Book Digest' },
       { key: 'greeting', label: 'Greeting', default: 'Dear Reader,' },
@@ -74,18 +87,23 @@ const STRUCTURED_TEMPLATES = {
       { key: 'book3', label: "Editor's Pick 3" },
       { key: 'book4', label: "Editor's Pick 4" },
       { key: 'book5', label: "Editor's Pick 5" },
+      { key: 'book6', label: "Editor's Pick 6" },
+      { key: 'book7', label: "Editor's Pick 7" },
+      { key: 'book8', label: "Editor's Pick 8" },
     ],
-    maxBanners: 1,
+    maxBanners: 2,
   },
   'monthly-digest': {
     name: 'Monthly Digest',
-    description: '1 featured highlight + up to 20 books',
+    description: '1 featured highlight + up to 20 books + editable CTA',
     headings: [
       { key: 'mainHeading', label: 'Main Heading', default: 'Monthly Book Digest' },
       { key: 'subHeading', label: 'Sub Heading', default: 'Your monthly picks from Bagchee' },
       { key: 'greeting', label: 'Greeting', default: 'Dear Reader,' },
       { key: 'introText', label: 'Intro Text', default: "Here are our hand-picked books this month.", multiline: true },
       { key: 'outroText', label: 'Closing Message', default: 'Happy reading!\nThe Bagchee Team', multiline: true },
+      { key: 'ctaText', label: 'Bottom Button Text (leave blank to hide)', default: 'See More Recommended Books' },
+      { key: 'ctaUrl', label: 'Bottom Button Link (URL)', default: `${FRONTEND_URL}/recommended` },
     ],
     bookSlots: [
       { key: 'featured', label: 'Featured Book (top — large highlight)' },
@@ -107,6 +125,9 @@ const STRUCTURED_TEMPLATES = {
 // ─── HTML generation helpers ──────────────────────────────────────────────────
 const buildBannerHtml = (banner) => {
   if (!banner) return '';
+  if (banner.type === 'promo' && banner.promoData) {
+    return buildStandardPromoHtml(banner.promoData);
+  }
   if (banner.type === 'coupon') {
     return `<div style="background:${banner.bgColor || '#FFD700'};border-radius:10px;padding:20px 30px;text-align:center;margin:16px 0;">
   <p style="font-size:14px;color:#0B2F3A;margin:0 0 10px;font-weight:600;">${banner.text || ''}</p>
@@ -157,6 +178,24 @@ const buildBookCardLarge = (book) => {
 </table>`;
 };
 
+const buildBookCardSingleHighlight = (book) => {
+  if (!book) return '';
+  const img = getProductImageUrl(book);
+  const price = book.inrPrice ? `₹${book.inrPrice}` : (book.price ? `$${book.price}` : '');
+  return `<table cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:520px;margin:0 auto 16px;border:2px solid #008DDA;border-radius:10px;overflow:hidden;font-family:Inter,Helvetica,Arial,sans-serif;">
+  <tr>
+    <td style="width:160px;padding:24px;background:#EBF7FD;text-align:center;vertical-align:top;">
+      ${img ? `<a href="${FRONTEND_URL}/books/${book.bagcheeId}" target="_blank"><img src="${img}" alt="${book.title}" width="130" style="display:block;margin:0 auto;border-radius:6px;max-height:190px;object-fit:cover;" /></a>` : '<div style="height:150px;"></div>'}
+    </td>
+    <td style="padding:24px;vertical-align:middle;">
+      <p style="font-size:20px;font-weight:700;color:#0B2F3A;margin:0 0 8px;line-height:1.3;">${book.title}</p>
+      ${price ? `<p style="font-size:17px;font-weight:700;color:#008DDA;margin:0 0 18px;">${price}</p>` : '<div style="height:18px;"></div>'}
+      <a href="${FRONTEND_URL}/books/${book.bagcheeId}" target="_blank" style="background:#008DDA;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:bold;font-size:14px;display:inline-block;">View Book →</a>
+    </td>
+  </tr>
+</table>`;
+};
+
 const buildBookCardHighlight = (book) => {
   if (!book) return `<td style="width:50%;padding:8px;vertical-align:top;"><div style="background:#f5f5f5;border-radius:8px;padding:24px;text-align:center;min-height:100px;"><p style="color:#aaa;font-size:11px;margin:0;">No book</p></div></td>`;
   const img = getProductImageUrl(book);
@@ -195,15 +234,31 @@ const buildBookCardDigest = (book) => {
 
 const generateTemplateHtml = (templateType, headings, books, banners) => {
   const h = headings;
-  const bHtml = banners.map(b => buildBannerHtml(b)).join('');
+  const topBanner = banners[0] ? buildBannerHtml(banners[0]) : '';
+  const bottomBanner = banners[1] ? buildBannerHtml(banners[1]) : '';
+
+  const buildCtaButton = (text, url) => {
+    if (!text) return '';
+    return `<div style="text-align:center;margin:24px 0;">
+  <a href="${url || '#'}" target="_blank" style="background:#008DDA;color:#fff;padding:12px 32px;border-radius:6px;text-decoration:none;font-weight:bold;font-size:14px;display:inline-block;">${text}</a>
+</div>`;
+  };
 
   if (templateType === 'single-book') {
+    const youMayAlsoLikeSlots = ['book2','book3','book4','book5'];
+    const youMayAlsoLikeBooks = youMayAlsoLikeSlots.filter(k => books[k]);
+    let youMayAlsoLikeRows = '';
+    for (let i = 0; i < youMayAlsoLikeBooks.length; i += 2) {
+      youMayAlsoLikeRows += `<tr>${buildBookCardSmall(books[youMayAlsoLikeBooks[i]])}${youMayAlsoLikeBooks[i+1] ? buildBookCardSmall(books[youMayAlsoLikeBooks[i+1]]) : '<td style="width:50%;padding:6px;"></td>'}</tr>`;
+    }
     return `<div style="font-family:Inter,Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;color:#0B2F3A;">
   ${h.mainHeading ? `<h1 style="text-align:center;color:#0B2F3A;font-size:28px;margin:0 0 8px;">${h.mainHeading}</h1>` : ''}
   ${h.subHeading ? `<p style="text-align:center;color:#666;font-size:16px;margin:0 0 20px;">${h.subHeading}</p>` : ''}
-  ${bHtml}
+  ${topBanner}
   ${buildBookCardLarge(books.book1)}
-  ${h.description ? `<p style="color:#555;font-size:14px;line-height:1.7;text-align:center;margin:16px 0;">${h.description}</p>` : ''}
+  ${h.description ? `<div style="border-left:3px solid #008DDA;padding:12px 16px;margin:20px 0;background:#f9fbff;border-radius:0 6px 6px 0;"><p style="color:#444;font-size:14px;line-height:1.8;margin:0;display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden;">${h.description}</p></div>` : ''}
+  ${youMayAlsoLikeRows ? `<h2 style="text-align:center;color:#0B2F3A;font-size:20px;margin:24px 0 12px;border-bottom:2px solid #e6decd;padding-bottom:10px;">${h.youMayAlsoLikeHeading || 'You May Also Like'}</h2><table cellpadding="0" cellspacing="0" border="0" style="width:100%;">${youMayAlsoLikeRows}</table>` : ''}
+  ${bottomBanner}
 </div>`;
   }
 
@@ -215,45 +270,51 @@ const generateTemplateHtml = (templateType, headings, books, banners) => {
       if (!l && !r) continue;
       rows += `<tr>${buildBookCardSmall(l)}${buildBookCardSmall(r)}</tr>`;
     }
-    const hasHighlights = books.highlight1 || books.highlight2;
+    const onlyOneHighlight = books.highlight1 && !books.highlight2;
+    const hasBothHighlights = books.highlight1 && books.highlight2;
     return `<div style="font-family:Inter,Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;">
   ${h.mainHeading ? `<h1 style="text-align:center;color:#0B2F3A;font-size:28px;margin:0 0 6px;">${h.mainHeading}</h1>` : ''}
   ${h.categoryName ? `<p style="text-align:center;color:#008DDA;font-size:14px;font-weight:700;margin:0 0 16px;text-transform:uppercase;letter-spacing:1px;">${h.categoryName}</p>` : ''}
   ${h.introText ? `<p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 16px;">${h.introText}</p>` : ''}
-  ${bHtml}
-  ${hasHighlights ? `<table cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-bottom:16px;"><tr>${buildBookCardHighlight(books.highlight1)}${buildBookCardHighlight(books.highlight2)}</tr></table>` : ''}
+  ${topBanner}
+  ${onlyOneHighlight ? buildBookCardSingleHighlight(books.highlight1) : ''}
+  ${hasBothHighlights ? `<table cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-bottom:16px;"><tr>${buildBookCardHighlight(books.highlight1)}${buildBookCardHighlight(books.highlight2)}</tr></table>` : ''}
   ${rows ? `<table cellpadding="0" cellspacing="0" border="0" style="width:100%;">${rows}</table>` : ''}
-  <div style="text-align:center;margin:24px 0;">
-    <a href="${FRONTEND_URL}/new-arrivals" target="_blank" style="background:#008DDA;color:#fff;padding:12px 32px;border-radius:6px;text-decoration:none;font-weight:bold;font-size:14px;">Browse All New Arrivals →</a>
-  </div>
+  ${buildCtaButton(h.ctaText || 'Browse All New Arrivals →', h.ctaUrl || `${FRONTEND_URL}/new-arrivals`)}
+  ${bottomBanner}
 </div>`;
   }
 
   if (templateType === 'curated-picks') {
-    const slots = ['book1','book2','book3','book4'];
+    const slots = ['book1','book2','book3','book4','book5','book6','book7','book8'];
     let rows = '';
-    for (let i = 0; i < 4; i += 2) {
-      rows += `<tr>${buildBookCardSmall(books[slots[i]])}${buildBookCardSmall(books[slots[i+1]])}</tr>`;
+    for (let i = 0; i < slots.length; i += 2) {
+      const l = books[slots[i]]; const r = books[slots[i+1]];
+      if (!l && !r) continue;
+      rows += `<tr>${buildBookCardSmall(l)}${buildBookCardSmall(r)}</tr>`;
     }
     return `<div style="font-family:Inter,Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;">
   ${h.mainHeading ? `<h1 style="text-align:center;color:#0B2F3A;font-size:26px;margin:0 0 6px;">${h.mainHeading}</h1>` : ''}
   ${h.subHeading ? `<p style="text-align:center;color:#666;font-size:15px;margin:0 0 8px;">${h.subHeading}</p>` : ''}
   ${h.introText ? `<p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 16px;">${h.introText}</p>` : ''}
-  ${bHtml}
+  ${topBanner}
   <table cellpadding="0" cellspacing="0" border="0" style="width:100%;">${rows}</table>
+  ${buildCtaButton(h.ctaText, h.ctaUrl)}
+  ${bottomBanner}
 </div>`;
   }
 
   if (templateType === 'weekly-digest') {
-    const slots = ['book1','book2','book3','book4','book5'];
+    const slots = ['book1','book2','book3','book4','book5','book6','book7','book8'];
     const booksHtml = slots.filter(k => books[k]).map(k => buildBookCardDigest(books[k])).join('');
     return `<div style="font-family:Inter,Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;">
   ${h.mainHeading ? `<h1 style="text-align:center;color:#0B2F3A;font-size:26px;margin:0 0 20px;">${h.mainHeading}</h1>` : ''}
   ${h.greeting ? `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px;">${h.greeting}</p>` : ''}
   ${h.introText ? `<p style="color:#555;font-size:14px;line-height:1.7;margin:0 0 20px;">${h.introText}</p>` : ''}
-  ${bHtml}
+  ${topBanner}
   ${booksHtml}
   ${h.outroText ? `<p style="color:#555;font-size:14px;line-height:1.7;margin:16px 0 0;">${h.outroText.replace(/\n/g, '<br/>')}</p>` : ''}
+  ${bottomBanner}
 </div>`;
   }
 
@@ -270,10 +331,12 @@ const generateTemplateHtml = (templateType, headings, books, banners) => {
   ${h.subHeading ? `<p style="text-align:center;color:#666;font-size:16px;margin:0 0 16px;">${h.subHeading}</p>` : ''}
   ${h.greeting ? `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px;">${h.greeting}</p>` : ''}
   ${h.introText ? `<p style="color:#555;font-size:14px;line-height:1.7;margin:0 0 20px;">${h.introText}</p>` : ''}
-  ${bHtml}
+  ${topBanner}
   ${books.featured ? buildBookCardLarge(books.featured) : ''}
   ${rows ? `<table cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-top:20px;">${rows}</table>` : ''}
   ${h.outroText ? `<p style="color:#555;font-size:14px;line-height:1.7;margin:24px 0 0;">${h.outroText.replace(/\n/g, '<br/>')}</p>` : ''}
+  ${buildCtaButton(h.ctaText, h.ctaUrl)}
+  ${bottomBanner}
 </div>`;
   }
 
@@ -294,18 +357,68 @@ const getFullEmailHtml = (subject, bodyHtml) => `<!DOCTYPE html>
 <body style="margin:0;padding:0;background:#F7EEDD;">
 <div style="font-family:'Inter',Helvetica,Arial,sans-serif;background-color:#F7EEDD;padding:40px 0;">
   <div style="max-width:600px;margin:0 auto;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 15px rgba(0,0,0,0.1);border:1px solid #e6decd;">
-    <div style="background-color:#008DDA;padding:35px;text-align:center;">
-      <h1 style="color:#FFFFFF;margin:0;font-size:26px;font-weight:700;letter-spacing:0.5px;">Bagchee</h1>
-      <p style="color:#FFFFFF;margin-top:5px;opacity:0.9;font-size:14px;">${subject}</p>
+    <div style="background-color:#008DDA;padding:30px 35px;text-align:center;">
+      <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
+        <tr><td style="text-align:center;padding-bottom:6px;">
+          <div style="display:inline-block;border:2px solid rgba(255,255,255,0.35);border-radius:8px;padding:5px 18px;">
+            <span style="color:#FFFFFF;font-size:26px;font-weight:900;letter-spacing:4px;text-transform:uppercase;font-family:'Inter',Helvetica,Arial,sans-serif;">BAGCHEE</span>
+          </div>
+        </td></tr>
+        <tr><td style="text-align:center;">
+          <p style="color:#FFFFFF;margin:4px 0 0;opacity:0.85;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-family:'Inter',Helvetica,Arial,sans-serif;">Books That Stick</p>
+        </td></tr>
+        <tr><td style="text-align:center;padding-top:10px;">
+          <p style="color:#FFFFFF;margin:0;opacity:0.9;font-size:14px;font-family:'Inter',Helvetica,Arial,sans-serif;">${subject}</p>
+        </td></tr>
+      </table>
     </div>
     <div style="padding:40px 30px;color:#0B2F3A;font-size:15px;line-height:1.7;">${bodyHtml}</div>
     <div style="background-color:#fffdf5;padding:20px;text-align:center;border-top:1px solid #e6decd;">
+      <p style="font-size:11px;color:#4A6fa5;margin:0 0 8px;"><a href="${FRONTEND_URL}" target="_blank" style="color:#008DDA;text-decoration:underline;">VIEW IN BROWSER</a></p>
+      <p style="font-size:11px;color:#4A6fa5;margin:0 0 6px;"><a href="${FRONTEND_URL}/privacy-policy" target="_blank" style="color:#4A6fa5;text-decoration:underline;">Privacy Policy</a> &nbsp;|&nbsp; <a href="${FRONTEND_URL}/unsubscribe" target="_blank" style="color:#4A6fa5;text-decoration:underline;">Unsubscribe</a></p>
       <p style="font-size:12px;color:#4A6fa5;margin:0;">&copy; ${new Date().getFullYear()} Bagchee. All rights reserved.</p>
-      <p style="font-size:11px;color:#4A6fa5;margin-top:6px;opacity:0.7;">Indore, India</p>
     </div>
   </div>
 </div>
 </body></html>`;
+
+// ─── Standard Promotional Banners ────────────────────────────────────────────
+const STANDARD_PROMO_BANNERS = [
+  {
+    id: 'membership',
+    name: 'Bagchee Membership',
+    subtitle: 'Save 10% Every Time You Shop',
+    bgColor: '#008DDA',
+    textColor: '#FFFFFF',
+    link: `${FRONTEND_URL}/membership`,
+  },
+  {
+    id: 'library',
+    name: 'Bagchee Library Services',
+    subtitle: 'Order from the Library Specialists',
+    bgColor: '#0B2F3A',
+    textColor: '#FFFFFF',
+    link: `${FRONTEND_URL}/library-services`,
+  },
+  {
+    id: 'bulk',
+    name: 'Bulk Orders Made Easy',
+    subtitle: 'Request a Quote',
+    bgColor: '#F7EEDD',
+    textColor: '#0B2F3A',
+    link: `${FRONTEND_URL}/contact-us`,
+  },
+];
+
+const buildStandardPromoHtml = (promo) => `<table cellpadding="0" cellspacing="0" border="0" style="width:100%;border-radius:8px;overflow:hidden;margin:16px 0;background:${promo.bgColor};font-family:Inter,Helvetica,Arial,sans-serif;">
+  <tr>
+    <td style="padding:18px 24px;text-align:center;">
+      <p style="font-size:16px;font-weight:800;color:${promo.textColor};margin:0 0 4px;">${promo.name}</p>
+      <p style="font-size:13px;color:${promo.textColor};opacity:0.85;margin:0 0 12px;">${promo.subtitle}</p>
+      <a href="${promo.link}" target="_blank" style="background:rgba(255,255,255,0.2);color:${promo.textColor};border:2px solid ${promo.textColor === '#FFFFFF' ? 'rgba(255,255,255,0.5)' : '#0B2F3A'};padding:7px 20px;border-radius:4px;text-decoration:none;font-size:12px;font-weight:bold;display:inline-block;">Learn More →</a>
+    </td>
+  </tr>
+</table>`;
 
 const AUDIENCE_OPTIONS = [
   { key: 'subscribers', label: 'All newsletter subscribers' },
@@ -413,6 +526,7 @@ const SendEmail = () => {
   const [selectedCategoryFilters, setSelectedCategoryFilters] = useState([]);
   const [expandedMainCats, setExpandedMainCats] = useState({});
   const [catTreeLoading, setCatTreeLoading] = useState(false);
+  const [catSearchQuery, setCatSearchQuery] = useState('');
 
   // Template Builder
   const [builderOpen, setBuilderOpen] = useState(false);
@@ -594,7 +708,7 @@ const SendEmail = () => {
 
   const addBanner = () => {
     if (builderBanners.length >= currentBuilderDef.maxBanners) return;
-    setBuilderBanners(prev => [...prev, { type: 'coupon', code: '', text: '', bgColor: '#FFD700', imageUrl: '', link: '' }]);
+    setBuilderBanners(prev => [...prev, { type: 'promo', code: '', text: '', bgColor: '#FFD700', imageUrl: '', link: '', promoId: null, promoData: null }]);
   };
 
   const removeBanner = (idx) => setBuilderBanners(prev => prev.filter((_, i) => i !== idx));
@@ -855,7 +969,13 @@ const SendEmail = () => {
                     <button onClick={() => removeBanner(idx)} className="absolute top-2 right-2 text-red-400 hover:text-red-600 p-1">
                       <X size={13} />
                     </button>
-                    <div className="flex gap-3 mb-3">
+                    <div className="flex gap-2 mb-3 flex-wrap">
+                      <button
+                        onClick={() => updateBanner(idx, 'type', 'promo')}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold font-montserrat border-2 transition-all ${banner.type === 'promo' ? 'border-primary bg-primary/5 text-primary' : 'border-gray-200 text-gray-600'}`}
+                      >
+                        <Tag size={11} /> Promo Banner
+                      </button>
                       <button
                         onClick={() => updateBanner(idx, 'type', 'coupon')}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold font-montserrat border-2 transition-all ${banner.type === 'coupon' ? 'border-primary bg-primary/5 text-primary' : 'border-gray-200 text-gray-600'}`}
@@ -889,8 +1009,8 @@ const SendEmail = () => {
                     ) : (
                       <div className="space-y-2">
                         {/* Image source tabs */}
-                        <div className="flex gap-1 mb-2">
-                          {['url', 'upload', 'library'].map(tab => (
+                        <div className="flex gap-1 mb-2 flex-wrap">
+                          {['standard', 'url', 'upload', 'library'].map(tab => (
                             <button
                               key={tab}
                               type="button"
@@ -898,21 +1018,51 @@ const SendEmail = () => {
                                 setActiveBannerTab(p => ({ ...p, [idx]: tab }));
                                 if (tab === 'library') loadBannerLibrary();
                               }}
-                              className={`px-3 py-1 rounded text-[10px] font-bold font-montserrat border transition-all ${(activeBannerTab[idx] || 'url') === tab ? 'border-primary bg-primary/10 text-primary' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}
+                              className={`px-3 py-1 rounded text-[10px] font-bold font-montserrat border transition-all ${(activeBannerTab[idx] || 'standard') === tab ? 'border-primary bg-primary/10 text-primary' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}
                             >
-                              {tab === 'url' ? 'URL' : tab === 'upload' ? 'Upload' : 'Library'}
+                              {tab === 'standard' ? 'Standard' : tab === 'url' ? 'URL' : tab === 'upload' ? 'Upload' : 'Library'}
                             </button>
                           ))}
                         </div>
 
-                        {(activeBannerTab[idx] || 'url') === 'url' && (
+                        {(activeBannerTab[idx] || 'standard') === 'standard' && (
+                          <div className="space-y-2">
+                            <p className="text-[10px] text-gray-500 font-montserrat">Click a banner to insert it as a promo block in the email:</p>
+                            <div className="space-y-2">
+                              {STANDARD_PROMO_BANNERS.map(promo => (
+                                <button
+                                  key={promo.id}
+                                  type="button"
+                                  onClick={() => {
+                                    updateBanner(idx, 'type', 'promo');
+                                    updateBanner(idx, 'promoId', promo.id);
+                                    updateBanner(idx, 'promoData', promo);
+                                    updateBanner(idx, 'link', promo.link);
+                                  }}
+                                  style={{ background: promo.bgColor }}
+                                  className={`w-full rounded-lg p-3 text-left border-2 transition-all ${banner.promoId === promo.id ? 'border-primary ring-2 ring-primary/30' : 'border-transparent hover:border-gray-300'}`}
+                                >
+                                  <p style={{ color: promo.textColor }} className="text-xs font-bold font-montserrat m-0">{promo.name}</p>
+                                  <p style={{ color: promo.textColor, opacity: 0.8 }} className="text-[10px] font-montserrat m-0">{promo.subtitle}</p>
+                                </button>
+                              ))}
+                            </div>
+                            {banner.promoId && (
+                              <p className="text-[10px] text-primary font-montserrat font-bold">
+                                Selected: {STANDARD_PROMO_BANNERS.find(p => p.id === banner.promoId)?.name}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {(activeBannerTab[idx] || 'standard') === 'url' && (
                           <div>
                             <label className="text-[10px] font-bold text-gray-500 font-montserrat mb-1 block">Image URL</label>
                             <input value={banner.imageUrl} onChange={(e) => updateBanner(idx, 'imageUrl', e.target.value)} placeholder="https://..." className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs outline-none focus:border-primary font-mono" />
                           </div>
                         )}
 
-                        {activeBannerTab[idx] === 'upload' && (
+                        {(activeBannerTab[idx] || 'standard') === 'upload' && (
                           <div>
                             <label className="text-[10px] font-bold text-gray-500 font-montserrat mb-1 block">Upload Banner Image</label>
                             <input
@@ -927,7 +1077,7 @@ const SendEmail = () => {
                           </div>
                         )}
 
-                        {activeBannerTab[idx] === 'library' && (
+                        {(activeBannerTab[idx] || 'standard') === 'library' && (
                           <div>
                             <label className="text-[10px] font-bold text-gray-500 font-montserrat mb-1 block">
                               Select from Library {bannerLibrary.length > 0 && `(${bannerLibrary.length} banners)`}
@@ -1069,11 +1219,29 @@ const SendEmail = () => {
                 <div className="flex items-center gap-2 text-gray-400 text-xs py-2"><Loader2 size={13} className="animate-spin" /> Loading categories...</div>
               ) : (
                 <>
+                  <div className="relative mb-3">
+                    <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      value={catSearchQuery}
+                      onChange={(e) => setCatSearchQuery(e.target.value)}
+                      placeholder="Search categories & subcategories..."
+                      className="w-full border border-gray-300 rounded-lg pl-8 pr-3 py-2 text-xs outline-none focus:border-primary font-montserrat bg-white"
+                    />
+                  </div>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-56 overflow-y-auto pr-1">
-                    {mainCategories.map(cat => {
+                    {mainCategories.filter(cat => {
+                      const catName = (cat.title || cat.categorytitle || '').toLowerCase();
+                      const q = catSearchQuery.toLowerCase();
+                      if (!q) return true;
+                      if (catName.includes(q)) return true;
+                      return (subsByMainCat[cat.id] || []).some(s => (s.name || s.subcategoryname || '').toLowerCase().includes(q));
+                    }).map(cat => {
                       const catName = cat.title || cat.categorytitle || '';
-                      const subs = subsByMainCat[cat.id] || [];
-                      const isExpanded = expandedMainCats[cat.id];
+                      const subs = (subsByMainCat[cat.id] || []).filter(s =>
+                        !catSearchQuery || (s.name || s.subcategoryname || '').toLowerCase().includes(catSearchQuery.toLowerCase()) || catName.toLowerCase().includes(catSearchQuery.toLowerCase())
+                      );
+                      const isExpanded = expandedMainCats[cat.id] || !!catSearchQuery;
                       const isChecked = selectedCategoryFilters.includes(catName);
                       return (
                         <div key={cat.id} className="border border-gray-200 rounded-lg overflow-hidden bg-white">
@@ -1082,7 +1250,7 @@ const SendEmail = () => {
                               <input type="checkbox" checked={isChecked} onChange={() => toggleCategoryFilter(catName)} className="accent-primary h-3 w-3 shrink-0" />
                               <span className="text-[11px] font-bold text-gray-700 truncate font-montserrat">{catName}</span>
                             </label>
-                            {subs.length > 0 && (
+                            {(subsByMainCat[cat.id] || []).length > 0 && !catSearchQuery && (
                               <button onClick={() => setExpandedMainCats(p => ({ ...p, [cat.id]: !p[cat.id] }))} className="ml-1 text-gray-400 hover:text-primary shrink-0">
                                 {isExpanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
                               </button>

@@ -28,20 +28,33 @@ const escapeHtml = (str) => {
 };
 
 const wrapInTemplate = (subject, bodyHtml, unsubscribeUrl = null) => {
+    const frontendUrl = process.env.FRONTEND_URL || 'https://www.bagchee.com';
+    const privacyUrl = `${frontendUrl}/privacy-policy`;
     return `
         <div style="font-family: 'Inter', Helvetica, Arial, sans-serif; background-color: ${theme.cream}; padding: 40px 0;">
             <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #e6decd;">
-                <div style="background-color: ${theme.primary}; padding: 35px; text-align: center;">
-                    <h1 style="color: ${theme.textLight}; margin: 0; font-size: 26px; font-weight: 700; letter-spacing: 0.5px;">Bagchee</h1>
-                    <p style="color: ${theme.textLight}; margin-top: 5px; opacity: 0.9; font-size: 14px;">${subject}</p>
+                <div style="background-color: ${theme.primary}; padding: 30px 35px; text-align: center;">
+                    <table cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
+                        <tr><td style="text-align: center; padding-bottom: 6px;">
+                            <div style="display: inline-block; border: 2px solid rgba(255,255,255,0.35); border-radius: 8px; padding: 5px 18px;">
+                                <span style="color: #FFFFFF; font-size: 26px; font-weight: 900; letter-spacing: 4px; text-transform: uppercase; font-family: 'Inter', Helvetica, Arial, sans-serif;">BAGCHEE</span>
+                            </div>
+                        </td></tr>
+                        <tr><td style="text-align: center;">
+                            <p style="color: #FFFFFF; margin: 4px 0 0; opacity: 0.85; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; font-family: 'Inter', Helvetica, Arial, sans-serif;">Books That Stick</p>
+                        </td></tr>
+                        <tr><td style="text-align: center; padding-top: 10px;">
+                            <p style="color: #FFFFFF; margin: 0; opacity: 0.9; font-size: 14px; font-family: 'Inter', Helvetica, Arial, sans-serif;">${subject}</p>
+                        </td></tr>
+                    </table>
                 </div>
                 <div style="padding: 40px 30px; color: ${theme.textMain}; font-size: 15px; line-height: 1.7;">
                     ${bodyHtml}
                 </div>
                 <div style="background-color: #fffdf5; padding: 20px; text-align: center; border-top: 1px solid #e6decd;">
+                    <p style="font-size: 11px; color: ${theme.textMuted}; margin: 0 0 8px;"><a href="${frontendUrl}" style="color: #008DDA; text-decoration: underline;">VIEW IN BROWSER</a></p>
+                    <p style="font-size: 11px; color: ${theme.textMuted}; margin: 0 0 6px;"><a href="${privacyUrl}" style="color: ${theme.textMuted}; text-decoration: underline;">Privacy Policy</a> &nbsp;|&nbsp; ${unsubscribeUrl ? `<a href="${unsubscribeUrl}" style="color: ${theme.textMuted}; text-decoration: underline;">Unsubscribe</a>` : `<a href="${frontendUrl}/unsubscribe" style="color: ${theme.textMuted}; text-decoration: underline;">Unsubscribe</a>`}</p>
                     <p style="font-size: 12px; color: ${theme.textMuted}; margin: 0;">&copy; ${new Date().getFullYear()} Bagchee. All rights reserved.</p>
-                    <p style="font-size: 11px; color: ${theme.textMuted}; margin-top: 6px; opacity: 0.7;">Indore, India</p>
-                    ${unsubscribeUrl ? `<p style="font-size: 11px; color: ${theme.textMuted}; margin-top: 8px;">Don't want these emails? <a href="${unsubscribeUrl}" style="color: ${theme.textMuted}; text-decoration: underline;">Unsubscribe</a></p>` : ''}
                 </div>
             </div>
         </div>
