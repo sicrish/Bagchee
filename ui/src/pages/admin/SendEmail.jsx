@@ -123,20 +123,20 @@ const STRUCTURED_TEMPLATES = {
 };
 
 // ─── HTML generation helpers ──────────────────────────────────────────────────
-const buildBannerHtml = (banner) => {
+const buildBannerHtml = (banner, compact = false) => {
   if (!banner) return '';
   if (banner.type === 'promo' && banner.promoData) {
-    return buildStandardPromoHtml(banner.promoData);
+    return buildStandardPromoHtml(banner.promoData, compact);
   }
   if (banner.type === 'coupon') {
-    return `<div style="background:${banner.bgColor || '#FFD700'};border-radius:10px;padding:20px 30px;text-align:center;margin:16px 0;">
-  <p style="font-size:14px;color:#0B2F3A;margin:0 0 10px;font-weight:600;">${banner.text || ''}</p>
-  ${banner.code ? `<p style="display:inline-block;font-size:26px;font-weight:800;color:#0B2F3A;letter-spacing:3px;margin:0;background:#fff;padding:6px 20px;border-radius:6px;">${banner.code}</p>` : ''}
+    return `<div style="background:${banner.bgColor || '#FFD700'};border-radius:10px;padding:${compact ? '12px 22px' : '20px 30px'};text-align:center;margin:16px 0;">
+  <p style="font-size:${compact ? '12px' : '14px'};color:#0B2F3A;margin:0 0 8px;font-weight:600;">${banner.text || ''}</p>
+  ${banner.code ? `<p style="display:inline-block;font-size:${compact ? '20px' : '26px'};font-weight:800;color:#0B2F3A;letter-spacing:3px;margin:0;background:#fff;padding:${compact ? '4px 14px' : '6px 20px'};border-radius:6px;">${banner.code}</p>` : ''}
 </div>`;
   }
   return banner.imageUrl ? `<div style="margin:16px 0;text-align:center;">
   <a href="${banner.link || '#'}" target="_blank">
-    <img src="${banner.imageUrl}" alt="Banner" style="max-width:100%;border-radius:8px;display:block;margin:0 auto;" />
+    <img src="${banner.imageUrl}" alt="Banner" style="max-width:100%;${compact ? 'max-height:90px;' : ''}border-radius:8px;display:block;margin:0 auto;object-fit:cover;" />
   </a>
 </div>` : '';
 };
@@ -148,12 +148,12 @@ const buildBookCardSmall = (book) => {
   return `<td style="width:50%;padding:6px;vertical-align:top;">
 <table cellpadding="0" cellspacing="0" border="0" style="width:100%;border:1px solid #e6decd;border-radius:6px;overflow:hidden;font-family:Inter,Helvetica,Arial,sans-serif;">
   <tr><td style="padding:10px;text-align:center;background:#fafaf8;">
-    ${img ? `<a href="${FRONTEND_URL}/books/${book.bagcheeId}" target="_blank"><img src="${img}" alt="${book.title}" width="80" style="display:block;margin:0 auto;border-radius:4px;max-height:100px;object-fit:cover;" /></a>` : '<div style="height:80px;"></div>'}
+    ${img ? `<a href="${FRONTEND_URL}/books/${book.bagcheeId}/${book.slug || book.bagcheeId}" target="_blank"><img src="${img}" alt="${book.title}" width="80" style="display:block;margin:0 auto;border-radius:4px;max-height:100px;object-fit:cover;" /></a>` : '<div style="height:80px;"></div>'}
   </td></tr>
   <tr><td style="padding:8px 10px;">
     <p style="font-size:12px;font-weight:700;color:#0B2F3A;margin:0 0 4px;line-height:1.3;">${book.title}</p>
     ${price ? `<p style="font-size:13px;font-weight:700;color:#008DDA;margin:0 0 8px;">${price}</p>` : ''}
-    <a href="${FRONTEND_URL}/books/${book.bagcheeId}" target="_blank" style="background:#008DDA;color:#fff;padding:5px 10px;border-radius:4px;text-decoration:none;font-size:11px;font-weight:bold;display:inline-block;">View →</a>
+    <a href="${FRONTEND_URL}/books/${book.bagcheeId}/${book.slug || book.bagcheeId}" target="_blank" style="background:#008DDA;color:#fff;padding:5px 10px;border-radius:4px;text-decoration:none;font-size:11px;font-weight:bold;display:inline-block;">View →</a>
   </td></tr>
 </table>
 </td>`;
@@ -166,13 +166,13 @@ const buildBookCardLarge = (book) => {
   return `<table cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:520px;margin:20px auto;border:1px solid #e6decd;border-radius:10px;overflow:hidden;font-family:Inter,Helvetica,Arial,sans-serif;">
   <tr>
     <td style="width:140px;padding:20px;background:#fafaf8;vertical-align:top;">
-      ${img ? `<a href="${FRONTEND_URL}/books/${book.bagcheeId}" target="_blank"><img src="${img}" alt="${book.title}" width="120" style="display:block;border-radius:6px;max-height:160px;object-fit:cover;" /></a>` : ''}
+      ${img ? `<a href="${FRONTEND_URL}/books/${book.bagcheeId}/${book.slug || book.bagcheeId}" target="_blank"><img src="${img}" alt="${book.title}" width="120" style="display:block;border-radius:6px;max-height:160px;object-fit:cover;" /></a>` : ''}
     </td>
     <td style="padding:20px;vertical-align:top;">
       <p style="font-size:18px;font-weight:700;color:#0B2F3A;margin:0 0 8px;line-height:1.3;">${book.title}</p>
       <p style="font-size:12px;color:#4A6fa5;font-family:monospace;margin:0 0 6px;">ID: ${book.bagcheeId}</p>
       ${price ? `<p style="font-size:16px;font-weight:700;color:#008DDA;margin:0 0 16px;">${price}</p>` : '<div style="height:16px;"></div>'}
-      <a href="${FRONTEND_URL}/books/${book.bagcheeId}" target="_blank" style="background:#008DDA;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:bold;font-size:14px;display:inline-block;">View Book →</a>
+      <a href="${FRONTEND_URL}/books/${book.bagcheeId}/${book.slug || book.bagcheeId}" target="_blank" style="background:#008DDA;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:bold;font-size:14px;display:inline-block;">View Book →</a>
     </td>
   </tr>
 </table>`;
@@ -185,12 +185,12 @@ const buildBookCardSingleHighlight = (book) => {
   return `<table cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:520px;margin:0 auto 16px;border:2px solid #008DDA;border-radius:10px;overflow:hidden;font-family:Inter,Helvetica,Arial,sans-serif;">
   <tr>
     <td style="width:160px;padding:24px;background:#EBF7FD;text-align:center;vertical-align:top;">
-      ${img ? `<a href="${FRONTEND_URL}/books/${book.bagcheeId}" target="_blank"><img src="${img}" alt="${book.title}" width="130" style="display:block;margin:0 auto;border-radius:6px;max-height:190px;object-fit:cover;" /></a>` : '<div style="height:150px;"></div>'}
+      ${img ? `<a href="${FRONTEND_URL}/books/${book.bagcheeId}/${book.slug || book.bagcheeId}" target="_blank"><img src="${img}" alt="${book.title}" width="130" style="display:block;margin:0 auto;border-radius:6px;max-height:190px;object-fit:cover;" /></a>` : '<div style="height:150px;"></div>'}
     </td>
     <td style="padding:24px;vertical-align:middle;">
       <p style="font-size:20px;font-weight:700;color:#0B2F3A;margin:0 0 8px;line-height:1.3;">${book.title}</p>
       ${price ? `<p style="font-size:17px;font-weight:700;color:#008DDA;margin:0 0 18px;">${price}</p>` : '<div style="height:18px;"></div>'}
-      <a href="${FRONTEND_URL}/books/${book.bagcheeId}" target="_blank" style="background:#008DDA;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:bold;font-size:14px;display:inline-block;">View Book →</a>
+      <a href="${FRONTEND_URL}/books/${book.bagcheeId}/${book.slug || book.bagcheeId}" target="_blank" style="background:#008DDA;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:bold;font-size:14px;display:inline-block;">View Book →</a>
     </td>
   </tr>
 </table>`;
@@ -203,12 +203,12 @@ const buildBookCardHighlight = (book) => {
   return `<td style="width:50%;padding:8px;vertical-align:top;">
 <table cellpadding="0" cellspacing="0" border="0" style="width:100%;border:2px solid #008DDA;border-radius:8px;overflow:hidden;font-family:Inter,Helvetica,Arial,sans-serif;">
   <tr><td style="padding:14px;text-align:center;background:#EBF7FD;">
-    ${img ? `<a href="${FRONTEND_URL}/books/${book.bagcheeId}" target="_blank"><img src="${img}" alt="${book.title}" width="100" style="display:block;margin:0 auto;border-radius:4px;max-height:140px;object-fit:cover;" /></a>` : '<div style="height:100px;"></div>'}
+    ${img ? `<a href="${FRONTEND_URL}/books/${book.bagcheeId}/${book.slug || book.bagcheeId}" target="_blank"><img src="${img}" alt="${book.title}" width="100" style="display:block;margin:0 auto;border-radius:4px;max-height:140px;object-fit:cover;" /></a>` : '<div style="height:100px;"></div>'}
   </td></tr>
   <tr><td style="padding:10px 12px;">
     <p style="font-size:14px;font-weight:700;color:#0B2F3A;margin:0 0 4px;line-height:1.3;">${book.title}</p>
     ${price ? `<p style="font-size:14px;font-weight:700;color:#008DDA;margin:0 0 10px;">${price}</p>` : ''}
-    <a href="${FRONTEND_URL}/books/${book.bagcheeId}" target="_blank" style="background:#008DDA;color:#fff;padding:7px 14px;border-radius:4px;text-decoration:none;font-size:12px;font-weight:bold;display:inline-block;">View →</a>
+    <a href="${FRONTEND_URL}/books/${book.bagcheeId}/${book.slug || book.bagcheeId}" target="_blank" style="background:#008DDA;color:#fff;padding:7px 14px;border-radius:4px;text-decoration:none;font-size:12px;font-weight:bold;display:inline-block;">View →</a>
   </td></tr>
 </table>
 </td>`;
@@ -221,12 +221,12 @@ const buildBookCardDigest = (book) => {
   return `<table cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-bottom:16px;border:1px solid #e6decd;border-radius:8px;overflow:hidden;font-family:Inter,Helvetica,Arial,sans-serif;">
   <tr>
     <td style="width:80px;padding:12px;background:#fafaf8;vertical-align:top;">
-      ${img ? `<a href="${FRONTEND_URL}/books/${book.bagcheeId}" target="_blank"><img src="${img}" alt="${book.title}" width="60" style="display:block;border-radius:4px;" /></a>` : ''}
+      ${img ? `<a href="${FRONTEND_URL}/books/${book.bagcheeId}/${book.slug || book.bagcheeId}" target="_blank"><img src="${img}" alt="${book.title}" width="60" style="display:block;border-radius:4px;" /></a>` : ''}
     </td>
     <td style="padding:12px;vertical-align:top;">
       <p style="font-size:15px;font-weight:700;color:#0B2F3A;margin:0 0 4px;">${book.title}</p>
       ${price ? `<p style="font-size:14px;font-weight:700;color:#008DDA;margin:0 0 8px;">${price}</p>` : ''}
-      <a href="${FRONTEND_URL}/books/${book.bagcheeId}" target="_blank" style="background:#008DDA;color:#fff;padding:6px 14px;border-radius:4px;text-decoration:none;font-size:12px;font-weight:bold;">View →</a>
+      <a href="${FRONTEND_URL}/books/${book.bagcheeId}/${book.slug || book.bagcheeId}" target="_blank" style="background:#008DDA;color:#fff;padding:6px 14px;border-radius:4px;text-decoration:none;font-size:12px;font-weight:bold;">View →</a>
     </td>
   </tr>
 </table>`;
@@ -234,8 +234,18 @@ const buildBookCardDigest = (book) => {
 
 const generateTemplateHtml = (templateType, headings, books, banners) => {
   const h = headings;
-  const topBanner = banners[0] ? buildBannerHtml(banners[0]) : '';
-  const bottomBanner = banners[1] ? buildBannerHtml(banners[1]) : '';
+  let topBanner = '';
+  let bottomBanner = '';
+  if (banners.length === 1) {
+    if (banners[0].position === 'bottom') {
+      bottomBanner = buildBannerHtml(banners[0], false);
+    } else {
+      topBanner = buildBannerHtml(banners[0], true);
+    }
+  } else {
+    topBanner = banners[0] ? buildBannerHtml(banners[0], true) : '';
+    bottomBanner = banners[1] ? buildBannerHtml(banners[1], false) : '';
+  }
 
   const buildCtaButton = (text, url) => {
     if (!text) return '';
@@ -252,10 +262,10 @@ const generateTemplateHtml = (templateType, headings, books, banners) => {
       youMayAlsoLikeRows += `<tr>${buildBookCardSmall(books[youMayAlsoLikeBooks[i]])}${youMayAlsoLikeBooks[i+1] ? buildBookCardSmall(books[youMayAlsoLikeBooks[i+1]]) : '<td style="width:50%;padding:6px;"></td>'}</tr>`;
     }
     return `<div style="font-family:Inter,Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;color:#0B2F3A;">
+  ${topBanner}
   ${h.mainHeading ? `<h1 style="text-align:center;color:#0B2F3A;font-size:28px;margin:0 0 8px;">${h.mainHeading}</h1>` : ''}
   ${h.subHeading ? `<p style="text-align:center;color:#666;font-size:16px;margin:0 0 20px;">${h.subHeading}</p>` : ''}
-  ${topBanner}
-  ${buildBookCardLarge(books.book1)}
+  ${buildBookCardSingleHighlight(books.book1)}
   ${h.description ? `<div style="border-left:3px solid #008DDA;padding:12px 16px;margin:20px 0;background:#f9fbff;border-radius:0 6px 6px 0;"><p style="color:#444;font-size:14px;line-height:1.8;margin:0;display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden;">${h.description}</p></div>` : ''}
   ${youMayAlsoLikeRows ? `<h2 style="text-align:center;color:#0B2F3A;font-size:20px;margin:24px 0 12px;border-bottom:2px solid #e6decd;padding-bottom:10px;">${h.youMayAlsoLikeHeading || 'You May Also Like'}</h2><table cellpadding="0" cellspacing="0" border="0" style="width:100%;">${youMayAlsoLikeRows}</table>` : ''}
   ${bottomBanner}
@@ -273,10 +283,10 @@ const generateTemplateHtml = (templateType, headings, books, banners) => {
     const onlyOneHighlight = books.highlight1 && !books.highlight2;
     const hasBothHighlights = books.highlight1 && books.highlight2;
     return `<div style="font-family:Inter,Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;">
+  ${topBanner}
   ${h.mainHeading ? `<h1 style="text-align:center;color:#0B2F3A;font-size:28px;margin:0 0 6px;">${h.mainHeading}</h1>` : ''}
   ${h.categoryName ? `<p style="text-align:center;color:#008DDA;font-size:14px;font-weight:700;margin:0 0 16px;text-transform:uppercase;letter-spacing:1px;">${h.categoryName}</p>` : ''}
   ${h.introText ? `<p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 16px;">${h.introText}</p>` : ''}
-  ${topBanner}
   ${onlyOneHighlight ? buildBookCardSingleHighlight(books.highlight1) : ''}
   ${hasBothHighlights ? `<table cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-bottom:16px;"><tr>${buildBookCardHighlight(books.highlight1)}${buildBookCardHighlight(books.highlight2)}</tr></table>` : ''}
   ${rows ? `<table cellpadding="0" cellspacing="0" border="0" style="width:100%;">${rows}</table>` : ''}
@@ -294,10 +304,10 @@ const generateTemplateHtml = (templateType, headings, books, banners) => {
       rows += `<tr>${buildBookCardSmall(l)}${buildBookCardSmall(r)}</tr>`;
     }
     return `<div style="font-family:Inter,Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;">
+  ${topBanner}
   ${h.mainHeading ? `<h1 style="text-align:center;color:#0B2F3A;font-size:26px;margin:0 0 6px;">${h.mainHeading}</h1>` : ''}
   ${h.subHeading ? `<p style="text-align:center;color:#666;font-size:15px;margin:0 0 8px;">${h.subHeading}</p>` : ''}
   ${h.introText ? `<p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 16px;">${h.introText}</p>` : ''}
-  ${topBanner}
   <table cellpadding="0" cellspacing="0" border="0" style="width:100%;">${rows}</table>
   ${buildCtaButton(h.ctaText, h.ctaUrl)}
   ${bottomBanner}
@@ -308,10 +318,10 @@ const generateTemplateHtml = (templateType, headings, books, banners) => {
     const slots = ['book1','book2','book3','book4','book5','book6','book7','book8'];
     const booksHtml = slots.filter(k => books[k]).map(k => buildBookCardDigest(books[k])).join('');
     return `<div style="font-family:Inter,Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;">
+  ${topBanner}
   ${h.mainHeading ? `<h1 style="text-align:center;color:#0B2F3A;font-size:26px;margin:0 0 20px;">${h.mainHeading}</h1>` : ''}
   ${h.greeting ? `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px;">${h.greeting}</p>` : ''}
   ${h.introText ? `<p style="color:#555;font-size:14px;line-height:1.7;margin:0 0 20px;">${h.introText}</p>` : ''}
-  ${topBanner}
   ${booksHtml}
   ${h.outroText ? `<p style="color:#555;font-size:14px;line-height:1.7;margin:16px 0 0;">${h.outroText.replace(/\n/g, '<br/>')}</p>` : ''}
   ${bottomBanner}
@@ -327,11 +337,11 @@ const generateTemplateHtml = (templateType, headings, books, banners) => {
       rows += `<tr>${buildBookCardSmall(l)}${buildBookCardSmall(r)}</tr>`;
     }
     return `<div style="font-family:Inter,Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;">
+  ${topBanner}
   ${h.mainHeading ? `<h1 style="text-align:center;color:#0B2F3A;font-size:28px;margin:0 0 8px;">${h.mainHeading}</h1>` : ''}
   ${h.subHeading ? `<p style="text-align:center;color:#666;font-size:16px;margin:0 0 16px;">${h.subHeading}</p>` : ''}
   ${h.greeting ? `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px;">${h.greeting}</p>` : ''}
   ${h.introText ? `<p style="color:#555;font-size:14px;line-height:1.7;margin:0 0 20px;">${h.introText}</p>` : ''}
-  ${topBanner}
   ${books.featured ? buildBookCardLarge(books.featured) : ''}
   ${rows ? `<table cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-top:20px;">${rows}</table>` : ''}
   ${h.outroText ? `<p style="color:#555;font-size:14px;line-height:1.7;margin:24px 0 0;">${h.outroText.replace(/\n/g, '<br/>')}</p>` : ''}
@@ -346,13 +356,15 @@ const generateTemplateHtml = (templateType, headings, books, banners) => {
 // ─── Pre-built HTML Templates (kept as-is) ────────────────────────────────────
 const EMAIL_TEMPLATES = [
   { name: 'Blank', subject: '', body: '' },
-  { name: 'Coupon / Promo Code', subject: 'Exclusive Offer Just for You!', body: `<div style="text-align:center;padding:20px 0;"><h1 style="color:#0B2F3A;font-size:28px;margin-bottom:5px;">MEMBER ONLY <span style="color:#e53935;">OFFER</span></h1><div style="background:#e53935;border-radius:12px;padding:30px;margin:20px auto;max-width:480px;color:#fff;"><p style="font-size:22px;font-weight:bold;margin:0;">CELEBRATE</p><p style="font-size:16px;margin:5px 0;">our new collection and get</p><p style="font-size:52px;font-weight:bold;margin:10px 0;font-style:italic;">10% off</p><p style="font-size:16px;margin-top:15px;">Use promo code</p><p style="display:inline-block;border:2px dashed #fff;padding:8px 24px;font-size:24px;font-weight:bold;letter-spacing:3px;margin:8px 0;">BAGCHEE10</p><p style="font-size:16px;margin-top:8px;">at checkout</p></div><p style="color:#666;font-size:13px;margin-top:15px;">Valid for a limited time only.</p></div>` },
-  { name: 'New Arrivals', subject: 'New Arrivals This Week at Bagchee!', body: `<div style="text-align:center;padding:20px 0;"><h1 style="color:#0B2F3A;font-size:28px;margin-bottom:10px;">New Arrivals</h1><p style="color:#666;font-size:15px;line-height:1.6;max-width:480px;margin:0 auto 25px;">Discover our latest collection of handpicked Indian books.</p><div style="margin-top:25px;"><a href="${FRONTEND_URL}/new-arrivals" style="display:inline-block;background:#008DDA;color:#fff;text-decoration:none;padding:14px 36px;font-size:15px;font-weight:bold;border-radius:8px;">Browse New Arrivals</a></div></div>` },
-  { name: 'Sale / Discount', subject: 'Sale Today - Up to 25% Off at Bagchee!', body: `<div style="text-align:center;padding:20px 0;"><h1 style="color:#e53935;font-size:36px;font-weight:bold;margin-bottom:5px;">SALE TODAY</h1><p style="color:#0B2F3A;font-size:20px;margin:0 0 20px;">Up to <strong>25% OFF</strong> on selected titles</p><div style="background:linear-gradient(135deg,#e53935,#c62828);border-radius:12px;padding:30px;margin:0 auto;max-width:480px;color:#fff;"><p style="font-size:48px;font-weight:bold;margin:0;">25% OFF</p><p style="font-size:16px;margin:10px 0 0;">on hundreds of books</p></div><div style="margin-top:25px;"><a href="${FRONTEND_URL}/sale" style="display:inline-block;background:#e53935;color:#fff;text-decoration:none;padding:14px 36px;font-size:15px;font-weight:bold;border-radius:8px;">Shop the Sale</a></div></div>` },
-  { name: 'Membership', subject: 'Join Bagchee Membership - Save 10% Every Day!', body: `<div style="text-align:center;padding:20px 0;"><h1 style="color:#0B2F3A;font-size:28px;margin-bottom:10px;">Bagchee Membership</h1><div style="background:#008DDA;border-radius:12px;padding:30px;margin:0 auto;max-width:480px;color:#fff;"><p style="font-size:42px;font-weight:bold;margin:0;">10% OFF</p><p style="font-size:18px;margin:8px 0;">on every order, every day</p></div><div style="margin-top:25px;"><a href="${FRONTEND_URL}/membership" style="display:inline-block;background:#008DDA;color:#fff;text-decoration:none;padding:14px 36px;font-size:15px;font-weight:bold;border-radius:8px;">Become a Member</a></div></div>` },
+  { name: 'Coupon / Promo Code', subject: 'Exclusive Offer Just for You!', body: `<div style="text-align:center;padding:20px 0;"><h1 style="color:#0B2F3A;font-size:28px;margin-bottom:5px;">MEMBER ONLY <span style="color:#e53935;">OFFER</span></h1><div style="background:#e53935;border-radius:12px;padding:30px;margin:20px auto;max-width:480px;color:#fff;"><p style="font-size:22px;font-weight:bold;margin:0;">CELEBRATE</p><p style="font-size:16px;margin:5px 0;">our new collection and get</p><p style="font-size:52px;font-weight:bold;margin:10px 0;font-style:italic;">10% off</p><p style="font-size:16px;margin-top:15px;">Use promo code</p><p style="display:inline-block;border:2px dashed #fff;padding:8px 24px;font-size:24px;font-weight:bold;letter-spacing:3px;margin:8px 0;">BAGCHEE10</p><p style="font-size:16px;margin-top:8px;">at checkout</p></div><p style="color:#666;font-size:13px;margin-top:15px;">Valid for a limited time only.</p><p style="font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.14em;text-align:center;margin:22px 0 12px;">A PEEK INTO BAGCHEE</p><table width="100%" cellpadding="4" cellspacing="0" style="margin:0 0 16px;"><tr><td width="25%" style="padding:4px;"><a href="${FRONTEND_URL}/new-arrivals" style="display:block;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px;text-align:center;text-decoration:none;"><p style="font-size:18px;margin:0 0 4px;">&#127381;</p><p style="font-size:10px;font-weight:700;color:#1d4ed8;margin:0;">New Arrivals</p></a></td><td width="25%" style="padding:4px;"><a href="${FRONTEND_URL}" style="display:block;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px;text-align:center;text-decoration:none;"><p style="font-size:18px;margin:0 0 4px;">&#11088;</p><p style="font-size:10px;font-weight:700;color:#15803d;margin:0;">Popular Titles</p></a></td><td width="25%" style="padding:4px;"><a href="${FRONTEND_URL}/best-sellers" style="display:block;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px;text-align:center;text-decoration:none;"><p style="font-size:18px;margin:0 0 4px;">&#128293;</p><p style="font-size:10px;font-weight:700;color:#b45309;margin:0;">Bestsellers</p></a></td><td width="25%" style="padding:4px;"><a href="${FRONTEND_URL}/sale" style="display:block;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px;text-align:center;text-decoration:none;"><p style="font-size:18px;margin:0 0 4px;">&#127991;</p><p style="font-size:10px;font-weight:700;color:#b91c1c;margin:0;">Sale</p></a></td></tr></table></div>` },
+  { name: 'New Arrivals', subject: 'New Arrivals This Week at Bagchee!', body: `<div style="text-align:center;padding:20px 0;"><h1 style="color:#0B2F3A;font-size:28px;margin-bottom:10px;">New Arrivals</h1><p style="color:#666;font-size:15px;line-height:1.6;max-width:480px;margin:0 auto 25px;">Discover our latest collection of handpicked Indian books.</p><div style="margin-top:25px;"><a href="${FRONTEND_URL}/new-arrivals" style="display:inline-block;background:#008DDA;color:#fff;text-decoration:none;padding:14px 36px;font-size:15px;font-weight:bold;border-radius:8px;">Browse New Arrivals</a></div><p style="font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.14em;text-align:center;margin:22px 0 12px;">A PEEK INTO BAGCHEE</p><table width="100%" cellpadding="4" cellspacing="0" style="margin:0 0 16px;"><tr><td width="25%" style="padding:4px;"><a href="${FRONTEND_URL}/new-arrivals" style="display:block;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px;text-align:center;text-decoration:none;"><p style="font-size:18px;margin:0 0 4px;">&#127381;</p><p style="font-size:10px;font-weight:700;color:#1d4ed8;margin:0;">New Arrivals</p></a></td><td width="25%" style="padding:4px;"><a href="${FRONTEND_URL}" style="display:block;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px;text-align:center;text-decoration:none;"><p style="font-size:18px;margin:0 0 4px;">&#11088;</p><p style="font-size:10px;font-weight:700;color:#15803d;margin:0;">Popular Titles</p></a></td><td width="25%" style="padding:4px;"><a href="${FRONTEND_URL}/best-sellers" style="display:block;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px;text-align:center;text-decoration:none;"><p style="font-size:18px;margin:0 0 4px;">&#128293;</p><p style="font-size:10px;font-weight:700;color:#b45309;margin:0;">Bestsellers</p></a></td><td width="25%" style="padding:4px;"><a href="${FRONTEND_URL}/sale" style="display:block;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px;text-align:center;text-decoration:none;"><p style="font-size:18px;margin:0 0 4px;">&#127991;</p><p style="font-size:10px;font-weight:700;color:#b91c1c;margin:0;">Sale</p></a></td></tr></table></div>` },
+  { name: 'Sale / Discount', subject: 'Sale Today - Up to 25% Off at Bagchee!', body: `<div style="text-align:center;padding:20px 0;"><h1 style="color:#e53935;font-size:36px;font-weight:bold;margin-bottom:5px;">SALE TODAY</h1><p style="color:#0B2F3A;font-size:20px;margin:0 0 20px;">Up to <strong>25% OFF</strong> on selected titles</p><div style="background:linear-gradient(135deg,#e53935,#c62828);border-radius:12px;padding:30px;margin:0 auto;max-width:480px;color:#fff;"><p style="font-size:48px;font-weight:bold;margin:0;">25% OFF</p><p style="font-size:16px;margin:10px 0 0;">on hundreds of books</p></div><div style="margin-top:25px;"><a href="${FRONTEND_URL}/sale" style="display:inline-block;background:#e53935;color:#fff;text-decoration:none;padding:14px 36px;font-size:15px;font-weight:bold;border-radius:8px;">Shop the Sale</a></div><p style="font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.14em;text-align:center;margin:22px 0 12px;">A PEEK INTO BAGCHEE</p><table width="100%" cellpadding="4" cellspacing="0" style="margin:0 0 16px;"><tr><td width="25%" style="padding:4px;"><a href="${FRONTEND_URL}/new-arrivals" style="display:block;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px;text-align:center;text-decoration:none;"><p style="font-size:18px;margin:0 0 4px;">&#127381;</p><p style="font-size:10px;font-weight:700;color:#1d4ed8;margin:0;">New Arrivals</p></a></td><td width="25%" style="padding:4px;"><a href="${FRONTEND_URL}" style="display:block;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px;text-align:center;text-decoration:none;"><p style="font-size:18px;margin:0 0 4px;">&#11088;</p><p style="font-size:10px;font-weight:700;color:#15803d;margin:0;">Popular Titles</p></a></td><td width="25%" style="padding:4px;"><a href="${FRONTEND_URL}/best-sellers" style="display:block;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px;text-align:center;text-decoration:none;"><p style="font-size:18px;margin:0 0 4px;">&#128293;</p><p style="font-size:10px;font-weight:700;color:#b45309;margin:0;">Bestsellers</p></a></td><td width="25%" style="padding:4px;"><a href="${FRONTEND_URL}/sale" style="display:block;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px;text-align:center;text-decoration:none;"><p style="font-size:18px;margin:0 0 4px;">&#127991;</p><p style="font-size:10px;font-weight:700;color:#b91c1c;margin:0;">Sale</p></a></td></tr></table></div>` },
+  { name: 'Membership', subject: 'Join Bagchee Membership - Save 10% Every Day!', body: `<div style="text-align:center;padding:20px 0;"><h1 style="color:#0B2F3A;font-size:28px;margin-bottom:10px;">Bagchee Membership</h1><div style="background:#008DDA;border-radius:12px;padding:30px;margin:0 auto;max-width:480px;color:#fff;"><p style="font-size:42px;font-weight:bold;margin:0;">10% OFF</p><p style="font-size:18px;margin:8px 0;">on every order, every day</p></div><div style="margin-top:25px;"><a href="${FRONTEND_URL}/membership" style="display:inline-block;background:#008DDA;color:#fff;text-decoration:none;padding:14px 36px;font-size:15px;font-weight:bold;border-radius:8px;">Become a Member</a></div><p style="font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.14em;text-align:center;margin:22px 0 12px;">A PEEK INTO BAGCHEE</p><table width="100%" cellpadding="4" cellspacing="0" style="margin:0 0 16px;"><tr><td width="25%" style="padding:4px;"><a href="${FRONTEND_URL}/new-arrivals" style="display:block;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px;text-align:center;text-decoration:none;"><p style="font-size:18px;margin:0 0 4px;">&#127381;</p><p style="font-size:10px;font-weight:700;color:#1d4ed8;margin:0;">New Arrivals</p></a></td><td width="25%" style="padding:4px;"><a href="${FRONTEND_URL}" style="display:block;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px;text-align:center;text-decoration:none;"><p style="font-size:18px;margin:0 0 4px;">&#11088;</p><p style="font-size:10px;font-weight:700;color:#15803d;margin:0;">Popular Titles</p></a></td><td width="25%" style="padding:4px;"><a href="${FRONTEND_URL}/best-sellers" style="display:block;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px;text-align:center;text-decoration:none;"><p style="font-size:18px;margin:0 0 4px;">&#128293;</p><p style="font-size:10px;font-weight:700;color:#b45309;margin:0;">Bestsellers</p></a></td><td width="25%" style="padding:4px;"><a href="${FRONTEND_URL}/sale" style="display:block;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px;text-align:center;text-decoration:none;"><p style="font-size:18px;margin:0 0 4px;">&#127991;</p><p style="font-size:10px;font-weight:700;color:#b91c1c;margin:0;">Sale</p></a></td></tr></table></div>` },
+  { name: 'New Site Announcement, v2', subject: 'Welcome to the New Bagchee — Explore, Shop & Save 15% Today! 🎉', body: `<div style="background:#0B2F3A;text-align:center;padding:9px 20px;border-radius:6px;margin:0 0 22px;"><p style="color:#ffffff;font-size:12px;font-weight:700;margin:0;">&#127881; Celebrate our New site with us and get <span style="color:#fbbf24;">15% off</span></p></div><table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 22px;"><tr><td style="width:52%;vertical-align:middle;padding-right:16px;"><h1 style="font-size:30px;font-weight:900;color:#0B2F3A;margin:0 0 6px;line-height:1.15;">Welcome to<br><span style="color:#008DDA;">BAGCHEE!</span></h1><p style="font-size:12px;color:#6b7280;margin:0 0 14px;line-height:1.5;">Your ultimate destination for books that inspire, educate and entertain</p><table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px;"><tr><td style="text-align:center;width:25%;vertical-align:top;padding:2px;"><div style="font-size:16px;">&#128218;</div><p style="font-size:9px;color:#374151;margin:2px 0 0;font-weight:600;line-height:1.3;">Wide range<br>of books</p></td><td style="text-align:center;width:25%;vertical-align:top;padding:2px;"><div style="font-size:16px;">&#11088;</div><p style="font-size:9px;color:#374151;margin:2px 0 0;font-weight:600;line-height:1.3;">Curated<br>collections</p></td><td style="text-align:center;width:25%;vertical-align:top;padding:2px;"><div style="font-size:16px;">&#128666;</div><p style="font-size:9px;color:#374151;margin:2px 0 0;font-weight:600;line-height:1.3;">Free<br>shipping</p></td><td style="text-align:center;width:25%;vertical-align:top;padding:2px;"><div style="font-size:16px;">&#127873;</div><p style="font-size:9px;color:#374151;margin:2px 0 0;font-weight:600;line-height:1.3;">E-Gift<br>Card</p></td></tr></table><a href="${FRONTEND_URL}" style="display:inline-block;background:#0B2F3A;color:#ffffff;text-decoration:none;padding:10px 24px;border-radius:6px;font-weight:700;font-size:12px;letter-spacing:0.05em;">EXPLORE BOOKS</a></td><td style="width:48%;vertical-align:top;"><img src="https://res.cloudinary.com/dgmkcyrl7/image/upload/v1779721663/bagchee/newsletter-screenshots/search.png" alt="Bagchee Website" style="width:100%;border-radius:8px;display:block;border:1px solid #e5e7eb;" /></td></tr></table><table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 22px;"><tr><td width="38%" style="padding:0 4px 0 0;vertical-align:top;"><img src="https://res.cloudinary.com/dgmkcyrl7/image/upload/v1779721663/bagchee/newsletter-screenshots/search.png" alt="Bagchee" style="width:100%;border-radius:8px;display:block;border:1px solid #e5e7eb;" /></td><td width="30%" style="padding:0 4px;vertical-align:top;"><div style="background:linear-gradient(135deg,#e53935,#c62828);border-radius:8px;padding:16px 10px;text-align:center;"><p style="color:#ffffff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 2px;">SALE</p><p style="color:#ffffff;font-size:10px;margin:0 0 2px;">Save upto 60%</p><p style="color:#fbbf24;font-size:32px;font-weight:900;margin:0;line-height:1.1;">$100</p><p style="color:#ffcdd2;font-size:9px;margin:4px 0 12px;">off on selected titles</p><a href="${FRONTEND_URL}/sale" style="display:inline-block;background:#ffffff;color:#c62828;text-decoration:none;padding:5px 12px;border-radius:4px;font-weight:700;font-size:10px;">SHOP SALE</a></div></td><td width="32%" style="padding:0 0 0 4px;vertical-align:top;"><div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border-radius:8px;padding:12px 8px;text-align:center;border:1px solid #bfdbfe;margin-bottom:8px;"><p style="color:#1e40af;font-size:10px;font-weight:700;margin:0 0 4px;">&#127873; E-GIFT CARDS</p><p style="color:#1e40af;font-size:26px;font-weight:900;margin:0;line-height:1.1;">$100</p><p style="color:#6b7280;font-size:9px;margin:3px 0 10px;">Send joy to a reader</p><a href="${FRONTEND_URL}/e-giftcard" style="display:inline-block;background:#008DDA;color:#ffffff;text-decoration:none;padding:5px 10px;border-radius:4px;font-weight:700;font-size:10px;">BUY NOW</a></div><img src="https://res.cloudinary.com/dgmkcyrl7/image/upload/v1779721667/bagchee/newsletter-screenshots/mobile.png" alt="Mobile" style="width:100%;border-radius:8px;display:block;border:1px solid #e5e7eb;" /></td></tr></table><div style="background:#fffbeb;border:2px solid #f59e0b;border-radius:10px;padding:22px 20px;text-align:center;margin:0 0 22px;"><p style="font-size:10px;font-weight:700;text-transform:uppercase;color:#92400e;letter-spacing:0.12em;margin:0 0 6px;">&#11088; YOUR EXCLUSIVE OFFER</p><p style="font-size:20px;font-weight:900;color:#0B2F3A;margin:0 0 14px;">Enjoy 15% OFF on your next order!</p><p style="font-size:10px;color:#6b7280;margin:0 0 4px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">PROMO CODE</p><div style="display:inline-block;background:#ffffff;border:2px dashed #f59e0b;border-radius:8px;padding:7px 26px;margin-bottom:14px;"><span style="font-size:26px;font-weight:900;color:#0B2F3A;letter-spacing:0.2em;font-family:monospace;">BAGCHEE15</span></div><br><a href="${FRONTEND_URL}" style="display:inline-block;background:#008DDA;color:#ffffff;text-decoration:none;padding:11px 34px;border-radius:6px;font-weight:700;font-size:13px;letter-spacing:0.05em;">SHOP NOW &#8594;</a></div><p style="font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.14em;text-align:center;margin:0 0 12px;">WHY SHOP WITH US</p><table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 22px;"><tr><td style="text-align:center;padding:8px 4px;width:25%;vertical-align:top;"><div style="font-size:22px;margin-bottom:5px;">&#127760;</div><p style="font-size:10px;font-weight:800;color:#0B2F3A;margin:0 0 3px;text-transform:uppercase;">WORLDWIDE<br>DELIVERY</p><p style="font-size:10px;color:#6b7280;margin:0;">Free shipping on orders over $50</p></td><td style="text-align:center;padding:8px 4px;width:25%;vertical-align:top;"><div style="font-size:22px;margin-bottom:5px;">&#128081;</div><p style="font-size:10px;font-weight:800;color:#0B2F3A;margin:0 0 3px;text-transform:uppercase;">MEMBER<br>BENEFITS</p><p style="font-size:10px;color:#6b7280;margin:0;">Extra 10% on all purchases</p></td><td style="text-align:center;padding:8px 4px;width:25%;vertical-align:top;"><div style="font-size:22px;margin-bottom:5px;">&#128274;</div><p style="font-size:10px;font-weight:800;color:#0B2F3A;margin:0 0 3px;text-transform:uppercase;">SECURE<br>CHECKOUT</p><p style="font-size:10px;color:#6b7280;margin:0;">100% trusted payment options</p></td><td style="text-align:center;padding:8px 4px;width:25%;vertical-align:top;"><div style="font-size:22px;margin-bottom:5px;">&#128172;</div><p style="font-size:10px;font-weight:800;color:#0B2F3A;margin:0 0 3px;text-transform:uppercase;">CUSTOMER<br>SUPPORT</p><p style="font-size:10px;color:#6b7280;margin:0;">We&rsquo;re here to help anytime</p></td></tr></table><table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 22px;border-radius:10px;overflow:hidden;border:1px solid #e2e8f0;"><tr><td style="padding:22px;width:55%;vertical-align:top;background:#f8fafc;"><p style="font-size:9px;font-weight:700;text-transform:uppercase;color:#6b7280;letter-spacing:0.1em;margin:0 0 5px;">BECOME A MEMBER</p><h3 style="font-size:16px;font-weight:900;color:#0B2F3A;margin:0 0 10px;">Become a member and get&hellip;</h3><p style="font-size:12px;color:#374151;margin:0 0 5px;">&#10003;&nbsp; Extra 10% Discount on all orders</p><p style="font-size:12px;color:#374151;margin:0 0 5px;">&#10003;&nbsp; Early Access to Sales</p><p style="font-size:12px;color:#374151;margin:0 0 16px;">&#10003;&nbsp; Full Access to Sale Items</p><a href="${FRONTEND_URL}/membership" style="display:inline-block;background:#f59e0b;color:#0B2F3A;text-decoration:none;padding:9px 20px;border-radius:6px;font-weight:800;font-size:11px;">GET MEMBERSHIP &#8594;</a></td><td style="padding:22px;width:45%;text-align:center;background:#eff6ff;vertical-align:middle;"><p style="font-size:12px;color:#6b7280;margin:0 0 2px;">Members Save</p><p style="font-size:38px;font-weight:900;color:#008DDA;margin:0;line-height:1.1;">10% EXTRA</p><p style="font-size:12px;color:#6b7280;margin:3px 0 12px;">On Every Order!</p><div style="font-size:40px;">&#127873;</div></td></tr></table><p style="font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.14em;text-align:center;margin:0 0 12px;">HOW IT WORKS</p><table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 22px;"><tr><td style="text-align:center;padding:8px 4px;width:25%;vertical-align:top;"><div style="width:42px;height:42px;background:#eff6ff;border-radius:50%;margin:0 auto 7px;font-size:18px;line-height:42px;">&#128269;</div><p style="font-size:10px;font-weight:800;color:#0B2F3A;margin:0 0 3px;text-transform:uppercase;">EXPLORE</p><p style="font-size:10px;color:#6b7280;margin:0;">Browse thousands of books</p></td><td style="text-align:center;padding:8px 4px;width:25%;vertical-align:top;"><div style="width:42px;height:42px;background:#f0fdf4;border-radius:50%;margin:0 auto 7px;font-size:18px;line-height:42px;">&#128722;</div><p style="font-size:10px;font-weight:800;color:#0B2F3A;margin:0 0 3px;text-transform:uppercase;">CHOOSE</p><p style="font-size:10px;color:#6b7280;margin:0;">Add your books to cart</p></td><td style="text-align:center;padding:8px 4px;width:25%;vertical-align:top;"><div style="width:42px;height:42px;background:#fff7ed;border-radius:50%;margin:0 auto 7px;font-size:18px;line-height:42px;">&#128666;</div><p style="font-size:10px;font-weight:800;color:#0B2F3A;margin:0 0 3px;text-transform:uppercase;">FAST DELIVERY</p><p style="font-size:10px;color:#6b7280;margin:0;">We deliver to your doorstep</p></td><td style="text-align:center;padding:8px 4px;width:25%;vertical-align:top;"><div style="width:42px;height:42px;background:#fdf4ff;border-radius:50%;margin:0 auto 7px;font-size:18px;line-height:42px;">&#128218;</div><p style="font-size:10px;font-weight:800;color:#0B2F3A;margin:0 0 3px;text-transform:uppercase;">ENJOY READING</p><p style="font-size:10px;color:#6b7280;margin:0;">Start your reading journey</p></td></tr></table><p style="font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.14em;text-align:center;margin:0 0 12px;">A PEEK INTO BAGCHEE</p><table width="100%" cellpadding="4" cellspacing="0" style="margin:0 0 22px;"><tr><td width="25%" style="padding:4px;"><a href="${FRONTEND_URL}/new-arrivals" style="display:block;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px;text-align:center;text-decoration:none;"><p style="font-size:18px;margin:0 0 4px;">&#127381;</p><p style="font-size:10px;font-weight:700;color:#1d4ed8;margin:0;">New Arrivals</p></a></td><td width="25%" style="padding:4px;"><a href="${FRONTEND_URL}" style="display:block;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px;text-align:center;text-decoration:none;"><p style="font-size:18px;margin:0 0 4px;">&#11088;</p><p style="font-size:10px;font-weight:700;color:#15803d;margin:0;">Popular Titles</p></a></td><td width="25%" style="padding:4px;"><a href="${FRONTEND_URL}/best-sellers" style="display:block;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px;text-align:center;text-decoration:none;"><p style="font-size:18px;margin:0 0 4px;">&#128293;</p><p style="font-size:10px;font-weight:700;color:#b45309;margin:0;">Bestsellers</p></a></td><td width="25%" style="padding:4px;"><a href="${FRONTEND_URL}/sale" style="display:block;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px;text-align:center;text-decoration:none;"><p style="font-size:18px;margin:0 0 4px;">&#127991;</p><p style="font-size:10px;font-weight:700;color:#b91c1c;margin:0;">Sale</p></a></td></tr></table><div style="border-top:1px solid #e5e7eb;margin:0 0 18px;"></div><div style="text-align:center;padding:6px 0 4px;"><p style="font-size:15px;font-weight:800;color:#0B2F3A;margin:0 0 6px;">Your Trust, Our Priority</p><p style="font-size:13px;color:#6b7280;margin:0 0 18px;line-height:1.6;">Shop from a trusted destination for book lovers worldwide.</p><a href="${FRONTEND_URL}" style="display:inline-block;background:#008DDA;color:#ffffff;text-decoration:none;padding:13px 42px;font-size:14px;font-weight:700;border-radius:8px;letter-spacing:0.04em;">SHOP NOW &#8594;</a></div><div style="border-top:1px solid #e5e7eb;margin:20px 0 0;padding:16px 0 0;"><table width="100%" cellpadding="0" cellspacing="0"><tr><td style="vertical-align:top;width:33%;padding-right:8px;"><p style="font-size:10px;font-weight:800;color:#0B2F3A;margin:0 0 7px;text-transform:uppercase;">QUICK LINKS</p><p style="margin:0 0 4px;"><a href="${FRONTEND_URL}/new-arrivals" style="font-size:10px;color:#6b7280;text-decoration:none;">New Arrivals</a></p><p style="margin:0 0 4px;"><a href="${FRONTEND_URL}/best-sellers" style="font-size:10px;color:#6b7280;text-decoration:none;">Best Sellers</a></p><p style="margin:0 0 4px;"><a href="${FRONTEND_URL}/sale" style="font-size:10px;color:#6b7280;text-decoration:none;">Sale</a></p><p style="margin:0 0 4px;"><a href="${FRONTEND_URL}/e-giftcard" style="font-size:10px;color:#6b7280;text-decoration:none;">E-Gift Cards</a></p></td><td style="vertical-align:top;width:33%;padding-right:8px;"><p style="font-size:10px;font-weight:800;color:#0B2F3A;margin:0 0 7px;text-transform:uppercase;">HELP &amp; SUPPORT</p><p style="margin:0 0 4px;"><a href="${FRONTEND_URL}/track-order" style="font-size:10px;color:#6b7280;text-decoration:none;">Track Order</a></p><p style="margin:0 0 4px;"><a href="${FRONTEND_URL}/faq" style="font-size:10px;color:#6b7280;text-decoration:none;">FAQs</a></p><p style="margin:0 0 4px;"><a href="${FRONTEND_URL}/contact-us" style="font-size:10px;color:#6b7280;text-decoration:none;">Contact Us</a></p><p style="margin:0 0 4px;"><a href="${FRONTEND_URL}/privacy-policy" style="font-size:10px;color:#6b7280;text-decoration:none;">Privacy Policy</a></p></td><td style="vertical-align:top;width:33%;"><p style="font-size:10px;font-weight:800;color:#0B2F3A;margin:0 0 7px;text-transform:uppercase;">MY ACCOUNT</p><p style="margin:0 0 4px;"><a href="${FRONTEND_URL}/login" style="font-size:10px;color:#6b7280;text-decoration:none;">Login</a></p><p style="margin:0 0 4px;"><a href="${FRONTEND_URL}/register" style="font-size:10px;color:#6b7280;text-decoration:none;">Register</a></p><p style="margin:0 0 4px;"><a href="${FRONTEND_URL}/membership" style="font-size:10px;color:#6b7280;text-decoration:none;">Membership</a></p><p style="margin:0 0 4px;"><a href="${FRONTEND_URL}/wishlist" style="font-size:10px;color:#6b7280;text-decoration:none;">Wishlist</a></p></td></tr></table><div style="text-align:center;margin-top:14px;"><a href="https://facebook.com/bagchee" style="display:inline-block;width:30px;height:30px;background:#1877f2;border-radius:50%;color:#fff;text-decoration:none;font-size:13px;font-weight:900;line-height:30px;margin:0 3px;text-align:center;">f</a><a href="https://instagram.com/bagchee" style="display:inline-block;width:30px;height:30px;background:radial-gradient(circle at 30% 107%,#fdf497 0%,#fdf497 5%,#fd5949 45%,#d6249f 60%,#285AEB 90%);border-radius:50%;color:#fff;text-decoration:none;font-size:13px;line-height:30px;margin:0 3px;text-align:center;">&#128247;</a><a href="https://twitter.com/bagchee" style="display:inline-block;width:30px;height:30px;background:#000;border-radius:50%;color:#fff;text-decoration:none;font-size:11px;font-weight:900;line-height:30px;margin:0 3px;text-align:center;">&#120143;</a><a href="https://youtube.com/bagchee" style="display:inline-block;width:30px;height:30px;background:#ff0000;border-radius:50%;color:#fff;text-decoration:none;font-size:13px;line-height:30px;margin:0 3px;text-align:center;">&#9654;</a><a href="https://wa.me/bagchee" style="display:inline-block;width:30px;height:30px;background:#25d366;border-radius:50%;color:#fff;text-decoration:none;font-size:13px;line-height:30px;margin:0 3px;text-align:center;">&#128172;</a></div></div>` },
+  { name: 'New Site Announcement', subject: 'Welcome to the New Bagchee — Enjoy 15% Off to Celebrate! 🎉', body: `<div style="background:linear-gradient(135deg,#fef9c3,#fde68a);border:2px solid #f59e0b;border-radius:10px;padding:20px;text-align:center;margin:0 0 28px;"><p style="color:#92400e;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 6px;">&#127881; Celebrate our New Site with us!</p><p style="color:#78350f;font-size:15px;margin:0 0 16px;line-height:1.6;">Experience the all-new Bagchee &mdash; faster, smarter and more beautiful than ever.</p><div style="display:inline-block;background:#ffffff;border:2px dashed #f59e0b;border-radius:8px;padding:10px 28px;"><p style="color:#6b7280;font-size:10px;margin:0 0 2px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;">Your 15% off promo code</p><p style="color:#0c2340;font-size:24px;font-weight:900;margin:0;letter-spacing:0.15em;font-family:monospace;">BAGCHEE15</p></div></div><p style="font-size:16px;font-weight:700;color:#0B2F3A;margin:0 0 8px;">Hello, Reader!</p><p style="font-size:14px;color:#374151;line-height:1.8;margin:0 0 28px;">Our brand-new website is live! To celebrate, enjoy a special discount. Experience an easier, faster way to find your favourite books today.</p><p style="font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.14em;margin:0 0 6px;padding-bottom:10px;border-bottom:2px solid #f3f4f6;">NEW &amp; NOTABLE</p><p style="font-size:20px;font-weight:800;color:#0B2F3A;margin:0 0 22px;">What&rsquo;s new?</p><div style="margin:0 0 16px;border-left:3px solid #008DDA;padding:10px 14px;background:#f0f8ff;border-radius:0 8px 8px 0;"><p style="font-size:14px;font-weight:800;color:#0B2F3A;margin:0 0 4px;">&#128269;&nbsp; New Search and Listing</p><p style="font-size:13px;color:#6b7280;margin:0 0 10px;line-height:1.7;">Find exactly what you want with our advanced filters. Search by author, category, language, format and more.</p><img src="https://res.cloudinary.com/dgmkcyrl7/image/upload/v1779721663/bagchee/newsletter-screenshots/search.png" alt="Search and Listing" style="width:100%;border-radius:6px;display:block;border:1px solid #e5e7eb;" /></div><div style="margin:0 0 16px;border-left:3px solid #008DDA;padding:10px 14px;background:#f0f8ff;border-radius:0 8px 8px 0;"><p style="font-size:14px;font-weight:800;color:#0B2F3A;margin:0 0 4px;">&#128218;&nbsp; Improved Product Page</p><p style="font-size:13px;color:#6b7280;margin:0 0 10px;line-height:1.7;">Detailed descriptions and high-quality book previews. Table of contents, sample pages and related titles all in one place.</p><img src="https://res.cloudinary.com/dgmkcyrl7/image/upload/v1779721664/bagchee/newsletter-screenshots/book-detail.png" alt="Product Page" style="width:100%;border-radius:6px;display:block;border:1px solid #e5e7eb;" /></div><div style="margin:0 0 16px;border-left:3px solid #008DDA;padding:10px 14px;background:#f0f8ff;border-radius:0 8px 8px 0;"><p style="font-size:14px;font-weight:800;color:#0B2F3A;margin:0 0 4px;">&#128179;&nbsp; Easy Checkout</p><p style="font-size:13px;color:#6b7280;margin:0 0 10px;line-height:1.7;">Faster, secure, and seamless payment experience with PayPal and multiple trusted payment options worldwide.</p><img src="https://res.cloudinary.com/dgmkcyrl7/image/upload/v1779721664/bagchee/newsletter-screenshots/new-arrivals.png" alt="Easy Checkout" style="width:100%;border-radius:6px;display:block;border:1px solid #e5e7eb;" /></div><div style="margin:0 0 16px;border-left:3px solid #008DDA;padding:10px 14px;background:#f0f8ff;border-radius:0 8px 8px 0;"><p style="font-size:14px;font-weight:800;color:#0B2F3A;margin:0 0 4px;">&#10084;&#65039;&nbsp; My Account</p><p style="font-size:13px;color:#6b7280;margin:0 0 10px;line-height:1.7;">All your favourites, order history and tracking in one place. Manage your wishlist and addresses with ease.</p><img src="https://res.cloudinary.com/dgmkcyrl7/image/upload/v1779721665/bagchee/newsletter-screenshots/my-account.png" alt="My Account" style="width:100%;border-radius:6px;display:block;border:1px solid #e5e7eb;" /></div><div style="margin:0 0 16px;border-left:3px solid #008DDA;padding:10px 14px;background:#f0f8ff;border-radius:0 8px 8px 0;"><p style="font-size:14px;font-weight:800;color:#0B2F3A;margin:0 0 4px;">&#127873;&nbsp; E-gift Cards</p><p style="font-size:13px;color:#6b7280;margin:0 0 10px;line-height:1.7;">Perfect for gifting the joy of reading. Send a Bagchee e-gift card to anyone, anywhere in the world.</p><img src="https://res.cloudinary.com/dgmkcyrl7/image/upload/v1779721666/bagchee/newsletter-screenshots/gift-card.png" alt="E-gift Cards" style="width:100%;border-radius:6px;display:block;border:1px solid #e5e7eb;" /></div><div style="margin:0 0 28px;border-left:3px solid #f59e0b;padding:10px 14px;background:#fffbeb;border-radius:0 8px 8px 0;"><p style="font-size:14px;font-weight:800;color:#0B2F3A;margin:0 0 4px;">&#128241;&nbsp; Complete Mobile Friendly</p><p style="font-size:13px;color:#6b7280;margin:0 0 10px;line-height:1.7;">Shop seamlessly on any device. Our new site is fully optimised for mobile &mdash; browse, buy and track orders on the go.</p><img src="https://res.cloudinary.com/dgmkcyrl7/image/upload/v1779721667/bagchee/newsletter-screenshots/mobile.png" alt="Mobile Friendly" style="width:100%;max-width:220px;border-radius:10px;display:block;margin:0 auto;border:1px solid #e5e7eb;" /></div><div style="border-top:1px solid #e5e7eb;margin:0 0 28px;"></div><div style="text-align:center;padding:8px 0 4px;"><p style="font-family:Georgia,'Times New Roman',serif;font-size:28px;font-style:italic;font-weight:400;color:#0B2F3A;margin:0 0 10px;line-height:1.3;letter-spacing:-0.01em;">The story doesn&rsquo;t end here&hellip;</p><p style="font-size:14px;color:#6b7280;margin:0 0 24px;line-height:1.7;">Experience the all-new Bagchee and uncover a world of unforgettable reads.</p><a href="${FRONTEND_URL}" target="_blank" style="display:inline-block;background-color:#008DDA;color:#ffffff;text-decoration:none;padding:14px 44px;font-size:15px;font-weight:700;border-radius:8px;letter-spacing:0.04em;">CONTINUE TO BAGCHEE.COM</a><p style="font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.14em;text-align:center;margin:22px 0 12px;">A PEEK INTO BAGCHEE</p><table width="100%" cellpadding="4" cellspacing="0" style="margin:0 0 16px;"><tr><td width="25%" style="padding:4px;"><a href="${FRONTEND_URL}/new-arrivals" style="display:block;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px;text-align:center;text-decoration:none;"><p style="font-size:18px;margin:0 0 4px;">&#127381;</p><p style="font-size:10px;font-weight:700;color:#1d4ed8;margin:0;">New Arrivals</p></a></td><td width="25%" style="padding:4px;"><a href="${FRONTEND_URL}" style="display:block;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px;text-align:center;text-decoration:none;"><p style="font-size:18px;margin:0 0 4px;">&#11088;</p><p style="font-size:10px;font-weight:700;color:#15803d;margin:0;">Popular Titles</p></a></td><td width="25%" style="padding:4px;"><a href="${FRONTEND_URL}/best-sellers" style="display:block;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px;text-align:center;text-decoration:none;"><p style="font-size:18px;margin:0 0 4px;">&#128293;</p><p style="font-size:10px;font-weight:700;color:#b45309;margin:0;">Bestsellers</p></a></td><td width="25%" style="padding:4px;"><a href="${FRONTEND_URL}/sale" style="display:block;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px;text-align:center;text-decoration:none;"><p style="font-size:18px;margin:0 0 4px;">&#127991;</p><p style="font-size:10px;font-weight:700;color:#b91c1c;margin:0;">Sale</p></a></td></tr></table></div>` },
 ];
 
-const getFullEmailHtml = (subject, bodyHtml) => `<!DOCTYPE html>
+const getFullEmailHtml = (subject, bodyHtml) => bodyHtml.trimStart().startsWith('<!DOCTYPE') ? bodyHtml : `<!DOCTYPE html>
 <html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/></head>
 <body style="margin:0;padding:0;background:#F7EEDD;">
 <div style="font-family:'Inter',Helvetica,Arial,sans-serif;background-color:#F7EEDD;padding:40px 0;">
@@ -366,9 +378,6 @@ const getFullEmailHtml = (subject, bodyHtml) => `<!DOCTYPE html>
         </td></tr>
         <tr><td style="text-align:center;">
           <p style="color:#FFFFFF;margin:4px 0 0;opacity:0.85;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-family:'Inter',Helvetica,Arial,sans-serif;">Books That Stick</p>
-        </td></tr>
-        <tr><td style="text-align:center;padding-top:10px;">
-          <p style="color:#FFFFFF;margin:0;opacity:0.9;font-size:14px;font-family:'Inter',Helvetica,Arial,sans-serif;">${subject}</p>
         </td></tr>
       </table>
     </div>
@@ -408,14 +417,22 @@ const STANDARD_PROMO_BANNERS = [
     textColor: '#0B2F3A',
     link: `${FRONTEND_URL}/contact-us`,
   },
+  {
+    id: 'egiftcard',
+    name: 'Bagchee E-gift Card',
+    subtitle: 'The Perfect Gift for any Occasion',
+    bgColor: '#FFF3E0',
+    textColor: '#0B2F3A',
+    link: `${FRONTEND_URL}/gift-card-detail`,
+  },
 ];
 
-const buildStandardPromoHtml = (promo) => `<table cellpadding="0" cellspacing="0" border="0" style="width:100%;border-radius:8px;overflow:hidden;margin:16px 0;background:${promo.bgColor};font-family:Inter,Helvetica,Arial,sans-serif;">
+const buildStandardPromoHtml = (promo, compact = false) => `<table cellpadding="0" cellspacing="0" border="0" style="width:100%;border-radius:8px;overflow:hidden;margin:16px 0;background:${promo.bgColor};font-family:Inter,Helvetica,Arial,sans-serif;">
   <tr>
-    <td style="padding:18px 24px;text-align:center;">
-      <p style="font-size:16px;font-weight:800;color:${promo.textColor};margin:0 0 4px;">${promo.name}</p>
-      <p style="font-size:13px;color:${promo.textColor};opacity:0.85;margin:0 0 12px;">${promo.subtitle}</p>
-      <a href="${promo.link}" target="_blank" style="background:rgba(255,255,255,0.2);color:${promo.textColor};border:2px solid ${promo.textColor === '#FFFFFF' ? 'rgba(255,255,255,0.5)' : '#0B2F3A'};padding:7px 20px;border-radius:4px;text-decoration:none;font-size:12px;font-weight:bold;display:inline-block;">Learn More →</a>
+    <td style="padding:${compact ? '12px 20px' : '18px 24px'};text-align:center;">
+      <p style="font-size:${compact ? '14px' : '16px'};font-weight:800;color:${promo.textColor};margin:0 0 3px;">${promo.name}</p>
+      <p style="font-size:${compact ? '11px' : '13px'};color:${promo.textColor};opacity:0.85;margin:0 0 ${compact ? '8px' : '12px'};">${promo.subtitle}</p>
+      <a href="${promo.link}" target="_blank" style="background:rgba(255,255,255,0.2);color:${promo.textColor};border:2px solid ${promo.textColor === '#FFFFFF' ? 'rgba(255,255,255,0.5)' : '#0B2F3A'};padding:${compact ? '5px 14px' : '7px 20px'};border-radius:4px;text-decoration:none;font-size:${compact ? '11px' : '12px'};font-weight:bold;display:inline-block;">Learn More →</a>
     </td>
   </tr>
 </table>`;
@@ -522,9 +539,7 @@ const SendEmail = () => {
 
   // Category tree for audience
   const [mainCategories, setMainCategories] = useState([]);
-  const [subCategories, setSubCategories] = useState([]);
   const [selectedCategoryFilters, setSelectedCategoryFilters] = useState([]);
-  const [expandedMainCats, setExpandedMainCats] = useState({});
   const [catTreeLoading, setCatTreeLoading] = useState(false);
   const [catSearchQuery, setCatSearchQuery] = useState('');
 
@@ -551,13 +566,6 @@ const SendEmail = () => {
 
   const API_BASE_URL = process.env.REACT_APP_API_URL;
 
-  // Subcategories grouped by main category id
-  const subsByMainCat = useMemo(() => {
-    const map = {};
-    subCategories.forEach(s => { if (!map[s.categoryId]) map[s.categoryId] = []; map[s.categoryId].push(s); });
-    return map;
-  }, [subCategories]);
-
   // Fetch audience counts whenever selectedCategoryFilters changes
   const fetchAudienceCounts = useCallback(async (cats) => {
     setCountsLoading(true);
@@ -574,17 +582,13 @@ const SendEmail = () => {
 
   useEffect(() => { fetchAudienceCounts(selectedCategoryFilters); }, [selectedCategoryFilters, fetchAudienceCounts]);
 
-  // Fetch categories for tree
+  // Fetch categories for tree — only those with at least one book linked
   useEffect(() => {
     const load = async () => {
       setCatTreeLoading(true);
       try {
-        const [mRes, sRes] = await Promise.all([
-          axios.get(`${API_BASE_URL}/main-categories/list`),
-          axios.get(`${API_BASE_URL}/subcategory/fetch`)
-        ]);
-        if (mRes.data.status) setMainCategories(mRes.data.data || []);
-        if (sRes.data.status) setSubCategories(sRes.data.data || []);
+        const res = await axios.get(`${API_BASE_URL}/category/fetch?withProducts=true`);
+        if (res.data.status) setMainCategories(res.data.data || []);
       } catch { /* ignore */ } finally {
         setCatTreeLoading(false);
       }
@@ -708,7 +712,7 @@ const SendEmail = () => {
 
   const addBanner = () => {
     if (builderBanners.length >= currentBuilderDef.maxBanners) return;
-    setBuilderBanners(prev => [...prev, { type: 'promo', code: '', text: '', bgColor: '#FFD700', imageUrl: '', link: '', promoId: null, promoData: null }]);
+    setBuilderBanners(prev => [...prev, { type: 'promo', code: '', text: '', bgColor: '#FFD700', imageUrl: '', link: '', promoId: null, promoData: null, position: 'top' }]);
   };
 
   const removeBanner = (idx) => setBuilderBanners(prev => prev.filter((_, i) => i !== idx));
@@ -833,7 +837,7 @@ const SendEmail = () => {
       <p style="margin:0 0 6px;font-size:15px;font-weight:700;color:#0B2F3A;">${p.title}</p>
       <p style="margin:0 0 8px;font-size:12px;color:#4A6fa5;">ID: ${p.bagcheeId}</p>
       ${price ? `<p style="margin:0 0 10px;font-size:14px;font-weight:700;color:#008DDA;">${price}</p>` : ''}
-      <a href="${FRONTEND_URL}/books/${p.bagcheeId}" style="display:inline-block;background:#008DDA;color:#fff;text-decoration:none;padding:8px 18px;font-size:13px;font-weight:bold;border-radius:6px;">View Book</a>
+      <a href="${FRONTEND_URL}/books/${p.bagcheeId}/${p.slug || p.bagcheeId}" style="display:inline-block;background:#008DDA;color:#fff;text-decoration:none;padding:8px 18px;font-size:13px;font-weight:bold;border-radius:6px;">View Book</a>
     </td>
   </tr>
 </table>`;
@@ -989,6 +993,23 @@ const SendEmail = () => {
                         <Image size={11} /> Image Banner
                       </button>
                     </div>
+                    {builderBanners.length === 1 && (
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide font-montserrat">Position:</span>
+                        <button
+                          onClick={() => updateBanner(idx, 'position', 'top')}
+                          className={`px-3 py-1 rounded text-xs font-bold font-montserrat border transition-all ${(banner.position || 'top') === 'top' ? 'border-primary bg-primary/10 text-primary' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}
+                        >
+                          Top
+                        </button>
+                        <button
+                          onClick={() => updateBanner(idx, 'position', 'bottom')}
+                          className={`px-3 py-1 rounded text-xs font-bold font-montserrat border transition-all ${banner.position === 'bottom' ? 'border-primary bg-primary/10 text-primary' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}
+                        >
+                          Bottom
+                        </button>
+                      </div>
+                    )}
                     {banner.type === 'coupon' ? (
                       <div className="space-y-2">
                         <div className="grid grid-cols-2 gap-2">
@@ -1225,53 +1246,23 @@ const SendEmail = () => {
                       type="text"
                       value={catSearchQuery}
                       onChange={(e) => setCatSearchQuery(e.target.value)}
-                      placeholder="Search categories & subcategories..."
+                      placeholder="Search categories..."
                       className="w-full border border-gray-300 rounded-lg pl-8 pr-3 py-2 text-xs outline-none focus:border-primary font-montserrat bg-white"
                     />
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-56 overflow-y-auto pr-1">
-                    {mainCategories.filter(cat => {
-                      const catName = (cat.title || cat.categorytitle || '').toLowerCase();
-                      const q = catSearchQuery.toLowerCase();
-                      if (!q) return true;
-                      if (catName.includes(q)) return true;
-                      return (subsByMainCat[cat.id] || []).some(s => (s.name || s.subcategoryname || '').toLowerCase().includes(q));
-                    }).map(cat => {
-                      const catName = cat.title || cat.categorytitle || '';
-                      const subs = (subsByMainCat[cat.id] || []).filter(s =>
-                        !catSearchQuery || (s.name || s.subcategoryname || '').toLowerCase().includes(catSearchQuery.toLowerCase()) || catName.toLowerCase().includes(catSearchQuery.toLowerCase())
-                      );
-                      const isExpanded = expandedMainCats[cat.id] || !!catSearchQuery;
-                      const isChecked = selectedCategoryFilters.includes(catName);
-                      return (
-                        <div key={cat.id} className="border border-gray-200 rounded-lg overflow-hidden bg-white">
-                          <div className="flex items-center justify-between px-2.5 py-2 bg-gray-50">
-                            <label className="flex items-center gap-1.5 cursor-pointer flex-1 min-w-0">
-                              <input type="checkbox" checked={isChecked} onChange={() => toggleCategoryFilter(catName)} className="accent-primary h-3 w-3 shrink-0" />
-                              <span className="text-[11px] font-bold text-gray-700 truncate font-montserrat">{catName}</span>
-                            </label>
-                            {(subsByMainCat[cat.id] || []).length > 0 && !catSearchQuery && (
-                              <button onClick={() => setExpandedMainCats(p => ({ ...p, [cat.id]: !p[cat.id] }))} className="ml-1 text-gray-400 hover:text-primary shrink-0">
-                                {isExpanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
-                              </button>
-                            )}
-                          </div>
-                          {isExpanded && subs.length > 0 && (
-                            <div className="px-2.5 py-2 border-t border-gray-100 space-y-1">
-                              {subs.map(sub => {
-                                const subName = sub.name || sub.subcategoryname || '';
-                                return (
-                                  <label key={sub.id} className="flex items-center gap-1.5 cursor-pointer">
-                                    <input type="checkbox" checked={selectedCategoryFilters.includes(subName)} onChange={() => toggleCategoryFilter(subName)} className="accent-primary h-3 w-3 shrink-0" />
-                                    <span className="text-[10px] text-gray-600 truncate font-montserrat">{subName}</span>
-                                  </label>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                    {mainCategories
+                      .filter(cat => !catSearchQuery || (cat.title || '').toLowerCase().includes(catSearchQuery.toLowerCase()))
+                      .map(cat => {
+                        const catName = cat.title || '';
+                        const isChecked = selectedCategoryFilters.includes(catName);
+                        return (
+                          <label key={cat.id} className={`flex items-center gap-1.5 px-2.5 py-2 border rounded-lg cursor-pointer transition-all ${isChecked ? 'border-primary bg-primary/5' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
+                            <input type="checkbox" checked={isChecked} onChange={() => toggleCategoryFilter(catName)} className="accent-primary h-3 w-3 shrink-0" />
+                            <span className="text-[11px] font-bold text-gray-700 truncate font-montserrat">{catName}</span>
+                          </label>
+                        );
+                      })}
                   </div>
                   {selectedCategoryFilters.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1.5">
@@ -1473,9 +1464,9 @@ const SendEmail = () => {
               <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
                 <iframe
                   title="Email Preview"
-                  srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/></head><body style="margin:0;padding:0;background:#F7EEDD;">${body || '<p style="padding:40px;color:#999;text-align:center;font-family:sans-serif;">No content yet</p>'}</body></html>`}
+                  srcDoc={getFullEmailHtml(subject, body || '<p style="padding:40px;color:#999;text-align:center;font-family:sans-serif;">No content yet</p>')}
                   className="w-full"
-                  style={{ height: '500px', border: 'none' }}
+                  style={{ height: '600px', border: 'none' }}
                 />
               </div>
             </div>

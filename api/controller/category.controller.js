@@ -69,7 +69,12 @@ export const fetchCategory = async (req, res) => {
         }
 
         // All categories (for dropdowns)
-        const data = await prisma.category.findMany({ orderBy: { title: 'asc' } });
+        // ?withProducts=true → only categories that have at least one Book (productType='book') linked
+        const { withProducts } = req.query;
+        const dropdownWhere = withProducts === 'true'
+            ? { products: { some: { product: { productType: 'book' } } } }
+            : {};
+        const data = await prisma.category.findMany({ where: dropdownWhere, orderBy: { title: 'asc' } });
         res.json({ status: true, data });
     } catch (error) {
         console.error('Category fetch error:', error.message);
