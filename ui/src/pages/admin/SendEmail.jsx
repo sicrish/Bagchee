@@ -7,6 +7,7 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom';
 import JoditEditor from '../../components/admin/LazyJoditEditor';
 import axios from '../../utils/axiosConfig';
+import { dedupeByTitle } from '../../utils/categoryUtils';
 import toast from 'react-hot-toast';
 import { getProductImageUrl } from '../../utils/imageUrl';
 
@@ -582,13 +583,13 @@ const SendEmail = () => {
 
   useEffect(() => { fetchAudienceCounts(selectedCategoryFilters); }, [selectedCategoryFilters, fetchAudienceCounts]);
 
-  // Fetch categories for tree — only those with at least one book linked
+  // Fetch categories for tree — book categories only (no CDs/DVDs/handicrafts; those media are dead)
   useEffect(() => {
     const load = async () => {
       setCatTreeLoading(true);
       try {
         const res = await axios.get(`${API_BASE_URL}/category/fetch?withProducts=true`);
-        if (res.data.status) setMainCategories(res.data.data || []);
+        if (res.data.status) setMainCategories(dedupeByTitle(res.data.data || []));
       } catch { /* ignore */ } finally {
         setCatTreeLoading(false);
       }

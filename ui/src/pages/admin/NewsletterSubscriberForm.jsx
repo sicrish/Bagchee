@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Check, RotateCcw, X, Loader2, ChevronDown } from 'lucide-react';
 import axios from '../../utils/axiosConfig';
+import { dedupeByTitle } from '../../utils/categoryUtils';
 import toast from 'react-hot-toast';
 
 const NewsletterSubscriberForm = () => {
@@ -29,9 +30,9 @@ const NewsletterSubscriberForm = () => {
   useEffect(() => {
     const initPage = async () => {
       try {
-        // Fetch only categories that have at least one book linked
+        // Book categories only (?withProducts=true) — exclude dead media (CDs, DVDs, handicrafts)
         const catRes = await axios.get(`${API_BASE_URL}/category/fetch?withProducts=true`);
-        if (catRes.data.status) setCategoriesList(catRes.data.data || []);
+        if (catRes.data.status) setCategoriesList(dedupeByTitle(catRes.data.data || []));
 
         // Check if Edit Mode
         if (id) {

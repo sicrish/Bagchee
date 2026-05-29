@@ -24,7 +24,7 @@ const fetchSectionDataByName = async (sectionName, res) => {
         // Fetch product details separately (no Prisma relation defined on HomeSectionProduct)
         const productIds = entries.map(e => e.productId);
         const products = productIds.length > 0
-            ? await prisma.product.findMany({ where: { id: { in: productIds } }, select: { id: true, title: true, defaultImage: true, price: true, bagcheeId: true } })
+            ? await prisma.product.findMany({ where: { id: { in: productIds } }, select: { id: true, title: true, defaultImage: true, price: true, bagcheeId: true, synopsis: true } })
             : [];
 
         const productMap = Object.fromEntries(products.map(p => [p.id, p]));

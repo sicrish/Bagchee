@@ -30,10 +30,12 @@ const ORDER_DETAIL_INCLUDE = {
     }
 };
 
-// Minimal include for list view (omit heavy product details)
+// Minimal include for list view (omit heavy product details).
+// Pull product.title too — migrated orders have item.name='' (snapshot wasn't in the
+// old table), so the relation title is the only reliable book name for those rows.
 const ORDER_LIST_INCLUDE = {
     customer: { select: { id: true, name: true, email: true } },
-    items: { select: { id: true, name: true, price: true, quantity: true, status: true } }
+    items: { select: { id: true, name: true, price: true, quantity: true, status: true, product: { select: { title: true } } } }
 };
 
 // Extract shipping/billing flat fields from request body.
@@ -111,7 +113,7 @@ export const saveOrder = async (req, res) => {
 
             const dbProducts = await prisma.product.findMany({
                 where: { id: { in: productIds } },
-                select: { id: true, title: true, price: true, defaultImage: true }
+                select: { id: true, title: true, price: true, realPrice: true, defaultImage: true }
             });
             if (dbProducts.length !== productIds.length)
                 return res.status(400).json({ status: false, msg: 'One or more products not found' });
@@ -120,11 +122,16 @@ export const saveOrder = async (req, res) => {
             itemsData = products.map(p => {
                 const pId    = parseInt(p.productId || p.product_id || p.id);
                 const dbProd = priceMap[pId];
+                // Use realPrice (discounted selling price) when it exists and is lower than price (MRP)
+                const sellingPrice = (dbProd.realPrice > 0 && dbProd.realPrice < dbProd.price)
+                    ? dbProd.realPrice
+                    : dbProd.price;
                 return {
                     productId:    pId,
                     name:         p.name || p.title || dbProd.title || '',
                     image:        dbProd.defaultImage || '',
-                    price:        dbProd.price,
+                    price:        sellingPrice,
+                    realPrice:    dbProd.realPrice || 0,
                     quantity:     Math.min(100, Math.max(1, Number(p.quantity) || 1)),
                     status:       p.status           || '',
                     trackingCode: p.trackingCode || p.tracking_code || '',
@@ -136,7 +143,21 @@ export const saveOrder = async (req, res) => {
         const giftCardSubtotal = giftCardItems.reduce((sum, gc) => sum + parseFloat(gc.amount), 0);
         const subtotalBeforeGiftWallet = physicalSubtotal + giftCardSubtotal;
 
-        const shippingCost = Math.max(0, Number(req.body.shipping_cost || req.body.shippingCost) || 0);
+        let shippingCost = Math.max(0, Number(req.body.shipping_cost || req.body.shippingCost) || 0);
+
+        // Server-side free-shipping enforcement: if the selling subtotal (realPrice || price)
+        // meets the threshold and shipping is not an Express/Expedited (tiered) option,
+        // override any incorrectly charged shipping fee to $0.
+        if (shippingCost > 0 && itemsData.length > 0) {
+            // i.price is already the selling price (realPrice when discounted, else MRP)
+            const sellingSubtotal = itemsData.reduce((sum, i) => sum + i.price * i.quantity, 0);
+            const shippingType = (req.body.shipping_type || req.body.shippingType || '').toLowerCase();
+            const isTieredShipping = shippingType.includes('express') || shippingType.includes('expedited');
+            const freeShippingThreshold = 50; // matches frontend constant
+            if (!isTieredShipping && sellingSubtotal >= freeShippingThreshold) {
+                shippingCost = 0;
+            }
+        }
 
         // Apply coupon discount server-side — only against physical items subtotal
         const couponId = parseInt(req.body.coupon_id || req.body.couponId) || null;
@@ -226,7 +247,7 @@ export const saveOrder = async (req, res) => {
                 ...extractShipping(req.body),
                 ...extractBilling(req.body),
 
-                items: { create: itemsData }
+                items: { create: itemsData.map(({ realPrice, ...rest }) => rest) }
             },
             include: ORDER_DETAIL_INCLUDE
         });
@@ -254,18 +275,24 @@ export const saveOrder = async (req, res) => {
         }
 
         // Send confirmation email — fire and forget, never fail the order
+        // Direct PayPal/card: skip here, email is sent after payment capture in paypal.controller.js
+        // Deferred card/PayPal (approval pending): send now so customer knows order was received
         const customerEmail = order.shippingEmail || order.customer?.email;
-        if (customerEmail) {
-            // Attach wire transfer bank info before sending (so email includes payment instructions)
-            if (isWireTransfer(paymentTitle)) {
+        const isDeferredCardOrPayPal = isCardOrPayPal(paymentTitle) && order.status === 'approval pending';
+        if (customerEmail && (!isCardOrPayPal(paymentTitle) || isDeferredCardOrPayPal)) {
+            if (isDeferredCardOrPayPal) {
+                // For deferred card/PayPal: show "pending review" notice, not payment instructions
+                order.isDeferredPayment = true;
+            } else {
+                // Fetch additionalText for wire transfer, purchase order, etc.
                 try {
-                    const wireMethod = await prisma.payment.findFirst({
-                        where: { title: { contains: 'wire', mode: 'insensitive' } },
+                    const payMethod = await prisma.payment.findFirst({
+                        where: { title: { equals: paymentTitle, mode: 'insensitive' } },
                         select: { additionalText: true, additionalTextActive: true }
                     });
-                    if (wireMethod) {
-                        order.paymentAdditionalText = wireMethod.additionalText;
-                        order.paymentAdditionalTextActive = wireMethod.additionalTextActive;
+                    if (payMethod?.additionalText) {
+                        order.paymentAdditionalText = payMethod.additionalText;
+                        order.paymentAdditionalTextActive = payMethod.additionalTextActive;
                     }
                 } catch { /* non-critical */ }
             }
@@ -301,14 +328,23 @@ export const getAllOrders = async (req, res) => {
 
         if (search) {
             const numericId = parseInt(search);
+            const parts = search.trim().split(/\s+/);
             conditions.push({ OR: [
                 { orderNumber:   { contains: search, mode: 'insensitive' } },
                 { shippingEmail: { contains: search, mode: 'insensitive' } },
                 { shippingPhone: { contains: search, mode: 'insensitive' } },
+                { shippingFirstName: { contains: search, mode: 'insensitive' } },
+                { shippingLastName:  { contains: search, mode: 'insensitive' } },
+                // "First Last" full-name search across shipping name fields
+                ...(parts.length >= 2 ? [{ AND: [
+                    { shippingFirstName: { contains: parts[0], mode: 'insensitive' } },
+                    { shippingLastName:  { contains: parts.slice(1).join(' '), mode: 'insensitive' } },
+                ]}] : []),
                 // Search by customer name
                 { customer: { name: { contains: search, mode: 'insensitive' } } },
-                // Search by product/book name within order items
+                // Search by product/book name within order items (name stored at order time or via product relation)
                 { items: { some: { name: { contains: search, mode: 'insensitive' } } } },
+                { items: { some: { product: { title: { contains: search, mode: 'insensitive' } } } } },
                 // Search by numeric order ID
                 ...(!isNaN(numericId) ? [{ id: numericId }] : []),
             ]});
@@ -496,8 +532,10 @@ export const approveOrder = async (req, res) => {
 
         // Generate a secure random token for the payment link
         const token = crypto.randomBytes(32).toString('hex');
-        const frontendUrl = process.env.FRONTEND_URL || 'https://bagchee.com';
+        // Take only the first URL in case env var was accidentally set to multiple comma-separated values
+        const frontendUrl = (process.env.FRONTEND_URL || 'https://bagchee.com').split(',')[0].trim();
         const paymentLink = `${frontendUrl}/pay/${order.id}/${token}`;
+        console.log(`[approveOrder] Generated payment link for order ${order.id}: ${paymentLink}`);
 
         const updated = await prisma.order.update({
             where: { id },
@@ -505,13 +543,8 @@ export const approveOrder = async (req, res) => {
             include: ORDER_DETAIL_INCLUDE
         });
 
-        // Send payment link email to customer
-        const email = order.shippingEmail || order.customer?.email;
-        if (email) {
-            sendPaymentLinkEmail(email, updated, paymentLink).catch(() => {});
-        }
-
-        res.json({ status: true, msg: 'Order approved and payment link sent', data: updated });
+        // Email is NOT sent here — admin must test the link first, then click "Send Email" in the UI
+        res.json({ status: true, msg: 'Order approved. Copy and test the payment link, then send the email to the customer.', data: updated });
     } catch (error) {
         console.error('Approve Order Error:', error);
         if (error.code === 'P2025') return res.status(404).json({ status: false, msg: 'Order not found' });

@@ -1,18 +1,20 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   ArrowLeft, Loader2, RotateCw, Send, ChevronDown, ChevronUp, X,
-  CheckCircle, Clock, AlertCircle, Ban, Mail
+  CheckCircle, Clock, AlertCircle, Ban, Mail, Eye, ChevronLeft, ChevronRight,
+  FileText
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
+import { dedupeByTitle } from '../../utils/categoryUtils';
 import toast from 'react-hot-toast';
 
 const STATUS_CONFIG = {
-  sent:      { label: 'Sent',       icon: CheckCircle,  color: 'text-green-600',  bg: 'bg-green-100' },
-  pending:   { label: 'Scheduled',  icon: Clock,        color: 'text-yellow-600', bg: 'bg-yellow-100' },
-  sending:   { label: 'In Progress',icon: Loader2,      color: 'text-blue-600',   bg: 'bg-blue-100' },
-  failed:    { label: 'Failed',     icon: AlertCircle,  color: 'text-red-600',    bg: 'bg-red-100' },
-  cancelled: { label: 'Cancelled',  icon: Ban,          color: 'text-gray-500',   bg: 'bg-gray-100' },
+  sent:      { label: 'Sent',        icon: CheckCircle,  color: 'text-green-600',  bg: 'bg-green-100' },
+  pending:   { label: 'Scheduled',   icon: Clock,        color: 'text-yellow-600', bg: 'bg-yellow-100' },
+  sending:   { label: 'In Progress', icon: Loader2,      color: 'text-blue-600',   bg: 'bg-blue-100' },
+  failed:    { label: 'Failed',      icon: AlertCircle,  color: 'text-red-600',    bg: 'bg-red-100' },
+  cancelled: { label: 'Cancelled',   icon: Ban,          color: 'text-gray-500',   bg: 'bg-gray-100' },
 };
 
 const AUDIENCE_LABELS = {
@@ -23,11 +25,276 @@ const AUDIENCE_LABELS = {
   specific:    'Specific emails',
 };
 
+// ─── Campaign Detail Modal ─────────────────────────────────────────────────────
+const CampaignDetailModal = ({ campaign: initialCampaign, onClose, apiBaseUrl }) => {
+  const [campaign, setCampaign] = useState(initialCampaign);
+  const [activeTab, setActiveTab] = useState('preview'); // 'preview' | 'recipients'
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [logs, setLogs] = useState([]);
+  const [logsTotal, setLogsTotal] = useState(0);
+  const [logsPage, setLogsPage] = useState(1);
+  const [logsPages, setLogsPages] = useState(1);
+  const [logsFilter, setLogsFilter] = useState('all');
+  const [logsLoading, setLogsLoading] = useState(false);
+  const pollRef = useRef(null);
+  const LIMIT = 50;
+
+  // Build preview URL (iframe src pointing to backend preview endpoint)
+  useEffect(() => {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    // We'll fetch via axios and create a blob URL
+    const loadPreview = async () => {
+      try {
+        const res = await axios.get(`${apiBaseUrl}/email-campaign/${campaign.id}/preview`, {
+          responseType: 'text'
+        });
+        const blob = new Blob([res.data], { type: 'text/html' });
+        setPreviewUrl(URL.createObjectURL(blob));
+      } catch {
+        setPreviewUrl('error');
+      }
+    };
+    loadPreview();
+    return () => { if (previewUrl && previewUrl !== 'error') URL.revokeObjectURL(previewUrl); };
+  }, [campaign.id, apiBaseUrl]);
+
+  const fetchLogs = useCallback(async (page = 1, filter = logsFilter) => {
+    setLogsLoading(true);
+    try {
+      const params = new URLSearchParams({ page, limit: LIMIT });
+      if (filter !== 'all') params.set('status', filter);
+      const res = await axios.get(`${apiBaseUrl}/email-campaign/${campaign.id}/delivery-logs?${params}`);
+      if (res.data.status) {
+        setLogs(res.data.data);
+        setLogsTotal(res.data.total);
+        setLogsPages(res.data.pages);
+      }
+    } catch {
+      // silent
+    } finally {
+      setLogsLoading(false);
+    }
+  }, [campaign.id, apiBaseUrl, logsFilter]);
+
+  const fetchCampaignStatus = useCallback(async () => {
+    try {
+      const res = await axios.get(`${apiBaseUrl}/email-campaign/${campaign.id}`);
+      if (res.data.status) setCampaign(res.data.data);
+    } catch { /* silent */ }
+  }, [campaign.id, apiBaseUrl]);
+
+  // Load logs when switching to recipients tab
+  useEffect(() => {
+    if (activeTab === 'recipients') {
+      fetchLogs(logsPage, logsFilter);
+    }
+  }, [activeTab, logsPage, logsFilter]);
+
+  // Real-time polling while sending
+  useEffect(() => {
+    if (campaign.status === 'sending') {
+      pollRef.current = setInterval(async () => {
+        await fetchCampaignStatus();
+        if (activeTab === 'recipients') fetchLogs(logsPage, logsFilter);
+      }, 3000);
+    } else {
+      clearInterval(pollRef.current);
+    }
+    return () => clearInterval(pollRef.current);
+  }, [campaign.status, activeTab, logsPage, logsFilter]);
+
+  const sc = STATUS_CONFIG[campaign.status] || STATUS_CONFIG.sent;
+  const StatusIcon = sc.icon;
+  const totalRecip = (campaign.sent || 0) + (campaign.failed || 0);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-2 md:p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl h-[92vh] flex flex-col overflow-hidden">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200 shrink-0">
+          <div className="flex-1 min-w-0 mr-4">
+            <h2 className="text-sm font-bold text-gray-800 font-montserrat truncate">{campaign.subject}</h2>
+            <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+              <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full font-montserrat ${sc.bg} ${sc.color}`}>
+                <StatusIcon size={10} className={campaign.status === 'sending' ? 'animate-spin' : ''} />
+                {sc.label}
+              </span>
+              {campaign.status !== 'pending' && (
+                <>
+                  <span className="text-[11px] text-green-600 font-bold font-montserrat">{(campaign.sent || 0).toLocaleString()} sent</span>
+                  {(campaign.failed || 0) > 0 && <span className="text-[11px] text-red-500 font-bold font-montserrat">{campaign.failed.toLocaleString()} failed</span>}
+                  {campaign.status === 'sending' && <span className="text-[11px] text-blue-500 font-montserrat animate-pulse">Updating...</span>}
+                </>
+              )}
+              <span className="text-[10px] text-gray-400 font-montserrat">
+                {new Date(campaign.sendAt).toLocaleDateString('en-GB')} {new Date(campaign.sendAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 p-1.5 rounded-lg hover:bg-gray-100">
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex border-b border-gray-200 shrink-0">
+          {[
+            { key: 'preview', icon: Eye, label: 'Email Preview' },
+            { key: 'recipients', icon: Mail, label: `Recipients${logsTotal > 0 ? ` (${logsTotal.toLocaleString()})` : ''}` }
+          ].map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex items-center gap-2 px-5 py-3 text-xs font-bold font-montserrat border-b-2 transition-colors ${activeTab === tab.key ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+            >
+              <tab.icon size={13} /> {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-hidden">
+
+          {/* Preview Tab */}
+          {activeTab === 'preview' && (
+            <div className="h-full flex items-center justify-center bg-gray-100">
+              {previewUrl === null && (
+                <div className="flex items-center gap-2 text-gray-400">
+                  <Loader2 size={18} className="animate-spin" />
+                  <span className="font-montserrat text-sm">Loading preview...</span>
+                </div>
+              )}
+              {previewUrl === 'error' && (
+                <p className="text-red-500 font-montserrat text-sm">Failed to load preview.</p>
+              )}
+              {previewUrl && previewUrl !== 'error' && (
+                <iframe
+                  src={previewUrl}
+                  title="Email Preview"
+                  className="w-full h-full border-0"
+                  sandbox="allow-same-origin"
+                />
+              )}
+            </div>
+          )}
+
+          {/* Recipients Tab */}
+          {activeTab === 'recipients' && (
+            <div className="h-full flex flex-col overflow-hidden">
+              {/* Filter bar */}
+              <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-100 bg-gray-50 shrink-0 flex-wrap">
+                {[
+                  { key: 'all', label: 'All' },
+                  { key: 'sent', label: 'Sent' },
+                  { key: 'failed', label: 'Failed' }
+                ].map(f => (
+                  <button
+                    key={f.key}
+                    onClick={() => { setLogsFilter(f.key); setLogsPage(1); }}
+                    className={`px-3 py-1 text-[11px] font-bold font-montserrat rounded-full border transition-colors ${logsFilter === f.key ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-300 hover:border-primary'}`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+                <span className="ml-auto text-[10px] text-gray-400 font-montserrat">
+                  {logsTotal > 0 ? `${logsTotal.toLocaleString()} emails` : 'No logs yet'}
+                </span>
+              </div>
+
+              {/* Table */}
+              <div className="flex-1 overflow-y-auto">
+                {logsLoading && logs.length === 0 ? (
+                  <div className="flex items-center justify-center gap-2 py-12 text-gray-400">
+                    <Loader2 size={18} className="animate-spin text-primary" />
+                    <span className="font-montserrat text-sm">Loading...</span>
+                  </div>
+                ) : logsTotal === 0 && !logsLoading ? (
+                  <div className="py-12 text-center text-gray-400">
+                    <FileText size={32} className="mx-auto mb-3 opacity-30" />
+                    <p className="text-sm font-montserrat">
+                      {campaign.sent > 0
+                        ? 'No delivery logs — this campaign was sent before logging was enabled.'
+                        : 'No recipients yet.'}
+                    </p>
+                  </div>
+                ) : (
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-gray-50 z-10">
+                      <tr className="border-b border-gray-200">
+                        <th className="px-4 py-2.5 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wide font-montserrat">#</th>
+                        <th className="px-4 py-2.5 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wide font-montserrat">Email</th>
+                        <th className="px-4 py-2.5 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wide font-montserrat">Status</th>
+                        <th className="px-4 py-2.5 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wide font-montserrat hidden md:table-cell">Time</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {logs.map((log, idx) => (
+                        <tr key={log.id} className="hover:bg-gray-50/60">
+                          <td className="px-4 py-2 text-[11px] text-gray-400 font-montserrat w-12">
+                            {(logsPage - 1) * LIMIT + idx + 1}
+                          </td>
+                          <td className="px-4 py-2 text-[12px] text-gray-700 font-montserrat font-medium">{log.email}</td>
+                          <td className="px-4 py-2">
+                            {log.status === 'sent' ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-green-600 font-montserrat">
+                                <CheckCircle size={11} /> Sent
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-500 font-montserrat" title={log.error || ''}>
+                                <AlertCircle size={11} /> Failed
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2 text-[10px] text-gray-400 font-montserrat hidden md:table-cell whitespace-nowrap">
+                            {new Date(log.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+
+              {/* Pagination */}
+              {logsPages > 1 && (
+                <div className="flex items-center justify-between px-4 py-2.5 border-t border-gray-100 bg-white shrink-0">
+                  <button
+                    onClick={() => setLogsPage(p => Math.max(1, p - 1))}
+                    disabled={logsPage === 1}
+                    className="flex items-center gap-1 text-xs font-bold font-montserrat text-gray-600 disabled:opacity-40 hover:text-primary transition-colors"
+                  >
+                    <ChevronLeft size={14} /> Prev
+                  </button>
+                  <span className="text-xs text-gray-500 font-montserrat">
+                    Page {logsPage} of {logsPages}
+                    <span className="text-gray-400 ml-1">({logsTotal.toLocaleString()} total)</span>
+                  </span>
+                  <button
+                    onClick={() => setLogsPage(p => Math.min(logsPages, p + 1))}
+                    disabled={logsPage === logsPages}
+                    className="flex items-center gap-1 text-xs font-bold font-montserrat text-gray-600 disabled:opacity-40 hover:text-primary transition-colors"
+                  >
+                    Next <ChevronRight size={14} />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Resend Modal ──────────────────────────────────────────────────────────────
 const ResendModal = ({ campaign, onClose, onResent, apiBaseUrl }) => {
   const [resendType, setResendType] = useState('same');
   const [newSubject, setNewSubject] = useState(campaign.subject);
   const [specificEmails, setSpecificEmails] = useState('');
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('form'); // 'form' | 'preview'
+  const [previewUrl, setPreviewUrl] = useState(null);
 
   // Category tree for resend
   const [mainCategories, setMainCategories] = useState([]);
@@ -46,13 +313,31 @@ const ResendModal = ({ campaign, onClose, onResent, apiBaseUrl }) => {
     if (resendType !== 'categories') return;
     setCatLoading(true);
     Promise.all([
-      axios.get(`${apiBaseUrl}/main-categories/list`),
+      axios.get(`${apiBaseUrl}/category/fetch?withProducts=true`),
       axios.get(`${apiBaseUrl}/subcategory/fetch`)
     ]).then(([mRes, sRes]) => {
-      if (mRes.data.status) setMainCategories(mRes.data.data || []);
+      if (mRes.data.status) {
+        const cats = dedupeByTitle(mRes.data.data || []);
+        setMainCategories(cats);
+        const allExpanded = {};
+        cats.forEach(c => { allExpanded[c.id] = true; });
+        setExpandedMainCats(allExpanded);
+      }
       if (sRes.data.status) setSubCategories(sRes.data.data || []);
     }).catch(() => {}).finally(() => setCatLoading(false));
   }, [resendType, apiBaseUrl]);
+
+  // Lazy-load preview HTML
+  useEffect(() => {
+    if (activeTab !== 'preview' || previewUrl) return;
+    setPreviewUrl('loading');
+    axios.get(`${apiBaseUrl}/email-campaign/${campaign.id}/preview`, { responseType: 'text' })
+      .then(res => {
+        const blob = new Blob([res.data], { type: 'text/html' });
+        setPreviewUrl(URL.createObjectURL(blob));
+      })
+      .catch(() => setPreviewUrl('error'));
+  }, [activeTab, campaign.id, apiBaseUrl]);
 
   const toggleCat = (name) => setSelectedCats(prev => prev.includes(name) ? prev.filter(c => c !== name) : [...prev, name]);
 
@@ -99,119 +384,168 @@ const ResendModal = ({ campaign, onClose, onResent, apiBaseUrl }) => {
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg">
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col" style={{ maxHeight: '90vh' }}>
+        <div className="flex items-center justify-between p-4 border-b border-gray-200 shrink-0">
           <h3 className="text-sm font-bold text-gray-700 font-montserrat flex items-center gap-2">
             <RotateCw size={15} className="text-primary" /> Resend Campaign
           </h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1"><X size={18} /></button>
         </div>
 
-        <div className="p-5 space-y-4">
-          {/* Original subject info */}
-          <div className="bg-gray-50 border border-gray-100 rounded-lg p-3">
-            <p className="text-[10px] text-gray-400 font-montserrat uppercase tracking-wide mb-1">Original Subject</p>
-            <p className="text-sm font-bold text-gray-700 font-montserrat">{campaign.subject}</p>
-          </div>
-
-          {/* Change subject */}
-          <div>
-            <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wide font-montserrat mb-1.5 block">Subject Line (edit if needed)</label>
-            <input
-              type="text"
-              value={newSubject}
-              onChange={(e) => setNewSubject(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-primary font-montserrat"
-            />
-          </div>
-
-          {/* Audience choice */}
-          <div>
-            <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wide font-montserrat mb-2 block">Send To</label>
-            <div className="space-y-2">
-              {[
-                { key: 'same', label: `Same audience as original (${(campaign.audience || []).map(a => AUDIENCE_LABELS[a] || a).join(', ')})` },
-                { key: 'specific', label: 'Specific email addresses' },
-                { key: 'categories', label: 'Specific category subscribers' },
-              ].map(opt => (
-                <label key={opt.key} className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${resendType === opt.key ? 'border-primary bg-primary/5' : 'border-gray-200 hover:border-gray-300'}`}>
-                  <input type="radio" checked={resendType === opt.key} onChange={() => setResendType(opt.key)} className="accent-primary" />
-                  <span className={`text-sm font-montserrat ${resendType === opt.key ? 'font-bold text-primary' : 'text-gray-700'}`}>{opt.label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* Specific emails input */}
-          {resendType === 'specific' && (
-            <div>
-              <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wide font-montserrat mb-1.5 block">Email Addresses (one per line or comma-separated)</label>
-              <textarea
-                value={specificEmails}
-                onChange={(e) => setSpecificEmails(e.target.value)}
-                placeholder="email1@example.com&#10;email2@example.com"
-                rows={4}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary font-mono resize-none"
-              />
-            </div>
-          )}
-
-          {/* Category tree for resend */}
-          {resendType === 'categories' && (
-            <div>
-              <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wide font-montserrat mb-2 block">Select Categories</label>
-              {catLoading ? (
-                <div className="flex items-center gap-2 text-gray-400 text-xs py-2"><Loader2 size={13} className="animate-spin" /> Loading...</div>
-              ) : (
-                <>
-                  <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2">
-                    {mainCategories.map(cat => {
-                      const catName = cat.title || cat.categorytitle || '';
-                      const subs = subsByMainCat[cat.id] || [];
-                      const isExpanded = expandedMainCats[cat.id];
-                      return (
-                        <div key={cat.id} className="border border-gray-100 rounded overflow-hidden">
-                          <div className="flex items-center justify-between bg-gray-50 px-2 py-1.5">
-                            <label className="flex items-center gap-1.5 cursor-pointer flex-1 min-w-0">
-                              <input type="checkbox" checked={selectedCats.includes(catName)} onChange={() => toggleCat(catName)} className="accent-primary h-3 w-3 shrink-0" />
-                              <span className="text-[11px] font-bold text-gray-700 truncate font-montserrat">{catName}</span>
-                            </label>
-                            {subs.length > 0 && (
-                              <button onClick={() => setExpandedMainCats(p => ({ ...p, [cat.id]: !p[cat.id] }))} className="text-gray-400 hover:text-primary ml-1 shrink-0">
-                                {isExpanded ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
-                              </button>
-                            )}
-                          </div>
-                          {isExpanded && subs.map(sub => {
-                            const subName = sub.name || '';
-                            return (
-                              <label key={sub.id} className="flex items-center gap-1.5 px-3 py-1 cursor-pointer border-t border-gray-100">
-                                <input type="checkbox" checked={selectedCats.includes(subName)} onChange={() => toggleCat(subName)} className="accent-primary h-3 w-3 shrink-0" />
-                                <span className="text-[10px] text-gray-600 truncate font-montserrat">{subName}</span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {selectedCats.length > 0 && (
-                    <p className="text-[10px] text-primary font-bold font-montserrat mt-1.5">{selectedCats.length} selected: {selectedCats.join(', ')}</p>
-                  )}
-                </>
-              )}
-            </div>
-          )}
+        {/* Tabs */}
+        <div className="flex border-b border-gray-200 shrink-0">
+          {[
+            { key: 'form', icon: Send, label: 'Resend Options' },
+            { key: 'preview', icon: Eye, label: 'Preview Email' }
+          ].map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold font-montserrat border-b-2 transition-colors ${activeTab === tab.key ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+            >
+              <tab.icon size={12} /> {tab.label}
+            </button>
+          ))}
         </div>
 
-        <div className="flex gap-3 p-4 border-t border-gray-200">
-          <button
-            onClick={handleResend}
-            disabled={loading}
-            className="flex-1 bg-primary text-white py-2.5 rounded-lg font-montserrat font-bold text-sm flex items-center justify-center gap-2 hover:bg-primary-hover disabled:opacity-50 transition-all active:scale-95"
-          >
-            {loading ? <><Loader2 size={14} className="animate-spin" /> Sending...</> : <><Send size={14} /> Resend Campaign</>}
-          </button>
+        {/* Preview Tab */}
+        {activeTab === 'preview' && (
+          <div className="flex-1 overflow-hidden bg-gray-100 min-h-[400px]">
+            {previewUrl === 'loading' || previewUrl === null ? (
+              <div className="h-full flex items-center justify-center gap-2 text-gray-400 py-12">
+                <Loader2 size={18} className="animate-spin" />
+                <span className="font-montserrat text-sm">Loading preview...</span>
+              </div>
+            ) : previewUrl === 'error' ? (
+              <p className="text-red-500 text-sm font-montserrat p-6">Failed to load preview.</p>
+            ) : (
+              <iframe
+                src={previewUrl}
+                title="Email Preview"
+                className="w-full h-full border-0"
+                style={{ minHeight: '400px' }}
+                sandbox="allow-same-origin"
+              />
+            )}
+          </div>
+        )}
+
+        {/* Form Tab */}
+        {activeTab === 'form' && (
+          <div className="overflow-y-auto flex-1">
+            <div className="p-5 space-y-4">
+              {/* Original subject info */}
+              <div className="bg-gray-50 border border-gray-100 rounded-lg p-3">
+                <p className="text-[10px] text-gray-400 font-montserrat uppercase tracking-wide mb-1">Original Subject</p>
+                <p className="text-sm font-bold text-gray-700 font-montserrat">{campaign.subject}</p>
+              </div>
+
+              {/* Change subject */}
+              <div>
+                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wide font-montserrat mb-1.5 block">Subject Line (edit if needed)</label>
+                <input
+                  type="text"
+                  value={newSubject}
+                  onChange={(e) => setNewSubject(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-primary font-montserrat"
+                />
+              </div>
+
+              {/* Audience choice */}
+              <div>
+                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wide font-montserrat mb-2 block">Send To</label>
+                <div className="space-y-2">
+                  {[
+                    { key: 'same', label: `Same audience as original (${(campaign.audience || []).map(a => AUDIENCE_LABELS[a] || a).join(', ')})` },
+                    { key: 'specific', label: 'Specific email addresses' },
+                    { key: 'categories', label: 'Specific category subscribers' },
+                  ].map(opt => (
+                    <label key={opt.key} className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${resendType === opt.key ? 'border-primary bg-primary/5' : 'border-gray-200 hover:border-gray-300'}`}>
+                      <input type="radio" checked={resendType === opt.key} onChange={() => setResendType(opt.key)} className="accent-primary" />
+                      <span className={`text-sm font-montserrat ${resendType === opt.key ? 'font-bold text-primary' : 'text-gray-700'}`}>{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Specific emails input */}
+              {resendType === 'specific' && (
+                <div>
+                  <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wide font-montserrat mb-1.5 block">Email Addresses (one per line or comma-separated)</label>
+                  <textarea
+                    value={specificEmails}
+                    onChange={(e) => setSpecificEmails(e.target.value)}
+                    placeholder="email1@example.com&#10;email2@example.com"
+                    rows={4}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary font-mono resize-none"
+                  />
+                </div>
+              )}
+
+              {/* Category tree for resend */}
+              {resendType === 'categories' && (
+                <div>
+                  <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wide font-montserrat mb-2 block">Select Categories</label>
+                  {catLoading ? (
+                    <div className="flex items-center gap-2 text-gray-400 text-xs py-2"><Loader2 size={13} className="animate-spin" /> Loading...</div>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2">
+                        {mainCategories.map(cat => {
+                          const catName = cat.title || cat.categorytitle || '';
+                          const subs = subsByMainCat[cat.id] || [];
+                          const isExpanded = expandedMainCats[cat.id];
+                          return (
+                            <div key={cat.id} className="border border-gray-100 rounded overflow-hidden">
+                              <div className="flex items-center justify-between bg-gray-50 px-2 py-1.5">
+                                <label className="flex items-center gap-1.5 cursor-pointer flex-1 min-w-0">
+                                  <input type="checkbox" checked={selectedCats.includes(catName)} onChange={() => toggleCat(catName)} className="accent-primary h-3 w-3 shrink-0" />
+                                  <span className="text-[11px] font-bold text-gray-700 truncate font-montserrat">{catName}</span>
+                                </label>
+                                {subs.length > 0 && (
+                                  <button onClick={() => setExpandedMainCats(p => ({ ...p, [cat.id]: !p[cat.id] }))} className="text-gray-400 hover:text-primary ml-1 shrink-0">
+                                    {isExpanded ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+                                  </button>
+                                )}
+                              </div>
+                              {isExpanded && subs.map(sub => {
+                                const subName = sub.name || '';
+                                return (
+                                  <label key={sub.id} className="flex items-center gap-1.5 px-3 py-1 cursor-pointer border-t border-gray-100">
+                                    <input type="checkbox" checked={selectedCats.includes(subName)} onChange={() => toggleCat(subName)} className="accent-primary h-3 w-3 shrink-0" />
+                                    <span className="text-[10px] text-gray-600 truncate font-montserrat">{subName}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {selectedCats.length > 0 && (
+                        <p className="text-[10px] text-primary font-bold font-montserrat mt-1.5">{selectedCats.length} selected: {selectedCats.join(', ')}</p>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="flex gap-3 p-4 border-t border-gray-200 shrink-0">
+          {activeTab === 'form' ? (
+            <button
+              onClick={handleResend}
+              disabled={loading}
+              className="flex-1 bg-primary text-white py-2.5 rounded-lg font-montserrat font-bold text-sm flex items-center justify-center gap-2 hover:bg-primary-hover disabled:opacity-50 transition-all active:scale-95"
+            >
+              {loading ? <><Loader2 size={14} className="animate-spin" /> Sending...</> : <><Send size={14} /> Resend Campaign</>}
+            </button>
+          ) : (
+            <button onClick={() => setActiveTab('form')} className="flex-1 bg-primary text-white py-2.5 rounded-lg font-montserrat font-bold text-sm flex items-center justify-center gap-2 hover:bg-primary-hover transition-all">
+              <Send size={14} /> Go to Resend Options
+            </button>
+          )}
           <button onClick={onClose} className="flex-1 bg-white border border-gray-300 text-gray-600 py-2.5 rounded-lg font-montserrat font-bold text-sm hover:bg-gray-50 transition-all">Cancel</button>
         </div>
       </div>
@@ -225,6 +559,7 @@ const NewsletterReport = () => {
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [resendTarget, setResendTarget] = useState(null);
+  const [detailTarget, setDetailTarget] = useState(null);
 
   const API_BASE_URL = process.env.REACT_APP_API_URL;
 
@@ -342,8 +677,17 @@ const NewsletterReport = () => {
                   return (
                     <tr key={campaign.id} className="hover:bg-gray-50/50 transition-colors">
                       <td className="p-3 max-w-[200px]">
-                        <p className="font-bold text-gray-700 font-montserrat truncate text-[13px]">{campaign.subject}</p>
-                        <p className="text-[10px] text-gray-400 font-montserrat mt-0.5">#{campaign.id}</p>
+                        <button
+                          onClick={() => setDetailTarget(campaign)}
+                          className="text-left group"
+                          title="Click to view details & preview"
+                        >
+                          <p className="font-bold text-primary font-montserrat truncate text-[13px] group-hover:underline underline-offset-2 flex items-center gap-1">
+                            <Eye size={11} className="shrink-0 opacity-60" />
+                            {campaign.subject}
+                          </p>
+                          <p className="text-[10px] text-gray-400 font-montserrat mt-0.5">#{campaign.id}</p>
+                        </button>
                       </td>
                       <td className="p-3 max-w-[180px]">
                         <p className="text-[11px] text-gray-600 font-montserrat truncate">{audienceLabels}</p>
@@ -414,6 +758,15 @@ const NewsletterReport = () => {
           </div>
         )}
       </div>
+
+      {/* Detail Modal */}
+      {detailTarget && (
+        <CampaignDetailModal
+          campaign={detailTarget}
+          onClose={() => setDetailTarget(null)}
+          apiBaseUrl={API_BASE_URL}
+        />
+      )}
 
       {/* Resend Modal */}
       {resendTarget && (

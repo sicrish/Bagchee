@@ -8,6 +8,18 @@ import axios from '../../utils/axiosConfig';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { validateImageFiles } from '../../utils/fileValidator';
 
+const AUTHOR_ROLES = [
+    { id: 1, label: 'Author' },
+    { id: 2, label: 'Editor' },
+    { id: 3, label: 'Translator' },
+    { id: 4, label: 'Introduction' },
+    { id: 5, label: 'Foreword' },
+    { id: 6, label: 'Photography' },
+    { id: 7, label: 'Compiler' },
+    { id: 8, label: 'Collaborator' },
+    { id: 9, label: 'Curator' },
+];
+
 const EditBook = () => {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -53,12 +65,15 @@ const EditBook = () => {
     const [authorSearchResults, setAuthorSearchResults] = useState([]);
     const [authorSearchLoading, setAuthorSearchLoading] = useState(false);
     const [selectedAuthorsCache, setSelectedAuthorsCache] = useState({});
+    const [authorRoles, setAuthorRoles] = useState({});
     const [formatSearch, setFormatSearch] = useState("");
     const [isFormatDropdownOpen, setIsFormatDropdownOpen] = useState(false);
     const [seriesSearch, setSeriesSearch] = useState("");
     const [isSeriesDropdownOpen, setIsSeriesDropdownOpen] = useState(false);
     const [publisherSearch, setPublisherSearch] = useState("");
     const [isPublisherDropdownOpen, setIsPublisherDropdownOpen] = useState(false);
+    const [publisherSearchResults, setPublisherSearchResults] = useState([]);
+    const [publisherSearchLoading, setPublisherSearchLoading] = useState(false);
 
     // Related Products Search States
     const [relatedSearchQuery, setRelatedSearchQuery] = useState("");
@@ -167,7 +182,7 @@ const EditBook = () => {
                 formats: fmtRes.data.data || [],
                 series: serRes.data.data || [],
                 publishers: pubRes.data.data || [],
-                arrivalDays: (setRes.data.status && setRes.data.data.length > 0) ? (setRes.data.data[0].new_arrival_time || 30) : 30,
+                arrivalDays: (setRes.data.status && setRes.data.data.length > 0) ? (setRes.data.data[0].newArrivalTime || setRes.data.data[0].new_arrival_time || 30) : 30,
                 bookData: book
             };
         },
@@ -194,6 +209,13 @@ const EditBook = () => {
             setSeriesList(mergedSeries);
             setPublishers(publishers);
             setArrivalDays(arrivalDays);
+
+            // Default start date = when the book was added (createdAt).
+            // The useEffect recalculates new_release_until = createdAt + arrivalDays.
+            const bookCreatedAt = book.createdAt || book.created_at;
+            if (bookCreatedAt) {
+                setUserSelectedDate(new Date(bookCreatedAt).toISOString().split('T')[0]);
+            }
 
             // 🔍 DEBUG: Publisher check
             // console.log("=== PUBLISHER DEBUG ===");
@@ -268,8 +290,8 @@ const EditBook = () => {
 
             // console.log("5. formData.publisher set to:", book.publisher ? String(book.publisher.id || book.publisher._id || book.publisher) : String(book.publisherId || ''));
 
-            if (book.newReleaseUntil || book.new_release_until) {
-                setUserSelectedDate(new Date(book.newReleaseUntil || book.new_release_until).toISOString().split('T')[0]);
+            if (book.createdAt || book.created_at) {
+                setUserSelectedDate(new Date(book.createdAt || book.created_at).toISOString().split('T')[0]);
             }
 
             const tocImgs = book.tocImages || book.toc_images;
@@ -301,6 +323,7 @@ const EditBook = () => {
 
             if (book.authors) {
                 const cache = {};
+                const rolesMap = {};
                 const missingIds = [];
                 book.authors.forEach(a => {
                     const id = a.authorId || a.author?.id;
@@ -312,9 +335,11 @@ const EditBook = () => {
                         } else {
                             missingIds.push(id);
                         }
+                        rolesMap[String(id)] = a.roleId || 1;
                     }
                 });
                 setSelectedAuthorsCache(cache);
+                setAuthorRoles(rolesMap);
                 // Fetch names for any authors whose name fields were empty in the joined data
                 if (missingIds.length > 0) {
                     axios.get(`${API_URL}/authors/batch?ids=${missingIds.join(',')}`)
@@ -392,7 +417,7 @@ const EditBook = () => {
     });
 
 
-    // Related Search Debounce
+    // Author Search Debounce
     useEffect(() => {
         const delayDebounceFn = setTimeout(async () => {
             if (authorSearch.length > 1 && isAuthorDropdownOpen) {
@@ -409,6 +434,24 @@ const EditBook = () => {
         }, 350);
         return () => clearTimeout(delayDebounceFn);
     }, [authorSearch, isAuthorDropdownOpen]);
+
+    // Publisher Search Debounce
+    useEffect(() => {
+        const delayDebounceFn = setTimeout(async () => {
+            if (publisherSearch.length > 1 && isPublisherDropdownOpen) {
+                setPublisherSearchLoading(true);
+                try {
+                    const API_URL = process.env.REACT_APP_API_URL;
+                    const res = await axios.get(`${API_URL}/publishers/list?q=${encodeURIComponent(publisherSearch)}&limit=30`);
+                    if (res.data.status) setPublisherSearchResults(res.data.data || []);
+                } catch { setPublisherSearchResults([]); }
+                finally { setPublisherSearchLoading(false); }
+            } else {
+                setPublisherSearchResults([]);
+            }
+        }, 350);
+        return () => clearTimeout(delayDebounceFn);
+    }, [publisherSearch, isPublisherDropdownOpen]);
 
     useEffect(() => {
         const delayDebounceFn = setTimeout(async () => {
@@ -465,9 +508,9 @@ const EditBook = () => {
     }, [userSelectedDate, formData.new_release, arrivalDays]);
 
     const getCalculatedDate = () => {
-        const date = new Date();
-        date.setDate(date.getDate() + Number(arrivalDays));
-        return date.toISOString().split('T')[0];
+        // Returns today as the default start date.
+        // new_release_until is computed by useEffect as startDate + arrivalDays.
+        return new Date().toISOString().split('T')[0];
     };
 
     const handleNewReleaseChange = (e) => {
@@ -632,6 +675,7 @@ const EditBook = () => {
                 data.append('author', firstAuthor);
                 data.append('author_id', firstAuthor);
                 data.append('authors', JSON.stringify(formData.authors));
+                data.append('author_roles', JSON.stringify(authorRoles));
             }
 
             if (formData.product_categories) data.append('product_categories', JSON.stringify(formData.product_categories));
@@ -654,7 +698,7 @@ const EditBook = () => {
             data.append('new_release_until', formData.new_release_until || '');
             data.append('exclusive', formData.exclusive);
             data.append('exclusive_for', formData.exclusive_for || 'all');
-            data.append('pages_desc', formData.pages_desc || formData.total_pages || '');
+            data.append('pages_desc', formData.total_pages || formData.pages_desc || '');
             data.append('ship_days', formData.ship_days || '');
             data.append('deliver_days', formData.deliver_days || '');
             data.append('pub_date', formData.pub_date || '');
@@ -984,6 +1028,14 @@ const EditBook = () => {
                                                 return (
                                                     <span key={idx} className="bg-blue-50 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded border border-blue-100 flex items-center gap-1">
                                                         {authorName}
+                                                        <select
+                                                            value={authorRoles[String(authId)] || 1}
+                                                            onChange={(e) => { e.stopPropagation(); setAuthorRoles(prev => ({ ...prev, [String(authId)]: Number(e.target.value) })); }}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            className="text-[9px] bg-blue-100 border-0 outline-none cursor-pointer rounded px-0.5 text-blue-800 font-normal"
+                                                        >
+                                                            {AUTHOR_ROLES.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+                                                        </select>
                                                         <button type="button" onClick={(e) => { e.stopPropagation(); handleCheckboxChange('authors', authId); }} className="hover:text-red-500">×</button>
                                                     </span>
                                                 );
@@ -1010,6 +1062,7 @@ const EditBook = () => {
                                                         <div key={auth.id} onClick={() => {
                                                             handleCheckboxChange('authors', auth.id);
                                                             setSelectedAuthorsCache(prev => ({ ...prev, [String(auth.id)]: name }));
+                                                            setAuthorRoles(prev => ({ ...prev, [String(auth.id)]: prev[String(auth.id)] || 1 }));
                                                         }} className={`flex items-center justify-between p-2 text-sm rounded hover:bg-blue-50 cursor-pointer ${isSelected ? 'bg-blue-50 font-bold text-primary' : ''}`}>
                                                             <span>{name}</span>
                                                             {isSelected && <Check size={14} />}
@@ -1461,12 +1514,22 @@ const EditBook = () => {
                                     {isPublisherDropdownOpen && (
                                         <div className="absolute z-[100] top-full left-0 w-full md:w-1/2 bg-white border border-gray-300 rounded shadow-lg mt-1 flex flex-col overflow-hidden animate-in fade-in zoom-in-95">
                                             <div className="p-2 border-b bg-gray-50">
-                                                <input type="text" placeholder="Search..." value={publisherSearch} onChange={(e) => setPublisherSearch(e.target.value)} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.stopPropagation()} className="w-full text-xs p-1.5 border rounded outline-none bg-white" autoFocus />
+                                                <input type="text" placeholder="Search publishers..." value={publisherSearch} onChange={(e) => setPublisherSearch(e.target.value)} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.stopPropagation()} className="w-full text-xs p-1.5 border rounded outline-none bg-white" autoFocus />
                                             </div>
                                             <div className="max-h-48 overflow-y-auto">
-                                                {publishers.filter(p => (p.title || "").toLowerCase().includes(publisherSearch.toLowerCase())).map(p => (
-                                                    <div key={p.id || p.id || p._id} onClick={() => handlePublisherSelect(p)} className="px-3 py-2 text-sm hover:bg-primary/5 cursor-pointer text-gray-600 hover:text-primary transition-colors">{p.title}</div>
-                                                ))}
+                                                {publisherSearchLoading ? (
+                                                    <div className="p-3 text-xs text-gray-400 text-center">Searching...</div>
+                                                ) : publisherSearch.length > 1 ? (
+                                                    publisherSearchResults.length === 0
+                                                        ? <div className="p-3 text-xs text-gray-400 text-center">No publishers found</div>
+                                                        : publisherSearchResults.map(p => (
+                                                            <div key={p.id || p._id} onClick={() => handlePublisherSelect(p)} className="px-3 py-2 text-sm hover:bg-primary/5 cursor-pointer text-gray-600 hover:text-primary transition-colors">{p.title}</div>
+                                                        ))
+                                                ) : (
+                                                    publishers.filter(p => (p.title || "").toLowerCase().includes(publisherSearch.toLowerCase())).map(p => (
+                                                        <div key={p.id || p._id} onClick={() => handlePublisherSelect(p)} className="px-3 py-2 text-sm hover:bg-primary/5 cursor-pointer text-gray-600 hover:text-primary transition-colors">{p.title}</div>
+                                                    ))
+                                                )}
                                             </div>
                                         </div>
                                     )}

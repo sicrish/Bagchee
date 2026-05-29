@@ -64,7 +64,7 @@ export const getActiveBooksOfMonth = async (req, res) => {
                 products: {
                     include: {
                         product: {
-                            select: { id: true, title: true, price: true, inrPrice: true, realPrice: true, discount: true, defaultImage: true, bagcheeId: true, isbn13: true, isActive: true }
+                            select: { id: true, title: true, price: true, inrPrice: true, realPrice: true, discount: true, defaultImage: true, bagcheeId: true, isbn13: true, isActive: true, synopsis: true }
                         }
                     }
                 }

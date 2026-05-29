@@ -194,7 +194,7 @@ const buildWhereClause = (query, { includeInactive = false } = {}) => {
 const PRODUCT_INCLUDE = {
     publisher:    { select: { id: true, title: true, slug: true } },
     series:       { select: { id: true, title: true } },
-    authors:      { include: { author: { select: { id: true, firstName: true, lastName: true, fullName: true } } } },
+    authors:      { select: { id: true, authorId: true, roleId: true, author: { select: { id: true, firstName: true, lastName: true, fullName: true } } } },
     categories:   { include: { category: { select: { id: true, title: true, slug: true } } } },
     tags:         { include: { tag: { select: { id: true, title: true } } } },
     formats:      { include: { format: { select: { id: true, title: true } } } },
@@ -232,12 +232,9 @@ export const save = async (req, res) => {
         const authorId = parseInt(req.body.author     || req.body.author_id);
 
         if (!catId || isNaN(catId))    return res.status(400).json({ msg: 'Category is required' });
-        if (!authorId || isNaN(authorId)) return res.status(400).json({ msg: 'Author is required' });
 
         const coverFile = req.files?.producticon || req.files?.default_image;
-        if (!coverFile) return res.status(400).json({ msg: 'Book cover image is required' });
-
-        const coverPath = await saveFileLocal(coverFile, 'products');
+        const coverPath = coverFile ? await saveFileLocal(coverFile, 'products') : null;
         const tocFile   = req.files?.tocImage || req.files?.toc_image;
         const tocPath   = tocFile ? await saveFileLocal(tocFile, 'products') : null;
 
@@ -248,7 +245,8 @@ export const save = async (req, res) => {
         ]);
 
         // Deduplicated ID arrays for junction tables
-        const authorIds   = [...new Set([authorId, ...toIntArray(req.body.authors)])];
+        const authorRolesMap = (() => { try { return JSON.parse(req.body.author_roles || '{}'); } catch { return {}; } })();
+        const authorIds   = [...new Set([...(!isNaN(authorId) ? [authorId] : []), ...toIntArray(req.body.authors)])];
         const categoryIds = [...new Set([catId,    ...toIntArray(req.body.product_categories)])];
         const tagIds      = await resolveToIds(prisma.tag, req.body.product_tags);
         const formatIds   = await resolveToIds(prisma.format, req.body.product_formats);
@@ -303,13 +301,13 @@ export const save = async (req, res) => {
                 ratedTimes:     Number(req.body.rated_times) || 0,
                 shipDays:       req.body.ship_days    ? String(req.body.ship_days).trim()    || null : null,
                 deliverDays:    req.body.deliver_days ? String(req.body.deliver_days).trim() || null : null,
-                pagesDesc:      req.body.pages_desc   || null,
+                pagesDesc:      req.body.pages_desc || req.body.pages || null,
                 metaTitle:      req.body.meta_title       || null,
                 metaKeywords:   req.body.meta_keywords    || null,
                 metaDescription:req.body.meta_description || null,
 
                 // Junction tables
-                authors:    { create: authorIds.map(id   => ({ authorId:   id })) },
+                ...(authorIds.length && { authors: { create: authorIds.map(id => ({ authorId: id, roleId: parseInt(authorRolesMap[String(id)]) || 1 })) } }),
                 categories: { create: categoryIds.map(id => ({ categoryId: id })) },
                 ...(tagIds.length    && { tags:      { create: tagIds.map(id    => ({ tagId:      id })) } }),
                 ...(formatIds.length && { formats:   { create: formatIds.map(id => ({ formatId:   id })) } }),
@@ -453,9 +451,10 @@ export const update = async (req, res) => {
                 ...(!isNaN(authorId) ? [authorId] : []),
                 ...toIntArray(req.body.authors)
             ])];
+            const rolesMap = (() => { try { return JSON.parse(req.body.author_roles || '{}'); } catch { return {}; } })();
             if (ids.length) {
                 await prisma.productAuthor.deleteMany({ where: { productId: id } });
-                await prisma.productAuthor.createMany({ data: ids.map(aId => ({ productId: id, authorId: aId })) });
+                await prisma.productAuthor.createMany({ data: ids.map(aId => ({ productId: id, authorId: aId, roleId: parseInt(rolesMap[String(aId)]) || 1 })) });
             }
         }
 
@@ -500,6 +499,14 @@ export const update = async (req, res) => {
         cache.invalidate(`product:id:${id}`);
         if (result?.bagcheeId) cache.invalidate(`product:bid:${result.bagcheeId.toLowerCase()}`);
         cache.invalidatePrefix(`related:`);
+
+        // Fire back-in-stock notifications if stock just changed to active
+        if (updateData.stock === 'active' && existing.stock === 'inactive') {
+            import('./backInStock.controller.js').then(({ notifySubscribers }) => {
+                notifySubscribers(id, result.title, result.bagcheeId).catch(() => {});
+            }).catch(() => {});
+        }
+
         res.status(200).json({ status: true, msg: 'Product updated successfully', data: result });
     } catch (error) {
         console.error('Update Error [code=%s]:', error?.code || error?.name, error?.message || error);
@@ -863,8 +870,27 @@ export const getRecommended = async (req, res) => {
         const page  = Math.max(1, Number(req.query.page)  || 1);
         const limit = Math.max(1, Number(req.query.limit) || 6);
         const skip  = (page - 1) * limit;
+        const random = req.query.random === 'true';
 
-        const where = { isActive: true, isRecommended: true };
+        const where = buildWhereClause(req.query);
+        where.AND.push({ isRecommended: true });
+
+        if (random) {
+            const pool = await prisma.product.findMany({
+                where,
+                include: PRODUCT_LIST_INCLUDE,
+                orderBy: { createdAt: 'desc' },
+                take: 100,
+            });
+            for (let i = pool.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [pool[i], pool[j]] = [pool[j], pool[i]];
+            }
+            const total = pool.length;
+            const products = pool.slice(skip, skip + limit);
+            return res.status(200).json({ status: true, data: products, total, page, limit });
+        }
+
         const [products, total] = await Promise.all([
             prisma.product.findMany({
                 where,
@@ -912,16 +938,27 @@ export const getNewArrivals = async (req, res) => {
         const limit = Math.max(1, Number(req.query.limit) || 12);
         const skip  = (page - 1) * limit;
 
-        const today = new Date();
+        const today    = new Date();
+        const settings = await getCachedSettings();
+        const days     = Math.max(1, Number(settings?.newArrivalTime || 30));
+        const dateFrom = new Date(today);
+        dateFrom.setDate(dateFrom.getDate() - days);
 
-        // Auto-expire new releases whose date has passed (non-blocking — DB may be read-only)
+        // Auto-expire new releases whose explicit date has passed (non-blocking)
         prisma.product.updateMany({
             where: { isNewRelease: true, newReleaseUntil: { lt: today, not: null } },
             data:  { isNewRelease: false, newReleaseUntil: null }
         }).catch(() => {});
 
         const where = buildWhereClause(req.query);
-        where.AND.push({ isNewRelease: true });
+        where.AND.push({
+            OR: [
+                // admin-promoted: explicit expiry date not yet passed
+                { isNewRelease: true, newReleaseUntil: { gte: today } },
+                // all books created within the date window (matches old site behaviour)
+                { createdAt: { gte: dateFrom } },
+            ],
+        });
 
         const [products, total] = await Promise.all([
             prisma.product.findMany({
@@ -952,11 +989,11 @@ export const getSaleProducts = async (req, res) => {
         const conditions = [
             { isActive: true },
             { discount: { gt: 0 } },
-            { discount: { gte: threshold } }
+            { discount: { gte: threshold } },
         ];
 
-        // Only apply category filters (no price/author filters — consistent with old behaviour)
-        const { categoryId, categories } = req.query;
+        const { categoryId, categories, sort, inrOnly } = req.query;
+
         if (categories) {
             const ids = categories.split(',').map(c => parseInt(c.trim())).filter(n => !isNaN(n));
             if (ids.length) conditions.push({ OR: [
@@ -971,9 +1008,15 @@ export const getSaleProducts = async (req, res) => {
             ]});
         }
 
+        if (inrOnly === 'true') conditions.push({ inrPrice: { gt: 0 } });
+
+        const orderBy = sort === 'discount_high'
+            ? { discount: 'desc' }
+            : (SORT_MAP[sort] || { createdAt: 'desc' });
+
         const where = { AND: conditions };
         const [products, total] = await Promise.all([
-            prisma.product.findMany({ where, include: PRODUCT_LIST_INCLUDE, orderBy: { discount: 'desc' }, skip, take: limit }),
+            prisma.product.findMany({ where, include: PRODUCT_LIST_INCLUDE, orderBy, skip, take: limit }),
             prisma.product.count({ where })
         ]);
 
@@ -982,6 +1025,61 @@ export const getSaleProducts = async (req, res) => {
             msg: `Showing products with discount >= ${threshold}%`,
             data: products, total, page, limit
         });
+    } catch (error) {
+        res.status(500).json({ status: false, msg: 'Server Error' });
+    }
+};
+
+export const getSaleCategories = async (req, res) => {
+    try {
+        const settings  = await getCachedSettings();
+        const threshold = settings?.saleThreshold ?? 0;
+
+        const saleProducts = await prisma.product.findMany({
+            where: { AND: [{ isActive: true }, { discount: { gt: 0 } }, { discount: { gte: threshold } }] },
+            select: { leadingCategoryId: true, categories: { select: { categoryId: true } } }
+        });
+
+        const ids = new Set();
+        for (const p of saleProducts) {
+            if (p.leadingCategoryId) ids.add(p.leadingCategoryId);
+            for (const c of p.categories) ids.add(c.categoryId);
+        }
+
+        res.status(200).json({ status: true, data: Array.from(ids) });
+    } catch (error) {
+        res.status(500).json({ status: false, msg: 'Server Error' });
+    }
+};
+
+export const getNewArrivalCategories = async (req, res) => {
+    try {
+        const settings = await getCachedSettings();
+        const days     = Math.max(1, Number(settings?.newArrivalTime || 30));
+        const today    = new Date();
+        const dateFrom = new Date(today);
+        dateFrom.setDate(dateFrom.getDate() - days);
+
+        const products = await prisma.product.findMany({
+            where: {
+                AND: [
+                    { isActive: true },
+                    { OR: [
+                        { isNewRelease: true, newReleaseUntil: { gte: today } },
+                        { createdAt: { gte: dateFrom } },
+                    ]},
+                ]
+            },
+            select: { leadingCategoryId: true, categories: { select: { categoryId: true } } }
+        });
+
+        const ids = new Set();
+        for (const p of products) {
+            if (p.leadingCategoryId) ids.add(p.leadingCategoryId);
+            for (const c of p.categories) ids.add(c.categoryId);
+        }
+
+        res.status(200).json({ status: true, data: Array.from(ids) });
     } catch (error) {
         res.status(500).json({ status: false, msg: 'Server Error' });
     }

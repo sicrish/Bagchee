@@ -150,7 +150,7 @@ const handleExport = async () => {
       // 2. Mapping logic — Prisma returns flat camelCase fields
       const dataToExport = allOrders.map((order, index) => {
         const productDetails = (order.items || order.products || []).map(p =>
-          `${p.name} (Price: ${p.price}, Qty: ${p.quantity}, Status: ${p.status || 'N/A'})`
+          `${p.name || p.product?.title || 'Item'} (Price: ${p.price}, Qty: ${p.quantity}, Status: ${p.status || 'N/A'})`
         ).join(" | ") || "-";
 
         return {
@@ -341,20 +341,35 @@ const handleExport = async () => {
                 filteredOrders.map((order, index) => {
                   const orderId   = order.id || order._id;
                   const orderNum  = order.orderNumber || order.order_number || orderId;
+                  // Simple format = ORD-16953 (old platform, matches customer receipt)
+                  // Timestamp format = ORD-1716574815045-369 (new platform)
+                  const isSimpleOrderNum = /^ORD-\d+$/.test(orderNum);
                   const custName  = order.customer?.name || order.customer_id?.name || "Unknown Customer";
                   const payType   = order.paymentType || order.payment_type || '-';
                   const payStatus = order.paymentStatus || order.payment_status || 'Pending';
                   const statusVal = order.status || 'Pending';
                   // Highlight matching items when searching by product
                   const matchedItems = globalSearch
-                    ? (order.items || []).filter(i => i.name?.toLowerCase().includes(globalSearch.toLowerCase()))
+                    ? (order.items || []).filter(i => (i.name || i.product?.title || "").toLowerCase().includes(globalSearch.toLowerCase()))
                     : [];
                   return (
                   <tr key={orderId} className="hover:bg-primary-50 transition-colors text-[13px]">
                     <td className="p-3 border-r border-cream-50">
                       <div className="flex items-center gap-5 px-1">
                         <input type="checkbox" className="h-4 w-4 rounded accent-primary cursor-pointer shrink-0" />
-                        <span className="text-text-muted text-[10px] font-bold w-full text-center">{orderNum}</span>
+                        <div className="w-full text-center">
+                          {isSimpleOrderNum ? (
+                            <>
+                              <span className="text-text-main text-[11px] font-bold">{orderNum}</span>
+                              <div className="text-text-muted text-[9px] leading-tight mt-0.5">id:{orderId}</div>
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-text-main text-[12px] font-bold">#{orderId}</span>
+                              <div className="text-text-muted text-[9px] leading-tight mt-0.5">{orderNum.slice(0, 16)}{orderNum.length > 16 ? '…' : ''}</div>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="p-3 border-r border-cream-50 text-text-main font-medium">{formatDate(order.createdAt)}</td>
@@ -365,7 +380,7 @@ const handleExport = async () => {
                         <div className="mt-1 space-y-0.5">
                           {matchedItems.map((item, i) => (
                             <span key={i} className="inline-block bg-yellow-100 text-yellow-800 text-[9px] font-bold px-1.5 py-0.5 rounded mr-1">
-                              {item.name}
+                              {item.name || item.product?.title}
                             </span>
                           ))}
                         </div>

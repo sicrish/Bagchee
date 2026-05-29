@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Plus, Download, Printer, Search, RotateCw,
   Edit, Trash2, ChevronLeft, ChevronRight,
@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
+import { dedupeByTitle } from '../../utils/categoryUtils';
 import toast from 'react-hot-toast';
 import { exportToExcel } from '../../utils/exportExcel.js';
 import { useConfirm } from '../../context/ConfirmContext.jsx';
@@ -22,7 +23,8 @@ const NewsletterSubscribers = () => {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [totalItems, setTotalItems] = useState(0);
 
-  const [filters, setFilters] = useState({ id: '', email: '', categories: '' });
+  const [filters, setFilters] = useState({ id: '', email: '' });
+  const searchDebounceRef = useRef(null);
 
   // Category tree filter
   const [mainCategories, setMainCategories] = useState([]);
@@ -42,10 +44,16 @@ const NewsletterSubscribers = () => {
       setCatLoading(true);
       try {
         const [mainRes, subRes] = await Promise.all([
-          axios.get(`${API_BASE_URL}/main-categories/list`),
+          axios.get(`${API_BASE_URL}/category/fetch?withProducts=true`),
           axios.get(`${API_BASE_URL}/subcategory/fetch`)
         ]);
-        if (mainRes.data.status) setMainCategories(mainRes.data.data || []);
+        if (mainRes.data.status) {
+          const cats = dedupeByTitle(mainRes.data.data || []);
+          setMainCategories(cats);
+          const allExpanded = {};
+          cats.forEach(c => { allExpanded[c.id] = true; });
+          setExpandedMainCats(allExpanded);
+        }
         if (subRes.data.status) setSubCategories(subRes.data.data || []);
       } catch {
         // ignore
@@ -66,14 +74,16 @@ const NewsletterSubscribers = () => {
     return map;
   }, [subCategories]);
 
-  const fetchSubscribers = async (isExport = false, catOverride = null) => {
+  const fetchSubscribers = async (isExport = false, catOverride = null, searchOverride = undefined) => {
     if (!isExport) setLoading(true);
     try {
       const cats = catOverride !== null ? catOverride : appliedCategoryFilters;
+      const searchVal = searchOverride !== undefined ? searchOverride : filters.email;
       const params = new URLSearchParams();
       params.append('page', isExport ? 1 : currentPage);
       params.append('limit', isExport ? 100000 : itemsPerPage);
       if (cats.length > 0) params.append('categories', cats.join(','));
+      if (searchVal) params.append('search', searchVal);
 
       const res = await axios.get(`${API_BASE_URL}/newsletter-subs/list?${params.toString()}`);
       if (res.data.status) {
@@ -142,21 +152,25 @@ const NewsletterSubscribers = () => {
   const filteredSubscribers = useMemo(() => {
     return subscribers.filter((item) => {
       const displayId = (item.id || '').toString();
-      const email = (item.email || '').toLowerCase();
-      let categoryStr = Array.isArray(item.categories) ? item.categories.join(' ') : (item.categories || '');
-      return (
-        displayId.includes(filters.id) &&
-        email.includes(filters.email.toLowerCase()) &&
-        categoryStr.toLowerCase().includes(filters.categories.toLowerCase())
-      );
+      return displayId.includes(filters.id);
     });
-  }, [subscribers, filters]);
+  }, [subscribers, filters.id]);
 
-  const handleFilterChange = (e) => setFilters({ ...filters, [e.target.name]: e.target.value });
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+    setFilters(prev => ({ ...prev, [name]: value }));
+    if (name === 'email') {
+      setCurrentPage(1);
+      clearTimeout(searchDebounceRef.current);
+      searchDebounceRef.current = setTimeout(() => {
+        fetchSubscribers(false, null, value);
+      }, 400);
+    }
+  };
 
   const clearFilters = () => {
-    setFilters({ id: '', email: '', categories: '' });
-    fetchSubscribers();
+    setFilters({ id: '', email: '' });
+    fetchSubscribers(false, null, '');
   };
 
   const handleDelete = async (id) => {
@@ -380,7 +394,7 @@ const NewsletterSubscribers = () => {
                   <input name="email" value={filters.email} onChange={handleFilterChange} type="text" className={filterInputClass} />
                 </td>
                 <td className="p-2 border-r border-white/20">
-                  <input name="categories" value={filters.categories} onChange={handleFilterChange} type="text" className={filterInputClass} />
+                  <span className="text-[10px] text-white/60 font-montserrat italic">Use "Filter by Category" panel above</span>
                 </td>
                 <td className="p-2 text-center">
                   <button onClick={() => fetchSubscribers()} className="text-white hover:rotate-180 transition-transform duration-500">

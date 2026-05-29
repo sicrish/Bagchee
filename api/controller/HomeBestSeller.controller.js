@@ -154,15 +154,19 @@ export const fetchForHome = async (req, res) => {
         const manualEntries = await prisma.homeBestSeller.findMany({ where: { isActive: true }, orderBy: { order: 'asc' } });
         const manualProductIds = manualEntries.map(e => e.productId);
         const manualProducts = manualProductIds.length > 0
-            ? await prisma.product.findMany({ where: { id: { in: manualProductIds }, isActive: true }, select: { id: true, title: true, price: true, inrPrice: true, realPrice: true, discount: true, defaultImage: true, isbn13: true, bagcheeId: true, soldCount: true, authors: { select: { author: { select: { id: true, firstName: true, lastName: true, fullName: true } } } } } })
+            ? await prisma.product.findMany({ where: { id: { in: manualProductIds }, isActive: true }, select: { id: true, title: true, price: true, inrPrice: true, realPrice: true, discount: true, defaultImage: true, isbn13: true, bagcheeId: true, soldCount: true, rating: true, ratedTimes: true, synopsis: true, authors: { select: { author: { select: { id: true, firstName: true, lastName: true, fullName: true } } } } } })
             : [];
-        // Auto best sellers (by soldCount, excluding manual picks)
+        // Auto best sellers (by soldCount, excluding manual picks) — fetch top 100 then shuffle
         const autoProducts = await prisma.product.findMany({
             where: { isActive: true, soldCount: { gt: 0 }, id: { notIn: manualProductIds } },
             orderBy: { soldCount: 'desc' },
-            take: 50,
-            select: { id: true, title: true, price: true, inrPrice: true, realPrice: true, discount: true, defaultImage: true, isbn13: true, bagcheeId: true, soldCount: true, authors: { select: { author: { select: { id: true, firstName: true, lastName: true, fullName: true } } } } }
+            take: 100,
+            select: { id: true, title: true, price: true, inrPrice: true, realPrice: true, discount: true, defaultImage: true, isbn13: true, bagcheeId: true, soldCount: true, rating: true, ratedTimes: true, synopsis: true, authors: { select: { author: { select: { id: true, firstName: true, lastName: true, fullName: true } } } } }
         });
+        for (let i = autoProducts.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [autoProducts[i], autoProducts[j]] = [autoProducts[j], autoProducts[i]];
+        }
         const combined = [...manualProducts, ...autoProducts];
         const startIndex = (page - 1) * limit;
         const paginatedData = combined.slice(startIndex, startIndex + limit);
