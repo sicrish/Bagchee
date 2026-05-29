@@ -22,10 +22,12 @@ export const CartProvider = ({ children }) => {
     return saved ? JSON.parse(saved) : null;
   });
 
-  const [appliedShipping, setAppliedShipping] = useState(() => {
-    const saved = localStorage.getItem('appliedShipping');
-    return saved ? JSON.parse(saved) : null;
-  });
+  // Shipping is intentionally NOT restored from localStorage. It must always default
+  // to the first (free/standard) option on a fresh load. Persisting it caused a stale
+  // tiered choice (e.g. Expedited) to stick as the "default" selection in the cart and
+  // both checkout boxes. Kept in-memory only — survives SPA navigation (cart↔checkout)
+  // via context, and resets to the free default on a new page load.
+  const [appliedShipping, setAppliedShipping] = useState(null);
 
   const [membershipAdded, setMembershipAdded] = useState(() => {
     return localStorage.getItem('membershipAdded') === 'true';
@@ -48,13 +50,11 @@ export const CartProvider = ({ children }) => {
     }
   }, [appliedCoupon]);
 
+  // One-time cleanup: drop any previously persisted shipping selection so a stale
+  // tiered choice (e.g. Expedited) can't override the free default for returning users.
   useEffect(() => {
-    if (appliedShipping) {
-      localStorage.setItem('appliedShipping', JSON.stringify(appliedShipping));
-    } else {
-      localStorage.removeItem('appliedShipping');
-    }
-  }, [appliedShipping]);
+    localStorage.removeItem('appliedShipping');
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('membershipAdded', membershipAdded ? 'true' : 'false');
