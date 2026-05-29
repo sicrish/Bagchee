@@ -290,6 +290,19 @@ const Checkout = () => {
     }
   }, [user]);
 
+  // ─── Re-fetch settings when tab regains focus (picks up admin setting changes) ───
+  useEffect(() => {
+    const refetchSettings = async () => {
+      try {
+        const res = await axios.get(`${API_BASE_URL}/settings/public`);
+        if (res.data?.status && res.data?.data) setSettings(res.data.data);
+      } catch { /* ignore */ }
+    };
+    const onVisible = () => { if (document.visibilityState === 'visible') refetchSettings(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [API_BASE_URL]);
+
   // ─── Fetch payment methods, shipping options, active coupons ───
   useEffect(() => {
     const fetchData = async () => {
@@ -316,17 +329,25 @@ const Checkout = () => {
         if (payRes.data.status) {
           const active = payRes.data.data.filter((p) => p.active || p.isActive);
           setPaymentMethods(active);
-          if (active.length > 0) setSelectedPayment(active[0]);
         }
 
         // Shipping options
         if (shipRes.data.status) {
-          const active = shipRes.data.data.filter((o) => o.active || o.isActive);
+          // Sort by admin display order (ord) so the FIRST option is always the
+          // free/standard one — never rely on raw API/array order. Tiebreak by id.
+          const active = shipRes.data.data
+            .filter((o) => o.active || o.isActive)
+            .sort((a, b) =>
+              (Number(a.ord ?? a.order ?? 0) - Number(b.ord ?? b.order ?? 0)) ||
+              ((a.id ?? a._id ?? 0) - (b.id ?? b._id ?? 0))
+            );
           setShippingOptions(active);
-          // Always refresh from API so title/price changes in admin take effect immediately
+          // Default to the first (free/standard) option on a fresh load; preserve an
+          // in-session choice only if the user already picked one this visit. Applies
+          // to BOTH checkout shipping boxes (they share appliedShipping).
           if (active.length > 0) {
             const fresh = appliedShipping
-              ? (active.find(o => o.id === appliedShipping.id) || active[0])
+              ? (active.find(o => (o.id ?? o._id) === (appliedShipping.id ?? appliedShipping._id)) || active[0])
               : active[0];
             setAppliedShipping(fresh);
           }
@@ -818,6 +839,17 @@ const Checkout = () => {
       }
     }
 
+    // Re-fetch settings so payment mode is always current (not stale from mount)
+    let livePaymentMode = settings?.paymentGatewayMode || settings?.payment_gateway_mode || 'deferred';
+    try {
+      const freshSettings = await axios.get(`${API_BASE_URL}/settings/public`);
+      if (freshSettings.data?.status && freshSettings.data?.data) {
+        const s = freshSettings.data.data;
+        setSettings(s);
+        livePaymentMode = s.paymentGatewayMode || s.payment_gateway_mode || 'deferred';
+      }
+    } catch { /* non-critical — use cached settings */ }
+
     setLoading(true);
     try {
       // Build shipping_details
@@ -1017,8 +1049,10 @@ const Checkout = () => {
         return;
       }
 
-      // ─── CC/PayPal Deferred: admin reviews first, no gateway now ───
-      if (isDeferredFlow()) {
+      // ─── CC/PayPal Deferred: trust the server — if it put the order in
+      // 'approval pending' state, don't hit the payment gateway at all.
+      // This avoids the stale-settings race where frontend guesses wrong mode.
+      if (savedOrder.status === 'approval pending') {
         toast.success("Order received! Our team will review it shortly.");
         clearCart();
         setLoading(false);
@@ -1026,62 +1060,34 @@ const Checkout = () => {
         return;
       }
 
-      // ─── CC/PayPal Direct: Razorpay ───
-      const rzpRes = await axios.post(`${API_BASE_URL}/razorpay/create-order`, {
+      // ─── Unknown payment method — fall through to receipt (do NOT invoke Razorpay) ───
+      if (!isCardOrPayPalMethod(selectedPayment)) {
+        toast.success("Order placed successfully!");
+        clearCart();
+        setLoading(false);
+        navigate("/order-receipt", { state: { orderDetails: savedOrder, bankDetails }, replace: true });
+        return;
+      }
+
+      // ─── CC/PayPal Direct: PayPal ───
+      const ppRes = await axios.post(`${API_BASE_URL}/paypal/create-order`, {
         orderId: savedOrder.id,
       });
 
-      if (!rzpRes.data?.status) {
-        toast.error(rzpRes.data?.msg || "Failed to initiate payment");
+      if (!ppRes.data?.status) {
+        toast.error(ppRes.data?.msg || "Failed to initiate PayPal payment");
         setLoading(false);
         return;
       }
 
-      const { razorpayOrderId, amount, currency: rzpCurrency } = rzpRes.data.data;
+      // Persist order info so PayPalReturn page can capture after redirect
+      sessionStorage.setItem('paypal_pending', JSON.stringify({
+        orderId: savedOrder.id,
+        orderNumber: savedOrder.orderNumber,
+      }));
 
-      setLoading(false); // Modal takes over UX from here
-
-      const rzpOptions = {
-        key: process.env.REACT_APP_RAZORPAY_KEY_ID,
-        amount,
-        currency: rzpCurrency,
-        name: "Bagchee",
-        description: `Order #${savedOrder.orderNumber}`,
-        order_id: razorpayOrderId,
-        prefill: {
-          name: `${shippingDetails.firstName} ${shippingDetails.lastName}`.trim(),
-          email: shippingDetails.email,
-          contact: shippingDetails.phone,
-        },
-        theme: { color: '#1a3c5e' },
-        handler: async (response) => {
-          try {
-            const verifyRes = await axios.post(`${API_BASE_URL}/razorpay/verify-payment`, {
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-              orderId: savedOrder.id,
-            });
-            if (verifyRes.data?.status) {
-              toast.success("Payment successful!");
-              clearCart();
-              navigate("/order-receipt", { state: { orderDetails: savedOrder, paymentConfirmed: true }, replace: true });
-            } else {
-              toast.error("Payment verification failed. Please contact support.");
-            }
-          } catch {
-            toast.error("Payment verification failed. Please contact support.");
-          }
-        },
-        modal: {
-          ondismiss: () => {
-            toast.error("Payment cancelled. Your order is saved — retry from My Orders.");
-          },
-        },
-      };
-
-      const rzp = new window.Razorpay(rzpOptions);
-      rzp.open();
+      // Hand off to PayPal — user will be redirected back to /paypal-return
+      window.location.href = ppRes.data.data.approvalUrl;
     } catch (error) {
       toast.error(
         error.response?.data?.msg || "Something went wrong. Please try again.",

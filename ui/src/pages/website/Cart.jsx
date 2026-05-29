@@ -116,12 +116,20 @@ const Cart = () => {
 
         // Shipping options
         if (shippingRes.data.status) {
-          const active = shippingRes.data.data.filter(o => o.active || o.isActive);
+          // Sort by admin display order (ord) so the FIRST option is always the
+          // free/standard one — never rely on raw API/array order. Tiebreak by id.
+          const active = shippingRes.data.data
+            .filter(o => o.active || o.isActive)
+            .sort((a, b) =>
+              (Number(a.ord ?? a.order ?? 0) - Number(b.ord ?? b.order ?? 0)) ||
+              ((a.id ?? a._id ?? 0) - (b.id ?? b._id ?? 0))
+            );
           setShippingOptions(active);
-          // Always refresh from API so title/price changes in admin take effect immediately
+          // Default to the first (free/standard) option on a fresh load; preserve an
+          // in-session choice only if the user already picked one this visit.
           if (active.length > 0) {
             const fresh = appliedShipping
-              ? (active.find(o => o.id === appliedShipping.id) || active[0])
+              ? (active.find(o => (o.id ?? o._id) === (appliedShipping.id ?? appliedShipping._id)) || active[0])
               : active[0];
             setAppliedShipping(fresh);
           }

@@ -21,6 +21,9 @@ const ProductListing = ({ type }) => {
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [totalProducts, setTotalProducts] = useState(0);
+    // Default to gallery (grid) for ALL listings — including tag / subject / search
+    // pages (type === 'search'). Grid renders 2/3/4 per line responsively (4 on desktop).
+    // Users can still switch to list via the toggle.
     const [viewMode, setViewMode] = useState('grid');
     const [showMobileFilter, setShowMobileFilter] = useState(false);
 
@@ -45,6 +48,8 @@ const ProductListing = ({ type }) => {
     const [totalPages, setTotalPages] = useState(1);
     // null = pending resolution, -1 = not found, >=1 = resolved ID
     const [resolvedEntityId, setResolvedEntityId] = useState(null);
+    const [saleCategoryIds, setSaleCategoryIds] = useState(null);
+    const [newArrivalCategoryIds, setNewArrivalCategoryIds] = useState(null);
 
     // Selected Filters
     const [filters, setFilters] = useState({
@@ -103,10 +108,15 @@ const ProductListing = ({ type }) => {
                     setFlatCats(flatCategories);
 
                     if (slug && type !== 'publisher' && type !== 'series') {
-                        // Find current category by slug from flat list (guard null slugs)
-                        const foundCat = flatCategories.find(
-                            c => c.slug && (c.slug === slug || c.slug.endsWith('/' + slug))
-                        );
+                        // Find current category by slug from flat list
+                        // Clean comparison handles mismatches like "Health Mind & Body" → health-mind-and-body
+                        const cleanUrlSlug = slug.toLowerCase().replace(/[^a-z0-9]/g, '');
+                        const foundCat = flatCategories.find(c => {
+                            if (c.slug && (c.slug === slug || c.slug.endsWith('/' + slug))) return true;
+                            const title = c.categorytitle || c.title || '';
+                            const cleanTitle = title.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]/g, '');
+                            return cleanTitle === cleanUrlSlug;
+                        });
                         if (foundCat) {
                             const title = foundCat.categorytitle || foundCat.title;
                             setPageTitle(title);
@@ -199,6 +209,19 @@ const ProductListing = ({ type }) => {
         };
         fetchSidebarData();
     }, [slug, type, location.search]);
+
+    // --- 1b. Fetch available category IDs for special pages ---
+    useEffect(() => {
+        if (type === 'sale') {
+            axios.get(`${process.env.REACT_APP_API_URL}/product/sale-categories`)
+                .then(res => { if (res.data?.status) setSaleCategoryIds(res.data.data); })
+                .catch(() => {});
+        } else if (type === 'new-arrivals') {
+            axios.get(`${process.env.REACT_APP_API_URL}/product/new-arrival-categories`)
+                .then(res => { if (res.data?.status) setNewArrivalCategoryIds(res.data.data); })
+                .catch(() => {});
+        }
+    }, [type]);
 
     // --- 2. Fetch Products ---
     useEffect(() => {
@@ -471,7 +494,8 @@ const ProductListing = ({ type }) => {
                         publishers={publishersList}
                         series={seriesList}
                         isSalePage={type === 'sale'}
-                        // Important for drawer functionality
+                        filterInPlace={type === 'sale' || type === 'new-arrivals' || type === 'bestsellers' || type === 'recommended'}
+                        availableCategoryIds={type === 'sale' ? saleCategoryIds : type === 'new-arrivals' ? newArrivalCategoryIds : null}
                         isOpen={showMobileFilter}
                         onClose={() => setShowMobileFilter(false)}
                     />
@@ -500,18 +524,17 @@ const ProductListing = ({ type }) => {
                                 </button>
                             </div>
 
-                            {type !== 'sale' && (
-                                <div className="relative group">
-                                    <select value={filters.sort} onChange={(e) => handleFilterChange('sort', e.target.value)} className="appearance-none bg-primary text-white pl-4 pr-10 py-2 rounded-md text-sm font-bold cursor-pointer focus:outline-none hover:bg-primary-hover transition-colors font-montserrat tracking-wide">
-                                        <option value="newest">Newest</option>
-                                        <option value="bestseller">Bestselling</option>
-                                        <option value="price_low">Price (low to high)</option>
-                                        <option value="price_high">Price (high to low)</option>
-                                        <option value="rating">Highly Rated</option>
-                                    </select>
-                                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white pointer-events-none" />
-                                </div>
-                            )}
+                            <div className="relative group">
+                                <select value={filters.sort} onChange={(e) => handleFilterChange('sort', e.target.value)} className="appearance-none bg-primary text-white pl-4 pr-10 py-2 rounded-md text-sm font-bold cursor-pointer focus:outline-none hover:bg-primary-hover transition-colors font-montserrat tracking-wide">
+                                    <option value="newest">Newest</option>
+                                    <option value="bestseller">Bestselling</option>
+                                    <option value="price_low">Price (low to high)</option>
+                                    <option value="price_high">Price (high to low)</option>
+                                    <option value="rating">Highly Rated</option>
+                                    {type === 'sale' && <option value="discount_high">Highest Discount</option>}
+                                </select>
+                                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white pointer-events-none" />
+                            </div>
                         </div>
                     </div>
 
