@@ -21,10 +21,18 @@ const ProductListing = ({ type }) => {
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [totalProducts, setTotalProducts] = useState(0);
-    // Default to gallery (grid) for ALL listings — including tag / subject / search
-    // pages (type === 'search'). Grid renders 2/3/4 per line responsively (4 on desktop).
-    // Users can still switch to list via the toggle.
-    const [viewMode, setViewMode] = useState('grid');
+    // A genuine keyword SEARCH (?keyword=...) defaults to LIST view — one book per
+    // row — as agreed with the client. Everything else (tag pages via ?tags=,
+    // categories, sale, new-arrivals, etc.) defaults to GRID (2/3/4 per row).
+    // The grid/list toggle still lets users switch either way.
+    const isKeywordSearch = type === 'search' && !!new URLSearchParams(location.search).get('keyword');
+    const [viewMode, setViewMode] = useState(isKeywordSearch ? 'list' : 'grid');
+    // The /books route does NOT remount when only ?keyword/?tags changes, so re-apply
+    // the default whenever we cross the search ↔ non-search boundary. Manual toggles
+    // within the same context are preserved (isKeywordSearch keeps the same value).
+    useEffect(() => {
+        setViewMode(isKeywordSearch ? 'list' : 'grid');
+    }, [isKeywordSearch]);
     const [showMobileFilter, setShowMobileFilter] = useState(false);
 
     // Modal State
