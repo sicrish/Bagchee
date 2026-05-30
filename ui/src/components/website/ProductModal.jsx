@@ -4,7 +4,7 @@ import { X, ShoppingCart, Heart } from 'lucide-react';
 import { Dialog, Transition, TransitionChild, DialogPanel } from '@headlessui/react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../../context/CartContext.jsx';
-import { getProductImageUrl } from '../../utils/imageUrl';
+import { getProductImageUrl, NO_IMAGE } from '../../utils/imageUrl';
 import { CurrencyContext } from '../../context/CurrencyContext.jsx';
 import { useGeo } from '../../context/GeoContext.jsx';
 import toast from 'react-hot-toast';
@@ -29,7 +29,7 @@ const ProductModal = ({ product, isOpen, onClose }) => {
 
     const previewImage = useMemo(() => {
         if (!product) return "";
-        return getProductImageUrl(product) || "https://placehold.co/500x700?text=No+Preview+Available";
+        return getProductImageUrl(product) || NO_IMAGE;
     }, [product]);
 
     const handleClose = useCallback(() => {
@@ -94,7 +94,7 @@ const ProductModal = ({ product, isOpen, onClose }) => {
                                         src={previewImage} 
                                         alt={product.title} 
                                         className="max-w-full h-auto shadow-lg rounded-sm object-contain max-h-[400px] md:max-h-full"
-                                        onError={(e) => { e.target.src = "https://via.placeholder.com/500x700?text=No+Preview+Available" }}
+                                        onError={(e) => { e.target.src = NO_IMAGE }}
                                     />
                                 </div>
 
@@ -109,12 +109,20 @@ const ProductModal = ({ product, isOpen, onClose }) => {
                                         </p>
 
                                         <div className="text-2xl sm:text-3xl font-bold text-text-main font-montserrat mb-6">
-                                        {formatPrice(product.price, product.inrPrice ?? product.inr_price, product.realPrice ?? product.real_price)}
-                                        {Number(product.price) > Number(product.realPrice ?? product.real_price) && (
-                                                <span className="text-base sm:text-lg font-normal text-gray-400 line-through opacity-70">
-                                                    {formatPrice(product.price, product.inrPrice ?? product.inr_price, product.price)}
-                                                </span>
-                                            )}
+                                        {(() => {
+                                            const mP = Number(product.price || 0);
+                                            const rP = Number(product.realPrice ?? product.real_price ?? 0);
+                                            const iP = Number(product.inrPrice ?? product.inr_price ?? 0);
+                                            const iMrp = (iP > 0 && rP > 0 && mP > rP) ? Math.round(iP * mP / rP) : 0;
+                                            return (<>
+                                                {formatPrice(mP, iP, rP)}
+                                                {mP > rP && rP > 0 && (
+                                                    <span className="text-base sm:text-lg font-normal text-gray-400 line-through opacity-70">
+                                                        {formatPrice(mP, iMrp, mP)}
+                                                    </span>
+                                                )}
+                                            </>);
+                                        })()}
                                         </div>
 
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6 bg-cream-50 p-4 rounded-lg border border-cream-200">

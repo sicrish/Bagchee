@@ -9,8 +9,16 @@
  *
  * Also handles object input (extracts defaultImage/image/picture field).
  */
+import noImage from '../assets/images/common/no-image.jpg';
+
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 const BAGCHEE_SLIDERS = 'https://www.bagchee.com/assets/images/sliders';
+
+/**
+ * Fallback shown when a product/book has no cover image.
+ * Single source of truth — use as the `src` fallback AND in `onError` handlers.
+ */
+export const NO_IMAGE = noImage;
 
 // Slider/banner filenames have a hex-hash prefix, e.g. "20d39-baner2-2-.png"
 const isSliderFilename = (name) => /^[a-f0-9]+-/i.test(name);

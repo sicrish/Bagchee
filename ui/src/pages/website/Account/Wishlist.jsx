@@ -9,6 +9,7 @@ import AccountLayout from '../../../layouts/AccountLayout';
 import { useCart } from '../../../context/CartContext';
 import { CurrencyContext } from '../../../context/CurrencyContext';
 import { useQuery } from '@tanstack/react-query'; // 🟢 React Query
+import { NO_IMAGE } from '../../../utils/imageUrl';
 
 const Wishlist = () => {
   const { wishlist, toggleWishlist, cart, addToCart, updateQuantity } = useCart();
@@ -88,7 +89,7 @@ const Wishlist = () => {
             : `${process.env.REACT_APP_API_URL.replace('/api', '')}${img}`;
     }
     // Fallback placeholder
-    return 'https://via.placeholder.com/300x400?text=No+Image';
+    return NO_IMAGE;
 };
 
   const getAuthorName = (author) => {
@@ -169,9 +170,10 @@ const Wishlist = () => {
 
               // 2. MNC Display Variables (Brain of Pricing)
               const displayPriceUI = formatPrice(currentPriceUSD, currentPriceINR, currentRealPrice);
-              const hasDiscount = fullProduct.real_price > fullProduct.price;
-              const displayOldPriceUI = hasDiscount ? formatPrice(fullProduct.real_price, null, fullProduct.real_price) : null;
-              const discountPercent = hasDiscount ? Math.round(((fullProduct.real_price - fullProduct.price) / fullProduct.real_price) * 100) : 0;
+              const hasDiscount = currentPriceUSD > 0 && fullProduct.real_price > 0 && fullProduct.real_price < currentPriceUSD;
+              const inrMrpWL = (currentPriceINR > 0 && hasDiscount) ? Math.round(currentPriceINR * currentPriceUSD / fullProduct.real_price) : 0;
+              const displayOldPriceUI = hasDiscount ? formatPrice(currentPriceUSD, inrMrpWL, currentPriceUSD) : null;
+              const discountPercent = hasDiscount ? Math.round(((currentPriceUSD - fullProduct.real_price) / currentPriceUSD) * 100) : 0;
 
               // 3. Status & Meta
               const rating = fullProduct.rating || 0;
@@ -199,7 +201,7 @@ const Wishlist = () => {
                         src={getImageUrl(fullProduct)}
                         alt={fullProduct.title}
                         className="w-full h-full object-contain mix-blend-multiply drop-shadow-sm transition-transform duration-300 group-hover:scale-105"
-                        onError={(e) => { e.target.src = "https://via.placeholder.com/300x400?text=No+Image"; }}
+                        onError={(e) => { e.target.src = NO_IMAGE; }}
                       />
                     </div>
                   </Link>

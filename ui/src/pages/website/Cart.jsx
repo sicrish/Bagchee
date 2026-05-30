@@ -5,6 +5,7 @@ import { useCart } from '../../context/CartContext';
 import { CurrencyContext } from '../../context/CurrencyContext';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
+import { NO_IMAGE } from '../../utils/imageUrl';
 // Import payment icons like footer
 import visaImg from '../../assets/images/website/payments/Visa.svg';
 import amexImg from '../../assets/images/website/payments/american.png';
@@ -355,7 +356,7 @@ const Cart = () => {
   };
 
   const getImageUrl = (image) => {
-    if (!image) return 'https://placehold.co/80x110?text=No+Image';
+    if (!image) return NO_IMAGE;
     return image.startsWith('http') ? image : `${API_BASE_URL}${image}`;
   };
 
@@ -477,8 +478,7 @@ const Cart = () => {
                             alt={item.name || item.title}
                             className="w-20 h-28 object-cover border border-gray-200"
                             onError={(e) => {
-                              e.target.src =
-                                "https://placehold.co/80x110?text=No+Image";
+                              e.target.src = NO_IMAGE;
                             }}
                           />
                         </Link>

@@ -5,7 +5,7 @@ import { useCart } from '../../context/CartContext.jsx';
 import { CurrencyContext } from '../../context/CurrencyContext.jsx';
 import { useGeo } from '../../context/GeoContext.jsx';
 import { Link } from 'react-router-dom';
-import { getProductImageUrl } from '../../utils/imageUrl';
+import { getProductImageUrl, NO_IMAGE } from '../../utils/imageUrl';
 import toast from 'react-hot-toast';
 import { useMutation, useQueryClient } from '@tanstack/react-query'; // 🟢 React Query
 import axios from '../../utils/axiosConfig.js';
@@ -48,8 +48,9 @@ const ProductCardList = ({ data, onQuickView }) => {
 
         const hasDiscount = mPrice > rPrice && rPrice > 0;
         const discountPercentage = hasDiscount ? Math.round(((mPrice - rPrice) / mPrice) * 100) : 0;
+        const inrMrp = (iPrice > 0 && hasDiscount) ? Math.round(iPrice * mPrice / rPrice) : 0;
 
-        return { mPrice, rPrice, iPrice, hasDiscount, discountPercentage };
+        return { mPrice, rPrice, iPrice, inrMrp, hasDiscount, discountPercentage };
     }, [data.price, data.realPrice, data.real_price, data.inrPrice, data.inr_price]);
 
     const isOutOfStock = data.stock === 'inactive' || data.stock === 'out_of_stock';
@@ -90,7 +91,7 @@ const ProductCardList = ({ data, onQuickView }) => {
 
     // 🟢 Optimization 4: Smart Image URL
     const imageUrl = useMemo(() => {
-        return getProductImageUrl(data) || "https://placehold.co/300x400?text=No+Image";
+        return getProductImageUrl(data) || NO_IMAGE;
     }, [data]);
 
     return (
@@ -110,7 +111,7 @@ const ProductCardList = ({ data, onQuickView }) => {
                         loading="lazy"
                         decoding="async"
                         className="w-full h-full object-contain cursor-pointer hover:scale-105 transition-transform duration-500"
-                        onError={(e) => { e.target.src = "https://placehold.co/300x400?text=No+Image" }}
+                        onError={(e) => { e.target.src = NO_IMAGE }}
                     />
                 </Link>
             </div>
@@ -121,9 +122,11 @@ const ProductCardList = ({ data, onQuickView }) => {
                     <Link to={productUrl}>{data.title}</Link>
                 </h2>
 
-                <div className="flex items-center gap-1 text-sm text-accent font-bold mb-2 md:mb-3">
-                    {'★'.repeat(data.rating || 0)}{'☆'.repeat(5 - (data.rating || 0))}
-                    <span className="text-text-muted text-xs font-normal ml-1 font-body">({data.ratedTimes || 0} reviews)</span>
+                <div className={`flex items-center gap-1 text-sm font-bold mb-2 md:mb-3 ${(data.rating || 0) > 0 ? 'text-accent' : 'text-text-muted/40'}`}>
+                    {(data.rating || 0) > 0 ? '★'.repeat(data.rating) : '☆☆☆☆☆'}
+                    {(data.ratedTimes || 0) > 0 && (
+                        <span className="text-text-muted text-xs font-normal ml-1 font-body">({data.ratedTimes} reviews)</span>
+                    )}
                 </div>
 
                 <p className="text-xs md:text-sm font-bold text-text-main mb-1 font-montserrat">
@@ -158,7 +161,7 @@ const ProductCardList = ({ data, onQuickView }) => {
                         {/* 🟢 MRP (Strikethrough) - Sirf tab jab discount ho */}
                         {priceData.hasDiscount && (
                             <span className="text-xs md:text-sm text-text-muted/60 line-through font-body">
-                                {formatPrice(priceData.mPrice, priceData.iPrice, priceData.mPrice)}
+                                {formatPrice(priceData.mPrice, priceData.inrMrp, priceData.mPrice)}
                             </span>
                         )}
                     </div>

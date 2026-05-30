@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { NO_IMAGE } from '../../../../utils/imageUrl';
 
 
 // 🟢 Helper to generate clean slugs
@@ -27,7 +28,7 @@ const FeaturedAuthors = () => {
 
   // 2. Image URL Helper
   const getFullUrl = (path) => {
-    if (!path) return "https://placehold.co/200x200?text=No+Image";
+    if (!path) return NO_IMAGE;
     if (path.startsWith('http')) return path;
     const API_BASE = process.env.REACT_APP_API_URL?.replace('/api', '') || "http://localhost:5000";
     return `${API_BASE}/${path.replace(/^\//, '')}`;
@@ -98,7 +99,7 @@ const FeaturedAuthors = () => {
                   src={getFullUrl(book?.defaultImage || book?.default_image)}
                   alt="Featured Book"
                   className="w-full h-full object-cover group-hover/book:scale-105 transition-transform"
-                  onError={(e) => { e.target.src = "https://placehold.co/100x150?text=Book"; }}
+                  onError={(e) => { e.target.src = NO_IMAGE; }}
                 />
               </div>
               <span className="text-[11px] text-primary font-bold font-montserrat group-hover/book:underline">More</span>

@@ -4,7 +4,7 @@ import { useCart } from '../../context/CartContext.jsx';
 import { useGeo } from '../../context/GeoContext.jsx';
 import { Heart, ShoppingCart, Eye } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { getProductImageUrl } from '../../utils/imageUrl';
+import { getProductImageUrl, NO_IMAGE } from '../../utils/imageUrl';
 import toast from 'react-hot-toast';
 import { useMutation, useQueryClient } from '@tanstack/react-query'; 
 import axios from '../../utils/axiosConfig.js';
@@ -38,12 +38,14 @@ const ProductCardGrid = ({ data, onQuickView }) => {
 
         // Logic: Discount tabhi hai jab MRP Final price se bada ho
         const showDiscount = mPrice > rPrice && rPrice > 0;
-        
-        const discountPercentage = showDiscount 
-            ? Math.round(((mPrice - rPrice) / mPrice) * 100) 
+
+        const discountPercentage = showDiscount
+            ? Math.round(((mPrice - rPrice) / mPrice) * 100)
             : 0;
 
-        return { mPrice, rPrice, iPrice, showDiscount, discountPercentage };
+        const inrMrp = (iPrice > 0 && showDiscount) ? Math.round(iPrice * mPrice / rPrice) : 0;
+
+        return { mPrice, rPrice, iPrice, inrMrp, showDiscount, discountPercentage };
     }, [data.price, data.realPrice, data.real_price, data.inrPrice, data.inr_price]);
 
     // 🟢 React Query Mutation for Cart (Background Sync)
@@ -88,7 +90,7 @@ const ProductCardGrid = ({ data, onQuickView }) => {
 
     // 🟢 Optimization 4: Smart Image URL
     const imageUrl = useMemo(() => {
-        return getProductImageUrl(data) || "https://placehold.co/300x400?text=No+Image";
+        return getProductImageUrl(data) || NO_IMAGE;
     }, [data]);
 
     return (
@@ -111,7 +113,7 @@ const ProductCardGrid = ({ data, onQuickView }) => {
                         decoding="async"
                         className="w-full h-full object-contain transition-transform duration-700 group-hover:scale-105"
                         style={{ willChange: 'transform' }}
-                        onError={(e) => { e.target.src = "https://placehold.co/300x400?text=No+Image" }}
+                        onError={(e) => { e.target.src = NO_IMAGE }}
                     />
                 </Link>
                 {onQuickView && (
@@ -139,8 +141,8 @@ const ProductCardGrid = ({ data, onQuickView }) => {
                 </p>
 
                 {/* Rating */}
-                <div className="flex items-center gap-1 text-xs text-accent font-bold mb-2">
-                    {'★'.repeat(data.rating || 0)}{'☆'.repeat(5 - (data.rating || 0))}
+                <div className={`flex items-center gap-1 text-xs font-bold mb-2 ${(data.rating || 0) > 0 ? 'text-accent' : 'text-text-muted/40'}`}>
+                    {(data.rating || 0) > 0 ? '★'.repeat(data.rating) : '☆☆☆☆☆'}
                     {(data.ratedTimes || 0) > 0 && (
                         <span className="text-text-muted text-[10px] font-normal font-body">({data.ratedTimes})</span>
                     )}
@@ -152,7 +154,7 @@ const ProductCardGrid = ({ data, onQuickView }) => {
                     <div className="flex flex-col">
                         {priceData.showDiscount && (
                             <span className="text-[10px] md:text-xs text-text-muted/70 line-through font-body">
-{formatPrice(priceData.mPrice, priceData.iPrice, priceData.mPrice)}                            </span>
+{formatPrice(priceData.mPrice, priceData.inrMrp, priceData.mPrice)}                            </span>
                         )}
                         <span className="text-sm md:text-base font-bold text-primary font-display">
                         {formatPrice(priceData.mPrice, priceData.iPrice, priceData.rPrice)}                        </span>

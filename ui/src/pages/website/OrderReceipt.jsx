@@ -4,6 +4,7 @@ import { FileText, Package, ArrowRight, Tag, Copy, ShoppingBag, MapPin, CreditCa
 import { CurrencyContext } from "../../context/CurrencyContext";
 import toast from "react-hot-toast";
 import axios from "../../utils/axiosConfig";
+import { NO_IMAGE } from "../../utils/imageUrl";
 
 const OrderReceipt = () => {
   const location = useLocation();
@@ -75,7 +76,7 @@ const OrderReceipt = () => {
   };
 
   const getFullImageUrl = (path) => {
-    if (!path) return "https://via.placeholder.com/150x200?text=Book";
+    if (!path) return NO_IMAGE;
     return path.startsWith('http') ? path : `${BASE_URL}${path}`;
   };
 

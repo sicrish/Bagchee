@@ -4,6 +4,7 @@ import { createSafeHtml } from '../../utils/sanitize';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import { normalizeProduct } from '../../utils/normalizeProduct';
+import { NO_IMAGE } from '../../utils/imageUrl';
 import {
   Heart, Star, Share2, ChevronLeft, ChevronRight,
   Truck, RotateCcw, CheckCircle2, AlertTriangle, ChevronDown,
@@ -14,6 +15,8 @@ import toast from 'react-hot-toast';
 import { useCart } from '../../context/CartContext';
 import { CurrencyContext } from '../../context/CurrencyContext';
 import { useGeo } from '../../context/GeoContext.jsx';
+
+const AUTHOR_ROLE_MAP = { 1: 'Author', 2: 'Editor', 3: 'Translator', 4: 'Introduction', 5: 'Foreword', 6: 'Photography', 7: 'Compiler', 8: 'Collaborator', 9: 'Curator' };
 
 const BookDetail = () => {
   const { bagcheeId, slug } = useParams();
@@ -305,17 +308,13 @@ const BookDetail = () => {
 
     const toastId = toast.loading("Subscribing...");
     try {
-      // 🟢 Backend controller ke 'saveSubscriber' route par data bhej rahe hain
-      const res = await axios.post(`${process.env.REACT_APP_API_URL}/newsletter-subs/save`, {
+      const res = await axios.post(`${process.env.REACT_APP_API_URL}/back-in-stock/subscribe`, {
         email: newsEmail,
-
-        firstName: '', // Non-login user ke liye empty
-        lastName: '',  // Non-login user ke liye empty
-        categories: [] // Default khali array
+        productId: book.id
       });
 
       if (res.data.status) {
-        toast.success("Thank you! We will notify you about " + book.title, { id: toastId });
+        toast.success("We'll email you when it's back in stock!", { id: toastId });
         setNewsEmail(""); // Input clear karein
       } else {
         toast.error(res.data.msg || "Subscription failed", { id: toastId });
@@ -402,6 +401,8 @@ const BookDetail = () => {
   const realPrice = book.realPrice ?? book.real_price ?? 0;
   const inrPrice = book.inrPrice ?? book.inr_price ?? 0;
   const hasDiscount = realPrice > 0 && realPrice < Number(book.price);
+  // INR MRP derived proportionally from selling price so strikethrough shows a higher value
+  const inrMrp = (inrPrice > 0 && hasDiscount) ? Math.round(inrPrice * Number(book.price) / realPrice) : 0;
   const rating = book.rating || 0;
 
   // Stock logic: stock field is 'active'/'inactive', availability is quantity
@@ -531,9 +532,10 @@ const BookDetail = () => {
               {/* Main Image Wrapper: Shadow aur Border image ke kinaro par rahegi */}
               <div className="w-fit mx-auto lg:mx-0 bg-white rounded-lg overflow-hidden border border-cream-200 shadow-md flex items-center justify-center group mb-2 p-2 sm:p-2">
                 <img
-                  src={uniqueImages[selectedImage] || "https://placehold.co/400x600?text=No+Image"}
+                  src={uniqueImages[selectedImage] || NO_IMAGE}
                   alt={book.title}
                   className="max-w-full max-h-[300px] sm:max-h-full object-contain transition-transform duration-500 group-hover:scale-105"
+                  onError={(e) => { e.target.src = NO_IMAGE; }}
                 />
               </div>
 
@@ -541,7 +543,7 @@ const BookDetail = () => {
               <div className="flex gap-1.5 sm:gap-2 overflow-x-auto scrollbar-hide">
                 {uniqueImages.map((img, i) => (
                   <button key={i} onClick={() => setSelectedImage(i)} className={`w-14 h-16 flex-shrink-0 border-2 rounded overflow-hidden ${selectedImage === i ? 'border-primary' : 'border-cream-200'}`}>
-                    <img src={img} className="w-full h-full object-contain p-0.5" alt="thumb" />
+                    <img src={img} className="w-full h-full object-contain p-0.5" alt="thumb" onError={(e) => { e.target.src = NO_IMAGE; }} />
                   </button>
                 ))}
               </div>
@@ -655,10 +657,12 @@ const BookDetail = () => {
                       const auth = a.author || a;
                       const name = auth.fullName || `${auth.firstName || auth.first_name || ''} ${auth.lastName || auth.last_name || ''}`.trim();
                       const slug = createAuthorSlug(auth);
+                      const roleLabel = AUTHOR_ROLE_MAP[a.roleId];
                       return (
                         <span key={auth.id || i}>
                           {i > 0 && ', '}
                           <Link to={`/author/${slug}`} className="text-primary hover:underline font-medium">{name}</Link>
+                          {roleLabel && <span className="text-gray-500 text-sm"> ({roleLabel})</span>}
                         </span>
                       );
                     })
@@ -834,23 +838,23 @@ const BookDetail = () => {
                       {Number(book.price) > realPrice && realPrice > 0 && (
                         <>
                           <span className="text-base text-gray-400 line-through">
-                            {formatPrice(book.price, inrPrice, book.price)}
+                            {formatPrice(book.price, inrMrp, book.price)}
                           </span>
-                          {Math.round(((book.price - realPrice) / book.price) * 100) >= 20 && (
-                            <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-semibold">
+                          <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-semibold">
                               {Math.round(((book.price - realPrice) / book.price) * 100)}% OFF
                             </span>
-                          )}
                         </>
                       )}
                     </div>
                   </div>
 
-                  {/* Stock Status Badge */}
-                  <div className={`flex items-center gap-1.5 text-xs font-semibold ${isLowStock ? 'text-orange-600' : 'text-green-600'}`}>
-                    {isLowStock ? <AlertTriangle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
-                    <span>{isLowStock ? `Only ${book.availability} left — order soon!` : 'In Stock'}</span>
-                  </div>
+                  {/* Stock Status Badge — hidden for Indian IPs */}
+                  {!isIndia && (
+                    <div className={`flex items-center gap-1.5 text-xs font-semibold ${isLowStock ? 'text-orange-600' : 'text-green-600'}`}>
+                      {isLowStock ? <AlertTriangle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
+                      <span>{isLowStock ? `Only ${book.availability} left — order soon!` : 'In Stock'}</span>
+                    </div>
+                  )}
 
                   {/* Delivery Info (Sirf tab jab upcoming na ho) */}
                   {!isUpcoming && (
@@ -1205,7 +1209,7 @@ const BookDetail = () => {
                     <div className="aspect-[3/4] overflow-hidden bg-white relative">
                       <img
                         /* 🟢 FIXED: Added getFullImageUrl for Related Books */
-                        src={getFullImageUrl(relatedBook.default_image) || "https://via.placeholder.com/300x400?text=No+Image"}
+                        src={getFullImageUrl(relatedBook.default_image) || NO_IMAGE}
                         alt={relatedBook.title}
                         className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform"
                       />
@@ -1416,7 +1420,7 @@ const BookDetail = () => {
                     <div className="aspect-[3/4] overflow-hidden bg-white">
                       <img
                         /* 🟢 FIXED: getFullImageUrl function added here */
-                        src={getFullImageUrl(sb.default_image) || 'https://via.placeholder.com/300x400?text=No+Image'}
+                        src={getFullImageUrl(sb.default_image) || NO_IMAGE}
                         alt={sb.title}
                         className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform"
                       />
@@ -1648,10 +1652,10 @@ const BookDetail = () => {
                       {/* onClick={() => console.log("Link clicked, target URL: /author/" + authorSlug)} */}
                       <div className="relative">
                         <img
-                          src={author.picture ? getFullImageUrl(author.picture) : "https://via.placeholder.com/150?text=Author"}
+                          src={author.picture ? getFullImageUrl(author.picture) : "https://placehold.co/150?text=Author"}
                           alt={getAuthorName(author)}
                           className="w-24 h-24 sm:w-28 sm:h-28 rounded-full object-contain border-4 border-white shadow-md bg-gray-50 group-hover:border-primary/20 transition-all"
-                          onError={e => { e.target.src = "https://via.placeholder.com/150?text=Author"; }}
+                          onError={e => { e.target.src = "https://placehold.co/150?text=Author"; }}
                         />
                         {/* Hover overlay icon */}
                         <div className="absolute inset-0 rounded-full bg-primary/10 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
@@ -1753,7 +1757,7 @@ const BookDetail = () => {
                     <div className="aspect-[3/4] overflow-hidden bg-white relative">
                       <img
                         /* 🟢 FIXED: getFullImageUrl added here */
-                        src={getFullImageUrl(ab.default_image) || 'https://via.placeholder.com/300x400?text=No+Image'}
+                        src={getFullImageUrl(ab.default_image) || NO_IMAGE}
                         alt={ab.title}
                         className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform"
                       />
