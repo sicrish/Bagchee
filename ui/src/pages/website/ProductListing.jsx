@@ -21,10 +21,20 @@ const ProductListing = ({ type }) => {
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [totalProducts, setTotalProducts] = useState(0);
-    // A genuine keyword SEARCH (?keyword=...) defaults to LIST view — one book per
-    // row — as agreed with the client. Everything else (tag pages via ?tags=,
-    // categories, sale, new-arrivals, etc.) defaults to GRID (2/3/4 per row).
-    // The grid/list toggle still lets users switch either way.
+    // ─────────────────────────────────────────────────────────────────────────────
+    // DEFAULT VIEW MODE — READ BEFORE CHANGING.
+    // A genuine keyword SEARCH (?keyword=...) defaults to LIST view (one book per row,
+    // client-agreed). Everything else — tag pages (?tags=), categories, sale,
+    // new-arrivals, etc. — defaults to GRID. The grid/list toggle still lets the user
+    // switch either way.
+    //
+    // ⚠️ DO NOT change this to a blanket `useState('grid')`. The /books route
+    // (type="search") serves BOTH keyword search (?keyword=) AND tag pages (?tags=),
+    // which need DIFFERENT defaults: search = LIST, tags = GRID. On 2026-05-29 a
+    // "make tag pages grid" fix was done as a blanket grid default, which silently
+    // forced SEARCH into grid too and broke the agreed search=list behaviour. They are
+    // intentionally split by the `keyword` param below — keep them split.
+    // ─────────────────────────────────────────────────────────────────────────────
     const isKeywordSearch = type === 'search' && !!new URLSearchParams(location.search).get('keyword');
     const [viewMode, setViewMode] = useState(isKeywordSearch ? 'list' : 'grid');
     // The /books route does NOT remount when only ?keyword/?tags changes, so re-apply
