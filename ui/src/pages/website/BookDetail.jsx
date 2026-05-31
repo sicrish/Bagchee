@@ -1122,7 +1122,7 @@ const BookDetail = () => {
                     {productCategories.map((cat, idx) => (
                       <Link
                         key={idx}
-                        to={cat.name ? `/books/${encodeURIComponent(cat.name)}` : `/sale?category=${encodeURIComponent(cat.name)}`}
+                        to={cat.slug ? `/books/${cat.slug}` : `/sale?category=${encodeURIComponent(cat.name)}`}
                         className="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs font-medium rounded-full hover:bg-gray-200 transition-colors"
                       >
                         {cat.name}
