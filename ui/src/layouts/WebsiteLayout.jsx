@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { Outlet, useLocation, Navigate } from "react-router-dom";
+import toast from "react-hot-toast";
 import Header from "../components/website/common/header/header.jsx";
 import Footer from "../components/website/common/footer/footer.jsx";
 import PremiumOfferBar from "../components/website/home/offer/offerSection.jsx";
@@ -11,6 +12,19 @@ function WebsiteLayouts() {
   const location = useLocation();
   const pageMeta = usePageMeta();
   const { isIndia, indiaMaintenance } = useGeo();
+
+  // Newsletter confirmation link lands here (?newsletter=confirmed) — show a success
+  // message at the top, then strip the param out of the URL.
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('newsletter') === 'confirmed') {
+      toast.success("You're subscribed! Thanks for confirming your Bagchee newsletter subscription. 🎉", { duration: 6000 });
+      params.delete('newsletter');
+      params.delete('email');
+      const qs = params.toString();
+      window.history.replaceState({}, '', location.pathname + (qs ? `?${qs}` : ''));
+    }
+  }, [location.search, location.pathname]);
 
   // Check if current route is an account or cart page or checkout
   const isAccountOrCartPage =

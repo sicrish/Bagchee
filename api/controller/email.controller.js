@@ -18,24 +18,30 @@ const theme = {
 const SITE_URL = (process.env.FRONTEND_URL || 'https://www.bagchee.com').split(',')[0].trim();
 const LOGO_URL = 'https://www.bagchee.com/logo1.png';
 
-const emailHeader = (title = null) => `
-    <div style="background-color:${theme.primary};padding:20px 35px;text-align:center;">
+const emailHeader = (title = null, compact = false) => {
+    const logoH = compact ? 40 : 62;
+    const nameSize = compact ? 19 : 26;
+    const pad = compact ? '14px 28px' : '20px 35px';
+    const tagSize = compact ? 8 : 9;
+    return `
+    <div style="background-color:${theme.primary};padding:${pad};text-align:center;">
         <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
             <tr>
                 <td style="vertical-align:middle;padding-right:12px;">
                     <div style="background-color:rgba(255,255,255,0.18);border-radius:10px;padding:7px;display:inline-block;">
-                        <img src="${LOGO_URL}" alt="Bagchee" style="height:62px;width:auto;display:block;" />
+                        <img src="${LOGO_URL}" alt="Bagchee" style="height:${logoH}px;width:auto;display:block;" />
                     </div>
                 </td>
                 <td style="vertical-align:middle;text-align:left;">
-                    <div style="color:#ffffff;font-size:26px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;font-family:Arial,sans-serif;line-height:1;">Bagchee</div>
+                    <div style="color:#ffffff;font-size:${nameSize}px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;font-family:Arial,sans-serif;line-height:1;">Bagchee</div>
                     <div style="height:1px;background:rgba(255,255,255,0.3);margin:4px 0;"></div>
-                    <div style="color:rgba(255,255,255,0.75);font-size:9px;letter-spacing:0.4em;text-transform:uppercase;font-family:Arial,sans-serif;">Books That Stick</div>
+                    <div style="color:rgba(255,255,255,0.75);font-size:${tagSize}px;letter-spacing:0.4em;text-transform:uppercase;font-family:Arial,sans-serif;">Books That Stick</div>
                 </td>
             </tr>
         </table>
         ${title ? `<p style="color:${theme.textLight};margin:14px 0 0;font-size:15px;font-weight:600;letter-spacing:0.05em;font-family:Arial,sans-serif;">${escapeHtml(title)}</p>` : ''}
     </div>`;
+};
 
 const emailFooter = () => `
     <div style="background-color:#fffdf5;padding:20px;text-align:center;border-top:1px solid #e6decd;">
@@ -689,7 +695,7 @@ export const sendNewsletterConfirmation = async (email, firstName) => {
         const html = `
             <div style="font-family:'Inter',Helvetica,Arial,sans-serif;background-color:${theme.cream};padding:40px 0;">
               <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 15px rgba(0,0,0,.1);border:1px solid #e6decd;">
-                ${emailHeader()}
+                ${emailHeader(null, true)}
                 <div style="padding:36px 30px;">
                   <p style="color:${theme.textMain};font-size:20px;font-weight:700;margin:0 0 16px;">Hello, ${name}!</p>
                   <p style="color:${theme.textMain};font-size:14px;line-height:1.7;margin:0 0 14px;">
@@ -825,7 +831,9 @@ export const sendBackInStockEmail = async (email, recipientName, product, produc
         const name = escapeHtml(recipientName || 'there');
         const title = escapeHtml(product.title || '');
         const authorName = escapeHtml(product.authorName || '');
-        const price = product.inrPrice ? `₹${product.inrPrice}` : (product.price ? `$${product.price}` : '');
+        // Price intentionally omitted: the subscriber's browsing currency isn't stored,
+        // so we can't show the right symbol/amount — customers see accurate pricing on the
+        // product page. (Per client direction, June 2026.)
         const synopsis = product.synopsis ? escapeHtml(product.synopsis).substring(0, 200) + (product.synopsis.length > 200 ? `... <a href="${productUrl}" target="_blank" style="color:${theme.primary};text-decoration:none;font-weight:600;">Read more &#9658;</a>` : '') : '';
         const imageUrl = product.defaultImage || '';
 
@@ -858,7 +866,6 @@ export const sendBackInStockEmail = async (email, recipientName, product, produc
                         ${authorName ? `<p style="font-size:13px;color:${theme.primary};margin:0 0 6px;">Author: <strong>${authorName}</strong></p>` : ''}
                         <p style="margin:0 0 8px;line-height:1;">${stars}</p>
                         ${synopsis ? `<p style="font-size:13px;color:#555;line-height:1.6;margin:0 0 10px;">${synopsis}</p>` : ''}
-                        ${price ? `<p style="font-size:15px;font-weight:700;color:${theme.textMain};margin:0 0 14px;">Price: ${price}</p>` : ''}
                         <table cellpadding="0" cellspacing="0" border="0"><tr>
                           <td style="padding-right:8px;">
                             <a href="${productUrl}" target="_blank" style="display:inline-block;background-color:${theme.primary};color:#fff;text-decoration:none;padding:10px 22px;font-size:13px;font-weight:700;border-radius:6px;">

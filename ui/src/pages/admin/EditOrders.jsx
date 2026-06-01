@@ -521,6 +521,27 @@ ${estDeliveryLine}
     setEmailModalOpen(true);
   };
 
+  const openDelayEmailModal = () => {
+    const firstName = formData.shipping_first_name || '';
+    const lastName  = formData.shipping_last_name  || '';
+    const customerName = [firstName, lastName].filter(Boolean).join(' ') || 'Valued Customer';
+    const orderNum  = formData.order_number || id;
+    const isGuest = !formData.customer_id;
+    const base = process.env.REACT_APP_FRONTEND_URL || 'https://www.bagchee.com';
+    const orderStatusUrl = isGuest ? `${base}/trace-order?tab=guest` : `${base}/trace-order`;
+    const contactUrl = `${base}/contact-us`;
+    setEmailType('delay');
+    setEmailSubject(`Update on Your Bagchee Order #${orderNum} — Slight Delay`);
+    setEmailBody(`<p>Hello ${firstName || customerName},</p>
+<p>We are writing to inform you that your recent order, <strong>#${orderNum}</strong>, is running slightly behind schedule.</p>
+<p>Unfortunately, we have encountered some unexpected logistical issues within our supply chain/carrier network.</p>
+<p>We sincerely apologize for this inconvenience. We understand how important it is to receive your items on time, and our team is working closely with our logistics partners to get your order to you as quickly and safely as possible.</p>
+<p>We will send you another email with a tracking link as soon as your package is on the move. In the meantime, you can continue to check your order status here: <a href="${orderStatusUrl}" style="color:#008DDA;font-weight:bold;">Order Status</a>.</p>
+<p>Thank you so much for your patience and for your business. If you have any immediate questions or concerns, please feel free to <a href="${contactUrl}" style="color:#008DDA;font-weight:bold;">contact us</a>.</p>
+<p>Best regards,<br><strong>The Bagchee Team</strong></p>`);
+    setEmailModalOpen(true);
+  };
+
   const openEmailModal = () => {
     setEmailType('confirmation');
     const firstName = formData.shipping_first_name || '';
@@ -636,7 +657,7 @@ ${bankDetails}
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 shrink-0">
               <h2 className="text-sm font-bold uppercase tracking-wider font-montserrat text-text-main">
-                {emailType === 'shipped' ? 'Order Shipped Email' : emailType === 'status' ? 'Order Status Email' : 'Order Confirmation Email'}
+                {emailType === 'shipped' ? 'Order Shipped Email' : emailType === 'status' ? 'Order Status Email' : emailType === 'delay' ? 'Shipping Delay Notification' : 'Order Confirmation Email'}
               </h2>
               <button type="button" onClick={() => setEmailModalOpen(false)} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
             </div>
@@ -727,6 +748,13 @@ ${bankDetails}
                 className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-1.5 rounded text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all"
               >
                 <Mail size={12} /> Order Status Email
+              </button>
+              <button
+                type="button"
+                onClick={openDelayEmailModal}
+                className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-1.5 rounded text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all"
+              >
+                <Mail size={12} /> Shipping Delay Notification
               </button>
               <button type="button" onClick={() => navigate('/admin/orders')} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
             </div>
