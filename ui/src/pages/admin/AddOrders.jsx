@@ -4,6 +4,7 @@ import { Check, RotateCcw, X, Loader2, Plus, Trash2, Printer, Mail, Search } fro
 import JoditEditor from 'jodit-react';
 import axios from '../../utils/axiosConfig.js';
 import toast from 'react-hot-toast';
+import CustomerSelect from '../../components/admin/CustomerSelect.jsx';
 
 const AddOrders = () => {
   const navigate = useNavigate();
@@ -11,7 +12,6 @@ const AddOrders = () => {
   const [loading, setLoading] = useState(false);
 
   // Dropdown Data
-  const [customers, setCustomers] = useState([]);
   const [productsList, setProductsList] = useState([]); // All products for reference if needed
   const [coupons, setCoupons] = useState([]);
   const [paymentMethods, setPaymentMethods] = useState([]);
@@ -114,8 +114,7 @@ const AddOrders = () => {
     const fetchData = async () => {
       try {
         const API_URL = process.env.REACT_APP_API_URL;
-        const [custRes, prodRes, coupRes, payRes, shipRes, courierRes, statusRes] = await Promise.all([
-          axios.get(`${API_URL}/user/fetch`),
+        const [prodRes, coupRes, payRes, shipRes, courierRes, statusRes] = await Promise.all([
           axios.get(`${API_URL}/product/fetch`),
           axios.get(`${API_URL}/coupons/active`),
           axios.get(`${API_URL}/payments/list`),
@@ -123,11 +122,7 @@ const AddOrders = () => {
           axios.get(`${API_URL}/couriers/list`),
           axios.get(`${API_URL}/order-status/list`)
         ]);
-        // 🔍 DEBUGGING CONSOLE LOGS
-        // console.log("Customers:", custRes.data);
-        // console.log("Payments:", payRes.data);
 
-        if (custRes.data.status) setCustomers(custRes.data.data);
         if (prodRes.data.status) setProductsList(prodRes.data.data);
         if (coupRes.data.status) setCoupons(coupRes.data.data);
         if (payRes.data.status) setPaymentMethods(payRes.data.data);
@@ -342,10 +337,11 @@ const AddOrders = () => {
             <div className="grid grid-cols-12 gap-4 items-center">
               <label className={labelClass}>Customer</label>
               <div className="col-span-9">
-                <select name="customer_id" value={formData.customer_id} onChange={handleChange} className={dropdownClass}>
-                  <option value="">Select Customer</option>
-                  {customers.map(c => <option key={c.id || c.id || c._id} value={c.id || c.id || c._id}>{c.name}</option>)}
-                </select>
+                <CustomerSelect
+                  value={formData.customer_id}
+                  onChange={(cid) => setFormData(prev => ({ ...prev, customer_id: cid }))}
+                  className={inputClass}
+                />
               </div>
             </div>
 

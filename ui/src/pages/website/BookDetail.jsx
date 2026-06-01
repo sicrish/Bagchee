@@ -856,8 +856,8 @@ const BookDetail = () => {
                     </div>
                   )}
 
-                  {/* Delivery Info (Sirf tab jab upcoming na ho) */}
-                  {!isUpcoming && (
+                  {/* Delivery Info — hidden for Indian IPs (worldwide-shipping msg not relevant) */}
+                  {!isUpcoming && !isIndia && (
                     <div className="bg-blue-50 border border-blue-100 rounded p-3 space-y-2">
                       <div className="flex items-center gap-2">
                         <Package className="w-4 h-4 text-primary shrink-0" />

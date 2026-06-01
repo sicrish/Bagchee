@@ -67,10 +67,15 @@ import sideBannerOneRoutes from './routes/sideBannerOneRoutes.js';
 import socialRoutes from './routes/socialRoutes.js'
 import sideBannerTwoRoutes from './routes/sideBannerTwoRoutes.js'
 import eGiftCardBannerRoutes from './routes/eGiftCardBanner.routes.js'
+import dashboardRoutes from './routes/dashboard.routes.js';
 import footerRoutes from './routes/footerRoutes.js';
 import razorpayRoutes from './routes/razorpay.routes.js';
+import paypalRoutes from './routes/paypalRoutes.js';
+import backInStockRoutes from './routes/backInStock.routes.js';
 import emailCampaignRoutes from './routes/emailCampaignRoutes.js';
 import { processScheduledEmails } from './controller/emailCampaignController.js';
+import { sendMembershipExpiryReminder } from './controller/email.controller.js';
+import prisma from './lib/prisma.js';
 import sitemapRoutes from './routes/sitemap.routes.js';
 import disclaimerRoutes from './routes/disclaimerRoutes.js';
 import contactRoutes from './routes/contactRoutes.js';
@@ -111,6 +116,11 @@ const PORT = process.env.PORT || 3001;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // 1. Middlewares
+// Prevent Cloudflare / browsers from caching any API response
+app.use((req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    next();
+});
 app.use(compression());
 app.use(helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' },
@@ -164,7 +174,7 @@ const cacheOptions = {
 
 // Static folder for uploaded images
 app.use('/uploads',(req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', process.env.FRONTEND_URL || 'http://localhost:3000');
+    res.setHeader('Access-Control-Allow-Origin', (process.env.FRONTEND_URL || 'http://localhost:3000').split(',')[0].trim());
     next();
 }, express.static(path.join(__dirname, 'uploads'),cacheOptions));
 
@@ -229,8 +239,11 @@ app.use('/side-banner-one', sideBannerOneRoutes);
 app.use('/socials', socialRoutes);
 app.use('/side-banner-two', sideBannerTwoRoutes);
 app.use('/e-gift-card-banner', eGiftCardBannerRoutes);
+app.use('/dashboard', dashboardRoutes);
 app.use('/footer', footerRoutes);
 app.use('/razorpay', razorpayRoutes);
+app.use('/paypal', paypalRoutes);
+app.use('/back-in-stock', backInStockRoutes);
 app.use('/email-campaign', emailCampaignRoutes);
 app.use('/', sitemapRoutes);
 
@@ -251,13 +264,43 @@ app.use((err, req, res, next) => {
     res.status(statusCode).json({ status: false, msg: message });
 });
 
+// Prevent unhandled promise rejections from crashing the process
+process.on('unhandledRejection', (reason) => {
+    console.error('Unhandled Promise Rejection:', reason);
+});
+
 // Server Listen
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT} [${process.env.NODE_ENV || 'development'}]`);
 
     // Check for scheduled emails every 60 seconds
-    setInterval(processScheduledEmails, 60 * 1000);
+    setInterval(() => processScheduledEmails().catch(err => console.error('Scheduler error:', err)), 60 * 1000);
     console.log('Scheduled email processor started (checks every 60s)');
+
+    // Check for membership expiry reminders once per day
+    let lastMembershipReminderCheck = null;
+    const checkMembershipReminders = async () => {
+        const now = new Date();
+        if (lastMembershipReminderCheck && (now - lastMembershipReminderCheck) < 23 * 60 * 60 * 1000) return;
+        lastMembershipReminderCheck = now;
+        try {
+            const in30 = new Date(now); in30.setDate(in30.getDate() + 30);
+            const in28 = new Date(now); in28.setDate(in28.getDate() + 28);
+            const users = await prisma.user.findMany({
+                where: { membership: 'active', membershipEnd: { gte: in28, lte: in30 } },
+                select: { email: true, name: true, membershipEnd: true }
+            });
+            for (const u of users) {
+                const daysLeft = Math.ceil((new Date(u.membershipEnd) - now) / 86400000);
+                await sendMembershipExpiryReminder(u.email, u.name, daysLeft, u.membershipEnd).catch(() => {});
+            }
+            if (users.length) console.log(`Membership reminders sent to ${users.length} user(s)`);
+        } catch (err) {
+            console.error('Membership reminder error:', err.message);
+        }
+    };
+    setInterval(() => checkMembershipReminders().catch(() => {}), 60 * 60 * 1000);
+    checkMembershipReminders().catch(() => {});
 });
 
 export default app;

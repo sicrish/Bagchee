@@ -83,10 +83,10 @@ export const register = async (req, res) => {
             }
         });
 
-        try { await sendMail(user.email, user.name); } catch (e) { /* email non-critical */ }
+        try { await sendMail(user.email, user.name, user.firstName); } catch (e) { /* email non-critical */ }
 
         const payload = { subject: user.email, userId: user.id, role: user.role };
-        const token = jwt.sign(payload, process.env.JWT_SECRET_KEY, { expiresIn: '1h' });
+        const token = jwt.sign(payload, process.env.JWT_SECRET_KEY, { expiresIn: '5h' });
 
         res.status(201).json({
             status: true, msg: 'User registered successfully', token,
@@ -120,7 +120,7 @@ export const login = async (req, res) => {
         if (!isMatch) return res.status(401).json({ status: false, msg: 'Invalid Credentials' });
 
         const payload = { subject: user.email, userId: user.id, role: user.role };
-        const token = jwt.sign(payload, process.env.JWT_SECRET_KEY, { expiresIn: rememberMe ? '7d' : '1h' });
+        const token = jwt.sign(payload, process.env.JWT_SECRET_KEY, { expiresIn: rememberMe ? '7d' : '5h' });
 
         res.status(200).json({
             status: true, msg: 'Login Success', token,
@@ -141,7 +141,7 @@ export const login = async (req, res) => {
 
 export const fetch = async (req, res) => {
     try {
-        const { page, limit, role, status: statusFilter, email, name, membership } = req.query;
+        const { page, limit, role, status: statusFilter, email, name, membership, search } = req.query;
         const pageNum = Math.max(1, parseInt(page) || 1);
         const pageSize = Math.min(100, Math.max(1, parseInt(limit) || 10));
         const skip = (pageNum - 1) * pageSize;
@@ -154,6 +154,14 @@ export const fetch = async (req, res) => {
             { name:      { contains: name, mode: 'insensitive' } },
             { firstName: { contains: name, mode: 'insensitive' } },
             { lastName:  { contains: name, mode: 'insensitive' } },
+        ];
+        // Generic single-box search (admin order customer picker) — name OR email.
+        // Opt-in via ?search=; other callers (UsersList) keep using name/email separately.
+        if (search) where.OR = [
+            { name:      { contains: search, mode: 'insensitive' } },
+            { firstName: { contains: search, mode: 'insensitive' } },
+            { lastName:  { contains: search, mode: 'insensitive' } },
+            { email:     { contains: search, mode: 'insensitive' } },
         ];
         if (membership) where.membership = { contains: membership, mode: 'insensitive' };
 
@@ -334,9 +342,12 @@ export const forgotPassword = async (req, res) => {
             data: { resetToken, resetTokenExpiry }
         });
 
-        const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
+        const resetLink = `${(process.env.FRONTEND_URL || 'https://www.bagchee.com').split(',')[0].trim()}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
 
-        await sendPasswordResetEmail(email, user.name || user.firstName || 'User', resetLink);
+        // Fire-and-forget — don't block the HTTP response on email delivery
+        sendPasswordResetEmail(email, user.name || user.firstName || 'User', resetLink).catch(err => {
+            console.error('Password reset email failed:', err.message);
+        });
 
         res.status(200).json({ status: true, msg: 'If an account with that email exists, a reset link has been sent.' });
     } catch (error) {

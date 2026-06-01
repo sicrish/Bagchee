@@ -15,11 +15,9 @@ const Categories = () => {
     const {confirm}=useConfirm()
     const [loading, setLoading] = useState(true);
 
-    // 🟢 1. Pagination States Add Karein
+    // 🟢 1. Pagination States
     const [currentPage, setCurrentPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
-    const [totalItems, setTotalItems] = useState(0);
 
     // --- Filter States (One for each column as per image) ---
     const [filters, setFilters] = useState({
@@ -32,6 +30,8 @@ const Categories = () => {
         newsletter: "",
         order: ""
     });
+    // Top-right global search box (matches across all columns)
+    const [globalSearch, setGlobalSearch] = useState("");
 
     const API_BASE_URL = process.env.REACT_APP_API_URL;
 
@@ -41,17 +41,12 @@ const Categories = () => {
         try {
             const API_URL = process.env.REACT_APP_API_URL;
 
-            // Agar export mode hai toh limit bypass karein, warna pagination use karein
-            const url = isExport
-                ? `${API_URL}/category/fetch?limit=100000`
-                : `${API_URL}/category/fetch?page=${currentPage}&limit=${itemsPerPage}`;
-
-            const response = await axios.get(url);
+            // ~225 categories total — load them all once, then filter + paginate client-side
+            // so search works across ALL categories (not just the current 10-row page).
+            const response = await axios.get(`${API_URL}/category/fetch?page=1&limit=100000`);
             if (response.data.status) {
-                if (isExport) return response.data.data; // Export ke liye data return karo
+                if (isExport) return response.data.data;
                 setCategories(response.data.data);
-                setTotalPages(response.data.totalPages || 1);
-                setTotalItems(response.data.total || response.data.data.length);
             }
         } catch (error) {
             console.error("Fetch Error:", error);
@@ -63,7 +58,7 @@ const Categories = () => {
 
     useEffect(() => {
         fetchCategories();
-    }, [currentPage, itemsPerPage]);
+    }, []);
 
 
     // 🟢 3. Excel Export Logic (Matched with Model)
@@ -120,20 +115,22 @@ const Categories = () => {
         setFilters(prev => ({ ...prev, [name]: value }));
     };
 
-    // 🔍 4. Filter Logic
+    // 🔍 4. Filter Logic — runs over ALL loaded categories (client-side).
+    //    Per-column inputs + the top-right global box. Prisma camelCase ↔ legacy snake_case
+    //    both handled so every column actually filters (parentSlug/metaTitle/productType/… ).
     const filteredCategories = useMemo(() => {
+        const g = globalSearch.trim().toLowerCase();
         return categories.filter(item => {
-            // Safe check for null values before lowercase
-            const id = (item.id || item.categoryId || item.id || item._id || "").toString().toLowerCase();
-            const title = (item.categorytitle || item.title || "").toLowerCase();
-            const slug = (item.slug || "").toLowerCase();
-            const parent = (item.parentslug || "").toLowerCase();
-            const meta = (item.metatitle || "").toLowerCase();
-            const type = (item.producttype || "").toLowerCase();
-            const newsletter = (item.newslettercategory || "").toLowerCase();
-            const order = (item.newslettercategoryorder || item.order || "0").toString();
+            const id    = (item.id ?? item._id ?? "").toString().toLowerCase();
+            const title = (item.title || item.categorytitle || "").toLowerCase();
+            const slug  = (item.slug || "").toLowerCase();
+            const parent = (item.parentSlug || item.parentslug || "").toLowerCase();
+            const meta  = (item.metaTitle || item.metatitle || "").toLowerCase();
+            const type  = String(item.productType ?? item.producttype ?? "").toLowerCase();
+            const newsletter = String(item.newsletterCategory ?? item.newslettercategory ?? "").toLowerCase();
+            const order = String(item.newsletterOrder ?? item.newslettercategoryorder ?? item.order ?? "0");
 
-            return (
+            const matchesColumns =
                 id.includes(filters.id.toLowerCase()) &&
                 title.includes(filters.title.toLowerCase()) &&
                 slug.includes(filters.slug.toLowerCase()) &&
@@ -141,10 +138,27 @@ const Categories = () => {
                 meta.includes(filters.metaTitle.toLowerCase()) &&
                 type.includes(filters.productType.toLowerCase()) &&
                 newsletter.includes(filters.newsletter.toLowerCase()) &&
-                order.includes(filters.order)
-            );
+                order.includes(filters.order);
+            if (!matchesColumns) return false;
+
+            // Top-right global search: match across every column
+            if (!g) return true;
+            return id.includes(g) || title.includes(g) || slug.includes(g) ||
+                   parent.includes(g) || meta.includes(g) || type.includes(g) ||
+                   newsletter.includes(g) || order.includes(g);
         });
-    }, [categories, filters]);
+    }, [categories, filters, globalSearch]);
+
+    // Client-side pagination over the filtered set
+    const totalItems = filteredCategories.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+    const paginatedCategories = useMemo(() => {
+        const start = (currentPage - 1) * itemsPerPage;
+        return filteredCategories.slice(start, start + itemsPerPage);
+    }, [filteredCategories, currentPage, itemsPerPage]);
+
+    // Snap back to page 1 whenever the filters / search / page-size change
+    useEffect(() => { setCurrentPage(1); }, [filters, globalSearch, itemsPerPage]);
 
     // Common Input Class for Filters
     const filterInputClass = "w-full border border-gray-300 rounded px-2 py-1.5 text-[12px] outline-none focus:border-[#0096cc] focus:ring-1 focus:ring-[#0096cc]/20 transition-all";
@@ -172,19 +186,21 @@ const Categories = () => {
                         <Printer size={14} className="text-green-600" /> Print
                     </button>
                     <button
-                        onClick={() => setFilters({
+                        onClick={() => { setFilters({
                             id: "", title: "", slug: "", parentSlug: "", metaTitle: "", productType: "", newsletter: "", order: ""
-                        })}
+                        }); setGlobalSearch(""); }}
                         className="bg-[#f8f9fa] border border-gray-300 text-gray-700 px-4 py-1.5 rounded shadow-sm hover:bg-white text-xs font-bold"
                     >
                         Clear filters
                     </button>
 
-                    {/* Global Search */}
+                    {/* Global Search — matches across all columns, all categories */}
                     <div className="flex">
                         <input
                             type="text"
-                            placeholder="Search..."
+                            placeholder="Search categories..."
+                            value={globalSearch}
+                            onChange={(e) => setGlobalSearch(e.target.value)}
                             className="border border-r-0 border-gray-300 rounded-l px-3 py-1.5 text-xs outline-none focus:border-[#0096cc]"
                         />
                         <button className="bg-[#0096cc] text-white px-3 py-1.5 rounded-r hover:bg-[#007bb5]">
@@ -245,7 +261,7 @@ const Categories = () => {
                                 <input name="order" value={filters.order} onChange={handleFilterChange} className={filterInputClass} />
                             </td>
                             <td className="p-2 text-center bg-gray-50">
-                                <button onClick={fetchCategories} className="text-[#0096cc] hover:rotate-180 transition-transform duration-300">
+                                <button onClick={() => fetchCategories()} className="text-[#0096cc] hover:rotate-180 transition-transform duration-300">
                                     <RotateCcw size={16} />
                                 </button>
                             </td>
@@ -263,7 +279,7 @@ const Categories = () => {
                                 </td>
                             </tr>
                         ) : filteredCategories.length > 0 ? (
-                            filteredCategories.map((item, index) => (
+                            paginatedCategories.map((item, index) => (
                                 <tr key={item.id || item._id} className="hover:bg-blue-50/30 transition-colors">
                                     <td className="p-3 border-r border-gray-200 text-center">
                                         <input type="checkbox" className="accent-[#0096cc]" />

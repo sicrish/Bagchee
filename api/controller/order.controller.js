@@ -241,6 +241,7 @@ export const saveOrder = async (req, res) => {
                 membership:         req.body.membership                  || 'No',
                 membershipDiscount: serverMembershipDiscount,
                 couponId:           couponId && !isNaN(couponId) ? couponId : null,
+                couponDiscount:     couponDiscount,
                 comment:            req.body.comment                     || '',
                 estimatedDelivery:  req.body.estimatedDelivery ? new Date(req.body.estimatedDelivery) : null,
 
@@ -470,11 +471,25 @@ export const updateOrder = async (req, res) => {
         if (req.body.estimated_delivery !== undefined) updateData.estimatedDelivery = req.body.estimated_delivery ? new Date(req.body.estimated_delivery) : null;
         if (req.body.shippedAt !== undefined) updateData.shippedAt = req.body.shippedAt ? new Date(req.body.shippedAt) : null;
 
+        // Look up current order state once (for shippedAt + payment-paid auto-advance)
+        const existing = await prisma.order.findUnique({ where: { id }, select: { shippedAt: true, status: true } });
+
         // Auto-set shippedAt when status changes to shipped
-        const newStatus = updateData.status || '';
-        if (['shipped', 'partially shipped', 'in transit'].includes(newStatus.toLowerCase())) {
-            const existing = await prisma.order.findUnique({ where: { id }, select: { shippedAt: true } });
+        const newStatus = (updateData.status || '').toLowerCase();
+        if (['shipped', 'partially shipped', 'in transit'].includes(newStatus)) {
             if (!existing?.shippedAt) updateData.shippedAt = new Date();
+        }
+
+        // When admin marks payment "Paid", advance a pay-later order out of its pre-payment
+        // state so the customer's My Account reflects it (status flips, the "Pay now" button
+        // disappears, wire-transfer instructions hide). Only touches pending / approval pending /
+        // payment pending orders — never one already processing/shipped/cancelled. An explicit
+        // status change in the same save always wins.
+        if ((updateData.paymentStatus || '').toLowerCase() === 'paid' && updateData.status === undefined) {
+            const curStatus = (existing?.status || '').toLowerCase();
+            if (['pending', 'payment pending', 'approval pending'].includes(curStatus)) {
+                updateData.status = 'processing';
+            }
         }
 
         // Shipping / billing field updates

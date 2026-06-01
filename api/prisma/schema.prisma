@@ -450,6 +450,7 @@ model Order {
   membership          String    @default("No")          // "Yes" | "No"
   membershipDiscount  Float     @default(0) @map("membership_discount")
   couponId            Int?      @map("coupon_id")
+  couponDiscount      Float     @default(0) @map("coupon_discount") // actual discount applied at order time
 
   // Admin comment/notes on the order
   comment             String    @default("")
@@ -844,20 +845,34 @@ model GiftCard {
 }
 
 model ScheduledEmail {
-  id         Int      @id @default(autoincrement())
-  subject    String
-  body       String
-  audience   String[] @default([])  // ["subscribers", "members", "purchased", "categories"]
-  categories String[] @default([])  // category filter (if "categories" is in audience)
-  sendAt     DateTime @map("send_at")
-  status     String   @default("pending") // "pending" | "sent" | "failed"
-  sent       Int      @default(0)
-  failed     Int      @default(0)
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  id           Int                @id @default(autoincrement())
+  subject      String
+  body         String
+  audience     String[]           @default([])  // ["subscribers", "members", "purchased", "categories"]
+  categories   String[]           @default([])  // category filter (if "categories" is in audience)
+  sendAt       DateTime           @map("send_at")
+  status       String             @default("pending") // "pending" | "sent" | "sending" | "failed" | "cancelled"
+  sent         Int                @default(0)
+  failed       Int                @default(0)
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
+  deliveryLogs EmailDeliveryLog[]
 
   @@index([status, sendAt])
   @@map("scheduled_emails")
+}
+
+model EmailDeliveryLog {
+  id         Int            @id @default(autoincrement())
+  campaignId Int            @map("campaign_id")
+  email      String
+  status     String         // "sent" | "failed"
+  error      String?
+  sentAt     DateTime       @default(now()) @map("sent_at")
+  campaign   ScheduledEmail @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, status])
+  @@map("email_delivery_logs")
 }
 
 // =============================================================
@@ -1275,6 +1290,18 @@ model Testimonial {
   metaKeywords String   @default("") @map("meta_keywords")
 
   @@map("testemonials")
+}
+
+// Back-in-stock notification requests
+model BackInStockNotification {
+  id        Int      @id @default(autoincrement())
+  email     String
+  productId Int
+  notified  Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([email, productId])
+  @@map("back_in_stock_notifications")
 }
 
 // Page-level SEO meta tags

@@ -235,7 +235,15 @@ const NewsletterSubscribers = () => {
             Clear filters
           </button>
           <div className="relative flex items-center">
-            <button onClick={() => fetchSubscribers()} className="bg-primary text-white p-2 rounded hover:bg-primary-hover transition-colors shadow-sm">
+            <input
+              name="email"
+              value={filters.email}
+              onChange={handleFilterChange}
+              type="text"
+              placeholder="Search subscribers by email…"
+              className="border border-gray-300 border-r-0 rounded-l px-3 py-1.5 text-xs outline-none focus:border-primary w-44 md:w-60"
+            />
+            <button onClick={() => fetchSubscribers()} className="bg-primary text-white p-2 rounded-r hover:bg-primary-hover transition-colors shadow-sm">
               <Search size={16} />
             </button>
           </div>

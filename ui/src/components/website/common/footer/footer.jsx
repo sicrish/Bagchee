@@ -310,10 +310,12 @@ const Footer = () => {
 
       <div className="w-full px-4 md:px-12 relative z-10">
 
-        {/* --- NEWSLETTER: Desktop only at top --- */}
-        <div className="block w-full max-w-lg mx-auto mb-8 lg:mb-10 text-center">
-          <NewsletterForm mobile={true} />
-        </div>
+        {/* --- NEWSLETTER: top box — hidden for Indian IPs (attracts spam) --- */}
+        {!isIndia && (
+          <div className="block w-full max-w-lg mx-auto mb-8 lg:mb-10 text-center">
+            <NewsletterForm mobile={true} />
+          </div>
+        )}
 
         {/* --- MAIN GRID SYSTEM --- */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-0 lg:gap-8 mb-4 lg:mb-4 lg:border-b border-white/10 lg:pb-6">

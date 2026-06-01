@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Check, RotateCcw, X, Loader2, Plus, Trash2, Printer, Mail,Search  } from 'lucide-react';
+import { Check, RotateCcw, X, Loader2, Plus, Trash2, Printer, Mail, Search, Copy, AlertTriangle } from 'lucide-react';
 import JoditEditor from 'jodit-react';
 import axios from '../../utils/axiosConfig.js';
 import toast from 'react-hot-toast';
+import CustomerSelect from '../../components/admin/CustomerSelect.jsx';
 
 const EditOrders = () => {
   const navigate = useNavigate();
@@ -54,7 +55,7 @@ const EditOrders = () => {
   const [sendingEmail, setSendingEmail] = useState(false);
 
   // Dropdown Data
-  const [customers, setCustomers] = useState([]);
+  const [customerLabel, setCustomerLabel] = useState(''); // display name for the selected customer
   const [productsList, setProductsList] = useState([]);
   const [coupons, setCoupons] = useState([]);
   const [paymentMethods, setPaymentMethods] = useState([]);
@@ -132,8 +133,7 @@ const EditOrders = () => {
         const API_URL = process.env.REACT_APP_API_URL;
 
         // Use Promise.allSettled so one failing dropdown doesn't break everything
-        const [custRes, prodRes, coupRes, orderRes, payRes, shipRes, courierRes, statusRes] = await Promise.allSettled([
-          axios.get(`${API_URL}/user/fetch`),
+        const [prodRes, coupRes, orderRes, payRes, shipRes, courierRes, statusRes] = await Promise.allSettled([
           axios.get(`${API_URL}/product/fetch`),
           axios.get(`${API_URL}/coupons/active`),
           axios.get(`${API_URL}/orders/admin/get/${id}`),  // admin-specific route
@@ -144,7 +144,6 @@ const EditOrders = () => {
         ]);
 
         // Set Dropdowns (only if request succeeded)
-        if (custRes.status === 'fulfilled' && custRes.value.data.status) setCustomers(custRes.value.data.data);
         if (prodRes.status === 'fulfilled' && prodRes.value.data.status) setProductsList(prodRes.value.data.data);
         if (coupRes.status === 'fulfilled' && coupRes.value.data.status) setCoupons(coupRes.value.data.data);
         if (payRes.status === 'fulfilled' && payRes.value.data.status) setPaymentMethods(payRes.value.data.data);
@@ -155,6 +154,13 @@ const EditOrders = () => {
         // Set Order Data — map Prisma camelCase fields
         if (orderRes.status === 'fulfilled' && orderRes.value.data.status) {
           const d = orderRes.value.data.data;
+
+          // Label for the already-selected customer (typeahead shows this until changed)
+          setCustomerLabel(
+            d.customer?.name
+            || [d.shippingFirstName, d.shippingLastName].filter(Boolean).join(' ')
+            || d.shippingEmail || d.customer?.email || ''
+          );
 
           const formattedDate = d.createdAt ? new Date(d.createdAt).toISOString().slice(0, 16) : '';
 
@@ -175,6 +181,7 @@ const EditOrders = () => {
             membership: d.membership || 'No',
             membership_discount: d.membershipDiscount ?? d.membership_discount ?? '',
             coupon_id: d.couponId || d.coupon?.id || d.coupon_id || '',
+            coupon_discount: d.couponDiscount ?? d.coupon_discount ?? 0,
 
             // Shipping (Prisma flat camelCase fields with fallback from nested objects)
             shipping_email:        d.shippingEmail       || d.shipping_details?.email || '',
@@ -422,16 +429,16 @@ const EditOrders = () => {
     }
   };
 
-  // Approve deferred order — changes status to "payment pending" + emails customer payment link
+  // Approve deferred order — generates payment link only. Email must be sent manually after testing.
   const handleApproveOrder = async () => {
-    if (!window.confirm('Approve this order and send a payment link to the customer?')) return;
+    if (!window.confirm('Approve this order? A payment link will be generated — you must test it first before sending to the customer.')) return;
     setApproving(true);
     const toastId = toast.loading('Approving order...');
     try {
       const API_URL = process.env.REACT_APP_API_URL;
       const res = await axios.post(`${API_URL}/orders/${id}/approve`);
       if (res.data.status) {
-        toast.success('Order approved! Payment link sent to customer.', { id: toastId });
+        toast.success('Order approved! Copy & test the link below, then click "Send Email to Customer".', { id: toastId, duration: 6000 });
         setFormData(prev => ({ ...prev, status: 'payment pending' }));
         setPaymentLink(res.data.data?.paymentLink || '');
       } else {
@@ -474,11 +481,23 @@ const EditOrders = () => {
       const courierName = courier?.title || 'N/A';
       return `<li><strong>${p.name || 'Item'}</strong> &mdash; Courier: ${courierName}, Tracking: ${p.trackingCode || 'N/A'}</li>`;
     }).join('');
+
+    const isGuest = !formData.customer_id;
+    const trackPackageUrl = isGuest
+      ? `${process.env.REACT_APP_FRONTEND_URL || 'https://www.bagchee.com'}/trace-order?tab=guest`
+      : `${process.env.REACT_APP_FRONTEND_URL || 'https://www.bagchee.com'}/trace-order`;
+
+    const estDeliveryLine = (formData.shipped_at && formData.estimated_delivery)
+      ? `<p><strong>Estimated Delivery Date:</strong> ${new Date(formData.estimated_delivery).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</p>`
+      : '';
+
     setEmailType('shipped');
     setEmailSubject(`Your Bagchee Order #${orderNum} Has Been Shipped!`);
     setEmailBody(`<p>Dear ${customerName},</p>
 <p>Great news! Your Bagchee order <strong>#${orderNum}</strong> has been shipped.</p>
 <p><strong>Tracking Details:</strong><ul>${trackingRows}</ul></p>
+${estDeliveryLine}
+<p><a href="${trackPackageUrl}" style="display:inline-block;background-color:#008DDA;color:#ffffff;text-decoration:none;padding:10px 24px;font-size:14px;font-weight:700;border-radius:6px;">Track Package</a></p>
 <p>Please use the above tracking information to monitor your shipment. If you have any questions, please contact us.</p>
 <p>Best regards,<br><strong>Bagchee Team</strong></p>`);
     setEmailModalOpen(true);
@@ -685,7 +704,7 @@ ${bankDetails}
                   className="bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 rounded text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all disabled:opacity-50"
                 >
                   {approving ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-                  Approve & Send Payment Link
+                  Approve & Generate Link
                 </button>
               )}
               <button
@@ -722,26 +741,45 @@ ${bankDetails}
             </div>
 
             {/* Payment Link (shown when order has payment pending / deferred flow) */}
-            {paymentLink && (
-              <div className="grid grid-cols-12 gap-4 items-center">
-                <label className={labelClass}>Payment link</label>
-                <div className="col-span-9 flex flex-col gap-2">
-                  <div className="flex items-center gap-3">
-                    <a href={paymentLink} target="_blank" rel="noreferrer" className="text-primary text-[12px] font-bold hover:underline break-all flex-1">{paymentLink}</a>
-                    <button
-                      type="button"
-                      onClick={handleResendPaymentLink}
-                      disabled={resending}
-                      className="shrink-0 bg-orange-500 hover:bg-orange-600 text-white px-3 py-1.5 rounded text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all disabled:opacity-50"
-                    >
-                      {resending ? <Loader2 size={12} className="animate-spin" /> : <Mail size={12} />}
-                      Send Mail Again
-                    </button>
+            {paymentLink && (() => {
+              const isValidLink = paymentLink.startsWith('https://bagchee.com/pay/') || paymentLink.startsWith('https://www.bagchee.com/pay/');
+              return (
+                <div className="grid grid-cols-12 gap-4 items-start">
+                  <label className={labelClass}>Payment link</label>
+                  <div className="col-span-9 flex flex-col gap-2">
+                    {!isValidLink && (
+                      <div className="flex items-center gap-2 bg-red-50 border border-red-300 text-red-700 text-[11px] font-semibold px-3 py-2 rounded">
+                        <AlertTriangle size={13} />
+                        This link looks broken — do NOT send it to the customer. Use "Resend" to generate a fresh one.
+                      </div>
+                    )}
+                    <div className={`flex items-center gap-2 rounded px-3 py-2 border ${isValidLink ? 'bg-gray-50 border-gray-200' : 'bg-red-50 border-red-300'}`}>
+                      <a href={paymentLink} target="_blank" rel="noreferrer" className={`text-[12px] font-bold hover:underline break-all flex-1 ${isValidLink ? 'text-primary' : 'text-red-600'}`}>{paymentLink}</a>
+                      <button
+                        type="button"
+                        onClick={() => { navigator.clipboard.writeText(paymentLink); toast.success('Link copied!'); }}
+                        className="shrink-0 bg-gray-200 hover:bg-gray-300 text-gray-700 px-2 py-1 rounded text-[11px] font-bold flex items-center gap-1 transition-all"
+                        title="Copy link"
+                      >
+                        <Copy size={11} /> Copy
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleResendPaymentLink}
+                        disabled={resending}
+                        className="shrink-0 bg-orange-500 hover:bg-orange-600 text-white px-3 py-1.5 rounded text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all disabled:opacity-50"
+                      >
+                        {resending ? <Loader2 size={12} className="animate-spin" /> : <Mail size={12} />}
+                        Send Email to Customer
+                      </button>
+                      <p className="text-[10px] text-gray-400">⚠️ Copy &amp; test the link first — only send when you've confirmed it works.</p>
+                    </div>
                   </div>
-                  <p className="text-[10px] text-gray-400">This link was emailed to the customer.</p>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Purchase Order Number (if applicable) */}
             {purchaseOrderNumber && (
@@ -765,10 +803,12 @@ ${bankDetails}
             <div className="grid grid-cols-12 gap-4 items-center">
               <label className={labelClass}>Customer</label>
               <div className="col-span-9">
-                <select name="customer_id" value={formData.customer_id} onChange={handleChange} className={dropdownClass}>
-                  <option value="">Select Customer</option>
-                  {customers.map(c => <option key={c.id || c.id || c._id} value={c.id || c.id || c._id}>{c.name}</option>)}
-                </select>
+                <CustomerSelect
+                  value={formData.customer_id}
+                  initialLabel={customerLabel}
+                  onChange={(cid) => setFormData(prev => ({ ...prev, customer_id: cid }))}
+                  className={inputClass}
+                />
               </div>
             </div>
 
@@ -915,6 +955,14 @@ ${bankDetails}
   </div> {/* 🟢 col-span-9 Wrapper End */}
 </div> {/* 🟢 Main Grid End */}
             {/* Financials & Status */}
+            {Number(formData.coupon_discount) > 0 && (
+              <div className="grid grid-cols-12 gap-4 items-center">
+                <label className={labelClass}>Coupon discount</label>
+                <div className="col-span-9 text-[13px] font-bold text-green-600">
+                  &minus;{formData.currency || 'USD'} {Number(formData.coupon_discount).toFixed(2)}
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-12 gap-4 items-center">
               <label className={labelClass}>Total</label>
               <div className="col-span-9"><input type="text" name="total" value={formData.total} onChange={handleChange} className={inputClass} /></div>
@@ -1082,7 +1130,16 @@ ${bankDetails}
             {/* Bottom Fields */}
             <div className="grid grid-cols-12 gap-4 items-center mt-4">
               <label className={labelClass}>Payment status</label>
-              <div className="col-span-9"><input type="text" name="payment_status" value={formData.payment_status} onChange={handleChange} className={inputClass} /></div>
+              <div className="col-span-9">
+                <select name="payment_status" value={formData.payment_status} onChange={handleChange} className={dropdownClass}>
+                  <option value="">Select Payment Status</option>
+                  <option value="pending">Pending</option>
+                  <option value="paid">Paid</option>
+                  <option value="failed">Failed</option>
+                  <option value="refunded">Refunded</option>
+                </select>
+                <p className="text-[10px] text-text-muted mt-1 ml-1">Marking <strong>Paid</strong> on a pay-later order (wire / UNESCO / PO) moves it to <strong>Processing</strong> in the customer's account.</p>
+              </div>
             </div>
             <div className="grid grid-cols-12 gap-4 items-center">
               <label className={labelClass}>Transaction id</label>

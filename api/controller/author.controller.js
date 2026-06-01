@@ -33,9 +33,12 @@ export const saveAuthor = async (req, res) => {
 
 export const getAllAuthors = async (req, res) => {
     try {
-        const { q, page, limit } = req.query;
+        const { q, page, limit, sort } = req.query;
         const pageNum = parseInt(page) || 1;
         const pageSize = parseInt(limit) || 20;
+        // Admin list opts into newest-first (id desc) so freshly added authors land on top;
+        // default stays alphabetical for the author typeaheads (AddBook/EditBook/TopAuthor).
+        const orderBy = sort === 'newest' ? { id: 'desc' } : { firstName: 'asc' };
         const skip = (pageNum - 1) * pageSize;
         const parts = q ? q.trim().split(/\s+/) : [];
         const where = q ? {
@@ -44,16 +47,25 @@ export const getAllAuthors = async (req, res) => {
                 { lastName: { contains: q, mode: 'insensitive' } },
                 { fullName: { contains: q, mode: 'insensitive' } },
                 // Match "First Last" even when fullName is null (migrated authors)
-                ...(parts.length >= 2 ? [{
-                    AND: [
-                        { firstName: { contains: parts[0], mode: 'insensitive' } },
-                        { lastName: { contains: parts.slice(1).join(' '), mode: 'insensitive' } }
-                    ]
-                }] : [])
+                ...(parts.length >= 2 ? [
+                    {
+                        AND: [
+                            { firstName: { contains: parts[0], mode: 'insensitive' } },
+                            { lastName: { contains: parts.slice(1).join(' '), mode: 'insensitive' } }
+                        ]
+                    },
+                    // Also match first word vs first name, last word vs last name (handles middle initials)
+                    {
+                        AND: [
+                            { firstName: { contains: parts[0], mode: 'insensitive' } },
+                            { lastName: { contains: parts[parts.length - 1], mode: 'insensitive' } }
+                        ]
+                    }
+                ] : [])
             ]
         } : {};
         const [authors, total] = await Promise.all([
-            prisma.author.findMany({ where, orderBy: { firstName: 'asc' }, skip, take: pageSize }),
+            prisma.author.findMany({ where, orderBy, skip, take: pageSize }),
             prisma.author.count({ where })
         ]);
         res.status(200).json({ status: true, data: authors, total, page: pageNum, limit: pageSize, totalPages: Math.ceil(total / pageSize) });

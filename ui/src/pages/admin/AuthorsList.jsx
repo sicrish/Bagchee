@@ -36,6 +36,7 @@ const AuthorsList = () => {
       const params = new URLSearchParams();
       params.append("page", isExport ? 1 : currentPage);
       params.append("limit", isExport ? 100000 : itemsPerPage);
+      params.append("sort", "newest"); // newest authors first so just-added ones show on top
 
       const fn = firstNameOverride !== undefined ? firstNameOverride : searchFirstName;
       const ln = lastNameOverride !== undefined ? lastNameOverride : searchLastName;

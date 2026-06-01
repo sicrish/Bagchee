@@ -31,7 +31,9 @@ const Categories = () => {
           setCategories(buildCategoryTree(rawData, mainCats));
         }
         if (tagRes.data.status && tagRes.data.data) {
-          setTags(tagRes.data.data);
+          // Sort Special Topics tags alphabetically by title
+          setTags([...tagRes.data.data].sort((a, b) =>
+            (a.title || '').localeCompare(b.title || '')));
         }
       } catch (error) {
         console.error('Error loading data:', error);

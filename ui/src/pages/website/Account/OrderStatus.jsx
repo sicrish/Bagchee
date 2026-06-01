@@ -99,6 +99,9 @@ const OrderStatus = () => {
     const isWireUnpaid  = (() => {
         const t = paymentMethod.toLowerCase();
         const s = orderStatus;
+        const ps = payStatus.toLowerCase();
+        // Hide bank-transfer instructions once admin marks the payment paid/refunded
+        if (ps === 'paid' || ps === 'completed' || ps === 'refunded') return false;
         return (t.includes('wire') || t.includes('bank transfer') || t.includes('western union'))
             && s !== 'paid' && s !== 'delivered' && s !== 'completed' && s !== 'cancelled' && s !== 'in process' && s !== 'in_process';
     })();
