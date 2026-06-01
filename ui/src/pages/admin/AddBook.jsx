@@ -7,6 +7,19 @@ import 'react-quill/dist/quill.snow.css';
 import axios from '../../utils/axiosConfig';
 import { useQuery, useMutation } from '@tanstack/react-query'; // 🟢 React Query
 import { validateImageFiles } from '../../utils/fileValidator'; // 🟢 Image Validator
+import { dedupeByTitleKeepMax } from '../../utils/categoryUtils';
+
+const AUTHOR_ROLES = [
+    { id: 1, label: 'Author' },
+    { id: 2, label: 'Editor' },
+    { id: 3, label: 'Translator' },
+    { id: 4, label: 'Introduction' },
+    { id: 5, label: 'Foreword' },
+    { id: 6, label: 'Photography' },
+    { id: 7, label: 'Compiler' },
+    { id: 8, label: 'Collaborator' },
+    { id: 9, label: 'Curator' },
+];
 
 const AddBook = () => {
     const navigate = useNavigate();
@@ -45,6 +58,10 @@ const AddBook = () => {
     const [authors, setAuthors] = useState([]);
     const [authorSearch, setAuthorSearch] = useState("");
     const [isAuthorDropdownOpen, setIsAuthorDropdownOpen] = useState(false);
+    const [selectedAuthorsCache, setSelectedAuthorsCache] = useState({});
+    const [authorRoles, setAuthorRoles] = useState({});
+    const [authorSearchResults, setAuthorSearchResults] = useState([]);
+    const [authorSearchLoading, setAuthorSearchLoading] = useState(false);
 
     const [formats, setFormats] = useState([]);
     const [formatSearch, setFormatSearch] = useState("");
@@ -57,7 +74,11 @@ const AddBook = () => {
     const [publishers, setPublishers] = useState([]);
     const [publisherSearch, setPublisherSearch] = useState("");
     const [isPublisherDropdownOpen, setIsPublisherDropdownOpen] = useState(false);
+    const [selectedPublisherCache, setSelectedPublisherCache] = useState({});
+    const [publisherSearchResults, setPublisherSearchResults] = useState([]);
+    const [publisherSearchLoading, setPublisherSearchLoading] = useState(false);
 
+    const categorySearchRef = useRef(null);
     const [relatedSearchQuery, setRelatedSearchQuery] = useState("");
     const [relatedSearchResults, setRelatedSearchResults] = useState([]);
     const [isRelatedDropdownOpen, setIsRelatedDropdownOpen] = useState(false);
@@ -75,7 +96,7 @@ const AddBook = () => {
     const [newSeriesData, setNewSeriesData] = useState({ title: '' });
 
     // 🟢 User Input Date
-    const [userSelectedDate, setUserSelectedDate] = useState('');
+    const [userSelectedDate, setUserSelectedDate] = useState(new Date().toISOString().split('T')[0]);
     const [arrivalDays, setArrivalDays] = useState(30);
 
     // 🟢 Publisher Quick Add States
@@ -141,13 +162,13 @@ const AddBook = () => {
         queryFn: async () => {
             const API_URL = process.env.REACT_APP_API_URL;
             const [catRes, langRes, tagRes, authRes, fmtRes, serRes, pubRes, setRes] = await Promise.all([
-                axios.get(`${API_URL}/category/fetch`),
+                axios.get(`${API_URL}/category/fetch?withCounts=true`),
                 axios.get(`${API_URL}/languages/list`),
                 axios.get(`${API_URL}/tags/list`),
-                axios.get(`${API_URL}/authors/list`),
+                axios.get(`${API_URL}/authors/list?limit=200`),
                 axios.get(`${API_URL}/formats/list`),
-                axios.get(`${API_URL}/series/list`),
-                axios.get(`${API_URL}/publishers/list`),
+                axios.get(`${API_URL}/series/list?limit=1000`),
+                axios.get(`${API_URL}/publishers/list?limit=1000`),
                 axios.get(`${API_URL}/settings/list`)
             ]);
 
@@ -159,7 +180,7 @@ const AddBook = () => {
                 formats: fmtRes.data.data || [],
                 series: serRes.data.data || [],
                 publishers: pubRes.data.data || [],
-                arrivalDays: (setRes.data.status && setRes.data.data.length > 0) ? (setRes.data.data[0].new_arrival_time || 30) : 30
+                arrivalDays: (setRes.data.status && setRes.data.data.length > 0) ? (setRes.data.data[0].newArrivalTime || setRes.data.data[0].new_arrival_time || 30) : 30
             };
         },
         staleTime: 1000 * 60 * 10 // 10 minutes cache
@@ -229,9 +250,9 @@ const AddBook = () => {
     }, [userSelectedDate, formData.new_release, arrivalDays]);
 
     const getCalculatedDate = () => {
-        const date = new Date();
-        date.setDate(date.getDate() + Number(arrivalDays));
-        return date.toISOString().split('T')[0];
+        // Returns today as the default start date.
+        // new_release_until is computed by useEffect as startDate + arrivalDays.
+        return new Date().toISOString().split('T')[0];
     };
 
     const handleNewReleaseChange = (e) => {
@@ -264,8 +285,11 @@ const AddBook = () => {
                 if (res.status) {
                     toast.success("Author added & linked!", { id: toastId });
                     const savedAuthor = res.data;
+                    const savedAuthorId = savedAuthor.id || savedAuthor._id;
+                    const savedAuthorName = savedAuthor.fullName || `${savedAuthor.firstName || ''} ${savedAuthor.lastName || ''}`.trim();
                     setAuthors(prev => [...prev, savedAuthor]);
-                    setFormData(prev => ({ ...prev, authors: [...prev.authors, savedAuthor._id] }));
+                    setSelectedAuthorsCache(prev => ({ ...prev, [String(savedAuthorId)]: savedAuthorName }));
+                    setFormData(prev => ({ ...prev, authors: [...prev.authors, savedAuthorId] }));
                     setIsAuthorPanelOpen(false);
                     setNewAuthorData({ first_name: '', last_name: '', origin: '' });
                     setNewAuthorProfile('');
@@ -334,10 +358,11 @@ const AddBook = () => {
         saveSeriesMutation.mutate(newSeriesData, {
             onSuccess: (res) => {
                 if (res.status) {
-                    toast.success("Series added & linked! 📚", { id: toastId });
+                    toast.success("Series added & linked!", { id: toastId });
                     const savedSeries = res.data;
                     setSeriesList(prev => [...prev, savedSeries]);
-                    setFormData(prev => ({ ...prev, series: savedSeries._id, series_number: "1" }));
+                    const newSeriesId = savedSeries.id || savedSeries._id;
+                    setFormData(prev => ({ ...prev, series: Array.isArray(prev.series) ? [...prev.series, newSeriesId] : [newSeriesId], series_number: "1" }));
                     setIsSeriesPanelOpen(false);
                     setNewSeriesData({ title: '' });
                 }
@@ -416,6 +441,7 @@ const AddBook = () => {
             data.append('author', firstAuthorId);
             data.append('author_id', firstAuthorId);
             data.append('authors', JSON.stringify(formData.authors));
+            data.append('author_roles', JSON.stringify(authorRoles));
         }
 
         if (formData.product_categories) data.append('product_categories', JSON.stringify(formData.product_categories));
@@ -497,22 +523,16 @@ const AddBook = () => {
     }), []);
 
     const handleSeriesSelect = (selectedSeries) => {
+        const seriesId = selectedSeries.id || selectedSeries._id;
         setFormData(prev => {
-            // 1. Pehle ensure karein ki series ek array hai
             const currentSeries = Array.isArray(prev.series) ? prev.series : [];
-
-            // 2. Check karein ki ye series pehle se list me toh nahi hai (Duplicate check)
-            if (currentSeries.includes(selectedSeries._id)) {
+            if (currentSeries.includes(seriesId)) {
                 toast.error("This series is already added!");
                 return prev;
             }
-
-            // 3. Nayi series ko array me add karein
             return {
                 ...prev,
-                series: [...currentSeries, selectedSeries._id],
-                // Note: Multiple series me 'series_number' ka logic tricky ho sakta hai
-                // Isliye hum pehli select ki gayi series ke basis pe default number set kar rahe hain
+                series: [...currentSeries, seriesId],
                 series_number: prev.series_number || (selectedSeries.total_books ? (selectedSeries.total_books + 1).toString() : "1")
             };
         });
@@ -523,10 +543,47 @@ const AddBook = () => {
     };
 
     const handlePublisherSelect = (pub) => {
-        setFormData(prev => ({ ...prev, publisher: pub.id || pub._id }));
+        const pubId = pub.id || pub._id;
+        setFormData(prev => ({ ...prev, publisher: pubId }));
+        setSelectedPublisherCache(prev => ({ ...prev, [String(pubId)]: pub.title || pub.name }));
         setIsPublisherDropdownOpen(false);
         setPublisherSearch("");
+        setPublisherSearchResults([]);
     };
+
+    // Author Search Effect (server-side)
+    useEffect(() => {
+        const delayDebounceFn = setTimeout(async () => {
+            if (authorSearch.length > 1 && isAuthorDropdownOpen) {
+                setAuthorSearchLoading(true);
+                try {
+                    const res = await axios.get(`${process.env.REACT_APP_API_URL}/authors/list?q=${encodeURIComponent(authorSearch)}&limit=20`);
+                    if (res.data.status) setAuthorSearchResults(res.data.data || []);
+                } catch { setAuthorSearchResults([]); }
+                finally { setAuthorSearchLoading(false); }
+            } else {
+                setAuthorSearchResults([]);
+            }
+        }, 350);
+        return () => clearTimeout(delayDebounceFn);
+    }, [authorSearch, isAuthorDropdownOpen]);
+
+    // Publisher Search Effect (server-side)
+    useEffect(() => {
+        const delayDebounceFn = setTimeout(async () => {
+            if (publisherSearch.length > 1 && isPublisherDropdownOpen) {
+                setPublisherSearchLoading(true);
+                try {
+                    const res = await axios.get(`${process.env.REACT_APP_API_URL}/publishers/list?q=${encodeURIComponent(publisherSearch)}&limit=30`);
+                    if (res.data.status) setPublisherSearchResults(res.data.data || []);
+                } catch { setPublisherSearchResults([]); }
+                finally { setPublisherSearchLoading(false); }
+            } else {
+                setPublisherSearchResults([]);
+            }
+        }, 350);
+        return () => clearTimeout(delayDebounceFn);
+    }, [publisherSearch, isPublisherDropdownOpen]);
 
     // Related Search Effect
     useEffect(() => {
@@ -602,6 +659,11 @@ const AddBook = () => {
 
     const selectedLeadingCategory = categories.find(c => (c.id || c._id) === formData.leading_category);
 
+    // Collapse duplicate-name categories (e.g. 3 "Yoga" rows) to the canonical, most-used
+    // one for the pickers, so a book can't be filed under a near-empty duplicate. Selected
+    // chips still resolve their label from the full `categories` list.
+    const categoryOptions = useMemo(() => dedupeByTitleKeepMax(categories), [categories]);
+
 
 
 
@@ -671,12 +733,12 @@ const AddBook = () => {
                                             <input type="text" placeholder="Search..." value={leadingSearch} onChange={(e) => setLeadingSearch(e.target.value)} className="w-full text-xs p-1.5 border border-gray-200 rounded focus:border-primary outline-none" autoFocus />
                                         </div>
                                         <div className="overflow-y-auto">
-                                            {categories.filter(cat => (cat.title || cat.categorytitle || '').toLowerCase().includes(leadingSearch.toLowerCase())).map((cat) => (
+                                            {categoryOptions.filter(cat => (cat.title || cat.categorytitle || '').toLowerCase().includes(leadingSearch.toLowerCase())).map((cat) => (
                                                 <div key={cat.id || cat.id || cat._id} onClick={() => { setFormData({ ...formData, leading_category: cat.id || cat._id }); setIsLeadingOpen(false); setLeadingSearch(""); }} className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${formData.leading_category === (cat.id || cat._id) ? "bg-blue-50 text-primary font-bold" : "text-gray-600"}`}>
                                                     {cat.title || cat.categorytitle}
                                                 </div>
                                             ))}
-                                            {categories.filter(cat => (cat.title || cat.categorytitle || '').toLowerCase().includes(leadingSearch.toLowerCase())).length === 0 && (
+                                            {categoryOptions.filter(cat => (cat.title || cat.categorytitle || '').toLowerCase().includes(leadingSearch.toLowerCase())).length === 0 && (
                                                 <div className="p-3 text-xs text-gray-400 text-center">No category found</div>
                                             )}
                                         </div>
@@ -688,7 +750,7 @@ const AddBook = () => {
                         <div className="grid grid-cols-12 gap-4 items-start border-b border-gray-50 pb-4">
                             <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-tight pt-3">Product categories</label>
                             <div className="col-span-9 relative">
-                                <div className="border border-gray-300 rounded p-2 bg-white cursor-pointer min-h-[38px] flex flex-wrap gap-2 items-center hover:border-primary transition-colors" onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}>
+                                <div className="border border-gray-300 rounded p-2 bg-white cursor-pointer min-h-[38px] flex flex-wrap gap-2 items-center hover:border-primary transition-colors" onClick={() => { const opening = !isCategoryDropdownOpen; setIsCategoryDropdownOpen(opening); if (opening) setCategorySearch(''); }}>
                                     {formData.product_categories && formData.product_categories.length > 0 ? (
                                         formData.product_categories.map((catId) => {
                                             const category = categories.find(c => (c.id || c._id) === catId);
@@ -705,25 +767,25 @@ const AddBook = () => {
                                 {isCategoryDropdownOpen && (
                                     <div className="absolute z-20 top-full left-0 w-full bg-white border border-gray-300 rounded shadow-lg mt-1">
                                         <div className="p-2 border-b border-gray-100 bg-gray-50 rounded-t">
-                                            <input type="text" placeholder="Search categories..." value={categorySearch} onChange={(e) => setCategorySearch(e.target.value)} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.stopPropagation()} className="w-full text-xs p-1.5 border border-gray-300 rounded focus:border-primary outline-none bg-white" autoFocus />
+                                            <input ref={categorySearchRef} type="text" placeholder="Search categories..." value={categorySearch} onChange={(e) => setCategorySearch(e.target.value)} onInput={(e) => setCategorySearch(e.target.value)} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.stopPropagation()} className="w-full text-xs p-1.5 border border-gray-300 rounded focus:border-primary outline-none bg-white" autoFocus />
                                         </div>
                                         <div className="max-h-48 overflow-y-auto p-1 scrollbar-thin scrollbar-thumb-gray-300">
-                                            {categories.filter((cat) => (cat.title || cat.categorytitle || '').toLowerCase().includes(categorySearch.toLowerCase())).map((cat) => {
+                                            {categoryOptions.filter((cat) => (cat.title || cat.categorytitle || '').toLowerCase().includes(categorySearch.toLowerCase())).map((cat) => {
                                                 const isSelected = formData.product_categories.includes(cat.id || cat._id);
                                                 return (
-                                                    <div key={cat.title || cat.categorytitle} onClick={() => handleCheckboxChange('product_categories', cat.id || cat._id)} className={`flex items-center gap-2 p-2 cursor-pointer text-sm rounded hover:bg-blue-50 transition-colors ${isSelected ? 'bg-blue-50' : ''}`}>
+                                                    <div key={cat.id || cat._id} onClick={(e) => { e.stopPropagation(); handleCheckboxChange('product_categories', cat.id || cat._id); setCategorySearch(''); setTimeout(() => categorySearchRef.current?.focus(), 0); }} className={`flex items-center gap-2 p-2 cursor-pointer text-sm rounded hover:bg-blue-50 transition-colors ${isSelected ? 'bg-blue-50' : ''}`}>
                                                         <input type="checkbox" checked={isSelected} readOnly className="accent-primary h-4 w-4 pointer-events-none" />
                                                         <span className={`text-gray-700 ${isSelected ? 'font-bold text-primary' : ''}`}>{cat.title || cat.categorytitle}</span>
                                                     </div>
                                                 );
                                             })}
-                                            {categories.filter(cat => (cat.title || cat.categorytitle || '').toLowerCase().includes(categorySearch.toLowerCase())).length === 0 && (
+                                            {categoryOptions.filter(cat => (cat.title || cat.categorytitle || '').toLowerCase().includes(categorySearch.toLowerCase())).length === 0 && (
                                                 <div className="p-3 text-xs text-gray-400 text-center">No categories found</div>
                                             )}
                                         </div>
                                     </div>
                                 )}
-                                {isCategoryDropdownOpen && <div className="fixed inset-0 z-10" onClick={() => setIsCategoryDropdownOpen(false)}></div>}
+                                {isCategoryDropdownOpen && <div className="fixed inset-0 z-10" onClick={() => { setIsCategoryDropdownOpen(false); setCategorySearch(''); }}></div>}
                             </div>
                         </div>
 
@@ -742,7 +804,7 @@ const AddBook = () => {
                                     <div className="ml-auto text-gray-400 text-[10px]">▼</div>
                                 </div>
                                 {isLanguageDropdownOpen && (
-                                    <div className="absolute z-20 top-full left-0 w-full bg-white border border-gray-300 rounded shadow-lg mt-1">
+                                    <div className="absolute z-50 top-full left-0 w-full bg-white border border-gray-300 rounded shadow-lg mt-1">
                                         <div className="p-2 border-b border-gray-100 bg-gray-50 rounded-t">
                                             <input type="text" placeholder="Search languages..." value={languageSearch} onChange={(e) => setLanguageSearch(e.target.value)} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.stopPropagation()} className="w-full text-xs p-1.5 border border-gray-300 rounded focus:border-primary outline-none bg-white" autoFocus />
                                         </div>
@@ -763,7 +825,7 @@ const AddBook = () => {
                                         </div>
                                     </div>
                                 )}
-                                {isLanguageDropdownOpen && <div className="fixed inset-0 z-10" onClick={() => setIsLanguageDropdownOpen(false)}></div>}
+                                {isLanguageDropdownOpen && <div className="fixed inset-0 z-40" onClick={() => setIsLanguageDropdownOpen(false)}></div>}
                             </div>
                         </div>
 
@@ -821,7 +883,7 @@ const AddBook = () => {
                                     </div>
                                 )}
                                 <div className="relative">
-                                    <input type="text" value={relatedSearchQuery} onChange={(e) => { setRelatedSearchQuery(e.target.value); setIsRelatedDropdownOpen(true); }} onFocus={() => setIsRelatedDropdownOpen(true)} onMouseDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.stopPropagation()} placeholder="Search product by isbn or title or id" className="theme-input w-full relative z-20" />
+                                    <input type="text" value={relatedSearchQuery} onChange={(e) => { setRelatedSearchQuery(e.target.value); setIsRelatedDropdownOpen(true); }} onFocus={() => setIsRelatedDropdownOpen(true)} onMouseDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.stopPropagation()} placeholder="Search product by isbn or title or id" className="theme-input w-full" />
                                     {isRelatedDropdownOpen && relatedSearchQuery.length > 2 && (
                                         <div className="absolute z-50 top-full left-0 w-full bg-white border border-gray-300 rounded shadow-lg mt-1 max-h-60 overflow-y-auto">
                                             {relatedSearchResults.length > 0 ? relatedSearchResults.map(prod => (
@@ -844,11 +906,18 @@ const AddBook = () => {
                                     <div className="border border-gray-300 rounded p-2 bg-white cursor-pointer min-h-[38px] flex flex-wrap gap-2 items-center hover:border-primary transition-colors" onClick={() => setIsAuthorDropdownOpen(!isAuthorDropdownOpen)}>
                                         {formData.authors && formData.authors.length > 0 ? (
                                             formData.authors.map((authId) => {
-                                                const author = authors.find(a => (a.id || a._id) === authId);
-                                                const authorName = author ? `${author.firstName || author.first_name || ''} ${author.lastName || author.last_name || ''}`.trim() || "Unknown Author" : "Unknown Author";
+                                                const authorName = selectedAuthorsCache[String(authId)] || `Author #${authId}`;
                                                 return (
                                                     <span key={authId} className="bg-blue-50 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded border border-blue-100 flex items-center gap-1">
                                                         {authorName}
+                                                        <select
+                                                            value={authorRoles[String(authId)] || 1}
+                                                            onChange={(e) => { e.stopPropagation(); setAuthorRoles(prev => ({ ...prev, [String(authId)]: Number(e.target.value) })); }}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            className="text-[9px] bg-blue-100 border-0 outline-none cursor-pointer rounded px-0.5 text-blue-800 font-normal"
+                                                        >
+                                                            {AUTHOR_ROLES.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+                                                        </select>
                                                         <button type="button" onClick={(e) => { e.stopPropagation(); handleCheckboxChange('authors', authId); }} className="hover:text-red-500">×</button>
                                                     </span>
                                                 );
@@ -857,19 +926,26 @@ const AddBook = () => {
                                         <div className="ml-auto text-gray-400 text-[10px]">▼</div>
                                     </div>
                                     {isAuthorDropdownOpen && (
-                                        <div className="absolute z-[100] top-full left-0 w-full bg-white border border-gray-300 rounded shadow-lg mt-1 flex flex-col">
+                                        <div className="absolute z-[100] top-full left-0 w-full bg-white border border-gray-300 rounded shadow-lg mt-1 flex flex-col overflow-hidden animate-in fade-in zoom-in-95">
                                             <div className="p-2 border-b border-gray-100 bg-gray-50 rounded-t">
                                                 <input type="text" placeholder="Search authors..." value={authorSearch} onChange={(e) => setAuthorSearch(e.target.value)} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.stopPropagation()} className="w-full text-xs p-1.5 border border-gray-300 rounded focus:border-primary outline-none bg-white" autoFocus />
                                             </div>
                                             <div className="max-h-48 overflow-y-auto p-1 scrollbar-thin">
-                                                {authors.filter(a => {
-                                                    const name = `${a.firstName || a.first_name || ''} ${a.lastName || a.last_name || ''}`.toLowerCase();
-                                                    return name.includes(authorSearch.toLowerCase());
-                                                }).map((auth) => {
-                                                    const isSelected = formData.authors.includes(auth.id || auth._id);
-                                                    const displayName = `${auth.firstName || auth.first_name || ''} ${auth.lastName || auth.last_name || ''}`.trim();
+                                                {authorSearchLoading ? (
+                                                    <div className="p-3 text-xs text-gray-400 text-center">Searching...</div>
+                                                ) : authorSearch.length < 2 ? (
+                                                    <div className="p-3 text-xs text-gray-400 text-center">Type at least 2 characters to search</div>
+                                                ) : authorSearchResults.length === 0 ? (
+                                                    <div className="p-3 text-xs text-gray-400 text-center">No authors found</div>
+                                                ) : authorSearchResults.map((auth) => {
+                                                    const isSelected = formData.authors.includes(auth.id);
+                                                    const displayName = auth.fullName || `${auth.firstName || ''} ${auth.lastName || ''}`.trim();
                                                     return (
-                                                        <div key={auth.id || auth._id} onClick={() => handleCheckboxChange('authors', auth.id || auth._id)} className={`flex items-center gap-2 p-2 cursor-pointer text-sm rounded hover:bg-blue-50 transition-colors ${isSelected ? 'bg-blue-50 font-bold text-primary' : ''}`}>
+                                                        <div key={auth.id} onClick={() => {
+                                                            handleCheckboxChange('authors', auth.id);
+                                                            setSelectedAuthorsCache(prev => ({ ...prev, [String(auth.id)]: displayName }));
+                                                            setAuthorRoles(prev => ({ ...prev, [String(auth.id)]: prev[String(auth.id)] || 1 }));
+                                                        }} className={`flex items-center gap-2 p-2 cursor-pointer text-sm rounded hover:bg-blue-50 transition-colors ${isSelected ? 'bg-blue-50 font-bold text-primary' : ''}`}>
                                                             <input type="checkbox" checked={isSelected} readOnly className="accent-primary h-4 w-4 pointer-events-none" />
                                                             <span>{displayName || 'Unknown Author'}</span>
                                                         </div>
@@ -1242,7 +1318,7 @@ const AddBook = () => {
                                     >
                                         {formData.series && formData.series.length > 0 ? (
                                             formData.series.map((serId) => {
-                                                const seriesObj = seriesList.find(s => s._id === serId);
+                                                const seriesObj = seriesList.find(s => (s.id || s._id) === serId);
                                                 return seriesObj ? (
                                                     <span key={serId} className="bg-purple-50 text-purple-700 text-[10px] font-bold px-2 py-0.5 rounded border border-purple-100 flex items-center gap-1">
                                                         {seriesObj.title}
@@ -1419,18 +1495,32 @@ const AddBook = () => {
                             <div className="col-span-9 space-y-3">
                                 <div className="relative">
                                     <div className="border border-gray-300 rounded p-2 bg-white cursor-pointer min-h-[38px] flex justify-between items-center hover:border-primary transition-colors theme-input w-full md:w-1/2" onClick={() => setIsPublisherDropdownOpen(!isPublisherDropdownOpen)}>
-                                        <span className={formData.publisher ? "text-gray-700 font-medium" : "text-gray-400 text-sm"}>{formData.publisher ? (publishers.find(p => (p.id || p._id) === formData.publisher)?.name || publishers.find(p => (p.id || p._id) === formData.publisher)?.title || "Unknown Publisher") : "Select Publisher"}</span>
+                                        <span className={formData.publisher ? "text-gray-700 font-medium" : "text-gray-400 text-sm"}>
+                                            {formData.publisher
+                                                ? (selectedPublisherCache[String(formData.publisher)] || publishers.find(p => (p.id || p._id) === formData.publisher)?.title || "Selected Publisher")
+                                                : "Select Publisher"}
+                                        </span>
                                         <ChevronDown size={14} className="text-gray-400" />
                                     </div>
                                     {isPublisherDropdownOpen && (
                                         <div className="absolute z-20 top-full left-0 w-full md:w-1/2 bg-white border border-gray-300 rounded shadow-lg mt-1 flex flex-col overflow-hidden animate-in fade-in zoom-in-95">
                                             <div className="p-2 border-b bg-gray-50">
-                                                <input type="text" placeholder="Search..." value={publisherSearch} onChange={(e) => setPublisherSearch(e.target.value)} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.stopPropagation()} className="w-full text-xs p-1.5 border rounded outline-none" autoFocus />
+                                                <input type="text" placeholder="Search publishers..." value={publisherSearch} onChange={(e) => setPublisherSearch(e.target.value)} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.stopPropagation()} className="w-full text-xs p-1.5 border rounded outline-none" autoFocus />
                                             </div>
                                             <div className="max-h-48 overflow-y-auto">
-                                                {publishers.filter(p => (p.name || p.title || "").toLowerCase().includes(publisherSearch.toLowerCase())).map(p => (
-                                                    <div key={p.id || p.id || p._id} onClick={() => handlePublisherSelect(p)} className="px-3 py-2 text-sm hover:bg-primary/5 cursor-pointer">{p.name || p.title}</div>
-                                                ))}
+                                                {publisherSearchLoading ? (
+                                                    <div className="p-3 text-xs text-gray-400 text-center">Searching...</div>
+                                                ) : publisherSearch.length > 1 ? (
+                                                    publisherSearchResults.length === 0
+                                                        ? <div className="p-3 text-xs text-gray-400 text-center">No publishers found</div>
+                                                        : publisherSearchResults.map(p => (
+                                                            <div key={p.id || p._id} onClick={() => handlePublisherSelect(p)} className="px-3 py-2 text-sm hover:bg-primary/5 cursor-pointer">{p.title || p.name}</div>
+                                                        ))
+                                                ) : (
+                                                    publishers.filter(p => (p.title || p.name || "").toLowerCase().includes(publisherSearch.toLowerCase())).map(p => (
+                                                        <div key={p.id || p._id} onClick={() => handlePublisherSelect(p)} className="px-3 py-2 text-sm hover:bg-primary/5 cursor-pointer">{p.title || p.name}</div>
+                                                    ))
+                                                )}
                                             </div>
                                         </div>
                                     )}

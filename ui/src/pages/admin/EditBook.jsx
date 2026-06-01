@@ -7,6 +7,7 @@ import 'react-quill/dist/quill.snow.css';
 import axios from '../../utils/axiosConfig';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { validateImageFiles } from '../../utils/fileValidator';
+import { dedupeByTitleKeepMax } from '../../utils/categoryUtils';
 
 const AUTHOR_ROLES = [
     { id: 1, label: 'Author' },
@@ -160,7 +161,7 @@ const EditBook = () => {
         queryFn: async () => {
             const API_URL = process.env.REACT_APP_API_URL;
             const [catRes, langRes, tagRes, authRes, fmtRes, serRes, pubRes, setRes, bookRes] = await Promise.all([
-                axios.get(`${API_URL}/category/fetch`),
+                axios.get(`${API_URL}/category/fetch?withCounts=true`),
                 axios.get(`${API_URL}/languages/list`),
                 axios.get(`${API_URL}/tags/list`),
                 Promise.resolve({ data: { data: [] } }),
@@ -785,6 +786,10 @@ const EditBook = () => {
 
     const selectedLeadingCategory = categories.find(c => (c.id || c._id) === formData.leading_category);
 
+    // Collapse duplicate-name categories (e.g. 3 "Yoga" rows) to the canonical, most-used
+    // one for the pickers. Selected chips still resolve labels from the full `categories` list.
+    const categoryOptions = useMemo(() => dedupeByTitleKeepMax(categories), [categories]);
+
     return (
         <div className="bg-gray-50 min-h-screen font-body text-text-main">
             <div className="bg-primary text-white border-b px-6 py-3 flex justify-between items-center shadow-sm">
@@ -856,7 +861,7 @@ const EditBook = () => {
                                             <input type="text" placeholder="Search..." value={leadingSearch} onChange={(e) => setLeadingSearch(e.target.value)} className="w-full text-xs p-1.5 border border-gray-200 rounded focus:border-primary outline-none" autoFocus />
                                         </div>
                                         <div className="overflow-y-auto">
-                                            {categories.filter(cat => (cat.title || cat.categorytitle || '').toLowerCase().includes(leadingSearch.toLowerCase())).map((cat) => (
+                                            {categoryOptions.filter(cat => (cat.title || cat.categorytitle || '').toLowerCase().includes(leadingSearch.toLowerCase())).map((cat) => (
                                                 <div key={cat.id || cat._id} onClick={() => { setFormData({ ...formData, leading_category: cat.id || cat._id }); setIsLeadingOpen(false); setLeadingSearch(""); }} className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${formData.leading_category === (cat.id || cat._id) ? "bg-blue-50 text-primary font-bold" : "text-gray-600"}`}>
                                                     {cat.title || cat.categorytitle}
                                                 </div>
@@ -892,7 +897,7 @@ const EditBook = () => {
                                             <input type="text" placeholder="Search categories..." value={categorySearch} onChange={(e) => setCategorySearch(e.target.value)} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.stopPropagation()} className="w-full text-xs p-1.5 border border-gray-300 rounded focus:border-primary outline-none bg-white" autoFocus />
                                         </div>
                                         <div className="max-h-48 overflow-y-auto p-1 scrollbar-thin">
-                                            {categories.filter((cat) => (cat.title || cat.categorytitle || '').toLowerCase().includes(categorySearch.toLowerCase())).map((cat) => {
+                                            {categoryOptions.filter((cat) => (cat.title || cat.categorytitle || '').toLowerCase().includes(categorySearch.toLowerCase())).map((cat) => {
                                                 const isSelected = formData.product_categories.includes(cat.id || cat._id);
                                                 return (
                                                     <div key={cat.id || cat.id || cat._id} onClick={() => handleCheckboxChange('product_categories', cat.id || cat._id)} className={`flex items-center gap-2 p-2 cursor-pointer text-sm rounded hover:bg-blue-50 ${isSelected ? 'bg-blue-50' : ''}`}>

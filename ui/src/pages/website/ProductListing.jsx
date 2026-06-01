@@ -274,12 +274,19 @@ const ProductListing = ({ type }) => {
 
                 // 🟢 STEP 2: Agar URL mein slug hai, toh flat list se category ID nikaalo
                 // Skip for publisher/series — they use resolvedEntityId instead
-                if (slug && allCategories.length > 0 && type !== 'publisher' && type !== 'series') {
-                    const foundCat = findCategoryObject(allCategories, slug);
-                    const foundCatId = foundCat && (foundCat.id || foundCat._id);
-                    if (foundCat && foundCatId && !categoryIds.includes(foundCatId)) {
-                        categoryIds.push(foundCatId);
-                    }
+                if (slug && flatCats.length > 0 && type !== 'publisher' && type !== 'series') {
+                    // Duplicate categories can share the same slug/title (e.g. there are 3 "Yoga"
+                    // rows in the DB). Include EVERY matching category id so a product filed under
+                    // ANY of them shows on the listing (backend matches categoryId IN [...]).
+                    const cleanSlug = slug.toLowerCase().replace(/[^a-z0-9]/g, '');
+                    flatCats.forEach(c => {
+                        const title = c.categorytitle || c.title || '';
+                        const cleanTitle = title.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]/g, '');
+                        const cid = c.id || c._id;
+                        if (cid && (c.slug === slug || cleanTitle === cleanSlug) && !categoryIds.includes(cid)) {
+                            categoryIds.push(cid);
+                        }
+                    });
                 }
 
                 // Publisher/series page: inject resolved entity ID into query
@@ -363,7 +370,7 @@ const ProductListing = ({ type }) => {
         if ((type === 'publisher' || type === 'series') ? (resolvedEntityId !== null) : (allCategories.length > 0 || !slug)) {
             fetchProducts();
         }
-    }, [filters, type, slug, allCategories, location.pathname, location.search, currentPage, resolvedEntityId]);
+    }, [filters, type, slug, allCategories, flatCats, location.pathname, location.search, currentPage, resolvedEntityId]);
 
 
 

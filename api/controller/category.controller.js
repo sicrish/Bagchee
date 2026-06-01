@@ -70,12 +70,21 @@ export const fetchCategory = async (req, res) => {
 
         // All categories (for dropdowns)
         // ?withProducts=true → only categories that have at least one Book (productType='book') linked
-        const { withProducts } = req.query;
+        // ?withCounts=true   → attach productCount (total linked products) so the admin book pickers
+        //                       can de-dupe same-name categories down to the canonical (most-used) one
+        const { withProducts, withCounts } = req.query;
         const dropdownWhere = withProducts === 'true'
             ? { products: { some: { product: { productType: 'book' } } } }
             : {};
-        const data = await prisma.category.findMany({ where: dropdownWhere, orderBy: { title: 'asc' } });
-        res.json({ status: true, data });
+        const data = await prisma.category.findMany({
+            where: dropdownWhere,
+            orderBy: { title: 'asc' },
+            ...(withCounts === 'true' ? { include: { _count: { select: { products: true } } } } : {})
+        });
+        const out = withCounts === 'true'
+            ? data.map(({ _count, ...c }) => ({ ...c, productCount: _count?.products || 0 }))
+            : data;
+        res.json({ status: true, data: out });
     } catch (error) {
         console.error('Category fetch error:', error.message);
         res.status(500).json({ status: false, msg: 'Server Error' });
