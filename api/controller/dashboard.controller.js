@@ -30,13 +30,18 @@ export const getDashboardSummary = async (req, res) => {
                 select: {
                     id: true, orderNumber: true, total: true, currency: true, createdAt: true,
                     shippingCountry: true, shippingFirstName: true, shippingLastName: true,
-                    customer: { select: { name: true, country: true } },
+                    customer: { select: { name: true } },
                 },
             }),
             prisma.user.findMany({
                 where: { role: 'user' },
                 orderBy: { createdAt: 'desc' }, take: 5,
-                select: { id: true, name: true, firstName: true, lastName: true, email: true, country: true, createdAt: true },
+                select: {
+                    id: true, name: true, firstName: true, lastName: true, email: true, createdAt: true,
+                    // User.country defaults to "India" and isn't captured at signup, so it's
+                    // unreliable. Use the latest order's shipping country (real) instead.
+                    orders: { select: { shippingCountry: true }, orderBy: { id: 'desc' }, take: 1 },
+                },
             }),
             prisma.review.findMany({
                 orderBy: { id: 'desc' }, take: 5,
@@ -60,12 +65,14 @@ export const getDashboardSummary = async (req, res) => {
                     customerName: o.customer?.name
                         || [o.shippingFirstName, o.shippingLastName].filter(Boolean).join(' ')
                         || 'Guest',
-                    country: o.shippingCountry || o.customer?.country || '-',
+                    country: o.shippingCountry || '—',
                 })),
                 recentUsers: recentUsers.map(u => ({
                     id: u.id,
                     name: u.name || [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email || '(no name)',
-                    country: u.country || '-',
+                    // Real country from their latest order; "—" when they have no order yet
+                    // (never the bogus "India" default on the user record).
+                    country: u.orders?.[0]?.shippingCountry || '—',
                     createdAt: u.createdAt,
                 })),
                 recentReviews: recentReviews.map(r => ({
