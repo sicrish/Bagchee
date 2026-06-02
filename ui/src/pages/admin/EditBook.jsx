@@ -161,7 +161,7 @@ const EditBook = () => {
         queryFn: async () => {
             const API_URL = process.env.REACT_APP_API_URL;
             const [catRes, langRes, tagRes, authRes, fmtRes, serRes, pubRes, setRes, bookRes] = await Promise.all([
-                axios.get(`${API_URL}/category/fetch?withCounts=true`),
+                axios.get(`${API_URL}/category/fetch?withCounts=true&withProducts=true`),
                 axios.get(`${API_URL}/languages/list`),
                 axios.get(`${API_URL}/tags/list`),
                 Promise.resolve({ data: { data: [] } }),

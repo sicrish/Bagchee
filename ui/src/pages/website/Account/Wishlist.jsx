@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useMemo, useContext } from 'react';
+import React, { useState, useContext } from 'react';
 import { Link } from 'react-router-dom';
-import { Heart, Trash2, ShoppingCart, Star, Package, BookOpen, Globe, FileText, Plus, Minus } from 'lucide-react';
+import { Heart, Trash2, ShoppingCart, Star, Package, BookOpen, Globe, Plus, Minus } from 'lucide-react';
 import axios from '../../../utils/axiosConfig';
 import toast from 'react-hot-toast';
 import AccountLayout from '../../../layouts/AccountLayout';
@@ -10,6 +10,13 @@ import { useCart } from '../../../context/CartContext';
 import { CurrencyContext } from '../../../context/CurrencyContext';
 import { useQuery } from '@tanstack/react-query'; // 🟢 React Query
 import { NO_IMAGE } from '../../../utils/imageUrl';
+import { normalizeProduct } from '../../../utils/normalizeProduct';
+
+// Consistent product id. Wishlist items can come from different sources:
+// listing cards store a normalized object (has _id), BookDetail stores the raw
+// camelCase product (has id, not _id). Mirror CartContext's getProductId (id || _id)
+// so the detail fetch always matches back to the right item.
+const getId = (p) => p?._id ?? p?.id ?? p?.bagcheeId ?? p?.bagchee_id;
 
 const Wishlist = () => {
   const { wishlist, toggleWishlist, cart, addToCart, updateQuantity } = useCart();
@@ -20,34 +27,34 @@ const Wishlist = () => {
 
   const API_BASE_URL = process.env.REACT_APP_API_URL;
 
-  // 🟢 1. FETCH PRODUCT DETAILS FOR WISHLIST ITEMS
-  // Hum useQuery ka use karke poore wishlist data ko ek saath manage karenge
+  // 🟢 1. FETCH FULL PRODUCT DETAILS FOR WISHLIST ITEMS
+  // Results are normalized so both camelCase (Prisma) and snake_case reads work,
+  // and keyed by getId(item) so they match back to the wishlist entry.
   const { data: productsData = {}, isLoading: loading } = useQuery({
-    queryKey: ['wishlist-details', wishlist.map(item => item._id)], // Depend on wishlist IDs
+    queryKey: ['wishlist-details', wishlist.map(getId)],
     queryFn: async () => {
       const productDetails = {};
-      // Wishlist ke har item ke liye detail fetch karenge
       const detailPromises = wishlist.map(async (product) => {
-        const productId = product.bagchee_id || product._id;
+        const fetchId = product.bagcheeId || product.bagchee_id || product._id || product.id;
+        if (!fetchId) return;
         try {
           let response;
-          // Aapka purana fallback logic
           try {
-            response = await axios.get(`${API_BASE_URL}/product/fetch?bagchee_id=${productId}`);
+            response = await axios.get(`${API_BASE_URL}/product/fetch?bagchee_id=${fetchId}`);
           } catch (error) {
             try {
-              response = await axios.get(`${API_BASE_URL}/product/fetch?id=${productId}`);
+              response = await axios.get(`${API_BASE_URL}/product/fetch?id=${fetchId}`);
             } catch (error2) {
-              response = await axios.get(`${API_BASE_URL}/product/get/${productId}`);
+              response = await axios.get(`${API_BASE_URL}/product/get/${fetchId}`);
             }
           }
 
-          if (response.data.status && response.data.data) {
-            const bookData = Array.isArray(response.data.data) ? response.data.data[0] : response.data.data;
-            productDetails[product._id] = bookData;
+          if (response?.data?.status && response.data.data) {
+            const raw = Array.isArray(response.data.data) ? response.data.data[0] : response.data.data;
+            productDetails[getId(product)] = normalizeProduct(raw);
           }
         } catch (error) {
-          console.error(`Error fetching product ${product._id}:`, error);
+          console.error(`Error fetching wishlist product ${fetchId}:`, error);
         }
       });
 
@@ -61,7 +68,7 @@ const Wishlist = () => {
   const handleRemove = async (productId) => {
     try {
       setRemoving(productId);
-      const product = wishlist.find(item => item._id === productId);
+      const product = wishlist.find(item => getId(item) === productId);
       if (product) {
         toggleWishlist(product);
         toast.success('Removed from wishlist');
@@ -75,29 +82,37 @@ const Wishlist = () => {
   };
 
   const getImageUrl = (product) => {
-    // Agar default_image hai
-    if (product?.default_image) {
-        return product.default_image.startsWith('http') 
-            ? product.default_image 
-            : `${process.env.REACT_APP_API_URL.replace('/api', '')}${product.default_image}`;
+    const base = (process.env.REACT_APP_API_URL || '').replace('/api', '');
+    const toUrl = (img) =>
+      typeof img === 'string' && img
+        ? (img.startsWith('http') ? img : `${base}${img}`)
+        : '';
+    // Prisma returns camelCase (defaultImage); old code expected default_image.
+    const direct = product?.defaultImage || product?.default_image;
+    if (direct) return toUrl(direct);
+    const arr = product?.images;
+    if (Array.isArray(arr) && arr.length > 0) {
+      const first = arr[0];
+      const url = typeof first === 'string' ? first : (first?.url || first?.image || first?.src);
+      if (url) return toUrl(url);
     }
-    // Agar images array mein pehli image hai
-    if (product?.images && product.images.length > 0) {
-        const img = product.images[0];
-        return img.startsWith('http') 
-            ? img 
-            : `${process.env.REACT_APP_API_URL.replace('/api', '')}${img}`;
-    }
-    // Fallback placeholder
     return NO_IMAGE;
-};
+  };
 
-  const getAuthorName = (author) => {
-    if (!author) return 'Unknown Author';
-    if (typeof author === 'object') {
-      return `${author.first_name || ''} ${author.last_name || ''}`.trim() || 'Unknown Author';
+  const getAuthorName = (product) => {
+    // Prefer the authors[] relation (Prisma), fall back to a flattened author object.
+    const first = Array.isArray(product?.authors) && product.authors.length > 0
+      ? product.authors[0]?.author
+      : null;
+    if (first) {
+      return (first.fullName || `${first.firstName || ''} ${first.lastName || ''}`).trim() || 'Unknown Author';
     }
-    return author;
+    const a = product?.author;
+    if (!a) return '';
+    if (typeof a === 'object') {
+      return (a.fullName || a.name || `${a.first_name || ''} ${a.last_name || ''}`).trim() || 'Unknown Author';
+    }
+    return a;
   };
 
   const createSlug = (title) => {
@@ -160,8 +175,10 @@ const Wishlist = () => {
           /* Wishlist List View */
           <div className="flex flex-col gap-4">
             {wishlist.map((product) => {
-              // ─── 🟢 MNC PRICING & DATA LOGIC ───
-              const fullProduct = productsData[product._id] || product;
+              const id = getId(product);
+              // Full (normalized) detail from the API, falling back to a normalized
+              // version of the stored item so camel/snake reads both work.
+              const fullProduct = productsData[id] || normalizeProduct(product);
 
               // 1. Base Prices
               const currentPriceUSD = fullProduct.price || 0;
@@ -178,17 +195,21 @@ const Wishlist = () => {
               // 3. Status & Meta
               const rating = fullProduct.rating || 0;
               const ratingCount = fullProduct.rated_times || 0;
-              const availability = fullProduct.availability || fullProduct.stock || 0;
+              // `availability` is the numeric stock count; `stock` is a status string
+              // ("active"), so never compare stock to 0. Unknown availability = treat as
+              // in stock (don't show a false "out of stock").
+              const availabilityNum = Number(fullProduct.availability);
+              const outOfStock = Number.isFinite(availabilityNum) && availabilityNum <= 0;
+              const author = getAuthorName(fullProduct);
               const slug = createSlug(fullProduct.title);
-              const productUrl = `/books/${fullProduct.bagchee_id || fullProduct._id}/${slug}`;
+              const productUrl = `/books/${fullProduct.bagcheeId || fullProduct.bagchee_id || fullProduct.id || fullProduct._id}/${slug}`;
 
-              const cartItem = cart.find(item => item._id === fullProduct._id);
+              const cartItem = cart.find(item => getId(item) === id);
               const qty = cartItem ? cartItem.quantity : 0;
-              const outOfStock = (availability <= 0);
 
               return (
                 <div
-                  key={product._id}
+                  key={id}
                   className="bg-cream-100 rounded-xl border border-gray-200 hover:shadow-xl transition-all duration-300 p-4 sm:p-5 flex flex-col sm:flex-row gap-5 relative group"
                 >
                   {/* Image Section */}
@@ -216,9 +237,9 @@ const Wishlist = () => {
                           </h3>
                         </Link>
 
-                        {fullProduct.author && (
+                        {author && (
                           <p className="text-sm font-medium text-gray-600 mb-3 line-clamp-1">
-                            by <span className="text-gray-800">{getAuthorName(fullProduct.author)}</span>
+                            by <span className="text-gray-800">{author}</span>
                           </p>
                         )}
 
@@ -261,12 +282,12 @@ const Wishlist = () => {
                       </div>
 
                       <button
-                        onClick={() => handleRemove(product._id)}
-                        disabled={removing === product._id}
+                        onClick={() => handleRemove(id)}
+                        disabled={removing === id}
                         className="hidden sm:flex items-center justify-center w-10 h-10 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-all flex-shrink-0"
                         title="Remove from wishlist"
                       >
-                        {removing === product._id ? <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div> : <Trash2 size={20} />}
+                        {removing === id ? <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div> : <Trash2 size={20} />}
                       </button>
                     </div>
 
@@ -282,7 +303,7 @@ const Wishlist = () => {
                             </>
                           )}
                         </div>
-                        {availability && availability > 0 ? (
+                        {!outOfStock ? (
                           <span className="text-xs font-medium text-green-700 flex items-center gap-1"><span className="w-1.5 h-1.5 bg-green-600 rounded-full"></span>In Stock</span>
                         ) : (
                           <span className="text-xs font-medium text-red-600 flex items-center gap-1"><span className="w-1.5 h-1.5 bg-red-600 rounded-full"></span>Out of Stock</span>
@@ -291,37 +312,29 @@ const Wishlist = () => {
 
                       <div className="w-full sm:w-auto flex items-center gap-3">
                         <div className="sm:w-48 w-full">
-                          {(() => {
-                            const cartItem = cart.find(item => item._id === fullProduct._id);
-                            const qty = cartItem ? cartItem.quantity : 0;
-                            const outOfStock = (fullProduct.stock <= 0);
-                            if (qty > 0) {
-                              return (
-                                <div className="flex items-center bg-primary text-white rounded-md overflow-hidden shadow-sm w-full justify-center">
-                                  <button onClick={() => updateQuantity(fullProduct._id, 'dec')} className="px-3 py-2 hover:bg-primary-dark transition-colors flex items-center justify-center"><Minus size={16} /></button>
-                                  <span className="px-2 font-bold min-w-[20px] text-center text-sm">{qty}</span>
-                                  <button onClick={() => updateQuantity(fullProduct._id, 'inc')} disabled={qty >= (fullProduct.stock || 10)} className="px-3 py-2 hover:bg-primary-dark transition-colors flex items-center justify-center disabled:opacity-50"><Plus size={16} /></button>
-                                </div>
-                              );
-                            }
-                            return (
-                              <button
-                                onClick={() => {
-                                  if (outOfStock) { toast.error("Product is out of stock"); return; }
-                                  addToCart({ ...fullProduct, bagcheeId: fullProduct.bagchee_id || fullProduct._id, slug });
-                                  toast.success("Added to Cart");
-                                }}
-                                disabled={outOfStock}
-                                className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary-dark transition-colors disabled:bg-gray-300 w-full justify-center"
-                              >
-                                <ShoppingCart size={18} />
-                                <span>{outOfStock ? 'Out of Stock' : 'Add to Cart'}</span>
-                              </button>
-                            );
-                          })()}
+                          {qty > 0 ? (
+                            <div className="flex items-center bg-primary text-white rounded-md overflow-hidden shadow-sm w-full justify-center">
+                              <button onClick={() => updateQuantity(id, 'dec')} className="px-3 py-2 hover:bg-primary-dark transition-colors flex items-center justify-center"><Minus size={16} /></button>
+                              <span className="px-2 font-bold min-w-[20px] text-center text-sm">{qty}</span>
+                              <button onClick={() => updateQuantity(id, 'inc')} disabled={Number.isFinite(availabilityNum) && qty >= availabilityNum} className="px-3 py-2 hover:bg-primary-dark transition-colors flex items-center justify-center disabled:opacity-50"><Plus size={16} /></button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                if (outOfStock) { toast.error("Product is out of stock"); return; }
+                                addToCart({ ...fullProduct, bagcheeId: fullProduct.bagcheeId || fullProduct.bagchee_id || fullProduct._id, slug });
+                                toast.success("Added to Cart");
+                              }}
+                              disabled={outOfStock}
+                              className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary-dark transition-colors disabled:bg-gray-300 w-full justify-center"
+                            >
+                              <ShoppingCart size={18} />
+                              <span>{outOfStock ? 'Out of Stock' : 'Add to Cart'}</span>
+                            </button>
+                          )}
                         </div>
-                        <button onClick={() => handleRemove(product._id)} disabled={removing === product._id} className="sm:hidden flex items-center justify-center w-12 h-12 border border-gray-200 text-gray-500 rounded-lg transition-colors">
-                          {removing === product._id ? <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div> : <Trash2 size={20} />}
+                        <button onClick={() => handleRemove(id)} disabled={removing === id} className="sm:hidden flex items-center justify-center w-12 h-12 border border-gray-200 text-gray-500 rounded-lg transition-colors">
+                          {removing === id ? <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div> : <Trash2 size={20} />}
                         </button>
                       </div>
                     </div>

@@ -21,7 +21,7 @@ const AUTHOR_ROLE_MAP = { 1: 'Author', 2: 'Editor', 3: 'Translator', 4: 'Introdu
 const BookDetail = () => {
   const { bagcheeId, slug } = useParams();
   const navigate = useNavigate();
-  const { addToCart, cart, updateQuantity, membershipAdded, setMembershipAdded } = useCart();
+  const { addToCart, cart, updateQuantity, membershipAdded, setMembershipAdded, toggleWishlist, isInWishlist } = useCart();
 
   const { formatPrice, currency } = useContext(CurrencyContext);
   const { isIndia } = useGeo();
@@ -29,7 +29,6 @@ const BookDetail = () => {
   const [book, setBook] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(0);
-  const [isWishlisted, setIsWishlisted] = useState(false);
   const [relatedBooks, setRelatedBooks] = useState([]);
   const [expandedFAQ, setExpandedFAQ] = useState(null);
   const [activeTab, setActiveTab] = useState('details'); // overview | details | professional_review | faq
@@ -288,8 +287,10 @@ const BookDetail = () => {
   };
 
   const handleWishlist = () => {
-    setIsWishlisted(!isWishlisted);
-    toast.success(isWishlisted ? 'Removed from wishlist' : 'Added to wishlist');
+    if (!book) return;
+    const wasIn = isInWishlist(book.id || book._id);
+    toggleWishlist(book);
+    toast.success(wasIn ? 'Removed from wishlist' : 'Added to wishlist');
   };
 
   const handleShare = () => {
@@ -498,6 +499,7 @@ const BookDetail = () => {
     ? book.synopsis.replace(/<[^>]+>/g, '').substring(0, 160)
     : `${book.title}${bookAuthorName ? ` by ${bookAuthorName}` : ''} — available on Bagchee.`;
   const bookImage = book.defaultImage || book.default_image || '';
+  const isWishlisted = isInWishlist(book.id || book._id);
 
   return (
     <div className="min-h-screen bg-cream">
@@ -749,17 +751,24 @@ const BookDetail = () => {
                   )}
 
                   {/* Pages Pill */}
-                  {(book.pagesDesc || book.pages_desc || book.pages || book.total_pages) && (
-                    <span className="inline-flex items-center bg-gray-100 text-gray-600 text-[10px] font-bold px-3 py-1.5 rounded-full border border-gray-200 uppercase tracking-widest font-montserrat">
-                      {(() => {
-                        const n = book.pages || book.total_pages;
-                        if (n) return `${n} Pages`;
-                        const raw = book.pagesDesc || book.pages_desc || '';
-                        const m = raw.match(/^(\d+)/);
-                        return m ? `${m[1]} Pages` : null;
-                      })()}
-                    </span>
-                  )}
+                  {(() => {
+                    const n = book.pages || book.total_pages;
+                    let pageLabel = null;
+                    if (n) {
+                      pageLabel = `${n} Pages`;
+                    } else {
+                      const raw = (book.pagesDesc || book.pages_desc || '').trim();
+                      // Page count is the number before "p"/"pp" (e.g. "xiv+158p." → 158),
+                      // falling back to the first number anywhere (e.g. "256").
+                      const m = raw.match(/(\d+)\s*p/i) || raw.match(/(\d+)/);
+                      if (m) pageLabel = `${m[1]} Pages`;
+                    }
+                    return pageLabel ? (
+                      <span className="inline-flex items-center bg-gray-100 text-gray-600 text-[10px] font-bold px-3 py-1.5 rounded-full border border-gray-200 uppercase tracking-widest font-montserrat">
+                        {pageLabel}
+                      </span>
+                    ) : null;
+                  })()}
 
                   {/* 🟢 Publication Date Pill (Naya Addition) */}
                   {book.pub_date && (

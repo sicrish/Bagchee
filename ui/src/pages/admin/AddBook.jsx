@@ -162,7 +162,7 @@ const AddBook = () => {
         queryFn: async () => {
             const API_URL = process.env.REACT_APP_API_URL;
             const [catRes, langRes, tagRes, authRes, fmtRes, serRes, pubRes, setRes] = await Promise.all([
-                axios.get(`${API_URL}/category/fetch?withCounts=true`),
+                axios.get(`${API_URL}/category/fetch?withCounts=true&withProducts=true`),
                 axios.get(`${API_URL}/languages/list`),
                 axios.get(`${API_URL}/tags/list`),
                 axios.get(`${API_URL}/authors/list?limit=200`),
