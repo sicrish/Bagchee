@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { useGeo } from '../../context/GeoContext.jsx';
 import axios from '../../utils/axiosConfig';
 import { normalizeProducts } from '../../utils/normalizeProduct';
@@ -415,8 +416,59 @@ const ProductListing = ({ type }) => {
         setIsModalOpen(true);
     };
 
+    // --- SEO: per-listing <title>/description. Overrides the site default in
+    // WebsiteLayout so category/sale/search/etc. pages aren't all the generic default.
+    // Returns null until the title resolves, so we never emit a placeholder like
+    // "category | Bagchee". (Listing pages aren't seeded in the admin meta manager —
+    // there are too many categories — so this auto-covers them.)
+    const buildListingMeta = () => {
+        const tail = 'Best prices and free worldwide delivery on Indian & international books at Bagchee.';
+        const kw = new URLSearchParams(location.search).get('keyword');
+        let label, desc;
+        if (type === 'search' && kw) {
+            label = `Search: ${kw}`;
+            desc = `Search results for “${kw}” at Bagchee. ${tail}`;
+        } else if (type === 'search') {
+            label = 'Browse Books by Subject';
+            desc = `Browse books by subject and topic at Bagchee. ${tail}`;
+        } else if (type === 'sale') {
+            label = 'Sale — Up to 80% Off';
+            desc = `Save on discounted books in the Bagchee sale. ${tail}`;
+        } else if (type === 'new-arrivals') {
+            label = 'New Arrivals';
+            desc = `Discover the newest books just added at Bagchee. ${tail}`;
+        } else if (type === 'bestsellers') {
+            label = 'Bestsellers';
+            desc = `Shop the best-selling books at Bagchee. ${tail}`;
+        } else if (type === 'recommended') {
+            label = 'Recommended Books';
+            desc = `Handpicked book recommendations from Bagchee. ${tail}`;
+        } else if (!baseTitleRef || baseTitleRef === 'category') {
+            return null; // category/series/publisher title not resolved yet
+        } else if (type === 'series') {
+            label = `${baseTitleRef} — Book Series`;
+            desc = `Browse the ${baseTitleRef} book series at Bagchee. ${tail}`;
+        } else if (type === 'publisher') {
+            label = baseTitleRef;
+            desc = `Books published by ${baseTitleRef}, available at Bagchee. ${tail}`;
+        } else {
+            label = `${baseTitleRef} Books`;
+            desc = `Browse ${baseTitleRef} books at Bagchee. ${tail}`;
+        }
+        return { title: `${label} | Bagchee`, desc };
+    };
+    const listingMeta = buildListingMeta();
+
     return (
         <div className="min-h-screen bg-cream-50 font-body text-text-main pb-10 overflow-x-hidden">
+            {listingMeta && (
+                <Helmet>
+                    <title>{listingMeta.title}</title>
+                    <meta name="description" content={listingMeta.desc} />
+                    <meta property="og:title" content={listingMeta.title} />
+                    <meta property="og:description" content={listingMeta.desc} />
+                </Helmet>
+            )}
             {/* --- PAGE HEADER --- */}
             {/* --- PAGE HEADER --- */}
             {type === 'sale' ? (

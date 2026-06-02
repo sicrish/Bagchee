@@ -8,6 +8,14 @@ import PremiumOfferBar from "../components/website/home/offer/offerSection.jsx";
 import usePageMeta from "../hooks/usePageMeta.js";
 import { useGeo } from "../context/GeoContext.jsx";
 
+// Site-wide default meta. react-helmet-async renders these as the baseline; the admin
+// meta block below and page-level <Helmet> tags (BookDetail, AuthorDetail, ProductListing)
+// override them. The matching hardcoded <meta name="description"> was removed from
+// public/index.html so it can't linger as a duplicate next to the injected one.
+const DEFAULT_META_TITLE = "Bagchee — Books That Stick";
+const DEFAULT_META_DESC =
+  "Bagchee — India's favourite online bookstore. Shop books, CDs, DVDs, music, handicrafts and more with free delivery.";
+
 function WebsiteLayouts() {
   const location = useLocation();
   const pageMeta = usePageMeta();
@@ -38,6 +46,14 @@ function WebsiteLayouts() {
 
   return (
     <>
+      <Helmet>
+        <title>{DEFAULT_META_TITLE}</title>
+        <meta name="description" content={DEFAULT_META_DESC} />
+        <meta property="og:title" content={DEFAULT_META_TITLE} />
+        <meta property="og:description" content={DEFAULT_META_DESC} />
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="Bagchee" />
+      </Helmet>
       {pageMeta && (
         <Helmet>
           {pageMeta.title     && <title>{pageMeta.title}</title>}
