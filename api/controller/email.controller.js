@@ -1,6 +1,7 @@
 import { createTransporter } from '../lib/mailer.js';
 import dotenv from 'dotenv';
 import prisma from '../lib/prisma.js';
+import { generateInvoicePdf } from '../lib/invoicePdf.js';
 
 dotenv.config();
 
@@ -674,12 +675,27 @@ export const sendInvoiceEmail = async (email, order) => {
               </div>
             </div>`;
 
-        await transporter.sendMail({
+        const mailOptions = {
             from: `"Bagchee" <no-reply@bagchee.com>`,
             to: email,
             subject: `Your Invoice — Order #${orderNum}`,
             html: template
-        });
+        };
+
+        // Attach a PDF copy of the invoice. If PDF generation fails for any reason,
+        // fall back to the HTML-only email so the customer still receives their invoice.
+        try {
+            const pdfBuffer = await generateInvoicePdf(order);
+            mailOptions.attachments = [{
+                filename: `Invoice-${orderNum}.pdf`,
+                content: pdfBuffer,
+                contentType: 'application/pdf'
+            }];
+        } catch (pdfErr) {
+            console.error('Invoice PDF generation failed — sending HTML-only invoice:', pdfErr.message);
+        }
+
+        await transporter.sendMail(mailOptions);
     } catch (error) {
         console.error('Invoice email failed:', error.message);
         throw error;

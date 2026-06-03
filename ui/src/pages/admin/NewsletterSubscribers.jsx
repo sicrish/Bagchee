@@ -426,7 +426,7 @@ const NewsletterSubscribers = () => {
                     <td className="p-3 border-r border-gray-100">
                       <div className="flex items-center gap-4">
                         <input type="checkbox" className="h-4 w-4 rounded accent-primary cursor-pointer shrink-0 border-gray-300" />
-                        <span className="text-gray-500 text-xs font-mono">{index + 1}</span>
+                        <span className="text-gray-500 text-xs font-mono">{(currentPage - 1) * itemsPerPage + index + 1}</span>
                       </div>
                     </td>
                     <td className="p-3 border-r border-gray-100 text-gray-700 font-medium">{item.email}</td>

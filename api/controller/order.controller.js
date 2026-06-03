@@ -414,11 +414,15 @@ export const guestTrackOrder = async (req, res) => {
         const searchEmail = email.trim().toLowerCase();
         const searchId    = String(orderId).trim();
 
-        // Try to match by numeric ID first, then by order number string
-        const numericId = parseInt(searchId);
-        const where = isNaN(numericId)
-            ? { orderNumber: searchId }
-            : { OR: [{ id: numericId }, { orderNumber: searchId }] };
+        // Try to match by numeric ID first, then by order number string.
+        // Guard against values that overflow the INT4 `id` column — Prisma throws a
+        // ConversionError otherwise (e.g. a bot tracking order "1779996366039"). A too-large /
+        // zero / negative value can only be an order-number string, so match on that alone.
+        const numericId = parseInt(searchId, 10);
+        const isValidId = !isNaN(numericId) && numericId > 0 && numericId <= 2147483647;
+        const where = isValidId
+            ? { OR: [{ id: numericId }, { orderNumber: searchId }] }
+            : { orderNumber: searchId };
 
         const order = await prisma.order.findFirst({
             where,
@@ -472,7 +476,7 @@ export const updateOrder = async (req, res) => {
         if (req.body.shippedAt !== undefined) updateData.shippedAt = req.body.shippedAt ? new Date(req.body.shippedAt) : null;
 
         // Look up current order state once (for shippedAt + payment-paid auto-advance)
-        const existing = await prisma.order.findUnique({ where: { id }, select: { shippedAt: true, status: true } });
+        const existing = await prisma.order.findUnique({ where: { id }, select: { shippedAt: true, status: true, paymentType: true } });
 
         // Auto-set shippedAt when status changes to shipped
         const newStatus = (updateData.status || '').toLowerCase();
@@ -485,7 +489,13 @@ export const updateOrder = async (req, res) => {
         // disappears, wire-transfer instructions hide). Only touches pending / approval pending /
         // payment pending orders — never one already processing/shipped/cancelled. An explicit
         // status change in the same save always wins.
-        if ((updateData.paymentStatus || '').toLowerCase() === 'paid' && updateData.status === undefined) {
+        // Purchase Orders are Net-30: the customer pays AFTER receiving the goods, so marking a
+        // PO "Paid" must only flip the payment status — the order status stays under the admin's
+        // control (they set Processing / Shipped / etc. independently). Wire / UNESCO keep the
+        // auto-advance so their pre-payment state clears once payment is confirmed.
+        const effectivePaymentType = updateData.paymentType || existing?.paymentType || '';
+        if ((updateData.paymentStatus || '').toLowerCase() === 'paid' && updateData.status === undefined
+            && !isPurchaseOrder(effectivePaymentType)) {
             const curStatus = (existing?.status || '').toLowerCase();
             if (['pending', 'payment pending', 'approval pending'].includes(curStatus)) {
                 updateData.status = 'processing';
@@ -798,9 +808,15 @@ export const getInvoice = async (req, res) => {
         const dateStr   = new Date(order.createdAt || Date.now()).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
 
         const shippingName = [order.shippingFirstName, order.shippingLastName].filter(Boolean).join(' ');
-        const shippingAddr = [order.shippingAddress1, order.shippingAddress2, order.shippingCity, order.shippingState, order.shippingPostcode, order.shippingCountry].filter(Boolean).join(', ');
         const billingName  = [order.billingFirstName,  order.billingLastName ].filter(Boolean).join(' ');
-        const billingAddr  = [order.billingAddress1,   order.billingAddress2,  order.billingCity,  order.billingState,  order.billingPostcode,  order.billingCountry ].filter(Boolean).join(', ');
+        // Address block as separate lines: Name / Company / Address 1 / Address 2 / City, State Zip / Country
+        const addrBlock = (fn, ln, company, a1, a2, city, state, post, country) => {
+            const cityStateZip = [[city, state].filter(Boolean).join(', '), post].filter(Boolean).join(' ');
+            return [[fn, ln].filter(Boolean).join(' '), company, a1, a2, cityStateZip, country]
+                .filter(Boolean).map(esc).join('<br/>');
+        };
+        const shippingBlock = addrBlock(order.shippingFirstName, order.shippingLastName, order.shippingCompany, order.shippingAddress1, order.shippingAddress2, order.shippingCity, order.shippingState, order.shippingPostcode, order.shippingCountry);
+        const billingBlock  = addrBlock(order.billingFirstName,  order.billingLastName,  order.billingCompany,  order.billingAddress1,  order.billingAddress2,  order.billingCity,  order.billingState,  order.billingPostcode,  order.billingCountry);
 
         const rows = (order.items || []).map(item => `
             <tr>
@@ -838,13 +854,13 @@ export const getInvoice = async (req, res) => {
 </head>
 <body>
   <div class="header">
-    <div><h1>Bagchee</h1><p>books &amp; more</p></div>
+    <div><h1>Bagchee</h1><p>books that stick</p></div>
     <div style="text-align:right"><p style="font-size:16px;font-weight:700">Invoice #${esc(String(orderNum))}</p><p>Date: ${dateStr}</p></div>
   </div>
   <div class="body">
     <div class="meta">
-      ${shippingName ? `<div class="meta-block"><strong>Ship To</strong>${esc(shippingName)}<br/>${esc(shippingAddr)}</div>` : '<div></div>'}
-      ${billingName  ? `<div class="meta-block"><strong>Bill To</strong>${esc(billingName)}<br/>${esc(billingAddr)}</div>` : '<div></div>'}
+      ${shippingName ? `<div class="meta-block"><strong>Ship To</strong>${shippingBlock}</div>` : '<div></div>'}
+      ${billingName  ? `<div class="meta-block"><strong>Bill To</strong>${billingBlock}</div>` : '<div></div>'}
       <div class="meta-block" style="text-align:right">
         <strong>Order Details</strong>
         Status: ${esc(order.status || '—')}<br/>

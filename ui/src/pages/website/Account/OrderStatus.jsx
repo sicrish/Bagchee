@@ -107,6 +107,12 @@ const OrderStatus = () => {
     })();
     const isPurchaseOrder = paymentMethod.toLowerCase().includes('purchase order');
 
+    // Purchase Orders are Net-30: while unpaid, show "Due · Net 30" as the payment status itself
+    // (the order status is shown separately and is set by the admin). Flips to "Paid" once paid.
+    const payStatusDisplay = (isPurchaseOrder && (payStatus === '' || payStatus.toLowerCase() === 'pending'))
+        ? 'Due · Net 30'
+        : payStatus;
+
     const shippingName    = order.shippingFirstName
         ? `${order.shippingFirstName} ${order.shippingLastName}`.trim()
         : order.shipping_details
@@ -228,7 +234,7 @@ const OrderStatus = () => {
                         </span>
                         {payStatus && (
                             <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wide border ${payBadgeClass()}`}>
-                                Payment: {payStatus}
+                                Payment: {payStatusDisplay}
                             </span>
                         )}
                     </div>
@@ -317,7 +323,7 @@ const OrderStatus = () => {
                             {payStatus && (
                                 <div className={`flex items-center justify-between px-4 py-2.5 rounded-xl border text-xs font-black uppercase tracking-wide ${payBadgeClass()}`}>
                                     <span>Payment Status</span>
-                                    <span>{payStatus}</span>
+                                    <span>{payStatusDisplay}</span>
                                 </div>
                             )}
 
@@ -511,7 +517,7 @@ const OrderStatus = () => {
                                             </span>
                                             {payStatus && (
                                                 <span className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border ${payBadgeClass()}`}>
-                                                    {payStatus}
+                                                    {payStatusDisplay}
                                                 </span>
                                             )}
                                         </div>

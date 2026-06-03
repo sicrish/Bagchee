@@ -45,6 +45,7 @@ const EditOrders = () => {
   const [approving, setApproving] = useState(false);
   const [paymentLink, setPaymentLink] = useState('');
   const [resending, setResending] = useState(false);
+  const [emailingInvoice, setEmailingInvoice] = useState(false);
   const [purchaseOrderNumber, setPurchaseOrderNumber] = useState('');
 
   // Notification Email modal
@@ -426,6 +427,25 @@ const EditOrders = () => {
       win.document.close();
     } catch {
       toast.error('Failed to generate invoice');
+    }
+  };
+
+  // Email the invoice (PDF attached) to the customer's order email.
+  const handleEmailInvoice = async () => {
+    if (!window.confirm('Email this invoice (PDF) to the customer?')) return;
+    setEmailingInvoice(true);
+    const toastId = toast.loading('Sending invoice to customer…');
+    try {
+      const res = await axios.post(`${process.env.REACT_APP_API_URL}/orders/${id}/send-invoice`);
+      if (res.data.status) {
+        toast.success(res.data.msg || 'Invoice emailed to customer', { id: toastId });
+      } else {
+        toast.error(res.data.msg || 'Failed to send invoice', { id: toastId });
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.msg || 'Failed to send invoice', { id: toastId });
+    } finally {
+      setEmailingInvoice(false);
     }
   };
 
@@ -1166,7 +1186,7 @@ ${bankDetails}
                   <option value="failed">Failed</option>
                   <option value="refunded">Refunded</option>
                 </select>
-                <p className="text-[10px] text-text-muted mt-1 ml-1">Marking <strong>Paid</strong> on a pay-later order (wire / UNESCO / PO) moves it to <strong>Processing</strong> in the customer's account.</p>
+                <p className="text-[10px] text-text-muted mt-1 ml-1">Marking <strong>Paid</strong> on a pay-later order (wire / UNESCO) moves it to <strong>Processing</strong> in the customer's account. Purchase Orders are Net-30 — marking Paid only updates the payment status; set the order status yourself.</p>
               </div>
             </div>
             <div className="grid grid-cols-12 gap-4 items-center">
@@ -1176,9 +1196,12 @@ ${bankDetails}
 
             <div className="grid grid-cols-12 gap-4 items-center">
               <label className={labelClass}>Invoice</label>
-              <div className="col-span-9">
+              <div className="col-span-9 flex flex-wrap gap-2">
                 <button type="button" onClick={handlePrintInvoice} className="bg-gray-100 border border-gray-300 px-3 py-1 rounded text-[11px] font-bold hover:bg-gray-200 flex items-center gap-1 text-text-muted">
                   <Printer size={12} /> Print / Download Invoice
+                </button>
+                <button type="button" onClick={handleEmailInvoice} disabled={emailingInvoice} className="bg-primary/10 border border-primary/30 text-primary px-3 py-1 rounded text-[11px] font-bold hover:bg-primary/20 flex items-center gap-1 disabled:opacity-50">
+                  <Mail size={12} /> {emailingInvoice ? 'Sending…' : 'Email Invoice to Customer'}
                 </button>
               </div>
             </div>
