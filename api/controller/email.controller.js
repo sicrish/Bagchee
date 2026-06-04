@@ -2,7 +2,7 @@ import { createTransporter } from '../lib/mailer.js';
 import dotenv from 'dotenv';
 import prisma from '../lib/prisma.js';
 import { generateInvoicePdf } from '../lib/invoicePdf.js';
-import { activeItems, payableTotal } from '../lib/orderTotals.js';
+import { activeItems, payableTotal, payableShipping } from '../lib/orderTotals.js';
 
 dotenv.config();
 
@@ -400,8 +400,8 @@ export const sendOrderConfirmation = async (email, order) => {
                             <tbody>${itemRows}${giftCardRows}</tbody>
                         </table>
                         <div style="margin-top: 20px; text-align: right;">
-                            ${Number(order.shippingCost) > 0
-                                ? `<p style="font-size:13px;color:${theme.textMuted};margin:0 0 4px;">Shipping: ${escapeHtml(order.currency || 'USD')} ${Number(order.shippingCost).toFixed(2)}</p>`
+                            ${payableShipping(order) > 0
+                                ? `<p style="font-size:13px;color:${theme.textMuted};margin:0 0 4px;">Shipping: ${escapeHtml(order.currency || 'USD')} ${payableShipping(order).toFixed(2)}</p>`
                                 : `<p style="font-size:13px;color:#16a34a;margin:0 0 4px;font-weight:600;">Shipping: FREE</p>`
                             }
                             ${Number(order.couponDiscount) > 0

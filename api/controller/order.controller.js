@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { sendOrderConfirmation, sendOrderShippedEmail, sendOrderStatusEmail, sendPaymentLinkEmail, sendInvoiceEmail, sendCustomConfirmationEmail } from './email.controller.js';
 import { calcDiscount, couponAlreadyUsed } from './coupon.controller.js';
 import { createGiftCardsForOrder, applyWalletBalance } from './giftCard.controller.js';
-import { activeItems, payableTotal } from '../lib/orderTotals.js';
+import { activeItems, payableTotal, payableShipping } from '../lib/orderTotals.js';
 
 // Payment type detection helpers
 const isWireTransfer = (title) => {
@@ -888,7 +888,7 @@ export const getInvoice = async (req, res) => {
 
     <div class="totals">
       <table>
-        ${order.shippingCost ? `<tr><td>Shipping</td><td>${currency} ${Number(order.shippingCost).toFixed(2)}</td></tr>` : ''}
+        ${payableShipping(order) ? `<tr><td>Shipping</td><td>${currency} ${payableShipping(order).toFixed(2)}</td></tr>` : ''}
         <tr class="grand"><td>Grand Total</td><td>${currency} ${payableTotal(order).toFixed(2)}</td></tr>
       </table>
       <div style="clear:both"></div>

@@ -6,6 +6,45 @@ import axios from '../../utils/axiosConfig.js';
 import toast from 'react-hot-toast';
 import CustomerSelect from '../../components/admin/CustomerSelect.jsx';
 
+// ── Tiered shipping (Expedited / Express) re-rate for partial invoicing (#5) ──
+// When out-of-print line items are cancelled, Expedited/Express shipping is re-banded
+// for the REMAINING books (it's priced in quantity bands, not per book). This mirrors
+// payableShipping() in api/lib/orderTotals.js so the admin's live preview matches what
+// the backend will actually charge. ⚠️ KEEP IN SYNC with that file and the source table
+// in ui/src/pages/website/Cart.jsx (SHIPPING_TIERS — Express id 5, Expedited id 3).
+const SHIP_TIERS = {
+  express:   [[1,2,50],[3,6,80],[7,11,110],[12,15,150],[16,20,200],[21,25,280],[26,36,350],[37,50,435],[51,100,550],[101,Infinity,730]],
+  expedited: [[1,2,20],[3,6,35],[7,11,50], [12,15,80], [16,20,120],[21,25,150],[26,36,175],[37,50,222],[51,100,280],[101,Infinity,400]],
+};
+const tierTableForType = (shippingType) => {
+  const t = String(shippingType || '').toLowerCase();
+  if (t.includes('expedited')) return SHIP_TIERS.expedited;
+  if (t.includes('express')) return SHIP_TIERS.express;
+  return null;
+};
+const tierUsdFor = (tiers, books) => {
+  if (books <= 0) return 0;
+  const band = tiers.find(([min, max]) => books >= min && books <= max);
+  return band ? band[2] : tiers[tiers.length - 1][2];
+};
+// Shipping the customer will actually be charged after cancellations. Returns the
+// original cost unchanged for standard/free shipping or when nothing is cancelled.
+const previewPayableShipping = (shippingCost, shippingType, items = []) => {
+  const shipping = Number(shippingCost) || 0;
+  if (shipping <= 0) return 0;
+  const tiers = tierTableForType(shippingType);
+  if (!tiers) return shipping;
+  const countBooks = (arr) => arr.reduce((n, it) => n + (Number(it.quantity) || 1), 0);
+  const allBooks = countBooks(items);
+  const remaining = countBooks(items.filter((p) => String(p.status).toLowerCase() !== 'cancelled'));
+  if (remaining >= allBooks) return shipping;
+  const origUsd = tierUsdFor(tiers, allBooks);
+  if (origUsd <= 0) return shipping;
+  const newUsd = tierUsdFor(tiers, remaining);
+  const scaled = Math.round(shipping * (newUsd / origUsd) * 100) / 100;
+  return Math.max(0, Math.min(shipping, scaled));
+};
+
 const EditOrders = () => {
   const navigate = useNavigate();
   const { id } = useParams(); // URL se Order ID lene ke liye
@@ -669,7 +708,10 @@ ${estDeliveryLine}
     const cancelledSum = orderProducts
       .filter(p => String(p.status).toLowerCase() === 'cancelled')
       .reduce((s, p) => s + (Number(p.price) || 0) * (Number(p.quantity) || 1), 0);
-    const total = `${currency} ${Math.max(0, (Number(formData.total) || 0) - cancelledSum).toFixed(2)}`;
+    // Re-rate Expedited/Express shipping for the remaining books (matches backend payable)
+    const shippingDrop = Math.max(0, (Number(formData.shipping_cost) || 0)
+      - previewPayableShipping(formData.shipping_cost, formData.shipping_type, orderProducts));
+    const total = `${currency} ${Math.max(0, (Number(formData.total) || 0) - cancelledSum - shippingDrop).toFixed(2)}`;
 
     const paymentType = (formData.payment_type || '').toLowerCase();
     const isWireTransfer = paymentType.includes('wire') || paymentType.includes('bank transfer') || paymentType.includes('western union');
@@ -1108,13 +1150,19 @@ ${bankDetails}
         .filter(p => String(p.status).toLowerCase() === 'cancelled')
         .reduce((s, p) => s + (Number(p.price) || 0) * (Number(p.quantity) || 1), 0);
       if (cancelledSum <= 0) return null;
-      const payablePreview = Math.max(0, (Number(formData.total) || 0) - cancelledSum);
       const cur = formData.currency || 'USD';
+      const fullShipping = Number(formData.shipping_cost) || 0;
+      const newShipping = previewPayableShipping(formData.shipping_cost, formData.shipping_type, orderProducts);
+      const shippingDrop = Math.max(0, fullShipping - newShipping);
+      const payablePreview = Math.max(0, (Number(formData.total) || 0) - cancelledSum - shippingDrop);
       return (
         <div className="mt-3 text-[11px] bg-amber-50 border border-amber-200 rounded p-2 text-amber-800 leading-relaxed">
           <strong>Cancelled (out-of-print) items are excluded.</strong> The customer&apos;s invoice &amp; payment link will charge{' '}
           <strong>{cur} {payablePreview.toFixed(2)}</strong> instead of the full order total {cur} {Number(formData.total || 0).toFixed(2)}.
-          Click <strong>Save</strong> before sending the payment link or invoice so the change takes effect.
+          {shippingDrop > 0 && (
+            <> Shipping is re-rated for the remaining books: <strong>{cur} {fullShipping.toFixed(2)} → {cur} {newShipping.toFixed(2)}</strong>.</>
+          )}
+          {' '}Click <strong>Save</strong> before sending the payment link or invoice so the change takes effect.
         </div>
       );
     })()}
