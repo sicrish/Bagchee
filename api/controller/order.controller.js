@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { sendOrderConfirmation, sendOrderShippedEmail, sendOrderStatusEmail, sendPaymentLinkEmail, sendInvoiceEmail, sendCustomConfirmationEmail } from './email.controller.js';
 import { calcDiscount, couponAlreadyUsed } from './coupon.controller.js';
 import { createGiftCardsForOrder, applyWalletBalance } from './giftCard.controller.js';
+import { activeItems, payableTotal } from '../lib/orderTotals.js';
 
 // Payment type detection helpers
 const isWireTransfer = (title) => {
@@ -687,7 +688,7 @@ export const getOrderForPayment = async (req, res) => {
         const order = await prisma.order.findUnique({
             where: { id },
             include: {
-                items: { select: { name: true, price: true, quantity: true, image: true } }
+                items: { select: { name: true, price: true, quantity: true, image: true, status: true } }
             }
         });
         if (!order) return res.status(404).json({ status: false, msg: 'Order not found' });
@@ -695,14 +696,17 @@ export const getOrderForPayment = async (req, res) => {
             return res.status(403).json({ status: false, msg: 'Invalid or expired payment link' });
         }
 
+        // Out-of-print items the admin cancelled are excluded — the customer pays only for available titles (#5)
+        const payableItems = activeItems(order.items).map(({ status, ...it }) => it);
+
         // Return minimal order data — no sensitive customer info
         res.json({ status: true, data: {
             id: order.id,
             orderNumber: order.orderNumber,
-            total: order.total,
+            total: payableTotal(order),
             currency: order.currency,
             status: order.status,
-            items: order.items,
+            items: payableItems,
             paymentType: order.paymentType,
         }});
     } catch (error) {
@@ -826,7 +830,7 @@ export const getInvoice = async (req, res) => {
         const shippingBlock = addrBlock(order.shippingFirstName, order.shippingLastName, order.shippingCompany, order.shippingAddress1, order.shippingAddress2, order.shippingCity, order.shippingState, order.shippingPostcode, order.shippingCountry);
         const billingBlock  = addrBlock(order.billingFirstName,  order.billingLastName,  order.billingCompany,  order.billingAddress1,  order.billingAddress2,  order.billingCity,  order.billingState,  order.billingPostcode,  order.billingCountry);
 
-        const rows = (order.items || []).map(item => `
+        const rows = activeItems(order.items).map(item => `
             <tr>
               <td>${esc(item.name || item.product?.title || 'Item')}</td>
               <td style="text-align:center">${Number(item.quantity) || 1}</td>
@@ -885,7 +889,7 @@ export const getInvoice = async (req, res) => {
     <div class="totals">
       <table>
         ${order.shippingCost ? `<tr><td>Shipping</td><td>${currency} ${Number(order.shippingCost).toFixed(2)}</td></tr>` : ''}
-        <tr class="grand"><td>Grand Total</td><td>${currency} ${Number(order.total || 0).toFixed(2)}</td></tr>
+        <tr class="grand"><td>Grand Total</td><td>${currency} ${payableTotal(order).toFixed(2)}</td></tr>
       </table>
       <div style="clear:both"></div>
     </div>

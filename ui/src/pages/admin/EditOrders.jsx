@@ -570,10 +570,15 @@ ${estDeliveryLine}
     const orderNum  = formData.order_number || id;
     const currency  = formData.currency || 'USD';
     const dueDate   = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-    const itemRows  = orderProducts.map(p =>
+    // Exclude cancelled (out-of-print) line items so the email shows only payable titles (#5)
+    const activeProducts = orderProducts.filter(p => String(p.status).toLowerCase() !== 'cancelled');
+    const itemRows  = activeProducts.map(p =>
       `<li>${p.name || p.product?.title || 'Item'} &times; ${p.quantity || 1} &mdash; ${currency} ${Number(p.price || 0).toFixed(2)}</li>`
     ).join('');
-    const total = `${currency} ${Number(formData.total || 0).toFixed(2)}`;
+    const cancelledSum = orderProducts
+      .filter(p => String(p.status).toLowerCase() === 'cancelled')
+      .reduce((s, p) => s + (Number(p.price) || 0) * (Number(p.quantity) || 1), 0);
+    const total = `${currency} ${Math.max(0, (Number(formData.total) || 0) - cancelledSum).toFixed(2)}`;
 
     const paymentType = (formData.payment_type || '').toLowerCase();
     const isWireTransfer = paymentType.includes('wire') || paymentType.includes('bank transfer') || paymentType.includes('western union');
@@ -937,20 +942,24 @@ ${bankDetails}
           {orderProducts.map((row, index) => (
             <tr key={index}>
               <td className="border p-1">
-                <div 
-                  className="text-blue-600 hover:text-blue-800 cursor-pointer underline hover:bg-blue-50 px-1 py-0.5 rounded transition-colors"
+                <div
+                  className={`cursor-pointer px-1 py-0.5 rounded transition-colors ${String(row.status).toLowerCase() === 'cancelled' ? 'text-gray-400 line-through hover:bg-gray-50' : 'text-blue-600 hover:text-blue-800 underline hover:bg-blue-50'}`}
                   onClick={() => handleProductClick(row)}
                   title="Click to view product details"
                 >
                   {row.name || row.product?.title || row.title || '—'}
                 </div>
+                {String(row.status).toLowerCase() === 'cancelled' && (
+                  <span className="inline-block mt-0.5 text-[9px] font-bold text-red-600 bg-red-50 border border-red-200 rounded px-1">Excluded from invoice &amp; payment</span>
+                )}
               </td>
               <td className="border p-1"><input type="number" value={row.price} onChange={(e) => handleProductChange(index, 'price', e.target.value)} className="w-full outline-none bg-transparent" /></td>
               <td className="border p-1"><input type="number" value={row.quantity} onChange={(e) => handleProductChange(index, 'quantity', e.target.value)} className="w-full outline-none bg-transparent" /></td>
               <td className="border-b p-1">
-                <select value={row.status} onChange={(e) => handleProductChange(index, 'status', e.target.value)} className="w-full outline-none bg-transparent text-[10px]">
+                <select value={row.status} onChange={(e) => handleProductChange(index, 'status', e.target.value)} className={`w-full outline-none bg-transparent text-[10px] ${String(row.status).toLowerCase() === 'cancelled' ? 'text-red-600 font-bold' : ''}`}>
                   <option value="">Status</option>
-                  {orderStatuses.map((st) => <option key={st.id || st.id || st._id} value={st.name}>{st.name}</option>)}
+                  <option value="cancelled">Cancelled (out of print)</option>
+                  {orderStatuses.filter((st) => String(st.name).toLowerCase() !== 'cancelled').map((st) => <option key={st.id || st._id} value={st.name}>{st.name}</option>)}
                 </select>
               </td>
               <td className="border-b p-1">
@@ -968,6 +977,23 @@ ${bankDetails}
         </tbody>
       </table>
     </div>
+
+    {/* Out-of-print exclusion note + live payable preview (#5) */}
+    {(() => {
+      const cancelledSum = orderProducts
+        .filter(p => String(p.status).toLowerCase() === 'cancelled')
+        .reduce((s, p) => s + (Number(p.price) || 0) * (Number(p.quantity) || 1), 0);
+      if (cancelledSum <= 0) return null;
+      const payablePreview = Math.max(0, (Number(formData.total) || 0) - cancelledSum);
+      const cur = formData.currency || 'USD';
+      return (
+        <div className="mt-3 text-[11px] bg-amber-50 border border-amber-200 rounded p-2 text-amber-800 leading-relaxed">
+          <strong>Cancelled (out-of-print) items are excluded.</strong> The customer&apos;s invoice &amp; payment link will charge{' '}
+          <strong>{cur} {payablePreview.toFixed(2)}</strong> instead of the full order total {cur} {Number(formData.total || 0).toFixed(2)}.
+          Click <strong>Save</strong> before sending the payment link or invoice so the change takes effect.
+        </div>
+      );
+    })()}
 
     {/* 🟢 Search Box Block (Overflow div se bahar, par col-span-9 ke andar) */}
     <div className="mt-4 relative" onClick={(e) => e.stopPropagation()}>
@@ -1095,6 +1121,10 @@ ${bankDetails}
               <div className="col-span-9">
                 <select name="shipping_country" value={formData.shipping_country} onChange={handleChange} className={dropdownClass}>
                   <option value="">Select Shipping country</option>
+                  {/* Old/migrated orders may store a country not in the predefined list — show it so it never renders blank */}
+                  {formData.shipping_country && !countries.includes(formData.shipping_country) && (
+                    <option value={formData.shipping_country}>{formData.shipping_country}</option>
+                  )}
                   {countries.map((country) => (
                     <option key={country} value={country}>{country}</option>
                   ))}
@@ -1144,6 +1174,10 @@ ${bankDetails}
               <div className="col-span-9">
                 <select name="billing_country" value={formData.billing_country} onChange={handleChange} className={dropdownClass}>
                   <option value="">Select Billing country</option>
+                  {/* Old/migrated orders may store a country not in the predefined list — show it so it never renders blank */}
+                  {formData.billing_country && !countries.includes(formData.billing_country) && (
+                    <option value={formData.billing_country}>{formData.billing_country}</option>
+                  )}
                   {countries.map((country) => (
                     <option key={country} value={country}>{country}</option>
                   ))}

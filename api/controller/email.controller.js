@@ -2,6 +2,7 @@ import { createTransporter } from '../lib/mailer.js';
 import dotenv from 'dotenv';
 import prisma from '../lib/prisma.js';
 import { generateInvoicePdf } from '../lib/invoicePdf.js';
+import { activeItems, payableTotal } from '../lib/orderTotals.js';
 
 dotenv.config();
 
@@ -30,7 +31,7 @@ const emailHeader = (title = null, compact = false) => {
             <tr>
                 <td style="vertical-align:middle;padding-right:12px;">
                     <div style="background-color:rgba(255,255,255,0.18);border-radius:10px;padding:7px;display:inline-block;">
-                        <img src="${LOGO_URL}" alt="Bagchee" style="height:${logoH}px;width:auto;display:block;" />
+                        <img src="${LOGO_URL}" alt="Bagchee" width="${logoH}" height="${logoH}" style="height:${logoH}px;width:${logoH}px;max-height:${logoH}px;display:block;border:0;outline:none;text-decoration:none;" />
                     </div>
                 </td>
                 <td style="vertical-align:middle;text-align:left;">
@@ -350,7 +351,7 @@ export const sendOrderConfirmation = async (email, order) => {
             if (settings?.emailsCopy?.trim()) bccAddresses = settings.emailsCopy.trim();
         } catch { /* non-critical — don't block the email */ }
 
-        const itemRows = (order.items || []).map(item => `
+        const itemRows = activeItems(order.items).map(item => `
             <tr>
                 <td style="padding: 8px 0; border-bottom: 1px solid #e6decd; color: ${theme.textMain};">${escapeHtml(item.name || item.product?.title || 'Item')}</td>
                 <td style="padding: 8px 0; border-bottom: 1px solid #e6decd; text-align: center; color: ${theme.textMain};">${Number(item.quantity) || 0}</td>
@@ -407,7 +408,7 @@ export const sendOrderConfirmation = async (email, order) => {
                                 ? `<p style="font-size:13px;color:#16a34a;margin:0 0 4px;font-weight:600;">Coupon${(order.coupon && order.coupon.code) ? ` (${escapeHtml(order.coupon.code)})` : ''}: &minus;${escapeHtml(order.currency || 'USD')} ${Number(order.couponDiscount).toFixed(2)}</p>`
                                 : ''
                             }
-                            <p style="font-size: 18px; font-weight: 700; color: ${theme.textMain};">Total: ${order.currency || 'USD'} ${Number(order.total).toFixed(2)}</p>
+                            <p style="font-size: 18px; font-weight: 700; color: ${theme.textMain};">Total: ${order.currency || 'USD'} ${payableTotal(order).toFixed(2)}</p>
                             ${(order.paymentType || order.payment_type) ? `<p style="font-size:13px;color:${theme.textMuted};margin:6px 0 0;"><strong>Payment Method:</strong> ${escapeHtml(order.paymentType || order.payment_type)}</p>` : ''}
                         </div>
                         <div style="margin-top: 24px; background: #f9f5ee; border-radius: 8px; padding: 16px; font-size: 13px; color: ${theme.textMain};">
@@ -630,7 +631,7 @@ export const sendInvoiceEmail = async (email, order) => {
 
         const orderNum = order.orderNumber || order.order_number || order.id;
         const currency = order.currency || 'USD';
-        const items = order.items || [];
+        const items = activeItems(order.items); // exclude cancelled out-of-print items (#5)
         const itemRows = items.map(item => `
             <tr>
                 <td style="padding:10px 8px;border-bottom:1px solid #e6decd;color:${theme.textMain};">${escapeHtml(item.name || item.product?.title || 'Item')}</td>
@@ -661,7 +662,7 @@ export const sendInvoiceEmail = async (email, order) => {
                   </table>
 
                   <div style="margin-top:20px;text-align:right;border-top:2px solid #e6decd;padding-top:16px;">
-                    <p style="font-size:20px;font-weight:700;color:${theme.textMain};">Total: ${currency} ${Number(order.total || 0).toFixed(2)}</p>
+                    <p style="font-size:20px;font-weight:700;color:${theme.textMain};">Total: ${currency} ${payableTotal(order).toFixed(2)}</p>
                   </div>
 
                   ${shippingName ? `

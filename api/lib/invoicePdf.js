@@ -1,6 +1,7 @@
 // Pure-JS invoice PDF generator (pdfkit — no headless browser, uses built-in Helvetica).
 // Returns a Promise<Buffer> with a print-ready A4 invoice for an order.
 import PDFDocument from 'pdfkit';
+import { activeItems, payableTotal } from './orderTotals.js';
 
 const BLUE  = '#008DDA';
 const DARK  = '#2d2d2d';
@@ -81,7 +82,7 @@ export const generateInvoicePdf = (order) => new Promise((resolve, reject) => {
         drawHeader();
 
         doc.font('Helvetica').fontSize(10).fillColor(DARK);
-        (order.items || []).forEach((it) => {
+        activeItems(order.items).forEach((it) => {
             const name = it.name || it.product?.title || 'Item';
             const qty = Number(it.quantity) || 1;
             const price = Number(it.price) || 0;
@@ -110,7 +111,7 @@ export const generateInvoicePdf = (order) => new Promise((resolve, reject) => {
         }
         doc.font('Helvetica-Bold').fontSize(13).fillColor(BLUE)
             .text('Grand Total', totalLblX, y, { width: 150, align: 'right' })
-            .text(money(order.total), totalValX, y, { width: 130, align: 'right' });
+            .text(money(payableTotal(order)), totalValX, y, { width: 130, align: 'right' });
 
         // ── Footer ──
         doc.font('Helvetica').fontSize(8).fillColor(MUTED)

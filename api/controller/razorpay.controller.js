@@ -1,6 +1,7 @@
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
 import prisma from '../lib/prisma.js';
+import { activeItems, payableTotal } from '../lib/orderTotals.js';
 
 const razorpay = new Razorpay({
     key_id:     process.env.RAZORPAY_KEY_ID,
@@ -23,8 +24,8 @@ export const createRazorpayOrder = async (req, res) => {
             return res.status(400).json({ status: false, msg: 'Invalid orderId' });
         }
 
-        // Load order from DB — authoritative source of amount
-        const order = await prisma.order.findUnique({ where: { id: dbOrderId } });
+        // Load order from DB — authoritative source of amount (items needed to exclude cancelled ones)
+        const order = await prisma.order.findUnique({ where: { id: dbOrderId }, include: { items: true } });
         if (!order) {
             return res.status(404).json({ status: false, msg: 'Order not found' });
         }
@@ -38,8 +39,8 @@ export const createRazorpayOrder = async (req, res) => {
             return res.status(400).json({ status: false, msg: 'Order is already paid' });
         }
 
-        // Convert order total (stored in rupees) to paise
-        const amountInPaise = Math.round(order.total * 100);
+        // Convert order total (stored in rupees) to paise — excludes any cancelled out-of-print items (#5)
+        const amountInPaise = Math.round(payableTotal(order) * 100);
         if (amountInPaise <= 0) {
             return res.status(400).json({ status: false, msg: 'Order total must be greater than 0' });
         }
@@ -202,7 +203,7 @@ export const verifyPayment = async (req, res) => {
                     transactionId: razorpay_payment_id,
                 }
             }),
-            ...order.items.map(item =>
+            ...activeItems(order.items).map(item =>
                 prisma.product.update({
                     where: { id: item.productId },
                     data:  { soldCount: { increment: item.quantity } }

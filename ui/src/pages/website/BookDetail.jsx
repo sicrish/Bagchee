@@ -9,7 +9,7 @@ import {
   Heart, Star, Share2, ChevronLeft, ChevronRight,
   Truck, RotateCcw, CheckCircle2, AlertTriangle, ChevronDown,
   ShoppingCart, Plus, Minus, BookOpen, Tag, Eye, X
-  , PenLine, MessageSquare, List, Trophy, ThumbsUp, ShieldCheck, Search, Check, ArrowRight, Package, Clock, CalendarDays
+  , PenLine, MessageSquare, List, Trophy, ThumbsUp, ShieldCheck, Search, Check, ArrowRight, Package, Clock, CalendarDays, Info
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useCart } from '../../context/CartContext';
@@ -47,6 +47,7 @@ const BookDetail = () => {
   const [socialShares, setSocialShares] = useState([]);
 
   const [settings, setSettings] = useState(null);
+  const [showShipInfo, setShowShipInfo] = useState(false); // free-shipping info popover (#1)
 
 
 
@@ -873,9 +874,39 @@ const BookDetail = () => {
                     <div className="bg-blue-50 border border-blue-100 rounded p-3 space-y-2">
                       <div className="flex items-center gap-2">
                         <Package className="w-4 h-4 text-primary shrink-0" />
-                        <p className="text-xs text-gray-700 leading-tight">
+                        <p className="text-xs text-gray-700 leading-tight flex-1">
                           FREE delivery worldwide over ${settings?.freeShippingOver || settings?.free_shipping_over || 60}
                         </p>
+                        {/* Info icon + popover — opens on hover or click; amount is settings-driven in both spots (#1) */}
+                        <div
+                          className="relative shrink-0"
+                          onMouseEnter={() => setShowShipInfo(true)}
+                          onMouseLeave={() => setShowShipInfo(false)}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => setShowShipInfo((v) => !v)}
+                            aria-label="Free worldwide shipping details"
+                            className="flex items-center text-primary hover:text-primary-dark focus:outline-none"
+                          >
+                            <Info className="w-4 h-4" />
+                          </button>
+                          {showShipInfo && (
+                            <div className="absolute right-0 top-6 z-50 w-72 sm:w-80 bg-white border border-gray-200 rounded-lg shadow-xl p-4 text-left text-[11px] leading-relaxed text-gray-700 max-h-80 overflow-y-auto">
+                              <p className="font-bold text-sm text-text-main mb-1">Free Worldwide Shipping</p>
+                              <p className="mb-2">All orders totaling ${settings?.freeShippingOver || settings?.free_shipping_over || 60} or more qualify for Free Standard Shipping Worldwide.</p>
+                              <p className="font-semibold text-gray-900 mb-1">What do I have to do?</p>
+                              <ul className="list-disc pl-4 mb-2 space-y-0.5">
+                                <li>Place at least ${settings?.freeShippingOver || settings?.free_shipping_over || 60} of items in your shopping bag.</li>
+                                <li>Proceed to Checkout; "Standard Delivery" will be pre-selected.</li>
+                                <li>Complete your Checkout.</li>
+                              </ul>
+                              <p className="font-semibold text-gray-900 mb-1">When should I expect to receive my purchase?</p>
+                              <p className="mb-2">We do our best to estimate delivery dates for your purchase. The total delivery time for your Bagchee.com order to arrive is a combination of the shipping availability time and delivery time. The shipping availability time tells you how quickly products are expected to be ready to leave our warehouses; this shipping availability is provided on the Bagchee.com product detail page. The Free worldwide Shipping delivery time of 15-18 business days is the time in transit once your package has left our warehouse. For example, when an item is marked "Ships in 2 days," this means the order will leave our warehouse within 48 hours and will arrive within 15-18 business days of leaving our warehouse.</p>
+                              <p>Delivery times are not guaranteed. Sometimes the availability of the items in your order may change while we are processing your order. In this event, you will receive an email notifying you of a delay, and the remaining eligible items in your order will be shipped as scheduled.</p>
+                            </div>
+                          )}
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <Truck className="w-4 h-4 text-primary shrink-0" />
