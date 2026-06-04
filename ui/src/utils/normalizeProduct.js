@@ -147,3 +147,25 @@ export const normalizeProduct = (p) => {
 /** Normalize an array of products */
 export const normalizeProducts = (arr) =>
     Array.isArray(arr) ? arr.map(normalizeProduct) : [];
+
+/**
+ * Resolve a product's display format from the admin-set `formats` relation.
+ *
+ * The legacy `binding` column DEFAULTS to "Paperback" and is NOT written by the
+ * admin Add/Edit Book form (that form saves `product_formats` → the `formats`
+ * relation). So `binding` is unreliable and must only be used as a last resort.
+ * Prefer `formats` (public API: [{ format: { title } }]) / `product_formats`
+ * (admin: ["Hardcover", ...]) whenever present. Returns '' when nothing is set.
+ */
+export const getFormatLabel = (product) => {
+    if (!product || typeof product !== 'object') return '';
+    const fmts = product.formats || product.product_formats;
+    if (Array.isArray(fmts) && fmts.length) {
+        const label = fmts
+            .map(f => (f && typeof f === 'object' ? (f.format?.title || f.title || f.name) : f))
+            .filter(Boolean)
+            .join(', ');
+        if (label) return label;
+    }
+    return (product.binding || '').trim();
+};

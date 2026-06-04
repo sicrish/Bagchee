@@ -28,7 +28,7 @@ const defaultForm = () => ({
   valid_from: '', valid_to: '', active: 'active',
   amount: '', flat_deduction: '', minimum_buy: '',
   tier2_min_order: '', tier2_amount: '',
-  new_customer_only: false, members_only: false,
+  new_customer_only: false, members_only: false, once_per_user: false,
   new_arrivals_only: false, bestseller_only: false,
   books_of_month_only: false, recommended_only: false,
 });
@@ -259,6 +259,10 @@ const AddCoupons = () => {
                   <label className="flex items-center gap-2 text-sm cursor-pointer">
                     <input type="checkbox" name="members_only" checked={form.members_only} onChange={handleInput} className="accent-primary w-4 h-4" />
                     Members Only
+                  </label>
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input type="checkbox" name="once_per_user" checked={form.once_per_user} onChange={handleInput} className="accent-primary w-4 h-4" />
+                    One Time Per User
                   </label>
                 </div>
               </div>

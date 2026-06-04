@@ -1,7 +1,7 @@
 import prisma from '../lib/prisma.js';
 import crypto from 'crypto';
 import { sendOrderConfirmation, sendOrderShippedEmail, sendOrderStatusEmail, sendPaymentLinkEmail, sendInvoiceEmail, sendCustomConfirmationEmail } from './email.controller.js';
-import { calcDiscount } from './coupon.controller.js';
+import { calcDiscount, couponAlreadyUsed } from './coupon.controller.js';
 import { createGiftCardsForOrder, applyWalletBalance } from './giftCard.controller.js';
 
 // Payment type detection helpers
@@ -167,6 +167,14 @@ export const saveOrder = async (req, res) => {
             if (coupon && coupon.active) {
                 const now = new Date();
                 if (now >= coupon.validFrom && now <= coupon.validTo && physicalSubtotal >= (coupon.minimumBuy || 0)) {
+                    // One-time-per-user: block reuse by the same customer / guest email (before any writes)
+                    if (coupon.oncePerUser) {
+                        const used = await couponAlreadyUsed(coupon.id, {
+                            customerId,
+                            email: extractShipping(req.body).shippingEmail,
+                        });
+                        if (used) return res.status(400).json({ status: false, msg: 'You have already used this coupon. Please remove it to continue.' });
+                    }
                     const cartItems = itemsData.map(i => ({ price: i.price, quantity: i.quantity }));
                     couponDiscount = calcDiscount(coupon, physicalSubtotal, cartItems);
                 }

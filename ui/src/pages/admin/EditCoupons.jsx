@@ -43,6 +43,7 @@ const buildForm = (data = {}) => ({
   tier2_amount:       data.tier2Amount      ?? data.tier2_amount       ?? '',
   new_customer_only:  pb(data.newCustomerOnly  ?? data.new_customer_only),
   members_only:       pb(data.membersOnly       ?? data.members_only),
+  once_per_user:      pb(data.oncePerUser       ?? data.once_per_user),
   new_arrivals_only:  pb(data.newArrivalsOnly   ?? data.new_arrivals_only),
   bestseller_only:    pb(data.bestsellerOnly    ?? data.bestseller_only),
   books_of_month_only:pb(data.booksOfMonthOnly  ?? data.books_of_month_only),
@@ -293,6 +294,10 @@ const EditCoupons = () => {
                   <label className="flex items-center gap-2 text-sm cursor-pointer">
                     <input type="checkbox" name="members_only" checked={!!form.members_only} onChange={handleInput} className="accent-primary w-4 h-4" />
                     Members Only
+                  </label>
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input type="checkbox" name="once_per_user" checked={!!form.once_per_user} onChange={handleInput} className="accent-primary w-4 h-4" />
+                    One Time Per User
                   </label>
                 </div>
               </div>

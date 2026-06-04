@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet-async';
 import { createSafeHtml } from '../../utils/sanitize';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
-import { normalizeProduct } from '../../utils/normalizeProduct';
+import { normalizeProduct, getFormatLabel } from '../../utils/normalizeProduct';
 import { NO_IMAGE } from '../../utils/imageUrl';
 import {
   Heart, Star, Share2, ChevronLeft, ChevronRight,
@@ -743,12 +743,15 @@ const BookDetail = () => {
 
                 {/* 4. Specs (Binding & Pages) - Minimal look */}
                 <div className="flex flex-wrap items-center gap-2 mt-1">
-                  {/* Binding Pill */}
-                  {book.binding && (
-                    <span className="inline-flex items-center bg-gray-100 text-gray-600 text-[10px] font-bold px-3 py-1.5 rounded-full border border-gray-200 uppercase tracking-widest font-montserrat">
-                      {book.binding}
-                    </span>
-                  )}
+                  {/* Format Pill — admin-set format (formats relation); falls back to legacy binding */}
+                  {(() => {
+                    const fmt = getFormatLabel(book);
+                    return fmt ? (
+                      <span className="inline-flex items-center bg-gray-100 text-gray-600 text-[10px] font-bold px-3 py-1.5 rounded-full border border-gray-200 uppercase tracking-widest font-montserrat">
+                        {fmt}
+                      </span>
+                    ) : null;
+                  })()}
 
                   {/* Pages Pill */}
                   {(() => {

@@ -5,6 +5,7 @@ import { Dialog, Transition, TransitionChild, DialogPanel } from '@headlessui/re
 import { Link } from 'react-router-dom';
 import { useCart } from '../../context/CartContext.jsx';
 import { getProductImageUrl, NO_IMAGE } from '../../utils/imageUrl';
+import { getFormatLabel } from '../../utils/normalizeProduct';
 import { CurrencyContext } from '../../context/CurrencyContext.jsx';
 import { useGeo } from '../../context/GeoContext.jsx';
 import toast from 'react-hot-toast';
@@ -132,7 +133,7 @@ const ProductModal = ({ product, isOpen, onClose }) => {
                                             </div>
                                             <div className="flex flex-col">
                                                 <span className="text-[10px] uppercase tracking-wider text-text-muted font-bold font-montserrat">Format</span>
-                                                <span className="font-bold text-text-main text-xs sm:text-sm capitalize">{product.binding || 'Paperback'}</span>
+                                                <span className="font-bold text-text-main text-xs sm:text-sm capitalize">{getFormatLabel(product) || 'Paperback'}</span>
                                             </div>
                                         </div>
 

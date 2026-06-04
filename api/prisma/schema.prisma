@@ -738,6 +738,7 @@ model Coupon {
   newCustomerOnly Boolean  @default(false) @map("new_customer_only")
   membersOnly     Boolean  @default(false) @map("members_only")
   nextOrderOnly   Boolean  @default(false) @map("next_order_only")
+  oncePerUser     Boolean  @default(false) @map("once_per_user")   // each customer may redeem this coupon only once
 
   // Section restrictions (percent_section type)
   bestsellerOnly  Boolean  @default(false) @map("bestseller_only")

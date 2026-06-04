@@ -33,6 +33,7 @@ const extractFields = (body) => ({
     newCustomerOnly:  parseBool(body.newCustomerOnly  || body.new_customer_only),
     membersOnly:      parseBool(body.membersOnly      || body.members_only),
     nextOrderOnly:    parseBool(body.nextOrderOnly    || body.next_order_only),
+    oncePerUser:      parseBool(body.oncePerUser      || body.once_per_user),
     bestsellerOnly:   parseBool(body.bestsellerOnly   || body.bestseller_only),
     recommendedOnly:  parseBool(body.recommendedOnly  || body.recommended_only),
     newArrivalsOnly:  parseBool(body.newArrivalsOnly  || body.new_arrivals_only),
@@ -107,6 +108,28 @@ export const calcDiscount = (coupon, cartTotal, cartItems = []) => {
     return Math.max(0, Math.round(discount * 100) / 100);
 };
 
+// ── Has a given buyer already redeemed this coupon? (for oncePerUser) ─────────
+// Counts a prior order that used this coupon, matched by logged-in customerId
+// and/or guest shipping email. Returns false when no identity is available
+// (a fully anonymous buyer cannot be enforced against).
+// We ignore 'cancelled' and 'approval pending' orders so an abandoned/cancelled
+// card-or-PayPal checkout never permanently locks the customer out of the coupon.
+const COUPON_USE_EXCLUDED_STATUSES = ['cancelled', 'approval pending'];
+export const couponAlreadyUsed = async (couponId, { customerId, email } = {}) => {
+    const cid = parseInt(couponId);
+    if (!cid || isNaN(cid)) return false;
+    const idMatch = [];
+    if (customerId && !isNaN(parseInt(customerId))) idMatch.push({ customerId: parseInt(customerId) });
+    const cleanEmail = (email || '').trim();
+    if (cleanEmail) idMatch.push({ shippingEmail: { equals: cleanEmail, mode: 'insensitive' } });
+    if (!idMatch.length) return false;
+    const prior = await prisma.order.findFirst({
+        where: { couponId: cid, status: { notIn: COUPON_USE_EXCLUDED_STATUSES }, OR: idMatch },
+        select: { id: true },
+    });
+    return !!prior;
+};
+
 // ── CREATE ───────────────────────────────────────────────────────────────────
 export const saveCoupon = async (req, res) => {
     try {
@@ -127,7 +150,8 @@ export const saveCoupon = async (req, res) => {
                 minimumBuy: f.minimumBuy, priceOverOnly: f.priceOverOnly,
                 tier2MinOrder: f.tier2MinOrder, tier2Amount: f.tier2Amount,
                 newCustomerOnly: f.newCustomerOnly, membersOnly: f.membersOnly,
-                nextOrderOnly: f.nextOrderOnly, bestsellerOnly: f.bestsellerOnly,
+                nextOrderOnly: f.nextOrderOnly, oncePerUser: f.oncePerUser,
+                bestsellerOnly: f.bestsellerOnly,
                 recommendedOnly: f.recommendedOnly, newArrivalsOnly: f.newArrivalsOnly,
                 booksOfMonthOnly: f.booksOfMonthOnly, getThirdFree: f.getThirdFree,
             }
@@ -166,7 +190,7 @@ export const getActiveCoupons = async (req, res) => {
                 id: true, code: true, title: true, couponType: true,
                 amount: true, flatDeduction: true, fixAmount: true,
                 minimumBuy: true, tier2MinOrder: true, tier2Amount: true,
-                newCustomerOnly: true, membersOnly: true,
+                newCustomerOnly: true, membersOnly: true, oncePerUser: true,
                 bestsellerOnly: true, recommendedOnly: true, newArrivalsOnly: true, booksOfMonthOnly: true,
                 getThirdFree: true, validFrom: true, validTo: true,
             }
@@ -203,7 +227,7 @@ export const updateCoupon = async (req, res) => {
             updateData.code = f.code;
         }
 
-        const boolFields = ['active','fixAmount','newCustomerOnly','membersOnly','nextOrderOnly',
+        const boolFields = ['active','fixAmount','newCustomerOnly','membersOnly','nextOrderOnly','oncePerUser',
             'bestsellerOnly','recommendedOnly','newArrivalsOnly','booksOfMonthOnly','getThirdFree'];
         const floatFields = ['amount','flatDeduction','minimumBuy','priceOverOnly','tier2MinOrder','tier2Amount'];
         const strFields   = ['title','couponType'];
@@ -290,7 +314,7 @@ export const sendCouponEmail = async (req, res) => {
 
         const transporter = createTransporter();
 
-        const shopUrl = process.env.FRONTEND_URL || 'https://bagchee.com';
+        const shopUrl = (process.env.FRONTEND_URL || 'https://www.bagchee.com').split(',')[0].trim();
         const subject = `Your Coupon Code: ${coupon.code} – Bagchee`;
 
         const validTill = new Date(coupon.validTo).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -417,6 +441,16 @@ export const applyCoupon = async (req, res) => {
         const now = new Date();
         if (now < coupon.validFrom) return res.status(400).json({ status: false, msg: 'This coupon is not valid yet' });
         if (now > coupon.validTo)   return res.status(400).json({ status: false, msg: 'This coupon has expired' });
+
+        // One-time-per-user: warn at preview when we can identify the buyer
+        // (logged-in via optionalAuth, or an email passed from checkout).
+        if (coupon.oncePerUser) {
+            const used = await couponAlreadyUsed(coupon.id, {
+                customerId: req.user?.userId,
+                email: req.body.email || req.body.shippingEmail,
+            });
+            if (used) return res.status(400).json({ status: false, msg: 'You have already used this coupon.' });
+        }
 
         if (coupon.minimumBuy > 0 && total < coupon.minimumBuy) {
             return res.status(400).json({ status: false, msg: `Minimum order of ${coupon.minimumBuy} required for this coupon` });

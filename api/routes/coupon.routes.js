@@ -2,6 +2,7 @@ import express from "express";
 import rateLimit from "express-rate-limit";
 import * as CouponController from "../controller/coupon.controller.js";
 import adminAuth from '../middleware/adminAuth.middleware.js';
+import optionalAuth from '../middleware/optionalAuth.middleware.js';
 
 const router = express.Router();
 
@@ -15,7 +16,7 @@ const couponApplyLimiter = rateLimit({
 
 // PUBLIC — checkout operations (guests + logged-in users)
 router.get("/active", CouponController.getActiveCoupons);
-router.post("/apply", couponApplyLimiter, CouponController.applyCoupon);
+router.post("/apply", couponApplyLimiter, optionalAuth, CouponController.applyCoupon);
 
 // ADMIN — coupon management
 router.post("/save",          adminAuth, CouponController.saveCoupon);

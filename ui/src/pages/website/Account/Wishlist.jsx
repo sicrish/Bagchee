@@ -10,7 +10,7 @@ import { useCart } from '../../../context/CartContext';
 import { CurrencyContext } from '../../../context/CurrencyContext';
 import { useQuery } from '@tanstack/react-query'; // 🟢 React Query
 import { NO_IMAGE } from '../../../utils/imageUrl';
-import { normalizeProduct } from '../../../utils/normalizeProduct';
+import { normalizeProduct, getFormatLabel } from '../../../utils/normalizeProduct';
 
 // Consistent product id. Wishlist items can come from different sources:
 // listing cards store a normalized object (has _id), BookDetail stores the raw
@@ -260,15 +260,18 @@ const Wishlist = () => {
                         )}
 
                         <div className="grid grid-cols-2 gap-3 mt-4 pb-4 border-b border-gray-100">
-                          {fullProduct.binding && (
+                          {(() => {
+                            const fmt = getFormatLabel(fullProduct);
+                            return fmt ? (
                             <div className="flex items-start gap-2">
                               <div className="mt-0.5 text-gray-400 flex-shrink-0"><BookOpen size={14} /></div>
                               <div className="min-w-0">
                                 <p className="text-xs text-gray-500 font-medium">Format</p>
-                                <p className="text-sm text-gray-800 font-medium truncate">{fullProduct.binding}</p>
+                                <p className="text-sm text-gray-800 font-medium truncate">{fmt}</p>
                               </div>
                             </div>
-                          )}
+                            ) : null;
+                          })()}
                           {fullProduct.language && (
                             <div className="flex items-start gap-2">
                               <div className="mt-0.5 text-gray-400 flex-shrink-0"><Globe size={14} /></div>

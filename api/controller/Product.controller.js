@@ -208,6 +208,7 @@ const PRODUCT_INCLUDE = {
 const PRODUCT_LIST_INCLUDE = {
     authors:    { include: { author: { select: { id: true, fullName: true } } }, take: 2 },
     categories: { include: { category: { select: { id: true, title: true } } }, take: 1 },
+    formats:    { include: { format: { select: { id: true, title: true } } } },
     images:     { orderBy: { ord: 'asc' }, take: 1 },
 };
 
