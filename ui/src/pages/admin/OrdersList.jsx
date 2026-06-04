@@ -4,7 +4,7 @@ import {
   Edit, Trash2, ChevronLeft, ChevronRight,
   ChevronsLeft, ChevronsRight, Loader2, X,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
 import { exportToExcel } from '../../utils/exportExcel.js';
@@ -13,16 +13,20 @@ import {useConfirm} from '../../context/ConfirmContext.jsx'
 const OrdersList = () => {
   const navigate = useNavigate();
     const {confirm}=useConfirm()
+  const [searchParams, setSearchParams] = useSearchParams();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const [currentPage, setCurrentPage] = useState(1);
+  // Search + page + entries persist in the URL so they survive opening an order
+  // and coming back (or browser back/forward) instead of resetting to page 1.
+  const [currentPage, setCurrentPage] = useState(() => Number(searchParams.get('page')) || 1);
   const [totalPages, setTotalPages] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10); // Default 10 entries
+  const [itemsPerPage, setItemsPerPage] = useState(() => Number(searchParams.get('limit')) || 10); // Default 10 entries
 
-  const [globalSearch, setGlobalSearch] = useState("");
+  const [globalSearch, setGlobalSearch] = useState(() => searchParams.get('search') || "");
   const [totalOrders, setTotalOrders] = useState(0);
   const searchDebounceRef = useRef(null);
+  const latestReqRef = useRef(0); // guards against out-of-order list responses
 
   // 🟢 1. Filtering States
   const [filters, setFilters] = useState({
@@ -36,6 +40,10 @@ const OrdersList = () => {
   });
 
   const fetchOrders = async (exportMode = false, searchOverride = undefined) => {
+    // Tag each list request; only the latest one is allowed to update state. This
+    // stops a slow initial (unfiltered) load from landing after a fast search and
+    // clobbering it with the wrong rows / "12939 results for coin" total.
+    const reqId = exportMode ? null : ++latestReqRef.current;
     if (!exportMode) setLoading(true);
     try {
       const API_URL = process.env.REACT_APP_API_URL;
@@ -47,6 +55,7 @@ const OrdersList = () => {
         : `${API_URL}/orders/list?page=${currentPage}&limit=${itemsPerPage}${searchParam}`;
 
       const res = await axios.get(url);
+      if (!exportMode && reqId !== latestReqRef.current) return; // superseded — drop it
       if (res.data.status) {
         if (exportMode) return res.data.data;
         setOrders(res.data.data);
@@ -55,9 +64,9 @@ const OrdersList = () => {
       }
     } catch (error) {
       console.error("Fetch Error:", error);
-      toast.error("Failed to load orders");
+      if (exportMode || reqId === latestReqRef.current) toast.error("Failed to load orders");
     } finally {
-      if (!exportMode) setLoading(false);
+      if (!exportMode && reqId === latestReqRef.current) setLoading(false);
     }
   };
 
@@ -65,6 +74,29 @@ const OrdersList = () => {
   useEffect(() => {
     fetchOrders();
   }, [currentPage, itemsPerPage]);
+
+  // Mirror search + page + entries into the URL (replace, so typing/paging doesn't
+  // spam history). This is what lets opening an order and returning — or the browser
+  // back button — land back on the exact same search-result page.
+  useEffect(() => {
+    const params = {};
+    if (globalSearch) params.search = globalSearch;
+    if (currentPage > 1) params.page = String(currentPage);
+    if (itemsPerPage !== 10) params.limit = String(itemsPerPage);
+    setSearchParams(params, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [globalSearch, currentPage, itemsPerPage]);
+
+  // Open an order, carrying the current search/page/entries so the detail page can
+  // return to this exact view and walk Prev/Next through these results.
+  const openOrder = (orderId) => {
+    const params = new URLSearchParams();
+    if (globalSearch) params.set('search', globalSearch);
+    if (currentPage > 1) params.set('page', String(currentPage));
+    if (itemsPerPage !== 10) params.set('limit', String(itemsPerPage));
+    const qs = params.toString();
+    navigate(`/admin/edit-orders/${orderId}${qs ? `?${qs}` : ''}`);
+  };
 
   // Debounced search — fires 400ms after user stops typing
   const handleSearchChange = (e) => {
@@ -395,7 +427,7 @@ const handleExport = async () => {
                     <td className="p-3 border-r border-cream-50 text-text-main font-medium">{payStatus}</td>
                     <td className="p-3 text-center">
                       <div className="flex justify-center gap-2">
-                        <button onClick={() => navigate(`/admin/edit-orders/${orderId}`)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm active:scale-95"><Edit size={14} /></button>
+                        <button onClick={() => openOrder(orderId)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm active:scale-95"><Edit size={14} /></button>
                         <button onClick={() => handleDelete(orderId)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-red-600 hover:border-red-600 transition-all shadow-sm active:scale-95"><Trash2 size={14} /></button>
                       </div>
                     </td>
@@ -432,7 +464,9 @@ const handleExport = async () => {
 
           {/* 🟢 CENTER: DISPLAY INFO */}
           <div className="text-[11px] font-bold text-text-muted uppercase tracking-tighter font-montserrat order-1 md:order-2">
-            {globalSearch
+            {loading
+              ? 'Loading…'
+              : globalSearch
               ? `${totalOrders} result${totalOrders === 1 ? '' : 's'} for "${globalSearch}"`
               : `Displaying ${filteredOrders.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} to ${Math.min(currentPage * itemsPerPage, totalOrders)} of ${totalOrders} items`
             }

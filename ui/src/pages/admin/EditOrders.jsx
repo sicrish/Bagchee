@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { Check, RotateCcw, X, Loader2, Plus, Trash2, Printer, Mail, Search, Copy, AlertTriangle } from 'lucide-react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Check, RotateCcw, X, Loader2, Plus, Trash2, Printer, Mail, Search, Copy, AlertTriangle, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
 import JoditEditor from 'jodit-react';
 import axios from '../../utils/axiosConfig.js';
 import toast from 'react-hot-toast';
@@ -10,6 +10,97 @@ const EditOrders = () => {
   const navigate = useNavigate();
   const { id } = useParams(); // URL se Order ID lene ke liye
   const editor = useRef(null);
+
+  // ─── Search-result context carried from the Orders list ───────────────────
+  // Lets us (a) return to the exact same search-result page and (b) walk
+  // Prev/Next through those results from this detail page.
+  const [searchParams] = useSearchParams();
+  const listSearch = searchParams.get('search') || '';
+  const listPage   = Number(searchParams.get('page'))  || 1;
+  const listLimit  = Number(searchParams.get('limit')) || 10;
+
+  // Query string that takes us back to the list view we came from
+  const backToListQs = (() => {
+    const p = new URLSearchParams();
+    if (listSearch) p.set('search', listSearch);
+    if (listPage > 1) p.set('page', String(listPage));
+    if (listLimit !== 10) p.set('limit', String(listLimit));
+    const s = p.toString();
+    return s ? `?${s}` : '';
+  })();
+
+  // Prev/Next neighbours within the current search results
+  const [orderNav, setOrderNav] = useState({ prev: null, next: null, hasPrevPage: false, hasNextPage: false, posLabel: '' });
+  const canPrev = !!orderNav.prev || orderNav.hasPrevPage;
+  const canNext = !!orderNav.next || orderNav.hasNextPage;
+
+  // Figure out the previous/next order relative to this one, using the same
+  // paginated /orders/list query the list page used (so it matches exactly).
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const API_URL = process.env.REACT_APP_API_URL;
+        const searchParam = listSearch ? `&search=${encodeURIComponent(listSearch)}` : '';
+        const res = await axios.get(`${API_URL}/orders/list?page=${listPage}&limit=${listLimit}${searchParam}`);
+        if (cancelled || !res.data?.status) return;
+        const pageOrders = res.data.data || [];
+        const total      = res.data.total || 0;
+        const totalPages = res.data.totalPages || 1;
+        const idx = pageOrders.findIndex(o => String(o.id) === String(id));
+        if (idx === -1) {
+          setOrderNav({ prev: null, next: null, hasPrevPage: false, hasNextPage: false, posLabel: '' });
+          return;
+        }
+        const globalPos = (listPage - 1) * listLimit + idx + 1; // 1-based across all results
+        setOrderNav({
+          prev: idx > 0 ? { id: pageOrders[idx - 1].id, page: listPage } : null,
+          next: idx < pageOrders.length - 1 ? { id: pageOrders[idx + 1].id, page: listPage } : null,
+          hasPrevPage: idx === 0 && listPage > 1,                       // first row → roll to prev page
+          hasNextPage: idx === pageOrders.length - 1 && listPage < totalPages, // last row → roll to next page
+          posLabel: total ? `${globalPos} of ${total}` : '',
+        });
+      } catch (_) {
+        if (!cancelled) setOrderNav({ prev: null, next: null, hasPrevPage: false, hasNextPage: false, posLabel: '' });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [id, listSearch, listPage, listLimit]);
+
+  // Navigate to an order, preserving the search context (and updating page when we
+  // cross a result-page boundary so "Back to results" stays in sync).
+  const navToOrder = (oid, pg) => {
+    const p = new URLSearchParams();
+    if (listSearch) p.set('search', listSearch);
+    if (pg > 1) p.set('page', String(pg));
+    if (listLimit !== 10) p.set('limit', String(listLimit));
+    const qs = p.toString();
+    navigate(`/admin/edit-orders/${oid}${qs ? `?${qs}` : ''}`);
+    window.scrollTo({ top: 0 });
+  };
+
+  const goToNeighbor = async (dir) => {
+    try {
+      const API_URL = process.env.REACT_APP_API_URL;
+      const searchParam = listSearch ? `&search=${encodeURIComponent(listSearch)}` : '';
+      if (dir === 'prev') {
+        if (orderNav.prev) return navToOrder(orderNav.prev.id, orderNav.prev.page);
+        if (orderNav.hasPrevPage) {
+          const r = await axios.get(`${API_URL}/orders/list?page=${listPage - 1}&limit=${listLimit}${searchParam}`);
+          const arr = r.data?.data || [];
+          if (arr.length) navToOrder(arr[arr.length - 1].id, listPage - 1);
+        }
+      } else {
+        if (orderNav.next) return navToOrder(orderNav.next.id, orderNav.next.page);
+        if (orderNav.hasNextPage) {
+          const r = await axios.get(`${API_URL}/orders/list?page=${listPage + 1}&limit=${listLimit}${searchParam}`);
+          const arr = r.data?.data || [];
+          if (arr.length) navToOrder(arr[0].id, listPage + 1);
+        }
+      }
+    } catch (_) { /* non-fatal — button just won't move */ }
+  };
 
   // Comprehensive countries list
   const countries = [
@@ -401,7 +492,7 @@ const EditOrders = () => {
       if (res.data.status) {
         toast.success("Order updated successfully! 📦", { id: toastId });
         if (actionType === 'back') {
-          navigate('/admin/orders');
+          navigate(`/admin/orders${backToListQs}`);
         }
       }
     } catch (error) {
@@ -671,8 +762,41 @@ ${bankDetails}
     <div className="bg-cream-50 min-h-screen font-body text-text-main pb-20">
 
       {/* 🔵 Header */}
-      <div className="bg-primary sticky top-0 z-50 px-6 py-3 shadow-md flex items-center justify-between">
+      <div className="bg-primary sticky top-0 z-50 px-6 py-3 shadow-md flex items-center justify-between gap-3">
         <h1 className="text-lg font-bold text-white uppercase tracking-slick font-display">Edit Orders</h1>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => navigate(`/admin/orders${backToListQs}`)}
+            className="bg-white/15 hover:bg-white/25 text-white px-3 py-1.5 rounded text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all"
+            title="Back to the orders list"
+          >
+            <ArrowLeft size={13} /> {listSearch ? `Back to "${listSearch}" results` : 'Back to orders'}
+          </button>
+          {(canPrev || canNext) && (
+            <div className="flex items-center gap-1 bg-white/10 rounded px-1 py-0.5">
+              <button
+                type="button"
+                onClick={() => goToNeighbor('prev')}
+                disabled={!canPrev}
+                className="text-white px-2 py-1 rounded text-[11px] font-bold flex items-center gap-1 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                title="Previous order in results"
+              >
+                <ChevronLeft size={14} /> Prev
+              </button>
+              {orderNav.posLabel && <span className="text-white/80 text-[10px] font-bold px-1 tabular-nums">{orderNav.posLabel}</span>}
+              <button
+                type="button"
+                onClick={() => goToNeighbor('next')}
+                disabled={!canNext}
+                className="text-white px-2 py-1 rounded text-[11px] font-bold flex items-center gap-1 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                title="Next order in results"
+              >
+                Next <ChevronRight size={14} />
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ─── Order Confirmation Email Modal ─── */}
@@ -781,7 +905,7 @@ ${bankDetails}
               >
                 <Mail size={12} /> Shipping Delay Notification
               </button>
-              <button type="button" onClick={() => navigate('/admin/orders')} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
+              <button type="button" onClick={() => navigate(`/admin/orders${backToListQs}`)} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
             </div>
           </div>
 
@@ -1250,7 +1374,7 @@ ${bankDetails}
                 <RotateCcw size={16} className="text-primary" /> Update & go back
               </button>
 
-              <button type="button" onClick={() => navigate('/admin/orders')} className="bg-white border border-gray-300 hover:bg-gray-50 text-text-main px-6 py-2 rounded font-bold text-[11px] uppercase transition-all flex items-center gap-2 shadow-sm">
+              <button type="button" onClick={() => navigate(`/admin/orders${backToListQs}`)} className="bg-white border border-gray-300 hover:bg-gray-50 text-text-main px-6 py-2 rounded font-bold text-[11px] uppercase transition-all flex items-center gap-2 shadow-sm">
                 <X size={16} className="text-red-600" /> Cancel
               </button>
             </div>
