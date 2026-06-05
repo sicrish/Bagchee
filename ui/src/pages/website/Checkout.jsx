@@ -32,44 +32,11 @@ import discoverLogo from "../../assets/images/website/payments/Discover.png";
 import amexLogo from "../../assets/images/website/payments/american.png";
 import paypalLogo from "../../assets/images/website/payments/PayPal.svg";
 
-// DB IDs: 3 = Expedited (8-12 days), 4 = Standard free (12-15 days), 5 = Express (3-5 days)
-const SHIPPING_TIERS = {
-  5: [ // Express (3-5 Business Days)
-    { min: 1, max: 2, usd: 50 },
-    { min: 3, max: 6, usd: 80 },
-    { min: 7, max: 11, usd: 110 },
-    { min: 12, max: 15, usd: 150 },
-    { min: 16, max: 20, usd: 200 },
-    { min: 21, max: 25, usd: 280 },
-    { min: 26, max: 36, usd: 350 },
-    { min: 37, max: 50, usd: 435 },
-    { min: 51, max: 100, usd: 550 },
-    { min: 101, max: Infinity, usd: 730 },
-  ],
-  3: [ // Expedited (8-12 Business Days)
-    { min: 1, max: 2, usd: 20 },
-    { min: 3, max: 6, usd: 35 },
-    { min: 7, max: 11, usd: 50 },
-    { min: 12, max: 15, usd: 80 },
-    { min: 16, max: 20, usd: 120 },
-    { min: 21, max: 25, usd: 150 },
-    { min: 26, max: 36, usd: 175 },
-    { min: 37, max: 50, usd: 222 },
-    { min: 51, max: 100, usd: 280 },
-    { min: 101, max: Infinity, usd: 400 },
-  ],
-};
-
-// Express and Expedited always use tiered pricing — never free above $50 threshold
+// Shipping DB IDs: 3 = Expedited (8-12 days), 4 = Standard (12-15 days), 5 = Express (3-5 days).
+// Express & Expedited are exempt from the free-shipping-over-$50 rule (always paid); the price
+// itself ALWAYS comes from the admin-set shipping option (priceUsd), never a hardcoded table —
+// so cart and checkout stay in sync with the admin shipping price for every option.
 const TIERED_OPTION_IDS = new Set([3, 5]);
-
-const getTieredShippingUsd = (option, totalBooks) => {
-  const optId = option?.id || option?._id;
-  const tiers = SHIPPING_TIERS[optId];
-  if (!tiers || totalBooks === 0) return 0;
-  const tier = tiers.find(t => totalBooks >= t.min && totalBooks <= t.max);
-  return tier ? tier.usd : tiers[tiers.length - 1].usd;
-};
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -369,7 +336,6 @@ const Checkout = () => {
   }, [API_BASE_URL]);
 
   // ─── Helpers ───
-  const totalBooks = cart.reduce((acc, item) => acc + (item.quantity || 1), 0);
 
   // Max ship-preparation days across all physical cart items
   const maxShipDays = cart
@@ -387,13 +353,10 @@ const Checkout = () => {
   const getShippingPrice = (option) => {
     if (!option) return 0;
     const isTiered = TIERED_OPTION_IDS.has(option.id || option._id);
-    let usd;
-    if (isTiered) {
-      usd = getTieredShippingUsd(option, totalBooks);
-    } else {
-      if (isFreeShippingUnlocked) return 0;
-      usd = getDbShippingUsd(option);
-    }
+    // Free-shipping-over-$50 applies only to standard (non-tiered) options.
+    if (!isTiered && isFreeShippingUnlocked) return 0;
+    // Price always comes from the admin-set shipping option (single source of truth).
+    const usd = getDbShippingUsd(option);
     if (currency === 'EUR') return usd * (exchangeRates?.EUR || 0.92);
     if (currency === 'GBP') return usd * (exchangeRates?.GBP || 0.78);
     return usd;
@@ -438,13 +401,10 @@ const Checkout = () => {
   const shippingCost = (() => {
     if (!appliedShipping || hasOnlyGiftCards) return 0;
     const isTiered = TIERED_OPTION_IDS.has(appliedShipping.id || appliedShipping._id);
-    let usd;
-    if (isTiered) {
-      usd = getTieredShippingUsd(appliedShipping, totalBooks);
-    } else {
-      if (isFreeShippingUnlocked) return 0;
-      usd = getDbShippingUsd(appliedShipping);
-    }
+    // Free-shipping-over-$50 applies only to standard (non-tiered) options.
+    if (!isTiered && isFreeShippingUnlocked) return 0;
+    // Price always comes from the admin-set shipping option (single source of truth).
+    const usd = getDbShippingUsd(appliedShipping);
     if (currency === 'EUR') return usd * (exchangeRates?.EUR || 0.92);
     if (currency === 'GBP') return usd * (exchangeRates?.GBP || 0.78);
     return usd;

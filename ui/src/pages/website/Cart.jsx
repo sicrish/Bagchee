@@ -13,53 +13,12 @@ import discoverImg from '../../assets/images/website/payments/Discover.png';
 import mastercardImg from '../../assets/images/website/payments/MasterCard.svg';
 import paypalImg from '../../assets/images/website/payments/PayPal.svg';
 
-// ─── Tiered shipping prices (USD) by shipping DB id ───
-// DB IDs: 3 = Expedited (8-12 days), 4 = Standard free (12-15 days), 5 = Express (3-5 days)
-// Express and Expedited ALWAYS use tiered pricing — never free even above $50 threshold
-const SHIPPING_TIERS = {
-  5: [ // Express (3-5 Business Days)
-    { min: 1, max: 2, usd: 50 },
-    { min: 3, max: 6, usd: 80 },
-    { min: 7, max: 11, usd: 110 },
-    { min: 12, max: 15, usd: 150 },
-    { min: 16, max: 20, usd: 200 },
-    { min: 21, max: 25, usd: 280 },
-    { min: 26, max: 36, usd: 350 },
-    { min: 37, max: 50, usd: 435 },
-    { min: 51, max: 100, usd: 550 },
-    { min: 101, max: Infinity, usd: 730 },
-  ],
-  3: [ // Expedited (8-12 Business Days)
-    { min: 1, max: 2, usd: 20 },
-    { min: 3, max: 6, usd: 35 },
-    { min: 7, max: 11, usd: 50 },
-    { min: 12, max: 15, usd: 80 },
-    { min: 16, max: 20, usd: 120 },
-    { min: 21, max: 25, usd: 150 },
-    { min: 26, max: 36, usd: 175 },
-    { min: 37, max: 50, usd: 222 },
-    { min: 51, max: 100, usd: 280 },
-    { min: 101, max: Infinity, usd: 400 },
-  ],
-};
-
-// IDs that always use tiered pricing (free threshold never applies to them)
+// ─── Shipping DB IDs ───
+// 3 = Expedited (8-12 days), 4 = Standard (12-15 days), 5 = Express (3-5 days).
+// Express & Expedited are exempt from the free-shipping-over-$50 rule (always paid); the price
+// itself ALWAYS comes from the admin-set shipping option (priceUsd/priceEur), never a hardcoded
+// table — so cart and checkout stay in sync with the admin shipping price for every option.
 const TIERED_OPTION_IDS = new Set([3, 5]);
-
-const getTieredShippingUsd = (shippingOption, totalBooks) => {
-  if (!shippingOption) return 0;
-  const optId = shippingOption.id || shippingOption._id;
-  const tiers = SHIPPING_TIERS[optId];
-
-  if (!tiers) {
-    // Agar ID 5 ya 6 nahi h, toh crash hone ki jagah ye price dikhayega
-    return Number(shippingOption.priceUsd) || Number(shippingOption.price) || 0;
-  }
-
-  if (totalBooks === 0) return 0;
-  const tier = tiers.find(t => totalBooks >= t.min && totalBooks <= t.max);
-  return tier ? tier.usd : tiers[tiers.length - 1].usd;
-};
 
 const Cart = () => {
   const navigate = useNavigate();

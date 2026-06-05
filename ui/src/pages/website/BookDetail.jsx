@@ -871,10 +871,10 @@ const BookDetail = () => {
 
                   {/* Delivery Info — hidden for Indian IPs (worldwide-shipping msg not relevant) */}
                   {!isUpcoming && !isIndia && (
-                    <div className="bg-blue-50 border border-blue-100 rounded p-3 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Package className="w-4 h-4 text-primary shrink-0" />
-                        <p className="text-xs text-gray-700 leading-tight flex-1">
+                    <div className="bg-blue-50 border border-blue-100 rounded px-1.5 py-3 space-y-2">
+                      <div className="flex items-center gap-1">
+                        <Package className="w-3.5 h-3.5 text-primary shrink-0" />
+                        <p className="text-xs text-gray-700 leading-tight whitespace-nowrap">
                           FREE delivery worldwide over ${settings?.freeShippingOver || settings?.free_shipping_over || 60}
                         </p>
                         {/* Info icon + popover — opens on hover or click; amount is settings-driven in both spots (#1) */}
@@ -889,7 +889,7 @@ const BookDetail = () => {
                             aria-label="Free worldwide shipping details"
                             className="flex items-center text-primary hover:text-primary-dark focus:outline-none"
                           >
-                            <Info className="w-4 h-4" />
+                            <Info className="w-3.5 h-3.5" />
                           </button>
                           {showShipInfo && (
                             <div className="absolute right-0 top-6 z-50 w-72 sm:w-80 bg-white border border-gray-200 rounded-lg shadow-xl p-4 text-left text-[11px] leading-relaxed text-gray-700 max-h-80 overflow-y-auto">
