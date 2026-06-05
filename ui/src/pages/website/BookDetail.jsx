@@ -502,13 +502,23 @@ const BookDetail = () => {
   const bookImage = book.defaultImage || book.default_image || '';
   const isWishlisted = isInWishlist(book.id || book._id);
 
+  // Prefer the admin-set SEO fields (edit-book "meta title / description / keywords"),
+  // falling back to the book's own title/synopsis. Kept in sync with the server-side
+  // injection in api/controller/ssr.controller.js so View-Source and after-JS agree.
+  const metaTitleText = (book.metaTitle || book.meta_title || '').trim()
+    || `${book.title}${bookAuthorName ? ` by ${bookAuthorName}` : ''} | Bagchee`;
+  const metaDescText = (book.metaDescription || book.meta_description || '').trim()
+    || bookDescription;
+  const metaKeywordsText = (book.metaKeywords || book.meta_keywords || '').trim();
+
   return (
     <div className="min-h-screen bg-cream">
       <Helmet>
-        <title>{book.title}{bookAuthorName ? ` by ${bookAuthorName}` : ''} | Bagchee</title>
-        <meta name="description" content={bookDescription} />
-        <meta property="og:title" content={`${book.title} | Bagchee`} />
-        <meta property="og:description" content={bookDescription} />
+        <title>{metaTitleText}</title>
+        <meta name="description" content={metaDescText} />
+        {metaKeywordsText && <meta name="keywords" content={metaKeywordsText} />}
+        <meta property="og:title" content={metaTitleText} />
+        <meta property="og:description" content={metaDescText} />
         {bookImage && <meta property="og:image" content={bookImage} />}
         <meta property="og:type" content="book" />
         {book.isbn13 && <meta property="books:isbn" content={book.isbn13} />}

@@ -75,6 +75,7 @@ import backInStockRoutes from './routes/backInStock.routes.js';
 import emailCampaignRoutes from './routes/emailCampaignRoutes.js';
 import { processScheduledEmails } from './controller/emailCampaignController.js';
 import { sendMembershipExpiryReminder } from './controller/email.controller.js';
+import { renderBookMeta } from './controller/ssr.controller.js';
 import prisma from './lib/prisma.js';
 import sitemapRoutes from './routes/sitemap.routes.js';
 import disclaimerRoutes from './routes/disclaimerRoutes.js';
@@ -122,6 +123,14 @@ app.use((req, res, next) => {
     next();
 });
 app.use(compression());
+
+// ── Server-side meta injection for book pages (SEO / View-Source) ──
+// Apache proxies the 2-segment book URL (/books/:bagcheeId/:slug) to this route so the
+// pre-JS HTML (View Source / Bing / social scrapers) carries each book's admin meta
+// title/description/keywords. Registered BEFORE the rate limiter so crawlers hitting
+// many book pages are never throttled; it always falls back to the plain SPA shell.
+app.get('/render/books/:bagcheeId/:slug', renderBookMeta);
+
 app.use(helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' },
     crossOriginEmbedderPolicy: false,
