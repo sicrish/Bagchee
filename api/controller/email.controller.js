@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import prisma from '../lib/prisma.js';
 import { generateInvoicePdf } from '../lib/invoicePdf.js';
 import { activeItems, payableTotal, payableShipping } from '../lib/orderTotals.js';
+import { unsubscribeUrl } from '../lib/unsubscribe.js';
 
 dotenv.config();
 
@@ -708,7 +709,7 @@ export const sendNewsletterConfirmation = async (email, firstName) => {
     try {
         const transporter = createTransporter();
         const name = escapeHtml(firstName || 'there');
-        const unsubUrl = `${SITE_URL}/api/newsletter/unsubscribe?email=${encodeURIComponent(email)}`;
+        const unsubUrl = unsubscribeUrl(email);
         const html = `
             <div style="font-family:'Inter',Helvetica,Arial,sans-serif;background-color:${theme.cream};padding:40px 0;">
               <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 15px rgba(0,0,0,.1);border:1px solid #e6decd;">

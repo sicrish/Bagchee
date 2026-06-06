@@ -2,6 +2,7 @@ import { createTransporter } from '../lib/mailer.js';
 import prisma from '../lib/prisma.js';
 import { saveFileLocal } from '../utils/fileHandler.js';
 import { v2 as cloudinary } from 'cloudinary';
+import { unsubscribeUrl, unsubscribeToken } from '../lib/unsubscribe.js';
 
 cloudinary.config({
     cloud_name: process.env.CLOUD_NAME,
@@ -28,7 +29,7 @@ const escapeHtml = (str) => {
 };
 
 const wrapInTemplate = (subject, bodyHtml, unsubscribeUrl = null) => {
-    const frontendUrl = process.env.FRONTEND_URL || 'https://www.bagchee.com';
+    const frontendUrl = (process.env.FRONTEND_URL || 'https://www.bagchee.com').split(',')[0].trim();
     const privacyUrl = `${frontendUrl}/privacy-policy`;
     return `
         <div style="font-family: 'Inter', Helvetica, Arial, sans-serif; background-color: ${theme.cream}; padding: 40px 0;">
@@ -43,9 +44,6 @@ const wrapInTemplate = (subject, bodyHtml, unsubscribeUrl = null) => {
                         <tr><td style="text-align: center;">
                             <p style="color: #FFFFFF; margin: 4px 0 0; opacity: 0.85; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; font-family: 'Inter', Helvetica, Arial, sans-serif;">Books That Stick</p>
                         </td></tr>
-                        <tr><td style="text-align: center; padding-top: 10px;">
-                            <p style="color: #FFFFFF; margin: 0; opacity: 0.9; font-size: 14px; font-family: 'Inter', Helvetica, Arial, sans-serif;">${subject}</p>
-                        </td></tr>
                     </table>
                 </div>
                 <div style="padding: 40px 30px; color: ${theme.textMain}; font-size: 15px; line-height: 1.7;">
@@ -53,7 +51,7 @@ const wrapInTemplate = (subject, bodyHtml, unsubscribeUrl = null) => {
                 </div>
                 <div style="background-color: #fffdf5; padding: 20px; text-align: center; border-top: 1px solid #e6decd;">
                     <p style="font-size: 11px; color: ${theme.textMuted}; margin: 0 0 8px;"><a href="${frontendUrl}" style="color: #008DDA; text-decoration: underline;">VIEW IN BROWSER</a></p>
-                    <p style="font-size: 11px; color: ${theme.textMuted}; margin: 0 0 6px;"><a href="${privacyUrl}" style="color: ${theme.textMuted}; text-decoration: underline;">Privacy Policy</a> &nbsp;|&nbsp; ${unsubscribeUrl ? `<a href="${unsubscribeUrl}" style="color: ${theme.textMuted}; text-decoration: underline;">Unsubscribe</a>` : `<a href="${frontendUrl}/unsubscribe" style="color: ${theme.textMuted}; text-decoration: underline;">Unsubscribe</a>`}</p>
+                    <p style="font-size: 11px; color: ${theme.textMuted}; margin: 0 0 6px;"><a href="${privacyUrl}" style="color: ${theme.textMuted}; text-decoration: underline;">Privacy Policy</a>${unsubscribeUrl ? ` &nbsp;|&nbsp; <a href="${unsubscribeUrl}" style="color: ${theme.textMuted}; text-decoration: underline;">Unsubscribe</a>` : ''}</p>
                     <p style="font-size: 12px; color: ${theme.textMuted}; margin: 0;">&copy; ${new Date().getFullYear()} Bagchee. All rights reserved.</p>
                 </div>
             </div>
@@ -63,14 +61,7 @@ const wrapInTemplate = (subject, bodyHtml, unsubscribeUrl = null) => {
 
 const VALID_AUDIENCES = ['subscribers', 'members', 'purchasers', 'categories', 'specific'];
 
-const generateUnsubscribeToken = (email) => {
-    return require('crypto')
-        .createHmac('sha256', process.env.ENCRYPTION_SECRET || 'bagchee-unsub-secret')
-        .update(email.toLowerCase())
-        .digest('hex');
-};
-
-const sendToAudience = async (subject, bodyHtml, audience, specificEmails = [], selectedCategories = []) => {
+const sendToAudience = async (subject, bodyHtml, audience, specificEmails = [], selectedCategories = [], campaignId = null) => {
     const transporter = createTransporter();
 
     const FETCH_BATCH = 500;
@@ -78,6 +69,13 @@ const sendToAudience = async (subject, bodyHtml, audience, specificEmails = [], 
     let sent = 0;
     let failed = 0;
     const seenEmails = new Set();
+
+    const flushLogs = async (logs) => {
+        if (!campaignId || logs.length === 0) return;
+        await prisma.emailDeliveryLog.createMany({ data: logs }).catch(err =>
+            console.error('Delivery log insert failed:', err.message)
+        );
+    };
 
     const processModel = async (model, where = {}, isSubscriberModel = false) => {
         let cursor = undefined;
@@ -99,25 +97,33 @@ const sendToAudience = async (subject, bodyHtml, audience, specificEmails = [], 
 
             for (let i = 0; i < newEmails.length; i += SEND_BATCH) {
                 const batch = newEmails.slice(i, i + SEND_BATCH);
-                await Promise.all(batch.map(email => {
-                    const token = generateUnsubscribeToken(email);
-                    const unsubscribeUrl = isSubscriberModel
-                        ? `${process.env.FRONTEND_URL || ''}/api/newsletter/unsubscribe?email=${encodeURIComponent(email)}&token=${token}`
-                        : null;
-                    const htmlContent = wrapInTemplate(escapeHtml(subject), bodyHtml, unsubscribeUrl);
+                const results = await Promise.allSettled(batch.map(email => {
+                    // Every marketing email carries a working, per-recipient unsubscribe link
+                    // (correct /newsletter-subs path + HMAC token — see api/lib/unsubscribe.js).
+                    const unsubLink = unsubscribeUrl(email);
+                    const htmlContent = wrapInTemplate(escapeHtml(subject), bodyHtml, unsubLink);
                     return transporter.sendMail({
                         from: `"Bagchee" <${process.env.EMAIL_USER}>`,
                         to: email,
                         subject,
                         html: htmlContent,
-                        headers: unsubscribeUrl ? { 'List-Unsubscribe': `<${unsubscribeUrl}>` } : {}
-                    })
-                    .then(() => { sent++; })
-                    .catch((err) => {
-                        console.error(`Failed to send to ${email}:`, err.message);
-                        failed++;
+                        headers: { 'List-Unsubscribe': `<${unsubLink}>` }
                     });
                 }));
+
+                const logs = [];
+                results.forEach((result, idx) => {
+                    const email = batch[idx];
+                    if (result.status === 'fulfilled') {
+                        sent++;
+                        if (campaignId) logs.push({ campaignId, email, status: 'sent' });
+                    } else {
+                        console.error(`Failed to send to ${email}:`, result.reason?.message);
+                        failed++;
+                        if (campaignId) logs.push({ campaignId, email, status: 'failed', error: (result.reason?.message || 'Unknown').slice(0, 500) });
+                    }
+                });
+                await flushLogs(logs);
             }
         }
     };
@@ -145,17 +151,28 @@ const sendToAudience = async (subject, bodyHtml, audience, specificEmails = [], 
             emails.forEach(e => seenEmails.add(e));
             for (let i = 0; i < emails.length; i += SEND_BATCH) {
                 const batch = emails.slice(i, i + SEND_BATCH);
-                await Promise.all(batch.map(email => {
+                const results = await Promise.allSettled(batch.map(email => {
                     const htmlContent = wrapInTemplate(escapeHtml(subject), bodyHtml, null);
                     return transporter.sendMail({
                         from: `"Bagchee" <${process.env.EMAIL_USER}>`,
                         to: email,
                         subject,
                         html: htmlContent
-                    })
-                    .then(() => { sent++; })
-                    .catch((err) => { console.error(`Failed to send to ${email}:`, err.message); failed++; });
+                    });
                 }));
+                const logs = [];
+                results.forEach((result, idx) => {
+                    const email = batch[idx];
+                    if (result.status === 'fulfilled') {
+                        sent++;
+                        if (campaignId) logs.push({ campaignId, email, status: 'sent' });
+                    } else {
+                        console.error(`Failed to send to ${email}:`, result.reason?.message);
+                        failed++;
+                        if (campaignId) logs.push({ campaignId, email, status: 'failed', error: (result.reason?.message || 'Unknown').slice(0, 500) });
+                    }
+                });
+                await flushLogs(logs);
             }
         }
     }
@@ -177,36 +194,31 @@ export const sendCampaignEmail = async (req, res) => {
         }
 
         const cats = Array.isArray(selectedCategories) ? selectedCategories : [];
-        const { sent, failed } = await sendToAudience(subject, body, audience, specificEmails || [], cats);
+
+        // Create campaign record BEFORE sending so it has an ID for delivery logging
+        const campaign = await prisma.scheduledEmail.create({
+            data: { subject, body, audience, categories: cats, sendAt: new Date(), status: 'sending', sent: 0, failed: 0 }
+        });
+
+        const { sent, failed } = await sendToAudience(subject, body, audience, specificEmails || [], cats, campaign.id);
 
         if (sent === 0 && failed === 0) {
+            await prisma.scheduledEmail.update({ where: { id: campaign.id }, data: { status: 'failed' } });
             return res.status(400).json({ status: false, msg: 'No recipients found for the selected audience.' });
         }
 
-        // Record the campaign after sending
-        try {
-            await prisma.scheduledEmail.create({
-                data: {
-                    subject,
-                    body,
-                    audience,
-                    categories: cats,
-                    sendAt: new Date(),
-                    status: 'sent',
-                    sent,
-                    failed
-                }
-            });
-        } catch (dbErr) {
-            console.error('Campaign record save failed:', dbErr.message);
-        }
+        await prisma.scheduledEmail.update({
+            where: { id: campaign.id },
+            data: { status: 'sent', sent, failed }
+        });
 
         res.status(200).json({
             status: true,
             msg: `Campaign sent! ${sent} delivered, ${failed} failed.`,
             sent,
             failed,
-            total: sent + failed
+            total: sent + failed,
+            id: campaign.id
         });
     } catch (error) {
         console.error('Campaign send error:', error.message);
@@ -380,7 +392,7 @@ export const getAudienceCounts = async (req, res) => {
             prisma.user.count({ where: { role: 'user', orders: { some: {} } } }),
             cats.length > 0
                 ? prisma.newsletterSubscriber.count({ where: { isActive: true, categories: { hasSome: cats } } })
-                : prisma.newsletterSubscriber.count({ where: { isActive: true, categories: { isEmpty: false } } })
+                : Promise.resolve(0)
         ]);
 
         res.status(200).json({ status: true, counts: { subscribers, members, purchasers, categories } });
@@ -439,30 +451,37 @@ export const resendCampaign = async (req, res) => {
         const finalCategories = Array.isArray(selectedCategories) ? selectedCategories : (original.categories || []);
         const finalSpecificEmails = Array.isArray(specificEmails) ? specificEmails : [];
 
-        const { sent, failed } = await sendToAudience(
-            finalSubject,
-            original.body,
-            finalAudience,
-            finalSpecificEmails,
-            finalCategories
-        );
-
-        if (sent === 0 && failed === 0) {
-            return res.status(400).json({ status: false, msg: 'No recipients found for the selected audience.' });
-        }
-
-        // Record the resend as a new campaign entry (only if emails were actually attempted)
-        await prisma.scheduledEmail.create({
+        // Create resend campaign record first so delivery logs have an ID
+        const resendCampaign = await prisma.scheduledEmail.create({
             data: {
                 subject: finalSubject,
                 body: original.body,
                 audience: finalAudience,
                 categories: finalCategories,
                 sendAt: new Date(),
-                status: 'sent',
-                sent,
-                failed
+                status: 'sending',
+                sent: 0,
+                failed: 0
             }
+        });
+
+        const { sent, failed } = await sendToAudience(
+            finalSubject,
+            original.body,
+            finalAudience,
+            finalSpecificEmails,
+            finalCategories,
+            resendCampaign.id
+        );
+
+        if (sent === 0 && failed === 0) {
+            await prisma.scheduledEmail.update({ where: { id: resendCampaign.id }, data: { status: 'failed' } });
+            return res.status(400).json({ status: false, msg: 'No recipients found for the selected audience.' });
+        }
+
+        await prisma.scheduledEmail.update({
+            where: { id: resendCampaign.id },
+            data: { status: 'sent', sent, failed }
         });
 
         res.status(200).json({
@@ -504,7 +523,7 @@ export const processScheduledEmails = async () => {
                 });
 
                 const cats = email.categories || [];
-                const { sent, failed } = await sendToAudience(email.subject, email.body, email.audience, [], cats);
+                const { sent, failed } = await sendToAudience(email.subject, email.body, email.audience, [], cats, email.id);
 
                 await prisma.scheduledEmail.update({
                     where: { id: email.id },
@@ -562,7 +581,7 @@ export const unsubscribeNewsletter = async (req, res) => {
             return res.status(400).send('<p>Invalid unsubscribe link.</p>');
         }
 
-        const expectedToken = generateUnsubscribeToken(decodeURIComponent(email));
+        const expectedToken = unsubscribeToken(decodeURIComponent(email));
         if (token !== expectedToken) {
             return res.status(400).send('<p>Invalid or expired unsubscribe link.</p>');
         }
@@ -576,7 +595,7 @@ export const unsubscribeNewsletter = async (req, res) => {
             <div style="font-family:Inter,sans-serif;max-width:480px;margin:80px auto;text-align:center;padding:40px;border:1px solid #e6decd;border-radius:12px;">
                 <h2 style="color:#0B2F3A;">You've been unsubscribed</h2>
                 <p style="color:#666;">You will no longer receive marketing emails from Bagchee.</p>
-                <a href="${process.env.FRONTEND_URL || '/'}" style="color:#008DDA;">Back to Bagchee</a>
+                <a href="${(process.env.FRONTEND_URL || 'https://www.bagchee.com').split(',')[0].trim()}" style="color:#008DDA;">Back to Bagchee</a>
             </div>
         `);
     } catch (error) {
@@ -616,6 +635,75 @@ export const listNewsletterBanners = async (req, res) => {
     } catch (error) {
         console.error('List banners error:', error.message);
         res.status(500).json({ status: false, msg: 'Failed to list banners.' });
+    }
+};
+
+/**
+ * GET /email-campaign/:id
+ * Returns a single campaign including body (for preview / detail view).
+ */
+export const getCampaignById = async (req, res) => {
+    try {
+        const campaign = await prisma.scheduledEmail.findUnique({
+            where: { id: parseInt(req.params.id) }
+        });
+        if (!campaign) return res.status(404).json({ status: false, msg: 'Campaign not found.' });
+        res.json({ status: true, data: campaign });
+    } catch (error) {
+        console.error('Get campaign error:', error.message);
+        res.status(500).json({ status: false, msg: 'Server Error' });
+    }
+};
+
+/**
+ * GET /email-campaign/:id/preview
+ * Returns full wrapped HTML ready for iframe rendering.
+ */
+export const getCampaignPreviewHtml = async (req, res) => {
+    try {
+        const campaign = await prisma.scheduledEmail.findUnique({
+            where: { id: parseInt(req.params.id) },
+            select: { subject: true, body: true }
+        });
+        if (!campaign) return res.status(404).send('<p>Campaign not found</p>');
+        const html = wrapInTemplate(escapeHtml(campaign.subject), campaign.body);
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.send(html);
+    } catch (error) {
+        console.error('Campaign preview error:', error.message);
+        res.status(500).send('<p>Error loading preview</p>');
+    }
+};
+
+/**
+ * GET /email-campaign/:id/delivery-logs?page=1&limit=50&status=all|sent|failed
+ * Returns paginated delivery logs for a campaign.
+ */
+export const getCampaignDeliveryLogs = async (req, res) => {
+    try {
+        const campaignId = parseInt(req.params.id);
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        const limit = Math.min(100, Math.max(10, parseInt(req.query.limit) || 50));
+        const statusFilter = req.query.status;
+
+        const where = { campaignId };
+        if (statusFilter === 'sent' || statusFilter === 'failed') where.status = statusFilter;
+
+        const [total, logs] = await Promise.all([
+            prisma.emailDeliveryLog.count({ where }),
+            prisma.emailDeliveryLog.findMany({
+                where,
+                select: { id: true, email: true, status: true, error: true, sentAt: true },
+                orderBy: { sentAt: 'asc' },
+                skip: (page - 1) * limit,
+                take: limit
+            })
+        ]);
+
+        res.json({ status: true, data: logs, total, page, limit, pages: Math.ceil(total / limit) });
+    } catch (error) {
+        console.error('Delivery logs error:', error.message);
+        res.status(500).json({ status: false, msg: 'Server Error' });
     }
 };
 

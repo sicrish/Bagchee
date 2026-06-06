@@ -28,7 +28,7 @@ const OrderStatus = () => {
     // Fetch full order details to get paymentAdditionalText and fresh status
     React.useEffect(() => {
         if (!orderId) return;
-        axios.get(`${API_BASE_URL}/orders/${orderId}`)
+        axios.get(`${API_BASE_URL}/orders/get/${orderId}`)
             .then(r => { if (r.data?.status && r.data?.data) setOrder(r.data.data); })
             .catch(() => {});
     }, [orderId, API_BASE_URL]);
@@ -36,7 +36,10 @@ const OrderStatus = () => {
     const handleViewInvoice = () => {
         const o = order;
         const num = o.orderNumber || o.order_number || orderId;
-        const items = o.items || o.products || [];
+        // Out-of-print (cancelled) items are excluded from the invoice — matches the emailed
+        // PDF and the amount actually charged.
+        const items = (o.items || o.products || []).filter(it => String(it.status || '').toLowerCase() !== 'cancelled');
+        const invoiceTotal = o.payableTotal != null ? o.payableTotal : Number(o.total || 0);
         const rows = items.map(it => `
             <tr>
                 <td style="padding:8px;border-bottom:1px solid #eee">${it.name || it.product?.title || 'Item'}</td>
@@ -53,7 +56,7 @@ const OrderStatus = () => {
             <hr/>
             <table><thead><tr><th>Item</th><th style="text-align:center">Qty</th><th style="text-align:right">Price</th></tr></thead>
             <tbody>${rows}</tbody></table>
-            <div class="total">Total: ${o.currency || 'USD'} ${Number(o.total || 0).toFixed(2)}</div>
+            <div class="total">Total: ${o.currency || 'USD'} ${Number(invoiceTotal).toFixed(2)}</div>
             <br/><button onclick="window.print()">🖨 Print / Save as PDF</button>
             </body></html>`;
         const w = window.open('', '_blank');
@@ -90,6 +93,16 @@ const OrderStatus = () => {
     // ── Field helpers (Prisma camelCase + old snake_case fallbacks) ──────────
     const items      = order.items || order.products || [];
     const orderNum   = order.orderNumber || order.order_number || order._id?.slice(-8)?.toUpperCase() || orderId;
+
+    // Out-of-print (cancelled) line items are netted out of the order total. `order.total`
+    // already includes shipping, so payableTotal IS the all-in amount (no separate shipping add).
+    // Fallback (older cached payloads) nets the cancelled lines off the stored total.
+    const cancelledItemsCount = items.filter(it => String(it.status || '').toLowerCase() === 'cancelled').length;
+    const displayTotal = order.payableTotal != null
+        ? order.payableTotal
+        : Math.max(0, (order.total || 0) - items
+            .filter(it => String(it.status || '').toLowerCase() === 'cancelled')
+            .reduce((s, it) => s + (Number(it.price) || 0) * (Number(it.quantity) || 1), 0));
     const placedAt   = order.createdAt   || order.created_at;
     const shippedAt  = order.shippedAt   || order.shipped_at;
     const estDelivery = order.estimatedDelivery || order.estimated_delivery;
@@ -452,6 +465,8 @@ const OrderStatus = () => {
                             const activeStatus = item.status || order.status || 'pending';
                             const config = getStatusConfig(activeStatus);
                             const itemIsShipped = config.step >= 2;
+                            // Out-of-print line item: shown struck-through (like admin) and excluded from the invoice/charge
+                            const itemCancelled = String(item.status || '').toLowerCase() === 'cancelled';
 
                             // Tracking link
                             const trackingCode = item.trackingCode || item.tracking_code || item.tracking_id || '';
@@ -479,9 +494,14 @@ const OrderStatus = () => {
                                             </div>
                                             <div className="flex flex-col justify-center">
                                                 <span className="text-[10px] font-black text-primary uppercase tracking-widest mb-1">Item {idx + 1}</span>
-                                                <h4 className="text-base font-bold text-text-main mb-1 leading-snug line-clamp-2 font-montserrat">{productName}</h4>
-                                                <p className="font-black text-text-main text-lg">{formatAmount(item.price, order.currency)}</p>
+                                                <h4 className={`text-base font-bold mb-1 leading-snug line-clamp-2 font-montserrat ${itemCancelled ? 'text-gray-400 line-through' : 'text-text-main'}`}>{productName}</h4>
+                                                <p className={`font-black text-lg ${itemCancelled ? 'text-gray-400 line-through' : 'text-text-main'}`}>{formatAmount(item.price, order.currency)}</p>
                                                 {item.quantity > 1 && <p className="text-xs text-text-muted mt-0.5">Qty: {item.quantity}</p>}
+                                                {itemCancelled && (
+                                                    <span className="inline-block mt-1.5 text-[10px] font-black text-red-600 bg-red-50 border border-red-200 rounded px-1.5 py-0.5 uppercase tracking-wide">
+                                                        Out of print · excluded from invoice &amp; payment
+                                                    </span>
+                                                )}
 
                                                 {/* Courier + Track Package */}
                                                 {(courierName || trackingCode) && (
@@ -613,8 +633,13 @@ const OrderStatus = () => {
                         <div className="text-right">
                             <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Total Amount</p>
                             <p className="text-2xl font-black text-primary">
-                                {formatAmount((order.total || 0) + (order.shippingCost || order.shipping_cost || 0), order.currency)}
+                                {formatAmount(displayTotal, order.currency)}
                             </p>
+                            {cancelledItemsCount > 0 && (
+                                <p className="text-[10px] text-red-500 font-bold mt-0.5">
+                                    Adjusted — {cancelledItemsCount} out-of-print {cancelledItemsCount === 1 ? 'item' : 'items'} removed
+                                </p>
+                            )}
                         </div>
                     </div>
                 </div>

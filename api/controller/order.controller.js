@@ -406,6 +406,11 @@ export const getOrderById = async (req, res) => {
             }
         }
 
+        // Net-of-cancellation amounts (out-of-print items excluded) so the customer's
+        // account page / invoice match what is actually charged (api/lib/orderTotals.js).
+        order.payableTotal = payableTotal(order);
+        order.payableShipping = payableShipping(order);
+
         res.status(200).json({ status: true, data: order });
     } catch (error) {
         res.status(500).json({ status: false, msg: 'Server Error' });
@@ -443,6 +448,9 @@ export const guestTrackOrder = async (req, res) => {
         if (!order || orderEmail !== searchEmail) {
             return res.status(404).json({ status: false, msg: 'No order found matching that order number and email.' });
         }
+
+        order.payableTotal = payableTotal(order);
+        order.payableShipping = payableShipping(order);
 
         res.status(200).json({ status: true, data: order, orderId: order.id });
     } catch (error) {
@@ -670,8 +678,16 @@ export const getUserOrders = async (req, res) => {
             prisma.order.count({ where })
         ]);
 
+        // Attach net-of-cancellation amounts so the list total matches the order detail,
+        // the invoice and the amount charged (api/lib/orderTotals.js).
+        const data = orders.map((o) => ({
+            ...o,
+            payableTotal: payableTotal(o),
+            payableShipping: payableShipping(o),
+        }));
+
         res.status(200).json({
-            status: true, data: orders, total,
+            status: true, data, total,
             page, totalPages: Math.ceil(total / limit)
         });
     } catch (error) {
