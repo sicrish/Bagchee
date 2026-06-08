@@ -28,9 +28,12 @@ const escapeHtml = (str) => {
         .replace(/'/g, '&#39;');
 };
 
-const wrapInTemplate = (subject, bodyHtml, unsubscribeUrl = null) => {
+const wrapInTemplate = (subject, bodyHtml, unsubscribeUrl = null, campaignId = null) => {
     const frontendUrl = (process.env.FRONTEND_URL || 'https://www.bagchee.com').split(',')[0].trim();
     const privacyUrl = `${frontendUrl}/privacy-policy`;
+    // "View in Browser" opens the sent newsletter as a web page (public route). Falls back
+    // to the homepage when there's no campaign id yet (e.g. test sends).
+    const viewUrl = campaignId ? `${frontendUrl}/api/email-campaign/${campaignId}/view` : frontendUrl;
     return `
         <div style="font-family: 'Inter', Helvetica, Arial, sans-serif; background-color: ${theme.cream}; padding: 40px 0;">
             <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #e6decd;">
@@ -50,7 +53,7 @@ const wrapInTemplate = (subject, bodyHtml, unsubscribeUrl = null) => {
                     ${bodyHtml}
                 </div>
                 <div style="background-color: #fffdf5; padding: 20px; text-align: center; border-top: 1px solid #e6decd;">
-                    <p style="font-size: 11px; color: ${theme.textMuted}; margin: 0 0 8px;"><a href="${frontendUrl}" style="color: #008DDA; text-decoration: underline;">VIEW IN BROWSER</a></p>
+                    <p style="font-size: 11px; color: ${theme.textMuted}; margin: 0 0 8px;"><a href="${viewUrl}" style="color: #008DDA; text-decoration: underline;">VIEW IN BROWSER</a></p>
                     <p style="font-size: 11px; color: ${theme.textMuted}; margin: 0 0 6px;"><a href="${privacyUrl}" style="color: ${theme.textMuted}; text-decoration: underline;">Privacy Policy</a>${unsubscribeUrl ? ` &nbsp;|&nbsp; <a href="${unsubscribeUrl}" style="color: ${theme.textMuted}; text-decoration: underline;">Unsubscribe</a>` : ''}</p>
                     <p style="font-size: 12px; color: ${theme.textMuted}; margin: 0;">&copy; ${new Date().getFullYear()} Bagchee. All rights reserved.</p>
                 </div>
@@ -101,7 +104,7 @@ const sendToAudience = async (subject, bodyHtml, audience, specificEmails = [], 
                     // Every marketing email carries a working, per-recipient unsubscribe link
                     // (correct /newsletter-subs path + HMAC token — see api/lib/unsubscribe.js).
                     const unsubLink = unsubscribeUrl(email);
-                    const htmlContent = wrapInTemplate(escapeHtml(subject), bodyHtml, unsubLink);
+                    const htmlContent = wrapInTemplate(escapeHtml(subject), bodyHtml, unsubLink, campaignId);
                     return transporter.sendMail({
                         from: `"Bagchee" <${process.env.EMAIL_USER}>`,
                         to: email,
@@ -152,7 +155,7 @@ const sendToAudience = async (subject, bodyHtml, audience, specificEmails = [], 
             for (let i = 0; i < emails.length; i += SEND_BATCH) {
                 const batch = emails.slice(i, i + SEND_BATCH);
                 const results = await Promise.allSettled(batch.map(email => {
-                    const htmlContent = wrapInTemplate(escapeHtml(subject), bodyHtml, null);
+                    const htmlContent = wrapInTemplate(escapeHtml(subject), bodyHtml, null, campaignId);
                     return transporter.sendMail({
                         from: `"Bagchee" <${process.env.EMAIL_USER}>`,
                         to: email,
@@ -666,12 +669,33 @@ export const getCampaignPreviewHtml = async (req, res) => {
             select: { subject: true, body: true }
         });
         if (!campaign) return res.status(404).send('<p>Campaign not found</p>');
-        const html = wrapInTemplate(escapeHtml(campaign.subject), campaign.body);
+        const html = wrapInTemplate(escapeHtml(campaign.subject), campaign.body, null, parseInt(req.params.id));
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.send(html);
     } catch (error) {
         console.error('Campaign preview error:', error.message);
         res.status(500).send('<p>Error loading preview</p>');
+    }
+};
+
+/**
+ * GET /email-campaign/:id/view  (PUBLIC)
+ * Renders a sent newsletter as a standalone web page for the footer "View in Browser" link.
+ * Newsletter content is public marketing material, so no auth is required.
+ */
+export const viewCampaignInBrowser = async (req, res) => {
+    try {
+        const campaign = await prisma.scheduledEmail.findUnique({
+            where: { id: parseInt(req.params.id) },
+            select: { subject: true, body: true }
+        });
+        if (!campaign) return res.status(404).send('<p style="font-family:sans-serif;text-align:center;padding:40px;">Newsletter not found.</p>');
+        const html = wrapInTemplate(escapeHtml(campaign.subject), campaign.body, null, parseInt(req.params.id));
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.send(html);
+    } catch (error) {
+        console.error('Campaign view error:', error.message);
+        res.status(500).send('<p style="font-family:sans-serif;text-align:center;padding:40px;">Unable to load this newsletter.</p>');
     }
 };
 

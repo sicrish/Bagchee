@@ -35,10 +35,11 @@ const STRUCTURED_TEMPLATES = {
   },
   'new-arrivals': {
     name: 'Category New Arrivals',
-    description: '1–2 highlights + 12 books in 2-column grid + editable CTA',
+    description: '1–2 highlights + 14 books in 2-column grid + editable CTA',
     headings: [
       { key: 'mainHeading', label: 'Main Heading', default: 'New Arrivals' },
       { key: 'categoryName', label: 'Category Name', default: '' },
+      { key: 'subHeading', label: 'Second-tier Heading (optional, e.g. "New & Noteworthy")', default: '' },
       { key: 'introText', label: 'Intro Text (optional)', default: '', multiline: true },
       { key: 'ctaText', label: 'Bottom Button Text', default: 'Browse All New Arrivals →' },
       { key: 'ctaUrl', label: 'Bottom Button Link (URL)', default: `${FRONTEND_URL}/new-arrivals` },
@@ -52,6 +53,7 @@ const STRUCTURED_TEMPLATES = {
       { key: 'book7', label: 'Book 7' }, { key: 'book8', label: 'Book 8' },
       { key: 'book9', label: 'Book 9' }, { key: 'book10', label: 'Book 10' },
       { key: 'book11', label: 'Book 11' }, { key: 'book12', label: 'Book 12' },
+      { key: 'book13', label: 'Book 13' }, { key: 'book14', label: 'Book 14' },
     ],
     maxBanners: 2,
   },
@@ -124,6 +126,9 @@ const STRUCTURED_TEMPLATES = {
 };
 
 // ─── HTML generation helpers ──────────────────────────────────────────────────
+// Convert textarea newlines into email-safe line breaks (a blank line = paragraph gap).
+const nl2br = (text) => String(text || '').replace(/\r\n/g, '\n').replace(/\n/g, '<br/>');
+
 const buildBannerHtml = (banner, compact = false) => {
   if (!banner) return '';
   if (banner.type === 'promo' && banner.promoData) {
@@ -186,7 +191,7 @@ const buildBookCardSingleHighlight = (book) => {
   return `<table cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:520px;margin:0 auto 16px;border:2px solid #008DDA;border-radius:10px;overflow:hidden;font-family:Inter,Helvetica,Arial,sans-serif;">
   <tr>
     <td style="width:160px;padding:24px;background:#EBF7FD;text-align:center;vertical-align:top;">
-      ${img ? `<a href="${FRONTEND_URL}/books/${book.bagcheeId}/${book.slug || book.bagcheeId}" target="_blank"><img src="${img}" alt="${book.title}" width="130" style="display:block;margin:0 auto;border-radius:6px;max-height:190px;object-fit:cover;" /></a>` : '<div style="height:150px;"></div>'}
+      ${img ? `<a href="${FRONTEND_URL}/books/${book.bagcheeId}/${book.slug || book.bagcheeId}" target="_blank"><img src="${img}" alt="${book.title}" width="130" style="display:block;margin:0 auto;border-radius:6px;width:130px;max-width:100%;height:auto;" /></a>` : '<div style="height:150px;"></div>'}
     </td>
     <td style="padding:24px;vertical-align:middle;">
       <p style="font-size:20px;font-weight:700;color:#0B2F3A;margin:0 0 8px;line-height:1.3;">${book.title}</p>
@@ -274,7 +279,7 @@ const generateTemplateHtml = (templateType, headings, books, banners) => {
   }
 
   if (templateType === 'new-arrivals') {
-    const slots = ['book1','book2','book3','book4','book5','book6','book7','book8','book9','book10','book11','book12'];
+    const slots = ['book1','book2','book3','book4','book5','book6','book7','book8','book9','book10','book11','book12','book13','book14'];
     let rows = '';
     for (let i = 0; i < slots.length; i += 2) {
       const l = books[slots[i]]; const r = books[slots[i+1]];
@@ -287,9 +292,10 @@ const generateTemplateHtml = (templateType, headings, books, banners) => {
   ${topBanner}
   ${h.mainHeading ? `<h1 style="text-align:center;color:#0B2F3A;font-size:28px;margin:0 0 6px;">${h.mainHeading}</h1>` : ''}
   ${h.categoryName ? `<p style="text-align:center;color:#008DDA;font-size:14px;font-weight:700;margin:0 0 16px;text-transform:uppercase;letter-spacing:1px;">${h.categoryName}</p>` : ''}
-  ${h.introText ? `<p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 16px;">${h.introText}</p>` : ''}
+  ${h.introText ? `<p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 16px;">${nl2br(h.introText)}</p>` : ''}
   ${onlyOneHighlight ? buildBookCardSingleHighlight(books.highlight1) : ''}
   ${hasBothHighlights ? `<table cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-bottom:16px;"><tr>${buildBookCardHighlight(books.highlight1)}${buildBookCardHighlight(books.highlight2)}</tr></table>` : ''}
+  ${(h.subHeading && rows) ? `<h2 style="text-align:center;color:#0B2F3A;font-size:22px;font-weight:700;margin:28px 0 14px;">${h.subHeading}</h2>` : ''}
   ${rows ? `<table cellpadding="0" cellspacing="0" border="0" style="width:100%;">${rows}</table>` : ''}
   ${buildCtaButton(h.ctaText || 'Browse All New Arrivals →', h.ctaUrl || `${FRONTEND_URL}/new-arrivals`)}
   ${bottomBanner}
@@ -308,7 +314,7 @@ const generateTemplateHtml = (templateType, headings, books, banners) => {
   ${topBanner}
   ${h.mainHeading ? `<h1 style="text-align:center;color:#0B2F3A;font-size:26px;margin:0 0 6px;">${h.mainHeading}</h1>` : ''}
   ${h.subHeading ? `<p style="text-align:center;color:#666;font-size:15px;margin:0 0 8px;">${h.subHeading}</p>` : ''}
-  ${h.introText ? `<p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 16px;">${h.introText}</p>` : ''}
+  ${h.introText ? `<p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 16px;">${nl2br(h.introText)}</p>` : ''}
   <table cellpadding="0" cellspacing="0" border="0" style="width:100%;">${rows}</table>
   ${buildCtaButton(h.ctaText, h.ctaUrl)}
   ${bottomBanner}
@@ -322,7 +328,7 @@ const generateTemplateHtml = (templateType, headings, books, banners) => {
   ${topBanner}
   ${h.mainHeading ? `<h1 style="text-align:center;color:#0B2F3A;font-size:26px;margin:0 0 20px;">${h.mainHeading}</h1>` : ''}
   ${h.greeting ? `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px;">${h.greeting}</p>` : ''}
-  ${h.introText ? `<p style="color:#555;font-size:14px;line-height:1.7;margin:0 0 20px;">${h.introText}</p>` : ''}
+  ${h.introText ? `<p style="color:#555;font-size:14px;line-height:1.7;margin:0 0 20px;">${nl2br(h.introText)}</p>` : ''}
   ${booksHtml}
   ${h.outroText ? `<p style="color:#555;font-size:14px;line-height:1.7;margin:16px 0 0;">${h.outroText.replace(/\n/g, '<br/>')}</p>` : ''}
   ${bottomBanner}
@@ -342,7 +348,7 @@ const generateTemplateHtml = (templateType, headings, books, banners) => {
   ${h.mainHeading ? `<h1 style="text-align:center;color:#0B2F3A;font-size:28px;margin:0 0 8px;">${h.mainHeading}</h1>` : ''}
   ${h.subHeading ? `<p style="text-align:center;color:#666;font-size:16px;margin:0 0 16px;">${h.subHeading}</p>` : ''}
   ${h.greeting ? `<p style="color:#555;font-size:15px;line-height:1.7;margin:0 0 12px;">${h.greeting}</p>` : ''}
-  ${h.introText ? `<p style="color:#555;font-size:14px;line-height:1.7;margin:0 0 20px;">${h.introText}</p>` : ''}
+  ${h.introText ? `<p style="color:#555;font-size:14px;line-height:1.7;margin:0 0 20px;">${nl2br(h.introText)}</p>` : ''}
   ${books.featured ? buildBookCardLarge(books.featured) : ''}
   ${rows ? `<table cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-top:20px;">${rows}</table>` : ''}
   ${h.outroText ? `<p style="color:#555;font-size:14px;line-height:1.7;margin:24px 0 0;">${h.outroText.replace(/\n/g, '<br/>')}</p>` : ''}
