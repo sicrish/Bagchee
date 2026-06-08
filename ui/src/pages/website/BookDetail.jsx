@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
 import { Helmet } from 'react-helmet-async';
+import { createPortal } from 'react-dom';
 import { createSafeHtml } from '../../utils/sanitize';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
@@ -48,6 +49,19 @@ const BookDetail = () => {
 
   const [settings, setSettings] = useState(null);
   const [showShipInfo, setShowShipInfo] = useState(false); // free-shipping info popover (#1)
+
+  // Close the shipping-info modal on Escape, and lock body scroll while it's open.
+  useEffect(() => {
+    if (!showShipInfo) return;
+    const onKey = (e) => { if (e.key === 'Escape') setShowShipInfo(false); };
+    document.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [showShipInfo]);
 
 
 
@@ -411,6 +425,12 @@ const BookDetail = () => {
   const isOutOfStock = book.stock === 'inactive' || book.availability === 0;
   const isLowStock = !isOutOfStock && book.availability > 0 && book.availability <= 5;
   const isUpcoming = book.upcoming === true;
+  // API returns camelCase `upcomingDate`; keep snake_case fallback. Format in UTC so the
+  // stored midnight-UTC release date shows the same calendar day for every viewer's timezone.
+  const upcomingDateRaw = book.upcomingDate ?? book.upcoming_date;
+  const upcomingReleaseStr = upcomingDateRaw
+    ? new Date(upcomingDateRaw).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
+    : '';
 
   // ─── IMAGE URL LOGIC UPDATE ───
   // Backend URL ko env file se nikaalein taaki image paths complete ho sakein
@@ -829,7 +849,7 @@ const BookDetail = () => {
           <div className="lg:sticky lg:top-6 lg:self-start">
 
             {/* 🟢 Step 1: Membership Promo Box */}
-            {!isOutOfStock && !isUpcoming && (
+            {(isUpcoming || !isOutOfStock) && (
               <MembershipPromoBox
                 formatPrice={formatPrice}
                 isChecked={membershipAdded}
@@ -838,8 +858,8 @@ const BookDetail = () => {
             )}
             <div className="bg-cream-100 border border-gray-200 rounded p-4 space-y-4 shadow-sm">
 
-              {/* 1. Out of Stock: show newsletter */}
-              {isOutOfStock ? (
+              {/* 1. Out of Stock: show newsletter (pre-order books skip this and go straight to the buy flow) */}
+              {(isOutOfStock && !isUpcoming) ? (
                 <NewsletterBox
                   email={newsEmail}
                   setEmail={setNewsEmail}
@@ -871,13 +891,18 @@ const BookDetail = () => {
                     </div>
                   </div>
 
-                  {/* Stock Status Badge — hidden for Indian IPs */}
-                  {!isIndia && (
+                  {/* Pre-order books show the release date here; everyone else sees the stock badge (hidden for Indian IPs) */}
+                  {isUpcoming ? (
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-600">
+                      <CalendarDays className="w-4 h-4" />
+                      <span>{upcomingReleaseStr ? `This item will be released on ${upcomingReleaseStr}` : 'Available for pre-order'}</span>
+                    </div>
+                  ) : !isIndia ? (
                     <div className={`flex items-center gap-1.5 text-xs font-semibold ${isLowStock ? 'text-orange-600' : 'text-green-600'}`}>
                       {isLowStock ? <AlertTriangle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
                       <span>{isLowStock ? `Only ${book.availability} left — order soon!` : 'In Stock'}</span>
                     </div>
-                  )}
+                  ) : null}
 
                   {/* Delivery Info — hidden for Indian IPs (worldwide-shipping msg not relevant) */}
                   {!isUpcoming && !isIndia && (
@@ -887,36 +912,15 @@ const BookDetail = () => {
                         <p className="text-xs text-gray-700 leading-tight whitespace-nowrap">
                           FREE delivery worldwide over ${settings?.freeShippingOver || settings?.free_shipping_over || 60}
                         </p>
-                        {/* Info icon + popover — opens on hover or click; amount is settings-driven in both spots (#1) */}
-                        <div
-                          className="relative shrink-0"
-                          onMouseEnter={() => setShowShipInfo(true)}
-                          onMouseLeave={() => setShowShipInfo(false)}
+                        {/* Info icon — opens a centered, scrollable modal (works on mobile + desktop). #1 */}
+                        <button
+                          type="button"
+                          onClick={() => setShowShipInfo(true)}
+                          aria-label="Free worldwide shipping details"
+                          className="flex items-center shrink-0 text-primary hover:text-primary-dark focus:outline-none"
                         >
-                          <button
-                            type="button"
-                            onClick={() => setShowShipInfo((v) => !v)}
-                            aria-label="Free worldwide shipping details"
-                            className="flex items-center text-primary hover:text-primary-dark focus:outline-none"
-                          >
-                            <Info className="w-3.5 h-3.5" />
-                          </button>
-                          {showShipInfo && (
-                            <div className="absolute right-0 top-6 z-50 w-72 sm:w-80 bg-white border border-gray-200 rounded-lg shadow-xl p-4 text-left text-[11px] leading-relaxed text-gray-700 max-h-80 overflow-y-auto">
-                              <p className="font-bold text-sm text-text-main mb-1">Free Worldwide Shipping</p>
-                              <p className="mb-2">All orders totaling ${settings?.freeShippingOver || settings?.free_shipping_over || 60} or more qualify for Free Standard Shipping Worldwide.</p>
-                              <p className="font-semibold text-gray-900 mb-1">What do I have to do?</p>
-                              <ul className="list-disc pl-4 mb-2 space-y-0.5">
-                                <li>Place at least ${settings?.freeShippingOver || settings?.free_shipping_over || 60} of items in your shopping bag.</li>
-                                <li>Proceed to Checkout; "Standard Delivery" will be pre-selected.</li>
-                                <li>Complete your Checkout.</li>
-                              </ul>
-                              <p className="font-semibold text-gray-900 mb-1">When should I expect to receive my purchase?</p>
-                              <p className="mb-2">We do our best to estimate delivery dates for your purchase. The total delivery time for your Bagchee.com order to arrive is a combination of the shipping availability time and delivery time. The shipping availability time tells you how quickly products are expected to be ready to leave our warehouses; this shipping availability is provided on the Bagchee.com product detail page. The Free worldwide Shipping delivery time of 15-18 business days is the time in transit once your package has left our warehouse. For example, when an item is marked "Ships in 2 days," this means the order will leave our warehouse within 48 hours and will arrive within 15-18 business days of leaving our warehouse.</p>
-                              <p>Delivery times are not guaranteed. Sometimes the availability of the items in your order may change while we are processing your order. In this event, you will receive an email notifying you of a delay, and the remaining eligible items in your order will be shipped as scheduled.</p>
-                            </div>
-                          )}
-                        </div>
+                          <Info className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                       <div className="flex items-center gap-2">
                         <Truck className="w-4 h-4 text-primary shrink-0" />
@@ -934,25 +938,71 @@ const BookDetail = () => {
                     </div>
                   )}
 
-                  {/* 3. Action Section: Upcoming vs Normal Selling */}
-                  {isUpcoming ? (
-                    <div className="space-y-2">
-                      <button
-                        onClick={() => toast.success("We'll notify you on release!")}
-                        className="w-full py-3 bg-accent text-white font-bold font-montserrat uppercase text-sm rounded hover:bg-yellow-500 transition-colors shadow-md active:scale-95"
+                  {/* Free-shipping info modal — centered overlay, fully scrollable on mobile & desktop (#1) */}
+                  {showShipInfo && createPortal((
+                    <div
+                      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4"
+                      onClick={() => setShowShipInfo(false)}
+                      role="dialog"
+                      aria-modal="true"
+                      aria-label="Free Worldwide Shipping details"
+                    >
+                      <div
+                        className="relative bg-white rounded-lg shadow-2xl w-full max-w-md max-h-[85vh] overflow-y-auto p-5 pt-12 text-left text-[13px] leading-relaxed text-gray-700"
+                        onClick={(e) => e.stopPropagation()}
                       >
-                        Pre-Order Request
-                      </button>
-                      {book.upcoming_date && (
-                        <p className="text-[11px] text-center text-gray-500 font-medium">
-                          Release Date: {new Date(book.upcoming_date).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
-                        </p>
-                      )}
+                        <button
+                          type="button"
+                          onClick={() => setShowShipInfo(false)}
+                          aria-label="Close"
+                          className="absolute top-3 right-3 p-1 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 focus:outline-none"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                        <p className="font-bold text-base text-text-main mb-2">Free Worldwide Shipping</p>
+                        <p className="mb-3">All orders totaling ${settings?.freeShippingOver || settings?.free_shipping_over || 60} or more qualify for Free Standard Shipping Worldwide.</p>
+                        <p className="font-semibold text-gray-900 mb-1">What do I have to do?</p>
+                        <ul className="list-disc pl-5 mb-3 space-y-1">
+                          <li>Place at least ${settings?.freeShippingOver || settings?.free_shipping_over || 60} of items in your shopping bag.</li>
+                          <li>Proceed to Checkout; "Standard Delivery" will be pre-selected.</li>
+                          <li>Complete your Checkout.</li>
+                        </ul>
+                        <p className="font-semibold text-gray-900 mb-1">When should I expect to receive my purchase?</p>
+                        <p className="mb-3">We do our best to estimate delivery dates for your purchase. The total delivery time for your Bagchee.com order to arrive is a combination of the shipping availability time and delivery time. The shipping availability time tells you how quickly products are expected to be ready to leave our warehouses; this shipping availability is provided on the Bagchee.com product detail page. The Free worldwide Shipping delivery time of 15-18 business days is the time in transit once your package has left our warehouse. For example, when an item is marked "Ships in 2 days," this means the order will leave our warehouse within 48 hours and will arrive within 15-18 business days of leaving our warehouse.</p>
+                        <p>Delivery times are not guaranteed. Sometimes the availability of the items in your order may change while we are processing your order. In this event, you will receive an email notifying you of a delay, and the remaining eligible items in your order will be shipped as scheduled.</p>
+                      </div>
                     </div>
-                  ) : isIndia ? (
+                  ), document.body)}
+
+                  {/* 3. Action Section: India / Pre-Order / Normal Selling */}
+                  {isIndia ? (
                     <div className="p-4 bg-cream-50 border border-cream-200 rounded-lg text-sm text-text-main font-body">
                       If you wish to buy or need information of this book,{' '}
                       <Link to="/contact-us" className="text-primary font-bold hover:underline">contact us</Link>.
+                    </div>
+                  ) : isUpcoming ? (
+                    /* Pre-Order: same purchase flow as a normal book — adds to cart, full checkout, all payment options */
+                    <div className="space-y-2">
+                      <button
+                        onClick={() => {
+                          addToCart(book)
+                          toast.success("Added to Cart Successfully!")
+                        }}
+                        className="w-full py-3 bg-primary hover:bg-primary-dark text-white font-bold uppercase text-sm rounded shadow-md transition-all active:scale-95 flex items-center justify-center gap-2"
+                      >
+                        <ShoppingCart size={16} /> Pre-Order
+                      </button>
+                      <button
+                        onClick={() => { addToCart(book); navigate("/checkout"); }}
+                        className="w-full py-3 bg-accent hover:bg-yellow-500 text-white font-bold uppercase text-sm rounded shadow-md transition-all active:scale-95"
+                      >
+                        Buy Now
+                      </button>
+                      {upcomingReleaseStr && (
+                        <p className="text-[11px] text-center text-gray-500 font-medium">
+                          Release Date: {upcomingReleaseStr}
+                        </p>
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-3">

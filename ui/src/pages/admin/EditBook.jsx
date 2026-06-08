@@ -163,7 +163,7 @@ const EditBook = () => {
             const [catRes, langRes, tagRes, authRes, fmtRes, serRes, pubRes, setRes, bookRes] = await Promise.all([
                 axios.get(`${API_URL}/category/fetch?withCounts=true&withProducts=true`),
                 axios.get(`${API_URL}/languages/list`),
-                axios.get(`${API_URL}/tags/list`),
+                axios.get(`${API_URL}/tags/list?limit=1000`), // ALL tags (endpoint defaults to 25/page)
                 Promise.resolve({ data: { data: [] } }),
                 axios.get(`${API_URL}/formats/list`),
                 axios.get(`${API_URL}/series/list?limit=1000`),

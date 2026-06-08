@@ -334,7 +334,9 @@ export const getAllOrders = async (req, res) => {
             if (!isNaN(cId)) conditions.push({ customerId: cId });
         }
 
-        if (status && status !== 'All') conditions.push({ status });
+        // Case-insensitive partial match so admin can type "shipped" and catch
+        // "Partially Shipped", "in progress" → "In progress", etc.
+        if (status && status !== 'All') conditions.push({ status: { contains: status, mode: 'insensitive' } });
 
         if (search) {
             const numericId = parseInt(search);

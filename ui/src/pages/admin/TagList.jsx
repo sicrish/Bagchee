@@ -78,13 +78,14 @@ const handlePrint = () => window.print();
   // 🟢 Filtering Logic (Performance Optimized)
   const filteredTags = useMemo(() => {
     return tags.filter((tag, index) => {
-      const displayId = (index + 1).toString();
+      // Continuous serial across pages (page 2 → 11..20), matching what's displayed.
+      const displayId = ((currentPage - 1) * itemsPerPage + index + 1).toString();
       const matchesId = displayId.includes(idSearch);
       const matchesTitle = (tag.title || "").toLowerCase().includes(searchTerm.toLowerCase());
-      
+
       return matchesId && matchesTitle;
     });
-  }, [tags, searchTerm, idSearch]);
+  }, [tags, searchTerm, idSearch, currentPage, itemsPerPage]);
 
   const clearFilters = () => {
     setSearchTerm("");
@@ -197,7 +198,7 @@ const handlePrint = () => window.print();
                     <td className="p-3 border-r border-cream-50">
                        <div className="flex items-center gap-5 px-1">
                           <input type="checkbox" className="h-4 w-4 rounded accent-primary cursor-pointer shrink-0" />
-                          <span className="text-text-muted text-xs font-bold w-full text-center">{index + 1}</span>
+                          <span className="text-text-muted text-xs font-bold w-full text-center">{(currentPage - 1) * itemsPerPage + tags.indexOf(tag) + 1}</span>
                        </div>
                     </td>
                     <td className="p-3 border-r border-cream-50 text-text-main font-medium">{tag.title}</td>

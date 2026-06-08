@@ -13,7 +13,7 @@ const Categories = () => {
       try {
         const [catRes, tagRes] = await Promise.all([
           axios.get('/category/fetch'),
-          axios.get('/tags/list'),
+          axios.get('/tags/list?limit=1000'), // fetch ALL tags (endpoint defaults to 25/page)
         ]);
         if (catRes.data.status) {
           const rawData = (catRes.data.data || catRes.data.categories || []);

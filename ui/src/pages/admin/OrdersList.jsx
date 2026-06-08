@@ -10,6 +10,21 @@ import toast from 'react-hot-toast';
 import { exportToExcel } from '../../utils/exportExcel.js';
 import {useConfirm} from '../../context/ConfirmContext.jsx'
 
+// Distinct colour per order status so each is identifiable at a glance on the orders list.
+const statusBadgeClass = (raw) => {
+  const s = String(raw || '').toLowerCase();
+  if (s.includes('cancel'))                            return 'bg-red-100 text-red-700';       // Cancelled / Google cancelled
+  if (s.includes('ship'))                              return 'bg-green-100 text-green-700';    // Shipped / Partially Shipped
+  if (s.includes('deliver'))                           return 'bg-teal-100 text-teal-700';      // Delivered
+  if (s.includes('complet'))                           return 'bg-purple-100 text-purple-700';  // Completed
+  if (s.includes('progress') || s.includes('process')) return 'bg-blue-100 text-blue-700';      // In progress / processing
+  if (s.includes('confirm'))                           return 'bg-indigo-100 text-indigo-700';  // Confirmed
+  if (s.includes('hold'))                              return 'bg-slate-200 text-slate-700';    // On hold
+  if (s.includes('pend') || s.includes('new') || s.includes('not yet') || s.includes('approval'))
+                                                       return 'bg-amber-100 text-amber-700';    // pending / new / not yet ordered / approval pending
+  return 'bg-gray-100 text-gray-700';                                                            // anything else
+};
+
 const OrdersList = () => {
   const navigate = useNavigate();
     const {confirm}=useConfirm()
@@ -26,6 +41,7 @@ const OrdersList = () => {
   const [globalSearch, setGlobalSearch] = useState(() => searchParams.get('search') || "");
   const [totalOrders, setTotalOrders] = useState(0);
   const searchDebounceRef = useRef(null);
+  const statusDebounceRef = useRef(null); // debounce for the server-side status filter
   const latestReqRef = useRef(0); // guards against out-of-order list responses
 
   // 🟢 1. Filtering States
@@ -39,7 +55,7 @@ const OrdersList = () => {
     payment_status: ""
   });
 
-  const fetchOrders = async (exportMode = false, searchOverride = undefined) => {
+  const fetchOrders = async (exportMode = false, searchOverride = undefined, statusOverride = undefined) => {
     // Tag each list request; only the latest one is allowed to update state. This
     // stops a slow initial (unfiltered) load from landing after a fast search and
     // clobbering it with the wrong rows / "12939 results for coin" total.
@@ -49,10 +65,15 @@ const OrdersList = () => {
       const API_URL = process.env.REACT_APP_API_URL;
       const searchTerm = searchOverride !== undefined ? searchOverride : globalSearch;
       const searchParam = searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : '';
+      // Status filter is resolved server-side so typing "shipped" surfaces ALL shipped
+      // orders across every page, not just rows already loaded. statusOverride lets a
+      // caller bypass not-yet-committed state (e.g. clear-filters).
+      const statusTerm = statusOverride !== undefined ? statusOverride : filters.status;
+      const statusParam = statusTerm ? `&status=${encodeURIComponent(statusTerm)}` : '';
 
       const url = exportMode
-        ? `${API_URL}/orders/list?limit=100000${searchParam}`
-        : `${API_URL}/orders/list?page=${currentPage}&limit=${itemsPerPage}${searchParam}`;
+        ? `${API_URL}/orders/list?limit=100000${searchParam}${statusParam}`
+        : `${API_URL}/orders/list?page=${currentPage}&limit=${itemsPerPage}${searchParam}${statusParam}`;
 
       const res = await axios.get(url);
       if (!exportMode && reqId !== latestReqRef.current) return; // superseded — drop it
@@ -136,14 +157,26 @@ const OrdersList = () => {
 
 
   const handleFilterChange = (e) => {
-    setFilters({ ...filters, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFilters((prev) => ({ ...prev, [name]: value }));
+    // The Status column hits the server so it returns ALL matching orders across every
+    // page (not just rows already loaded). Debounced + page-reset like the main search.
+    if (name === 'status') {
+      setCurrentPage(1);
+      clearTimeout(statusDebounceRef.current);
+      statusDebounceRef.current = setTimeout(() => {
+        fetchOrders(false, undefined, value);
+      }, 400);
+    }
   };
 
   const clearFilters = () => {
+    clearTimeout(searchDebounceRef.current);
+    clearTimeout(statusDebounceRef.current);
     setFilters({ id: "", date: "", type: "", customer: "", total: "", status: "", payment_status: "" });
     setGlobalSearch("");
     setCurrentPage(1);
-    fetchOrders(false, "");
+    fetchOrders(false, "", "");
   };
 
   const handleDelete = async (id) => {
@@ -420,7 +453,7 @@ const handleExport = async () => {
                     </td>
                     <td className="p-3 border-r border-cream-50 text-text-main font-bold">{Number(order.total || 0).toFixed(2)}</td>
                     <td className="p-3 border-r border-cream-50 text-text-main">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${statusVal.toLowerCase() === 'completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${statusBadgeClass(statusVal)}`}>
                         {statusVal}
                       </span>
                     </td>

@@ -164,7 +164,7 @@ const AddBook = () => {
             const [catRes, langRes, tagRes, authRes, fmtRes, serRes, pubRes, setRes] = await Promise.all([
                 axios.get(`${API_URL}/category/fetch?withCounts=true&withProducts=true`),
                 axios.get(`${API_URL}/languages/list`),
-                axios.get(`${API_URL}/tags/list`),
+                axios.get(`${API_URL}/tags/list?limit=1000`), // ALL tags (endpoint defaults to 25/page)
                 axios.get(`${API_URL}/authors/list?limit=200`),
                 axios.get(`${API_URL}/formats/list`),
                 axios.get(`${API_URL}/series/list?limit=1000`),
