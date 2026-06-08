@@ -998,11 +998,6 @@ const BookDetail = () => {
                       >
                         Buy Now
                       </button>
-                      {upcomingReleaseStr && (
-                        <p className="text-[11px] text-center text-gray-500 font-medium">
-                          Release Date: {upcomingReleaseStr}
-                        </p>
-                      )}
                     </div>
                   ) : (
                     <div className="space-y-3">

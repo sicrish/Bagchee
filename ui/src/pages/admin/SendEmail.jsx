@@ -291,8 +291,8 @@ const generateTemplateHtml = (templateType, headings, books, banners) => {
     return `<div style="font-family:Inter,Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;">
   ${topBanner}
   ${h.mainHeading ? `<h1 style="text-align:center;color:#0B2F3A;font-size:28px;margin:0 0 6px;">${h.mainHeading}</h1>` : ''}
-  ${h.categoryName ? `<p style="text-align:center;color:#008DDA;font-size:14px;font-weight:700;margin:0 0 16px;text-transform:uppercase;letter-spacing:1px;">${h.categoryName}</p>` : ''}
   ${h.introText ? `<p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 16px;">${nl2br(h.introText)}</p>` : ''}
+  ${h.categoryName ? `<p style="text-align:center;color:#008DDA;font-size:22px;font-weight:800;margin:0 0 16px;text-transform:uppercase;letter-spacing:1px;">${h.categoryName}</p>` : ''}
   ${onlyOneHighlight ? buildBookCardSingleHighlight(books.highlight1) : ''}
   ${hasBothHighlights ? `<table cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-bottom:16px;"><tr>${buildBookCardHighlight(books.highlight1)}${buildBookCardHighlight(books.highlight2)}</tr></table>` : ''}
   ${(h.subHeading && rows) ? `<h2 style="text-align:center;color:#0B2F3A;font-size:22px;font-weight:700;margin:28px 0 14px;">${h.subHeading}</h2>` : ''}
