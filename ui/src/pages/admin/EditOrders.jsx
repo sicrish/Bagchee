@@ -805,6 +805,35 @@ ${bankDetails}
   const inputClass = "w-full border border-gray-300 rounded px-3 py-1.5 text-[12px] outline-none transition-all focus:border-primary bg-white focus:ring-1 focus:ring-primary/20 font-body text-text-main";
   const dropdownClass = "w-1/3 border border-gray-300 rounded px-3 py-1.5 text-[12px] outline-none transition-all focus:border-primary bg-white focus:ring-1 focus:ring-primary/20 text-gray-600";
 
+  // Options for the main order-status <select>. /order-status/list omits the code-generated
+  // "Approval pending" status, and orders store the pending statuses lowercase ('payment
+  // pending') while the DB option is 'Payment pending' — a case mismatch that left the box
+  // blank. So: ensure both pending statuses exist (case-insensitive de-dupe keeps the DB
+  // list authoritative), inject the order's current status only if still unlisted, and bind
+  // the <select> to whichever option matches the stored status case-INsensitively.
+  const statusOptions = useMemo(() => {
+    const out = [];
+    const seen = new Set();
+    const add = (value, label) => {
+      if (!value) return;
+      const key = String(value).toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push({ value, label: label || value });
+    };
+    orderStatuses.forEach((st) => add(st.name));
+    add('approval pending', 'Approval Pending');
+    add('payment pending', 'Payment Pending');
+    add(formData.status, formData.status); // current status, only if no case-insensitive match above
+    return out;
+  }, [orderStatuses, formData.status]);
+
+  // The stored status ('payment pending') may differ only in case from its option
+  // ('Payment pending'); match case-insensitively so the box shows it instead of blank.
+  const selectedStatusValue =
+    (statusOptions.find((o) => o.value.toLowerCase() === String(formData.status || '').toLowerCase()) || {}).value
+    ?? formData.status;
+
   if (fetching) {
     return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary" size={40} /></div>
   }
@@ -1234,10 +1263,10 @@ ${bankDetails}
             <div className="grid grid-cols-12 gap-4 items-center">
               <label className={labelClass}>Status</label>
               <div className="col-span-9">
-                <select name="status" value={formData.status} onChange={handleChange} className={dropdownClass}>
+                <select name="status" value={selectedStatusValue} onChange={handleChange} className={dropdownClass}>
                   <option value="">Select Status</option>
-                  {orderStatuses.map((st) => (
-                    <option key={st.id || st.id || st._id} value={st.name}>{st.name}</option>
+                  {statusOptions.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
                   ))}
                 </select>
               </div>
