@@ -12,15 +12,17 @@ import { Search, X, Loader2 } from 'lucide-react';
  * Props:
  *   value        - selected customer id ('' when none)
  *   initialLabel - name/email to show for an already-selected customer (edit page)
+ *   guestLabel   - shown for guest-checkout orders that have no user record (e.g. "Guest Customer — …")
  *   onChange      - (customerId, customerObj|null) => void
  *   className     - styling for the text input (pass the page's inputClass)
  */
-const CustomerSelect = ({ value, initialLabel = '', onChange, className = '' }) => {
+const CustomerSelect = ({ value, initialLabel = '', guestLabel = '', onChange, className = '' }) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [label, setLabel] = useState(initialLabel);
+  const [assigning, setAssigning] = useState(false); // guest order: admin opted to attach a real customer
   const debounceRef = useRef(null);
   const boxRef = useRef(null);
 
@@ -77,6 +79,19 @@ const CustomerSelect = ({ value, initialLabel = '', onChange, className = '' }) 
         <span className="truncate text-text-main">{label}</span>
         <button type="button" onClick={handleClear} className="text-gray-400 hover:text-red-500 shrink-0" title="Change customer">
           <X size={15} />
+        </button>
+      </div>
+    );
+  }
+
+  // Guest-checkout order (no user record): show a "Guest Customer" badge so the order is still
+  // saveable, with an option to attach a real customer if the admin wants to.
+  if (guestLabel && !value && !assigning) {
+    return (
+      <div className={`${className} flex items-center justify-between gap-2`}>
+        <span className="truncate italic text-gray-500">{guestLabel}</span>
+        <button type="button" onClick={() => setAssigning(true)} className="text-[11px] text-blue-600 hover:underline shrink-0" title="Attach a registered customer">
+          Assign customer
         </button>
       </div>
     );

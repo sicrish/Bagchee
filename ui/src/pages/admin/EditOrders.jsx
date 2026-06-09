@@ -187,6 +187,7 @@ const EditOrders = () => {
 
   // Dropdown Data
   const [customerLabel, setCustomerLabel] = useState(''); // display name for the selected customer
+  const [guestLabel, setGuestLabel] = useState('');       // "Guest Customer — …" for guest-checkout orders (no user record)
   const [productsList, setProductsList] = useState([]);
   const [coupons, setCoupons] = useState([]);
   const [paymentMethods, setPaymentMethods] = useState([]);
@@ -292,6 +293,13 @@ const EditOrders = () => {
             || [d.shippingFirstName, d.shippingLastName].filter(Boolean).join(' ')
             || d.shippingEmail || d.customer?.email || ''
           );
+
+          // Guest-checkout orders have no user record (customerId null) — there's nothing to
+          // search for in the customer box, which previously blocked saving. Surface them as
+          // "Guest Customer" (with the shipping name/email if any) so the order stays saveable.
+          const isGuest = !(d.customerId || d.customer?.id || d.customer_id);
+          const guestWho = [d.shippingFirstName, d.shippingLastName].filter(Boolean).join(' ') || d.shippingEmail || '';
+          setGuestLabel(isGuest ? ('Guest Customer' + (guestWho ? ` — ${guestWho}` : '')) : '');
 
           const formattedDate = d.createdAt ? new Date(d.createdAt).toISOString().slice(0, 16) : '';
 
@@ -472,7 +480,8 @@ const EditOrders = () => {
   // --- Submit Logic (Update) ---
   const handleSubmit = async (e, actionType) => {
     e.preventDefault();
-    if (!formData.customer_id) return toast.error("Customer is required!");
+    // Guest-checkout orders legitimately have no customer record — only block when it's not a guest.
+    if (!formData.customer_id && !guestLabel) return toast.error("Customer is required!");
 
 
     setLoading(true);
@@ -1025,6 +1034,7 @@ ${bankDetails}
                 <CustomerSelect
                   value={formData.customer_id}
                   initialLabel={customerLabel}
+                  guestLabel={guestLabel}
                   onChange={(cid) => setFormData(prev => ({ ...prev, customer_id: cid }))}
                   className={inputClass}
                 />
