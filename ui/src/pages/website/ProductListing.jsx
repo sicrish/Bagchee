@@ -305,6 +305,13 @@ const ProductListing = ({ type }) => {
                 // 🟢 STEP 3: Common filters for all API calls
                 if (categoryIds.length > 0) {
                     query.append('categories', categoryIds.join(','));
+                    // Category page: when the customer ticks 2+ sub-category checkboxes, narrow to
+                    // books filed under ALL of them (intersection) rather than any of them. Only
+                    // when sub-cats were actually ticked (filters.categories) — the parent-slug
+                    // fallback ids must stay union (duplicate same-slug categories).
+                    if (type === 'category' && filters.categories.length > 1) {
+                        query.append('categoriesMatchAll', 'true');
+                    }
                 }
                 if (filters.formats.length) query.append('formats', filters.formats.join(','));
 

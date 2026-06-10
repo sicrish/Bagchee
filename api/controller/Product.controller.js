@@ -78,7 +78,7 @@ const buildWhereClause = (query, { includeInactive = false } = {}) => {
     if (!includeInactive) conditions.push({ isActive: true });
 
     const {
-        keyword, minPrice, maxPrice, categoryId, categories,
+        keyword, minPrice, maxPrice, categoryId, categories, categoriesMatchAll,
         formats, languages, authors, publishers, series, tag, tags,
         title, bagchee_id, isbn10, isbn13, product_type,
         isFeatured, isNewRelease, isRecommended, isExclusive,
@@ -120,10 +120,27 @@ const buildWhereClause = (query, { includeInactive = false } = {}) => {
 
     if (categories) {
         const ids = categories.split(',').map(c => parseInt(c.trim())).filter(n => !isNaN(n));
-        if (ids.length) conditions.push({ OR: [
-            { leadingCategoryId: { in: ids } },
-            { categories: { some: { categoryId: { in: ids } } } }
-        ]});
+        if (ids.length) {
+            // "book belongs to category X" — matches its leading category OR a tagged category
+            const inCategory = (id) => ({ OR: [
+                { leadingCategoryId: id },
+                { categories: { some: { categoryId: id } } }
+            ]});
+            if (categoriesMatchAll === 'true' && ids.length > 1) {
+                // Intersection (AND): book must belong to EVERY selected category. Used when a
+                // customer ticks multiple sub-category checkboxes and wants only the books filed
+                // under all of them. Opt-in via ?categoriesMatchAll=true — the DEFAULT below stays
+                // OR/union because the category-page parent-slug fallback unions duplicate
+                // same-slug category rows, and Sale/related/etc. expect union too.
+                ids.forEach(id => conditions.push(inCategory(id)));
+            } else {
+                // Union (default): book in ANY of the selected categories.
+                conditions.push({ OR: [
+                    { leadingCategoryId: { in: ids } },
+                    { categories: { some: { categoryId: { in: ids } } } }
+                ]});
+            }
+        }
     } else if (categoryId) {
         const cId = parseInt(categoryId);
         if (!isNaN(cId)) conditions.push({ OR: [
