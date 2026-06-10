@@ -147,10 +147,23 @@ const buildBannerHtml = (banner, compact = false) => {
 </div>` : '';
 };
 
+// Newsletters are ONE email blasted to all subscribers (no per-recipient geo),
+// so prices must ALWAYS be in USD — never the India-only `inrPrice`. Show the
+// final selling price (realPrice when it's a genuine discount), else list price.
+const bookUsdPrice = (book) => {
+  if (!book) return '';
+  const listN = Number(book.price) || 0;
+  const realRaw = book.realPrice ?? book.real_price;
+  const realN = Number(realRaw) || 0;
+  const useReal = realN > 0 && (listN === 0 || realN < listN);
+  const val = useReal ? realRaw : book.price;
+  return (Number(val) || 0) > 0 ? `$${val}` : '';
+};
+
 const buildBookCardSmall = (book) => {
   if (!book) return `<td style="width:50%;padding:6px;vertical-align:top;"><div style="background:#f5f5f5;border-radius:6px;padding:20px;text-align:center;min-height:80px;"><p style="color:#aaa;font-size:11px;margin:0;">No book</p></div></td>`;
   const img = getProductImageUrl(book);
-  const price = book.inrPrice ? `₹${book.inrPrice}` : (book.price ? `$${book.price}` : '');
+  const price = bookUsdPrice(book);
   return `<td style="width:50%;padding:6px;vertical-align:top;">
 <table cellpadding="0" cellspacing="0" border="0" style="width:100%;border:1px solid #e6decd;border-radius:6px;overflow:hidden;font-family:Inter,Helvetica,Arial,sans-serif;">
   <tr><td style="padding:10px;text-align:center;background:#fafaf8;">
@@ -168,7 +181,7 @@ const buildBookCardSmall = (book) => {
 const buildBookCardLarge = (book) => {
   if (!book) return `<div style="background:#f5f5f5;border-radius:8px;padding:30px;text-align:center;max-width:520px;margin:0 auto;"><p style="color:#aaa;font-size:13px;margin:0;">No book selected</p></div>`;
   const img = getProductImageUrl(book);
-  const price = book.inrPrice ? `₹${book.inrPrice}` : (book.price ? `$${book.price}` : '');
+  const price = bookUsdPrice(book);
   return `<table cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:520px;margin:20px auto;border:1px solid #e6decd;border-radius:10px;overflow:hidden;font-family:Inter,Helvetica,Arial,sans-serif;">
   <tr>
     <td style="width:140px;padding:20px;background:#fafaf8;vertical-align:top;">
@@ -187,7 +200,7 @@ const buildBookCardLarge = (book) => {
 const buildBookCardSingleHighlight = (book) => {
   if (!book) return '';
   const img = getProductImageUrl(book);
-  const price = book.inrPrice ? `₹${book.inrPrice}` : (book.price ? `$${book.price}` : '');
+  const price = bookUsdPrice(book);
   return `<table cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:520px;margin:0 auto 16px;border:2px solid #008DDA;border-radius:10px;overflow:hidden;font-family:Inter,Helvetica,Arial,sans-serif;">
   <tr>
     <td style="width:160px;padding:24px;background:#EBF7FD;text-align:center;vertical-align:top;">
@@ -205,7 +218,7 @@ const buildBookCardSingleHighlight = (book) => {
 const buildBookCardHighlight = (book) => {
   if (!book) return `<td style="width:50%;padding:8px;vertical-align:top;"><div style="background:#f5f5f5;border-radius:8px;padding:24px;text-align:center;min-height:100px;"><p style="color:#aaa;font-size:11px;margin:0;">No book</p></div></td>`;
   const img = getProductImageUrl(book);
-  const price = book.inrPrice ? `₹${book.inrPrice}` : (book.price ? `$${book.price}` : '');
+  const price = bookUsdPrice(book);
   return `<td style="width:50%;padding:8px;vertical-align:top;">
 <table cellpadding="0" cellspacing="0" border="0" style="width:100%;border:2px solid #008DDA;border-radius:8px;overflow:hidden;font-family:Inter,Helvetica,Arial,sans-serif;">
   <tr><td style="padding:14px;text-align:center;background:#EBF7FD;">
@@ -223,7 +236,7 @@ const buildBookCardHighlight = (book) => {
 const buildBookCardDigest = (book) => {
   if (!book) return '';
   const img = getProductImageUrl(book);
-  const price = book.inrPrice ? `₹${book.inrPrice}` : (book.price ? `$${book.price}` : '');
+  const price = bookUsdPrice(book);
   return `<table cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-bottom:16px;border:1px solid #e6decd;border-radius:8px;overflow:hidden;font-family:Inter,Helvetica,Arial,sans-serif;">
   <tr>
     <td style="width:80px;padding:12px;background:#fafaf8;vertical-align:top;">
@@ -493,8 +506,8 @@ const BookSlotPicker = ({ slotKey, label, value, onChange, apiBaseUrl }) => {
           <div className="flex-1 min-w-0">
             <p className="text-xs font-bold text-text-main truncate">{value.title}</p>
             <p className="text-[10px] text-primary font-mono">{value.bagcheeId}</p>
-            {(value.inrPrice || value.price) && (
-              <p className="text-[10px] text-gray-500 font-bold">{value.inrPrice ? `₹${value.inrPrice}` : `$${value.price}`}</p>
+            {bookUsdPrice(value) && (
+              <p className="text-[10px] text-gray-500 font-bold">{bookUsdPrice(value)}</p>
             )}
           </div>
           <button onClick={() => onChange(slotKey, null)} className="text-red-400 hover:text-red-600 shrink-0 p-1"><X size={13} /></button>
@@ -836,7 +849,7 @@ const SendEmail = () => {
     if (pickedProducts.length === 0) return toast.error('No products to insert.');
     const cards = pickedProducts.map(p => {
       const imgSrc = getProductImageUrl(p);
-      const price = p.inrPrice ? `₹${p.inrPrice}` : (p.price ? `$${p.price}` : '');
+      const price = bookUsdPrice(p);
       return `<table cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:540px;margin:0 auto 20px;border:1px solid #e6decd;border-radius:8px;overflow:hidden;font-family:Inter,Helvetica,Arial,sans-serif;">
   <tr>
     ${imgSrc ? `<td style="width:90px;vertical-align:top;padding:12px;"><img src="${imgSrc}" alt="${p.title}" width="80" style="display:block;border-radius:4px;object-fit:cover;" /></td>` : ''}

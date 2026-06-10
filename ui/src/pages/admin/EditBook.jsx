@@ -260,7 +260,7 @@ const EditBook = () => {
                 weight: book.weight || '',
                 price: book.price || '',
                 real_price: book.realPrice || book.real_price || book.priceForeign || '',
-                inr_price: book.inrPrice || book.price || '',
+                inr_price: book.inrPrice || book.inr_price || '',
                 discount: book.discount || '',
                 stock: book.stock || 'active',
                 availability: book.availability ? Number(book.availability) : 0,

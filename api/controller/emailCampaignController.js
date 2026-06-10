@@ -567,7 +567,7 @@ export const fetchProductsForEmail = async (req, res) => {
                     { isbn10: id }
                 ])
             },
-            select: { id: true, title: true, bagcheeId: true, defaultImage: true, isbn13: true, isbn10: true, price: true, inrPrice: true }
+            select: { id: true, title: true, bagcheeId: true, defaultImage: true, isbn13: true, isbn10: true, price: true, realPrice: true, inrPrice: true }
         });
 
         res.status(200).json({ status: true, data: products });
