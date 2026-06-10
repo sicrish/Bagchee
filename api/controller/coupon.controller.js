@@ -320,7 +320,7 @@ export const sendCouponEmail = async (req, res) => {
         const validTill = new Date(coupon.validTo).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
         const isFlat   = coupon.fixAmount || coupon.couponType === 'flat_amount';
         const discount = isFlat
-            ? `₹${coupon.flatDeduction || coupon.amount || 0} OFF`
+            ? `$${coupon.flatDeduction || coupon.amount || 0} OFF`
             : `${coupon.amount || 0}% OFF`;
 
         const htmlBody = `<!DOCTYPE html>
@@ -370,7 +370,7 @@ export const sendCouponEmail = async (req, res) => {
                 </div>
                 <div style="font-size:12px;color:#6b7280;margin-top:14px;">
                   Valid till <strong style="color:#374151;">${validTill}</strong>
-                  ${coupon.minimumBuy > 0 ? `&nbsp;·&nbsp; Min. order <strong style="color:#374151;">₹${coupon.minimumBuy}</strong>` : ''}
+                  ${coupon.minimumBuy > 0 ? `&nbsp;·&nbsp; Min. order <strong style="color:#374151;">$${coupon.minimumBuy}</strong>` : ''}
                 </div>
               </td>
             </tr>
