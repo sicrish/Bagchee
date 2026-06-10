@@ -17,10 +17,12 @@ const SidebarFilter = ({
   subcategories,
   subcategoriesLabel = "Sub Categories",
   formats,
-  authors, // 🟢 New Prop
-  publishers, // 🟢 New Prop
-  series, // 🟢 New Prop
-  isSalePage = false, // 🟢 Sale page pe sirf categories dikhani hai
+  authors,
+  publishers,
+  series,
+  isSalePage = false,
+  filterInPlace = false,       // when true: category click filters in-place instead of navigating
+  availableCategoryIds = null, // when set: only show categories whose id is in this array
   isOpen,
   onClose,
 }) => {
@@ -96,35 +98,47 @@ const SidebarFilter = ({
     </div>
   );
 
-  // 🟢 Recursive Category Node (Updated: Checkbox Removed, Clickable Text)
+  // Recursive Category Node
   const CategoryNode = ({ cat, level }) => {
+    const catId = cat.id || cat._id;
     const hasChildren = cat.children && cat.children.length > 0;
-    const isExpanded = expandedCats[cat._id];
+    const isExpanded = expandedCats[catId];
+    const isSelected = filterInPlace && (filters.categories || []).includes(catId);
+
+    // When availableCategoryIds is set, hide categories with no sale/special items
+    if (availableCategoryIds) {
+      const selfVisible = availableCategoryIds.includes(catId);
+      const childVisible = hasChildren && cat.children.some(c => availableCategoryIds.includes(c.id || c._id));
+      if (!selfVisible && !childVisible) return null;
+    }
 
     return (
-      <div
-        className={`select-none ${level > 0 ? "ml-4 border-l border-cream-200 pl-3" : "mb-1"}`}
-      >
+      <div className={`select-none ${level > 0 ? "ml-4 border-l border-cream-200 pl-3" : "mb-1"}`}>
         <div className="flex items-center justify-between group py-1.5">
-          {/* Checkbox hata diya, ab ye div clickable hai */}
           <div
-            onClick={() => handleCategoryClick(cat._id)}
-            className="flex items-center space-x-3 cursor-pointer flex-1 hover:text-primary transition-colors"
+            onClick={() => filterInPlace
+              ? handleFilterChange('categories', catId)
+              : handleCategoryClick(catId)
+            }
+            className={`flex items-center gap-2 cursor-pointer flex-1 hover:text-primary transition-colors ${isSelected ? 'text-primary font-bold' : ''}`}
           >
-            <span
-              className={`text-sm font-body text-text-main group-hover:text-primary`}
-            >
+            {filterInPlace && (
+              <div className={`w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center ${isSelected ? 'bg-primary border-primary' : 'border-cream-300'}`}>
+                {isSelected && (
+                  <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/>
+                  </svg>
+                )}
+              </div>
+            )}
+            <span className={`text-sm font-body group-hover:text-primary ${isSelected ? 'text-primary font-bold' : 'text-text-main'}`}>
               {cat.categorytitle || cat.title}
             </span>
           </div>
 
-          {/* Expand/Collapse Button for Subcategories */}
           {hasChildren && (
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleCat(cat._id);
-              }}
+              onClick={(e) => { e.stopPropagation(); toggleCat(catId); }}
               className="p-1 text-cream-200 hover:text-primary transition-colors"
             >
               {isExpanded ? <Minus size={14} /> : <Plus size={14} />}
@@ -134,7 +148,7 @@ const SidebarFilter = ({
         {hasChildren && isExpanded && (
           <div className="mt-1">
             {cat.children.map((child) => (
-              <CategoryNode key={child._id} cat={child} level={level + 1} />
+              <CategoryNode key={child.id || child._id} cat={child} level={level + 1} />
             ))}
           </div>
         )}
@@ -210,30 +224,74 @@ const SidebarFilter = ({
 
             {/* Right Side: Options area */}
             <div className="w-2/3 bg-white overflow-y-auto p-4 pb-24">
-              {/* Categories / Subcategories (No Checkbox, Click to Navigate) */}
+              {/* Categories / Subcategories */}
               {activeTab === "categories" &&
-                (subcategories && subcategories.length > 0
-                  ? subcategories.map((subcat) => (
-                      <div
-                        key={subcat.id || subcat._id}
-                        onClick={() => {
-                          const s = subcat.slug || '';
-                          navigate(`/books/${s.split('/').pop() || s}`, { state: { fromSubcategory: true, parentPath: location.pathname } });
-                          if (onClose) onClose();
-                        }}
-                        className="flex items-center justify-between py-3 border-b border-cream-50 cursor-pointer hover:bg-gray-50"
-                      >
-                        <span className="text-sm text-text-main">
-                          {subcat.categorytitle || subcat.title}
-                        </span>
-                        <ChevronRight size={16} className="text-gray-400" />
-                      </div>
-                    ))
-                  : (
-                      <div className="text-xs text-text-muted italic py-3">
-                        No sub categories
-                      </div>
+                (filterInPlace
+                  ? (availableCategoryIds
+                      // Sale / New Arrivals: pick from the global category tree, hiding empty cats
+                      ? (categories || [])
+                          .filter(cat => {
+                            const catId = cat.id || cat._id;
+                            if (availableCategoryIds.includes(catId)) return true;
+                            return cat.children?.some(c => availableCategoryIds.includes(c.id || c._id));
+                          })
+                          .map((cat) => {
+                            const catId = cat.id || cat._id;
+                            const isSelected = (filters.categories || []).includes(catId);
+                            return (
+                              <div
+                                key={catId}
+                                onClick={() => { handleFilterChange('categories', catId); if (onClose) onClose(); }}
+                                className={`flex items-center justify-between py-3 border-b border-cream-50 cursor-pointer hover:bg-gray-50 ${isSelected ? 'bg-primary/5' : ''}`}
+                              >
+                                <span className={`text-sm ${isSelected ? 'text-primary font-bold' : 'text-text-main'}`}>
+                                  {cat.categorytitle || cat.title}
+                                </span>
+                                {isSelected && <svg className="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>}
+                              </div>
+                            );
+                          })
+                      // Category page (and Bestsellers / Recommended): filter THIS page's own
+                      // sub-categories in place. Multi-select — don't close the drawer on tap;
+                      // the user taps "Apply Filters" when done.
+                      : (subcategories && subcategories.length > 0
+                        ? subcategories.map((subcat) => {
+                            const catId = subcat.id || subcat._id;
+                            const isSelected = (filters.categories || []).includes(catId);
+                            return (
+                              <div
+                                key={catId}
+                                onClick={() => handleFilterChange('categories', catId)}
+                                className={`flex items-center justify-between py-3 border-b border-cream-50 cursor-pointer hover:bg-gray-50 ${isSelected ? 'bg-primary/5' : ''}`}
+                              >
+                                <span className={`text-sm ${isSelected ? 'text-primary font-bold' : 'text-text-main'}`}>
+                                  {subcat.categorytitle || subcat.title}
+                                </span>
+                                {isSelected && <svg className="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>}
+                              </div>
+                            );
+                          })
+                        : <div className="text-xs text-text-muted italic py-3">No sub categories</div>
+                      )
                     )
+                  // Normal browse pages (e.g. /books index): navigate to the category
+                  : (subcategories && subcategories.length > 0
+                    ? subcategories.map((subcat) => (
+                        <div
+                          key={subcat.id || subcat._id}
+                          onClick={() => {
+                            const s = subcat.slug || '';
+                            navigate(`/books/${s.split('/').pop() || s}`, { state: { fromSubcategory: true, parentPath: location.pathname } });
+                            if (onClose) onClose();
+                          }}
+                          className="flex items-center justify-between py-3 border-b border-cream-50 cursor-pointer hover:bg-gray-50"
+                        >
+                          <span className="text-sm text-text-main">{subcat.categorytitle || subcat.title}</span>
+                          <ChevronRight size={16} className="text-gray-400" />
+                        </div>
+                      ))
+                    : <div className="text-xs text-text-muted italic py-3">No sub categories</div>
+                  )
                 )}
 
               {/* 🟢 Authors Mobile */}
@@ -465,21 +523,38 @@ const SidebarFilter = ({
                     {(showAllStates.categories
                       ? subcategories
                       : subcategories.slice(0, 15)
-                    ).map((subcat) => (
+                    ).map((subcat) => {
+                      const catId = subcat.id || subcat._id;
+                      const isSelected = filterInPlace && (filters.categories || []).includes(catId);
+                      return (
                       <div
-                        key={subcat.id || subcat._id}
+                        key={catId}
                         onClick={() => {
-                          const s = subcat.slug || '';
-                          navigate(`/books/${s.split('/').pop() || s}`, { state: { fromSubcategory: true, parentPath: location.pathname } });
-                          if (onClose) onClose();
+                          if (filterInPlace) {
+                            handleFilterChange('categories', catId);
+                          } else {
+                            const s = subcat.slug || '';
+                            navigate(`/books/${s.split('/').pop() || s}`, { state: { fromSubcategory: true, parentPath: location.pathname } });
+                            if (onClose) onClose();
+                          }
                         }}
-                        className="flex items-center space-x-3 cursor-pointer group py-1.5 hover:text-primary transition-colors select-none"
+                        className={`flex items-center gap-2 cursor-pointer group py-1.5 hover:text-primary transition-colors select-none ${isSelected ? 'text-primary font-bold' : ''}`}
                       >
-                        <span className="text-sm font-body text-text-main group-hover:text-primary">
+                        {filterInPlace && (
+                          <div className={`w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center ${isSelected ? 'bg-primary border-primary' : 'border-cream-300'}`}>
+                            {isSelected && (
+                              <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/>
+                              </svg>
+                            )}
+                          </div>
+                        )}
+                        <span className={`text-sm font-body group-hover:text-primary ${isSelected ? 'text-primary' : 'text-text-main'}`}>
                           {subcat.categorytitle || subcat.title}
                         </span>
                       </div>
-                    ))}
+                      );
+                    })}
                     {subcategories.length > 15 && (
                       <button
                         onClick={() => toggleShowAll("categories")}

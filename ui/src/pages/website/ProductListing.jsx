@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { useGeo } from '../../context/GeoContext.jsx';
 import axios from '../../utils/axiosConfig';
@@ -15,7 +15,6 @@ import ProductModal from '../../components/website/ProductModal';
 const ProductListing = ({ type }) => {
     const { slug } = useParams();
     const location = useLocation();
-    const navigate = useNavigate();
     const { isIndia } = useGeo();
 
     // --- States ---
@@ -274,8 +273,13 @@ const ProductListing = ({ type }) => {
                 let categoryIds = [...filters.categories];
 
                 // 🟢 STEP 2: Agar URL mein slug hai, toh flat list se category ID nikaalo
-                // Skip for publisher/series — they use resolvedEntityId instead
-                if (slug && flatCats.length > 0 && type !== 'publisher' && type !== 'series') {
+                // Skip for publisher/series — they use resolvedEntityId instead.
+                // ALSO skip once the user has ticked sub-category checkboxes: we then narrow to
+                // ONLY those sub-categories. The backend ORs all category ids together, and every
+                // sub-category is a child of this page's category — so also injecting the parent
+                // id would widen the result straight back to the full parent, making the
+                // checkboxes appear to do nothing.
+                if (categoryIds.length === 0 && slug && flatCats.length > 0 && type !== 'publisher' && type !== 'series') {
                     // Duplicate categories can share the same slug/title (e.g. there are 3 "Yoga"
                     // rows in the DB). Include EVERY matching category id so a product filed under
                     // ANY of them shows on the listing (backend matches categoryId IN [...]).
@@ -386,9 +390,9 @@ const ProductListing = ({ type }) => {
                 isNewRelease: false, isBestseller: false, isRecommended: false, isSale: false
             });
             setPageTitle(baseTitleRef);
-            if (location.state?.fromSubcategory && location.state?.parentPath) {
-                navigate(location.state.parentPath);
-            }
+            // "Clear All" only resets the filters in place — it must NOT navigate the user
+            // away. (It used to redirect back to the parent category, which the client reported
+            // as the page "jumping back" when clearing.)
             return;
         }
         setFilters(prev => {
@@ -571,7 +575,7 @@ const ProductListing = ({ type }) => {
                         publishers={publishersList}
                         series={seriesList}
                         isSalePage={type === 'sale'}
-                        filterInPlace={type === 'sale' || type === 'new-arrivals' || type === 'bestsellers' || type === 'recommended'}
+                        filterInPlace={type === 'category' || type === 'sale' || type === 'new-arrivals' || type === 'bestsellers' || type === 'recommended'}
                         availableCategoryIds={type === 'sale' ? saleCategoryIds : type === 'new-arrivals' ? newArrivalCategoryIds : null}
                         isOpen={showMobileFilter}
                         onClose={() => setShowMobileFilter(false)}
