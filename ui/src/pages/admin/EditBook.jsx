@@ -208,7 +208,13 @@ const EditBook = () => {
                 ? [bookSeries, ...series]
                 : series;
             setSeriesList(mergedSeries);
-            setPublishers(publishers);
+            // Ensure book's own publisher is in the list even if it falls outside the fetched 1000
+            // (migrated books often point to publishers ordered past the first page → "Unknown Publisher")
+            const bookPublisher = pageData?.bookData?.publisher;
+            const mergedPublishers = bookPublisher && !publishers.some(p => String(p.id) === String(bookPublisher.id))
+                ? [bookPublisher, ...publishers]
+                : publishers;
+            setPublishers(mergedPublishers);
             setArrivalDays(arrivalDays);
 
             // Default start date = when the book was added (createdAt).
@@ -763,6 +769,9 @@ const EditBook = () => {
     };
 
     const handlePublisherSelect = (pub) => {
+        // Search hits can fall outside the fetched 1000 — add to the master list so the box
+        // can resolve the title (otherwise it shows "Unknown Publisher" and looks unsaved).
+        setPublishers(prev => prev.some(p => String(p.id) === String(pub.id || pub._id)) ? prev : [pub, ...prev]);
         setFormData(prev => ({ ...prev, publisher: String(pub.id || pub._id) }));
         setIsPublisherDropdownOpen(false); setPublisherSearch("");
     };
