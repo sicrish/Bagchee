@@ -517,18 +517,18 @@ const ProductListing = ({ type }) => {
             {categoryTrail.length > 0 && (
                 <div className="bg-white border-b border-cream-200">
                     <div className="w-full mx-auto px-4 md:px-8 py-3">
-                        <nav className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs md:text-sm text-text-muted font-montserrat normal-case">
-                            <Link to="/" className="hover:text-primary transition-colors">Home</Link>
+                        <nav className="flex flex-wrap items-center gap-2 text-[10px] text-gray-400 font-montserrat uppercase tracking-[0.2em]">
+                            <Link to="/" className="hover:text-primary cursor-pointer transition-colors">Home</Link>
                             {categoryTrail.map((c, i) => {
                                 const last = i === categoryTrail.length - 1;
                                 const href = c.isNavRoot ? `/${type}` : (c.slug ? categoryHref(c.slug) : null);
                                 return (
-                                    <span key={c.id} className="flex items-center gap-x-1.5">
-                                        <ChevronRight size={13} className="text-cream-300" />
+                                    <span key={c.id} className="flex items-center gap-2">
+                                        <ChevronRight size={10} />
                                         {!last && href ? (
-                                            <Link to={href} className="hover:text-primary transition-colors">{c.title}</Link>
+                                            <Link to={href} className="hover:text-primary cursor-pointer transition-colors">{c.title}</Link>
                                         ) : (
-                                            <span className="text-text-main font-semibold">{c.title}</span>
+                                            <span className="text-text-main font-bold">{c.title}</span>
                                         )}
                                     </span>
                                 );

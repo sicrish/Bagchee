@@ -531,10 +531,10 @@ const SidebarFilter = ({
               <div className="pt-3 space-y-2 pl-2">
                 {visibleSubcats.length > 0 ? (
                   <>
-                    {(showAllStates.categories
-                      ? visibleSubcats
-                      : visibleSubcats.slice(0, 15)
-                    ).map((subcat) => {
+                    {/* Show every category always — no "Browse All" gate (client: customers
+                        shouldn't have to click Show More to see e.g. Zoology). The inner list
+                        scrolls (custom-scrollbar) so a long list stays usable. */}
+                    {visibleSubcats.map((subcat) => {
                       const catId = subcat.id || subcat._id;
                       const isSelected = filterInPlace && (filters.categories || []).includes(catId);
                       return (
@@ -566,23 +566,6 @@ const SidebarFilter = ({
                       </div>
                       );
                     })}
-                    {visibleSubcats.length > 15 && (
-                      <button
-                        onClick={() => toggleShowAll("categories")}
-                        className="text-xs font-bold text-primary hover:underline mt-2 flex items-center gap-1 font-montserrat uppercase tracking-wide"
-                      >
-                        {showAllStates.categories ? (
-                          <>
-                            Show Less <ChevronUp size={14} />
-                          </>
-                        ) : (
-                          <>
-                            Browse All ({visibleSubcats.length}){" "}
-                            <ChevronDown size={14} />
-                          </>
-                        )}
-                      </button>
-                    )}
                   </>
                 ) : (
                   <div className="text-xs text-text-muted italic">
