@@ -173,7 +173,7 @@ const SidebarFilter = ({
   // On pages that pass availableCategoryIds (Sale / New Arrivals), hide sub-categories
   // that have no matching products — mirrors the category page's left filter (mobile
   // already hides empties; this brings the desktop subcategory list in line).
-  const visibleSubcats = availableCategoryIds
+  const visibleSubcats = (filterInPlace && availableCategoryIds)
     ? (subcategories || []).filter((sc) => {
         const id = sc.id || sc._id;
         return availableCategoryIds.includes(id) || (sc.children || []).some((c) => availableCategoryIds.includes(c.id || c._id));

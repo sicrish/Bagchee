@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation, useParams } from 'react-router-dom';
+import { useLocation, useParams, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { useGeo } from '../../context/GeoContext.jsx';
 import axios from '../../utils/axiosConfig';
@@ -61,6 +61,7 @@ const ProductListing = ({ type }) => {
     const [pageTitle, setPageTitle] = useState('category');
     const [baseTitleRef, setBaseTitleRef] = useState('category'); // original title before filters
     const [flatCats, setFlatCats] = useState([]);
+    const [categoryTrail, setCategoryTrail] = useState([]); // breadcrumb ancestry for category pages
 
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
@@ -124,6 +125,7 @@ const ProductListing = ({ type }) => {
                     }
                     setAllCategories(treeData);
                     setFlatCats(flatCategories);
+                    setCategoryTrail([]); // reset; only category pages (below) build a trail
 
                     if (slug && type !== 'publisher' && type !== 'series') {
                         // Find current category by slug from flat list
@@ -148,6 +150,21 @@ const ProductListing = ({ type }) => {
                                 }
                             );
                             setSubcategoriesList(children);
+                            // Breadcrumb ancestry: walk up the parentId chain so customers can
+                            // jump back to any earlier category while drilling into sub-categories.
+                            const byId = {};
+                            flatCategories.forEach(c => { byId[String(c.id || c._id)] = c; });
+                            const trail = [];
+                            let cur = foundCat, guard = 0;
+                            while (cur && guard++ < 12) {
+                                const t = (cur.categorytitle || cur.title || '').trim();
+                                if (t && t.toLowerCase() !== 'root category') {
+                                    trail.unshift({ id: cur.id || cur._id, title: t, slug: (cur.slug || '').split('/').pop() || '' });
+                                }
+                                const pid = cur.parentId || cur.parentid;
+                                cur = pid ? byId[String(pid)] : null;
+                            }
+                            setCategoryTrail(trail);
                         } else {
                             const fallback = slug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
                             setPageTitle(fallback);
@@ -555,6 +572,21 @@ const ProductListing = ({ type }) => {
                 // ⚪ NORMAL CATEGORY BANNER
                 <div className="bg-white border-b border-cream-200 py-6 md:py-8 mb-6 shadow-sm">
                     <div className="w-full mx-auto px-4 md:px-8">
+                        {categoryTrail.length > 0 && (
+                            <nav className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs md:text-sm text-text-muted mb-3 font-montserrat normal-case">
+                                <Link to="/" className="hover:text-primary transition-colors">Home</Link>
+                                {categoryTrail.map((c, i) => (
+                                    <span key={c.id} className="flex items-center gap-x-1.5">
+                                        <ChevronRight size={13} className="text-cream-300" />
+                                        {i < categoryTrail.length - 1 && c.slug ? (
+                                            <Link to={`/books/${c.slug}`} className="hover:text-primary transition-colors">{c.title}</Link>
+                                        ) : (
+                                            <span className="text-text-main font-semibold">{c.title}</span>
+                                        )}
+                                    </span>
+                                ))}
+                            </nav>
+                        )}
                         <h1 className="text-2xl md:text-3xl font-display font-bold text-primary uppercase tracking-slick">
                             {pageTitle}
                         </h1>
@@ -582,7 +614,7 @@ const ProductListing = ({ type }) => {
                         publishers={publishersList}
                         series={seriesList}
                         isSalePage={type === 'sale'}
-                        filterInPlace={type === 'category' || type === 'sale' || type === 'new-arrivals' || type === 'bestsellers' || type === 'recommended'}
+                        filterInPlace={false} /* click-through category navigation: each click opens a new page (no in-place checkbox filtering) */
                         availableCategoryIds={type === 'sale' ? saleCategoryIds : type === 'new-arrivals' ? newArrivalCategoryIds : null}
                         isOpen={showMobileFilter}
                         onClose={() => setShowMobileFilter(false)}
