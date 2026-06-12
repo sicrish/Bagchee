@@ -23,6 +23,7 @@ const SidebarFilter = ({
   isSalePage = false,
   filterInPlace = false,       // when true: category click filters in-place instead of navigating
   availableCategoryIds = null, // when set: only show categories whose id is in this array
+  categoryHref = (s) => `/books/${s}`, // where a category click navigates (nav pages narrow in-context)
   isOpen,
   onClose,
 }) => {
@@ -291,7 +292,7 @@ const SidebarFilter = ({
                           key={subcat.id || subcat._id}
                           onClick={() => {
                             const s = subcat.slug || '';
-                            navigate(`/books/${s.split('/').pop() || s}`, { state: { fromSubcategory: true, parentPath: location.pathname } });
+                            navigate(categoryHref(s.split('/').pop() || s), { state: { fromSubcategory: true, parentPath: location.pathname } });
                             if (onClose) onClose();
                           }}
                           className="flex items-center justify-between py-3 border-b border-cream-50 cursor-pointer hover:bg-gray-50"
@@ -544,7 +545,7 @@ const SidebarFilter = ({
                             handleFilterChange('categories', catId);
                           } else {
                             const s = subcat.slug || '';
-                            navigate(`/books/${s.split('/').pop() || s}`, { state: { fromSubcategory: true, parentPath: location.pathname } });
+                            navigate(categoryHref(s.split('/').pop() || s), { state: { fromSubcategory: true, parentPath: location.pathname } });
                             if (onClose) onClose();
                           }
                         }}

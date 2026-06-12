@@ -12,10 +12,18 @@ import ProductCardGrid from '../../components/website/ProductCardGrid';
 import ProductCardList from '../../components/website/ProductCardList';
 import ProductModal from '../../components/website/ProductModal';
 
+// Nav listing pages narrow IN-CONTEXT (click a category -> /:type?category=:slug),
+// vs category pages which browse to /books/:slug.
+const NAV_TYPES = ['sale', 'new-arrivals', 'bestsellers', 'recommended'];
+
 const ProductListing = ({ type }) => {
     const { slug } = useParams();
     const location = useLocation();
     const { isIndia } = useGeo();
+    const isNavType = NAV_TYPES.includes(type);
+    // Where a left-menu category click goes: nav pages stay in-context and narrow
+    // (/:type?category=:slug); category pages browse to /books/:slug.
+    const categoryHref = (s) => (isNavType ? `/${type}?category=${s}` : `/books/${s}`);
 
     // --- States ---
     const [products, setProducts] = useState([]);
@@ -62,6 +70,7 @@ const ProductListing = ({ type }) => {
     const [baseTitleRef, setBaseTitleRef] = useState('category'); // original title before filters
     const [flatCats, setFlatCats] = useState([]);
     const [categoryTrail, setCategoryTrail] = useState([]); // breadcrumb ancestry for category pages
+    const [activeCategoryIds, setActiveCategoryIds] = useState([]); // resolved ids of the current category context (drives the fetch)
 
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
@@ -126,13 +135,22 @@ const ProductListing = ({ type }) => {
                     setAllCategories(treeData);
                     setFlatCats(flatCategories);
                     setCategoryTrail([]); // reset; only category pages (below) build a trail
+                    setActiveCategoryIds([]); // reset; the active-category branch below sets it
+                    setCurrentPage(1);    // new category context → back to page 1
 
-                    if (slug && type !== 'publisher' && type !== 'series') {
+                    // Nav pages narrow IN-CONTEXT via ?category=<slug>; category pages use the
+                    // path slug. Both resolve to a category the same way below.
+                    const navCatSlug = NAV_TYPES.includes(type)
+                        ? new URLSearchParams(location.search).get('category')
+                        : null;
+                    const activeCatSlug = slug || navCatSlug;
+
+                    if (activeCatSlug && type !== 'publisher' && type !== 'series') {
                         // Find current category by slug from flat list
                         // Clean comparison handles mismatches like "Health Mind & Body" → health-mind-and-body
-                        const cleanUrlSlug = slug.toLowerCase().replace(/[^a-z0-9]/g, '');
+                        const cleanUrlSlug = activeCatSlug.toLowerCase().replace(/[^a-z0-9]/g, '');
                         const foundCat = flatCategories.find(c => {
-                            if (c.slug && (c.slug === slug || c.slug.endsWith('/' + slug))) return true;
+                            if (c.slug && (c.slug === activeCatSlug || c.slug.endsWith('/' + activeCatSlug))) return true;
                             const title = c.categorytitle || c.title || '';
                             const cleanTitle = title.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]/g, '');
                             return cleanTitle === cleanUrlSlug;
@@ -150,6 +168,16 @@ const ProductListing = ({ type }) => {
                                 }
                             );
                             setSubcategoriesList(children);
+                            // Resolve ALL ids matching this slug (duplicate categories share a
+                            // slug/title) so the product fetch narrows by every one. This is the
+                            // single source of truth the fetch reads — keeps listing, sidebar and
+                            // breadcrumb in agreement (no separate race-prone resolution).
+                            const matchIds = flatCategories.filter(c => {
+                                if (c.slug && (c.slug === activeCatSlug || c.slug.endsWith('/' + activeCatSlug))) return true;
+                                const ct = (c.categorytitle || c.title || '').toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]/g, '');
+                                return ct === cleanUrlSlug;
+                            }).map(c => c.id || c._id).filter(Boolean);
+                            setActiveCategoryIds(matchIds);
                             // Breadcrumb ancestry: walk up the parentId chain so customers can
                             // jump back to any earlier category while drilling into sub-categories.
                             const byId = {};
@@ -158,15 +186,21 @@ const ProductListing = ({ type }) => {
                             let cur = foundCat, guard = 0;
                             while (cur && guard++ < 12) {
                                 const t = (cur.categorytitle || cur.title || '').trim();
-                                if (t && t.toLowerCase() !== 'root category') {
+                                const tl = t.toLowerCase();
+                                if (t && tl !== 'root category' && tl !== 'books') {
                                     trail.unshift({ id: cur.id || cur._id, title: t, slug: (cur.slug || '').split('/').pop() || '' });
                                 }
                                 const pid = cur.parentId || cur.parentid;
                                 cur = pid ? byId[String(pid)] : null;
                             }
+                            // Nav pages: prepend a root crumb back to the un-narrowed page (e.g. Sale).
+                            if (NAV_TYPES.includes(type)) {
+                                const navLabel = type.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                                trail.unshift({ id: '__navroot__', title: navLabel, slug: '', isNavRoot: true });
+                            }
                             setCategoryTrail(trail);
                         } else {
-                            const fallback = slug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                            const fallback = activeCatSlug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
                             setPageTitle(fallback);
                             setBaseTitleRef(fallback);
                             setSubcategoriesList([]);
@@ -286,30 +320,12 @@ const ProductListing = ({ type }) => {
                     query.append('tags', tagParam);
                 }
 
-                // 🟢 STEP 1: Pehle sidebar ke manually checked IDs lo
-                let categoryIds = [...filters.categories];
-
-                // 🟢 STEP 2: Agar URL mein slug hai, toh flat list se category ID nikaalo
-                // Skip for publisher/series — they use resolvedEntityId instead.
-                // ALSO skip once the user has ticked sub-category checkboxes: we then narrow to
-                // ONLY those sub-categories. The backend ORs all category ids together, and every
-                // sub-category is a child of this page's category — so also injecting the parent
-                // id would widen the result straight back to the full parent, making the
-                // checkboxes appear to do nothing.
-                if (categoryIds.length === 0 && slug && flatCats.length > 0 && type !== 'publisher' && type !== 'series') {
-                    // Duplicate categories can share the same slug/title (e.g. there are 3 "Yoga"
-                    // rows in the DB). Include EVERY matching category id so a product filed under
-                    // ANY of them shows on the listing (backend matches categoryId IN [...]).
-                    const cleanSlug = slug.toLowerCase().replace(/[^a-z0-9]/g, '');
-                    flatCats.forEach(c => {
-                        const title = c.categorytitle || c.title || '';
-                        const cleanTitle = title.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]/g, '');
-                        const cid = c.id || c._id;
-                        if (cid && (c.slug === slug || cleanTitle === cleanSlug) && !categoryIds.includes(cid)) {
-                            categoryIds.push(cid);
-                        }
-                    });
-                }
+                // 🟢 Category ids: sidebar checkbox ids if any (legacy; the navigate model leaves
+                // these empty), otherwise the active category resolved once by the sidebar effect —
+                // the path slug on category pages, ?category= on nav pages. Single source of truth
+                // so the listing always agrees with the sidebar + breadcrumb. (publisher/series use
+                // resolvedEntityId instead and never set activeCategoryIds.)
+                let categoryIds = filters.categories.length ? [...filters.categories] : [...activeCategoryIds];
 
                 // Publisher/series page: inject resolved entity ID into query
                 if (type === 'publisher' && resolvedEntityId > 0) {
@@ -399,7 +415,7 @@ const ProductListing = ({ type }) => {
         if ((type === 'publisher' || type === 'series') ? (resolvedEntityId !== null) : (allCategories.length > 0 || !slug)) {
             fetchProducts();
         }
-    }, [filters, type, slug, allCategories, flatCats, location.pathname, location.search, currentPage, resolvedEntityId]);
+    }, [filters, type, slug, allCategories, activeCategoryIds, location.pathname, location.search, currentPage, resolvedEntityId]);
 
 
 
@@ -497,7 +513,30 @@ const ProductListing = ({ type }) => {
                     <meta property="og:description" content={listingMeta.desc} />
                 </Helmet>
             )}
-            {/* --- PAGE HEADER --- */}
+            {/* --- BREADCRUMB (shown above the header on category + narrowed nav pages) --- */}
+            {categoryTrail.length > 0 && (
+                <div className="bg-white border-b border-cream-200">
+                    <div className="w-full mx-auto px-4 md:px-8 py-3">
+                        <nav className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs md:text-sm text-text-muted font-montserrat normal-case">
+                            <Link to="/" className="hover:text-primary transition-colors">Home</Link>
+                            {categoryTrail.map((c, i) => {
+                                const last = i === categoryTrail.length - 1;
+                                const href = c.isNavRoot ? `/${type}` : (c.slug ? categoryHref(c.slug) : null);
+                                return (
+                                    <span key={c.id} className="flex items-center gap-x-1.5">
+                                        <ChevronRight size={13} className="text-cream-300" />
+                                        {!last && href ? (
+                                            <Link to={href} className="hover:text-primary transition-colors">{c.title}</Link>
+                                        ) : (
+                                            <span className="text-text-main font-semibold">{c.title}</span>
+                                        )}
+                                    </span>
+                                );
+                            })}
+                        </nav>
+                    </div>
+                </div>
+            )}
             {/* --- PAGE HEADER --- */}
             {type === 'sale' ? (
            <div className="relative overflow-hidden bg-gradient-to-br from-[#ACE2E1]/40 via-cream-100/50 to-cream-100 py-2 md:py-2 font-montserrat border-b border-gray-200 mb-2">
@@ -572,21 +611,6 @@ const ProductListing = ({ type }) => {
                 // ⚪ NORMAL CATEGORY BANNER
                 <div className="bg-white border-b border-cream-200 py-6 md:py-8 mb-6 shadow-sm">
                     <div className="w-full mx-auto px-4 md:px-8">
-                        {categoryTrail.length > 0 && (
-                            <nav className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs md:text-sm text-text-muted mb-3 font-montserrat normal-case">
-                                <Link to="/" className="hover:text-primary transition-colors">Home</Link>
-                                {categoryTrail.map((c, i) => (
-                                    <span key={c.id} className="flex items-center gap-x-1.5">
-                                        <ChevronRight size={13} className="text-cream-300" />
-                                        {i < categoryTrail.length - 1 && c.slug ? (
-                                            <Link to={`/books/${c.slug}`} className="hover:text-primary transition-colors">{c.title}</Link>
-                                        ) : (
-                                            <span className="text-text-main font-semibold">{c.title}</span>
-                                        )}
-                                    </span>
-                                ))}
-                            </nav>
-                        )}
                         <h1 className="text-2xl md:text-3xl font-display font-bold text-primary uppercase tracking-slick">
                             {pageTitle}
                         </h1>
@@ -615,6 +639,7 @@ const ProductListing = ({ type }) => {
                         series={seriesList}
                         isSalePage={type === 'sale'}
                         filterInPlace={false} /* click-through category navigation: each click opens a new page (no in-place checkbox filtering) */
+                        categoryHref={categoryHref}
                         availableCategoryIds={type === 'sale' ? saleCategoryIds : type === 'new-arrivals' ? newArrivalCategoryIds : null}
                         isOpen={showMobileFilter}
                         onClose={() => setShowMobileFilter(false)}
