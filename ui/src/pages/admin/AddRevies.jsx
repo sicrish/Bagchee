@@ -1,13 +1,11 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Check, RotateCcw, X, Loader2,Search } from 'lucide-react';
-import JoditEditor from 'jodit-react';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
 
 const AddReviews = () => {
   const navigate = useNavigate();
-  const editor = useRef(null);
   const [loading, setLoading] = useState(false);
 
   // Dropdown Data States
@@ -84,8 +82,8 @@ const AddReviews = () => {
 
   // 🟢 3. SELECT PRODUCT HANDLER
   const handleSelectProduct = (product) => {
-    setFormData({ ...formData, item_id: product._id }); // Backend ke liye ID
-    setSearchQuery(`${product.bagchee_id} - ${product.title}`); // UI ke liye text
+    setFormData({ ...formData, item_id: product.id || product._id });
+    setSearchQuery(`${product.bagcheeId || product.bagchee_id} - ${product.title}`);
     setIsDropdownOpen(false);
   };
 
@@ -127,21 +125,6 @@ const AddReviews = () => {
     }
   };
 
-  // Jodit Config
-  const config = useMemo(() => ({
-    readonly: false,
-    height: 300,
-    theme: "default",
-    placeholder: '',
-    toolbar: true,
-    buttons: [
-      'source', '|', 'save', 'print', 'preview', '|', 'cut', 'copy', 'paste', '|',
-      'bold', 'italic', 'underline', 'strikethrough', 'superscript', 'subscript', '|',
-      'ul', 'ol', '|', 'outdent', 'indent', '|', 'font', 'fontsize', 'brush', '|',
-      'image', 'table', 'link', '|', 'align', 'undo', 'redo', '|', 'hr', 'eraser', 'fullsize'
-    ],
-  }), []);
-
   // Reusable Classes
   const inputClass = "w-full border border-gray-300 rounded px-4 py-2 text-[13px] outline-none transition-all focus:border-primary bg-white focus:ring-1 focus:ring-primary/20 font-body";
   const labelClass = "col-span-3 text-right text-[11px] font-bold text-text-muted uppercase font-montserrat pt-2";
@@ -179,7 +162,7 @@ const AddReviews = () => {
                 >
                   <option value="">Select Category</option>
                   {categories.map(cat => (
-                    <option key={cat._id} value={cat._id}>{cat.categorytitle}</option>
+                    <option key={cat.id || cat._id} value={cat.id || cat._id}>{cat.categorytitle || cat.title}</option>
                   ))}
                 </select>
               </div>
@@ -212,7 +195,7 @@ const AddReviews = () => {
                 {isDropdownOpen && searchResults.length > 0 && (
                   <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded shadow-lg mt-1 max-h-60 overflow-y-auto z-[100]">
                     {searchResults.map((prod) => (
-                      <div key={prod._id} onClick={() => handleSelectProduct(prod)} className="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-0 flex flex-col">
+                      <div key={prod.id || prod._id} onClick={() => handleSelectProduct(prod)} className="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-0 flex flex-col">
                         <p className="text-xs font-bold text-gray-800">{prod.title}</p>
                         <div className="text-[10px] text-gray-500 flex gap-x-2">
                             <span>ID: <strong className="text-primary">{prod.bagchee_id}</strong></span>
@@ -253,15 +236,16 @@ const AddReviews = () => {
               </div>
             </div>
 
-            {/* Review (Jodit Editor) */}
+            {/* Review (plain text) */}
             <div className="grid grid-cols-12 gap-4 items-start">
               <label className={labelClass}>Review</label>
-              <div className="col-span-9 border border-gray-300 rounded overflow-hidden shadow-sm">
-                <JoditEditor
-                  ref={editor}
+              <div className="col-span-9">
+                <textarea
                   value={reviewContent}
-                  config={config}
-                  onBlur={newContent => setReviewContent(newContent)}
+                  onChange={(e) => setReviewContent(e.target.value)}
+                  rows={8}
+                  className={`${inputClass} resize-y leading-relaxed`}
+                  placeholder="Write the review text..."
                 />
               </div>
             </div>

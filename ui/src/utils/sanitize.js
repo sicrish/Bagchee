@@ -24,3 +24,16 @@ export const sanitizeHtml = (dirty) => {
 export const createSafeHtml = (dirty) => ({
     __html: sanitizeHtml(dirty)
 });
+
+// Strip ALL HTML tags and return plain text. Used for reviews, which are shown as
+// plain quoted text — old/migrated and rich-text-editor reviews carry <p> markup
+// that would otherwise render literally. DOMPurify removes tags safely; the
+// textarea then decodes any HTML entities (&amp; -> &, &nbsp; -> space).
+export const stripHtml = (dirty) => {
+    if (!dirty) return '';
+    const noTags = DOMPurify.sanitize(String(dirty), { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
+    if (typeof document === 'undefined') return noTags.trim();
+    const ta = document.createElement('textarea');
+    ta.innerHTML = noTags;
+    return ta.value.trim();
+};

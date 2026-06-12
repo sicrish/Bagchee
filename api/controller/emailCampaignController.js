@@ -53,7 +53,7 @@ const wrapInTemplate = (subject, bodyHtml, unsubscribeUrl = null, campaignId = n
                     ${bodyHtml}
                 </div>
                 <div style="background-color: #fffdf5; padding: 20px; text-align: center; border-top: 1px solid #e6decd;">
-                    <p style="font-size: 11px; color: ${theme.textMuted}; margin: 0 0 8px;"><a href="${viewUrl}" style="color: #008DDA; text-decoration: underline;">VIEW IN BROWSER</a></p>
+                    <p style="font-size: 11px; color: ${theme.textMuted}; margin: 0 0 8px;"><a href="${viewUrl}" target="_blank" rel="noopener" style="color: #008DDA; text-decoration: underline;">VIEW IN BROWSER</a></p>
                     <p style="font-size: 11px; color: ${theme.textMuted}; margin: 0 0 6px;"><a href="${privacyUrl}" style="color: ${theme.textMuted}; text-decoration: underline;">Privacy Policy</a>${unsubscribeUrl ? ` &nbsp;|&nbsp; <a href="${unsubscribeUrl}" style="color: ${theme.textMuted}; text-decoration: underline;">Unsubscribe</a>` : ''}</p>
                     <p style="font-size: 12px; color: ${theme.textMuted}; margin: 0;">&copy; ${new Date().getFullYear()} Bagchee. All rights reserved.</p>
                 </div>

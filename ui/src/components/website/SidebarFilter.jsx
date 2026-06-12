@@ -170,6 +170,16 @@ const SidebarFilter = ({
         { id: "rating", label: "Ratings" },
       ];
 
+  // On pages that pass availableCategoryIds (Sale / New Arrivals), hide sub-categories
+  // that have no matching products — mirrors the category page's left filter (mobile
+  // already hides empties; this brings the desktop subcategory list in line).
+  const visibleSubcats = availableCategoryIds
+    ? (subcategories || []).filter((sc) => {
+        const id = sc.id || sc._id;
+        return availableCategoryIds.includes(id) || (sc.children || []).some((c) => availableCategoryIds.includes(c.id || c._id));
+      })
+    : (subcategories || []);
+
   return (
     <>
       {/* --- MOBILE DRAWER --- */}
@@ -518,11 +528,11 @@ const SidebarFilter = ({
             <FilterHeader title={subcategoriesLabel} section="categories" />
             {openSections.categories && (
               <div className="pt-3 space-y-2 pl-2">
-                {subcategories && subcategories.length > 0 ? (
+                {visibleSubcats.length > 0 ? (
                   <>
                     {(showAllStates.categories
-                      ? subcategories
-                      : subcategories.slice(0, 15)
+                      ? visibleSubcats
+                      : visibleSubcats.slice(0, 15)
                     ).map((subcat) => {
                       const catId = subcat.id || subcat._id;
                       const isSelected = filterInPlace && (filters.categories || []).includes(catId);
@@ -555,7 +565,7 @@ const SidebarFilter = ({
                       </div>
                       );
                     })}
-                    {subcategories.length > 15 && (
+                    {visibleSubcats.length > 15 && (
                       <button
                         onClick={() => toggleShowAll("categories")}
                         className="text-xs font-bold text-primary hover:underline mt-2 flex items-center gap-1 font-montserrat uppercase tracking-wide"
@@ -566,7 +576,7 @@ const SidebarFilter = ({
                           </>
                         ) : (
                           <>
-                            Browse All ({subcategories.length}){" "}
+                            Browse All ({visibleSubcats.length}){" "}
                             <ChevronDown size={14} />
                           </>
                         )}

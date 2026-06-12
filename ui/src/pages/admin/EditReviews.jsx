@@ -1,9 +1,9 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Check, RotateCcw, X, Loader2, Search } from 'lucide-react';
-import JoditEditor from 'jodit-react';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
+import { stripHtml } from '../../utils/sanitize';
 
 // Slug generation function
 const createBookSlug = (bookName) => {
@@ -19,7 +19,6 @@ const createBookSlug = (bookName) => {
 const EditReviews = () => {
   const navigate = useNavigate();
   const { id } = useParams(); // URL se ID lene ke liye
-  const editor = useRef(null);
 
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true); // Loading state for initial fetch
@@ -93,7 +92,7 @@ const EditReviews = () => {
             rating: data.rating || '',
             status: data.status || 'inactive',
           });
-          setReviewContent(data.review || '');
+          setReviewContent(stripHtml(data.review || ''));
           // 🟢 Setup Search Bar with current product name
           if (data.item_id && typeof data.item_id === 'object') {
             const prodName = data.item_id.title || data.item_id.name || "";
@@ -204,21 +203,6 @@ const EditReviews = () => {
       setLoading(false);
     }
   };
-
-  // Jodit Config
-  const config = useMemo(() => ({
-    readonly: false,
-    height: 300,
-    theme: "default",
-    placeholder: '',
-    toolbar: true,
-    buttons: [
-      'source', '|', 'save', 'print', 'preview', '|', 'cut', 'copy', 'paste', '|',
-      'bold', 'italic', 'underline', 'strikethrough', 'superscript', 'subscript', '|',
-      'ul', 'ol', '|', 'outdent', 'indent', '|', 'font', 'fontsize', 'brush', '|',
-      'image', 'table', 'link', '|', 'align', 'undo', 'redo', '|', 'hr', 'eraser', 'fullsize'
-    ],
-  }), []);
 
   // Reusable Classes
   const inputClass = "w-full border border-gray-300 rounded px-4 py-2 text-[13px] outline-none transition-all focus:border-primary bg-white focus:ring-1 focus:ring-primary/20 font-body";
@@ -363,15 +347,16 @@ const EditReviews = () => {
               </div>
             </div>
 
-            {/* Review (Jodit Editor) */}
+            {/* Review (plain text) */}
             <div className="grid grid-cols-12 gap-4 items-start">
               <label className={labelClass}>Review</label>
-              <div className="col-span-9 border border-gray-300 rounded overflow-hidden shadow-sm">
-                <JoditEditor
-                  ref={editor}
+              <div className="col-span-9">
+                <textarea
                   value={reviewContent}
-                  config={config}
-                  onBlur={newContent => setReviewContent(newContent)}
+                  onChange={(e) => setReviewContent(e.target.value)}
+                  rows={8}
+                  className={`${inputClass} resize-y leading-relaxed`}
+                  placeholder="Write the review text..."
                 />
               </div>
             </div>

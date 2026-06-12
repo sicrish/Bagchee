@@ -4,6 +4,12 @@ import prisma from '../lib/prisma.js';
 // Dropped: categoryId (not in Prisma Review schema).
 // Note: frontend still sends `item_id` — mapped to productId on save.
 
+// Reviews display as plain quoted text, so strip any HTML (e.g. <p> wrappers left by
+// rich-text editors or migrated old-site data) before storing.
+const stripTags = (s) => typeof s === 'string'
+    ? s.replace(/<[^>]*>/g, '').replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').trim()
+    : s;
+
 export const saveReview = async (req, res) => {
     try {
         const { item_id, email, name, title, review, rating, status, isActive } = req.body;
@@ -17,7 +23,7 @@ export const saveReview = async (req, res) => {
                 email: email || '',
                 name,
                 title: title || '',
-                review,
+                review: stripTags(review),
                 rating: Math.min(5, Math.max(1, rating !== undefined && rating !== '' ? Number(rating) : 5)),
                 active
             }
@@ -70,7 +76,7 @@ export const updateReview = async (req, res) => {
         if (email !== undefined) updateData.email = email;
         if (name !== undefined) updateData.name = name;
         if (title !== undefined) updateData.title = title;
-        if (review !== undefined) updateData.review = review;
+        if (review !== undefined) updateData.review = stripTags(review);
         if (rating !== undefined) updateData.rating = Math.min(5, Math.max(1, rating !== '' ? Number(rating) : 5));
         if (isActive !== undefined) updateData.active = (isActive === true || isActive === 'true');
         else if (status !== undefined) updateData.active = status === 'active';

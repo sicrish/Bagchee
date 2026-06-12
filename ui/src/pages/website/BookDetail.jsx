@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { createPortal } from 'react-dom';
-import { createSafeHtml } from '../../utils/sanitize';
+import { createSafeHtml, stripHtml } from '../../utils/sanitize';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from '../../utils/axiosConfig';
 import { normalizeProduct, getFormatLabel } from '../../utils/normalizeProduct';
@@ -1682,7 +1682,7 @@ const BookDetail = () => {
                     </span>
                   </div>
                   {rev.title && <p className="font-bold text-sm text-text-main mb-2 uppercase tracking-wide">{rev.title}</p>}
-                  <p className="text-gray-600 text-sm leading-relaxed italic">"{rev.review}"</p>
+                  <p className="text-gray-600 text-sm leading-relaxed italic">"{stripHtml(rev.review)}"</p>
                 </div>
               ))
             ) : (

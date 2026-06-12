@@ -310,6 +310,32 @@ app.listen(PORT, () => {
     };
     setInterval(() => checkMembershipReminders().catch(() => {}), 60 * 60 * 1000);
     checkMembershipReminders().catch(() => {});
+
+    // Auto-mark shipped orders as Completed 45 days after they were shipped.
+    // Keyed on shippedAt (stamped when status -> shipped), so it only affects
+    // orders shipped through the system; both admin and the customer My Account
+    // page read order.status directly, so both reflect the change.
+    let lastAutoCompleteCheck = null;
+    const autoCompleteShippedOrders = async () => {
+        const now = new Date();
+        if (lastAutoCompleteCheck && (now - lastAutoCompleteCheck) < 23 * 60 * 60 * 1000) return;
+        lastAutoCompleteCheck = now;
+        try {
+            const cutoff = new Date(now.getTime() - 45 * 24 * 60 * 60 * 1000);
+            const result = await prisma.order.updateMany({
+                where: {
+                    status: { equals: 'shipped', mode: 'insensitive' },
+                    shippedAt: { lte: cutoff },
+                },
+                data: { status: 'Completed' },
+            });
+            if (result.count) console.log(`Auto-completed ${result.count} shipped order(s) older than 45 days`);
+        } catch (err) {
+            console.error('Auto-complete shipped orders error:', err.message);
+        }
+    };
+    setInterval(() => autoCompleteShippedOrders().catch(() => {}), 60 * 60 * 1000);
+    autoCompleteShippedOrders().catch(() => {});
 });
 
 export default app;
