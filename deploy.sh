@@ -35,13 +35,17 @@ deploy_ui() {
   echo "→ Building React UI..."
   cd "$PROJECT_ROOT/ui"
   REACT_APP_API_URL=https://www.bagchee.com/api \
+  REACT_APP_FRONTEND_URL=https://www.bagchee.com \
   REACT_APP_EXCHANGE_RATE_API_KEY=01b425d377751fbbed67dcdc \
   REACT_APP_ENCRYPTION_SECRET=metXFqhCDc39LVSNnwthDmdYQLGZZVx10rR8Qzybw7Au3C2lW/JqdunzKD9ieoQ+ \
-  REACT_APP_RAZORPAY_KEY_ID=rzp_test_SLp1axPzfknnrQ \
-  npm run build
+  npm run build || { echo "✗ Build FAILED — aborting deploy, server untouched"; exit 1; }
 
   echo "→ Uploading build to server..."
+  # --exclude sitemap*.xml: the sitemap files in the web root are pre-generated on the
+  # server by api/scripts/generateSitemaps.js (nightly cron) and are NOT in ui/build.
+  # Without this exclude, --delete would wipe them on every UI deploy.
   rsync -avz --delete \
+    --exclude='sitemap*.xml' \
     -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=no" \
     "$PROJECT_ROOT/ui/build/" "$SERVER:/var/www/html/bagchee-react/"
 
