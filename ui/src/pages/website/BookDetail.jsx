@@ -1134,7 +1134,7 @@ const BookDetail = () => {
 
                       return [
                         { label: "Series", value: seriesValue, link: seriesSlug ? `/series/${seriesSlug}` : null },
-                        { label: "Format", value: book.formats?.map(f => f.format?.title || f.title || f) },
+                        { label: "Format", value: getFormatLabel(book) || null },
                         { label: "Language", value: getDisplayValue(book.language) },
                         { label: "ISBN", value: [book.isbn10, book.isbn13].filter(Boolean).join(" , ") },
                         { label: "Release Date", value: book.pub_date },

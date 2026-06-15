@@ -34,6 +34,49 @@ const escAttr = (s) => String(s == null ? '' : s)
 
 const stripTags = (s) => String(s || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 
+// Build schema.org Product JSON-LD for a book so Google can show price / availability /
+// rating rich results. Mirrors the storefront's selling-price rule (realPrice when it
+// undercuts the MRP). Returns null when there's nothing useful to emit.
+function buildProductJsonLd(p, url) {
+    if (!p || !p.title) return null;
+    const mrp  = Number(p.price) || 0;
+    const real = Number(p.realPrice) || 0;
+    const sell = (real > 0 && real < mrp) ? real : mrp;
+
+    const desc = (p.metaDescription && p.metaDescription.trim())
+        ? p.metaDescription.trim()
+        : stripTags(p.synopsis).slice(0, 300);
+
+    const ld = { '@context': 'https://schema.org/', '@type': 'Product', name: p.title };
+    if (p.defaultImage) ld.image = p.defaultImage;
+    if (desc)           ld.description = desc;
+    if (p.bagcheeId)    ld.sku = p.bagcheeId;
+
+    const isbn = String(p.isbn13 || '').replace(/[^0-9]/g, '');
+    if (/^\d{13}$/.test(isbn)) ld.gtin13 = isbn;
+
+    const publisher = p.publisher?.title || '';
+    if (publisher) ld.brand = { '@type': 'Brand', name: publisher };
+
+    if (sell > 0) {
+        ld.offers = {
+            '@type': 'Offer',
+            url,
+            priceCurrency: 'USD',
+            price: sell.toFixed(2),
+            availability: 'https://schema.org/InStock',
+            itemCondition: 'https://schema.org/NewCondition',
+        };
+    }
+
+    const rating = Number(p.rating) || 0;
+    const count  = Number(p.ratedTimes) || 0;
+    if (rating > 0 && count > 0) {
+        ld.aggregateRating = { '@type': 'AggregateRating', ratingValue: rating.toFixed(1), reviewCount: count };
+    }
+    return ld;
+}
+
 // Pure, testable: take the index.html string + a product (or null) and return the
 // HTML with meta injected. `data-rh="true"` lets react-helmet-async adopt/reconcile
 // these tags on hydration instead of appending duplicates.
@@ -62,14 +105,21 @@ export function injectBookMeta(html, p, slug = '') {
         p.isbn13 && `<meta property="books:isbn" content="${escAttr(p.isbn13)}" data-rh="true"/>`,
     ].filter(Boolean).join('');
 
+    // schema.org Product JSON-LD (price / availability / rating rich results). `<` is
+    // unicode-escaped so a stray "</script>" in any field can't break out of the tag.
+    const ld = buildProductJsonLd(p, url);
+    const ldScript = ld
+        ? `<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, '\\u003c')}</script>`
+        : '';
+
     let out = html;
     if (/<title>[\s\S]*?<\/title>/i.test(out)) {
         out = out.replace(/<title>[\s\S]*?<\/title>/i, `<title data-rh="true">${escAttr(title)}</title>`);
     } else {
         out = out.replace(/<head>/i, `<head><title data-rh="true">${escAttr(title)}</title>`);
     }
-    // Inject the rest of the meta right before </head>.
-    out = out.replace(/<\/head>/i, `${tags}</head>`);
+    // Inject the rest of the meta + JSON-LD right before </head>.
+    out = out.replace(/<\/head>/i, `${tags}${ldScript}</head>`);
     return out;
 }
 
@@ -101,6 +151,8 @@ export async function renderBookMeta(req, res) {
                 bagcheeId: true, title: true,
                 metaTitle: true, metaDescription: true, metaKeywords: true,
                 synopsis: true, defaultImage: true, isbn13: true,
+                price: true, realPrice: true, rating: true, ratedTimes: true,
+                publisher: { select: { title: true } },
                 authors: { take: 1, select: { author: { select: { fullName: true } } } },
             },
         });

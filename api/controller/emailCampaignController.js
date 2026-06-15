@@ -272,6 +272,7 @@ export const scheduleCampaignEmail = async (req, res) => {
 export const getScheduledEmails = async (req, res) => {
     try {
         const emails = await prisma.scheduledEmail.findMany({
+            where: { status: { not: 'test' } },
             orderBy: { sendAt: 'desc' },
             take: 50
         });
@@ -318,8 +319,15 @@ export const sendTestEmail = async (req, res) => {
             return res.status(400).json({ status: false, msg: 'Invalid email address.' });
         }
 
+        // Persist the test as a (hidden) campaign so its "View in Browser" link renders
+        // THIS newsletter instead of falling back to the homepage. status:'test' keeps it
+        // out of the campaign history / scheduled lists. Real sends already get an id.
+        const testCampaign = await prisma.scheduledEmail.create({
+            data: { subject, body, sendAt: new Date(), status: 'test' }
+        });
+
         const transporter = createTransporter();
-        const htmlContent = wrapInTemplate(escapeHtml(subject), body);
+        const htmlContent = wrapInTemplate(escapeHtml(subject), body, null, testCampaign.id);
 
         await transporter.sendMail({
             from: `"Bagchee" <${process.env.EMAIL_USER}>`,
@@ -412,6 +420,7 @@ export const getAudienceCounts = async (req, res) => {
 export const getCampaignHistory = async (req, res) => {
     try {
         const campaigns = await prisma.scheduledEmail.findMany({
+            where: { status: { not: 'test' } },
             orderBy: { createdAt: 'desc' },
             take: 200,
             select: {

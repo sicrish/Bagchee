@@ -149,6 +149,25 @@ export const normalizeProducts = (arr) =>
     Array.isArray(arr) ? arr.map(normalizeProduct) : [];
 
 /**
+ * Map a raw format/binding title to the customer-facing label shown on the storefront.
+ *   "Softcover" / "Soft Cover" / "Paperback"  → "Paperback"  (admin stores it as "Softcover")
+ *   "Hardcover" / "Hard Cover" / "Hard Bound" → "Hardcover"
+ *   anything else (Music CD, MP3, …)          → the title unchanged
+ *
+ * The client requires admin-set "Softcover" books to read "Paperback" on the product page.
+ * Keep this in sync with `canonicalBookFormat` in api/controller/Product.controller.js
+ * (which the sidebar filter uses to show only Hardcover/Paperback).
+ */
+export const canonicalFormatLabel = (raw) => {
+    const s = (raw || '').toString().trim();
+    if (!s) return '';
+    const lower = s.toLowerCase();
+    if (lower.includes('soft') || lower.includes('paper')) return 'Paperback';
+    if (lower.includes('hard')) return 'Hardcover';
+    return s;
+};
+
+/**
  * Resolve a product's display format from the admin-set `formats` relation.
  *
  * The legacy `binding` column DEFAULTS to "Paperback" and is NOT written by the
@@ -156,16 +175,19 @@ export const normalizeProducts = (arr) =>
  * relation). So `binding` is unreliable and must only be used as a last resort.
  * Prefer `formats` (public API: [{ format: { title } }]) / `product_formats`
  * (admin: ["Hardcover", ...]) whenever present. Returns '' when nothing is set.
+ *
+ * Each label is canonicalised (Softcover → Paperback) and de-duplicated.
  */
 export const getFormatLabel = (product) => {
     if (!product || typeof product !== 'object') return '';
     const fmts = product.formats || product.product_formats;
     if (Array.isArray(fmts) && fmts.length) {
-        const label = fmts
+        const labels = fmts
             .map(f => (f && typeof f === 'object' ? (f.format?.title || f.title || f.name) : f))
-            .filter(Boolean)
-            .join(', ');
-        if (label) return label;
+            .map(canonicalFormatLabel)
+            .filter(Boolean);
+        const unique = [...new Set(labels)];
+        if (unique.length) return unique.join(', ');
     }
-    return (product.binding || '').trim();
+    return canonicalFormatLabel(product.binding || '');
 };

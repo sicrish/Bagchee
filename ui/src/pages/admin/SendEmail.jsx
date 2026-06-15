@@ -427,7 +427,7 @@ const STANDARD_PROMO_BANNERS = [
     subtitle: 'Order from the Library Specialists',
     bgColor: '#0B2F3A',
     textColor: '#FFFFFF',
-    link: `${FRONTEND_URL}/library-services`,
+    link: `${FRONTEND_URL}/services`,
   },
   {
     id: 'bulk',
@@ -1460,6 +1460,22 @@ const SendEmail = () => {
                 <span className="text-[11px] text-gray-400 font-montserrat">
                   To: ~{totalRecipients.toLocaleString()} recipient{totalRecipients !== 1 ? 's' : ''}
                 </span>
+                <button
+                  onClick={() => {
+                    // Open the composed newsletter as a standalone page in a new browser tab —
+                    // the same "view in browser" experience a recipient gets from the email footer.
+                    const win = window.open('', '_blank');
+                    if (win) {
+                      win.document.write(getFullEmailHtml(subject, body || '<p style="padding:40px;color:#999;text-align:center;font-family:sans-serif;">No content yet</p>'));
+                      win.document.close();
+                    } else {
+                      toast.error('Allow pop-ups to open the preview in a new tab.');
+                    }
+                  }}
+                  className="bg-gray-100 border border-gray-300 text-gray-600 px-3 py-1.5 rounded font-montserrat font-bold text-xs flex items-center gap-1.5 hover:bg-gray-200 transition-all"
+                >
+                  Open in New Tab
+                </button>
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(getFullEmailHtml(subject, body));

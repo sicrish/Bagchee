@@ -833,12 +833,24 @@ export const deleteProduct = async (req, res) => {
     }
 };
 
+// Map a raw format title to its customer-facing book label, or null for non-book
+// formats. Books are only ever Hardcover or Paperback (admin stores "Softcover");
+// everything else (Music CD, MP3, Handicraft, …) is dropped from the sidebar filter.
+// Keep in sync with `canonicalFormatLabel` in ui/src/utils/normalizeProduct.js.
+const canonicalBookFormat = (raw) => {
+    const s = (raw || '').toString().trim().toLowerCase();
+    if (!s) return null;
+    if (s.includes('hard')) return 'Hardcover';
+    if (s.includes('soft') || s.includes('paper')) return 'Paperback';
+    return null;
+};
+
 // GET /products/filter-options  — sidebar filter data (cached 1 hour)
 export const getFilterOptions = async (req, res) => {
     try {
         const ONE_HOUR = 60 * 60 * 1000;
         const data = await cache.get('filter-options', ONE_HOUR, async () => {
-            const [formats, languages, priceStats, authors, publishers, series] = await Promise.all([
+            const [rawFormats, languages, priceStats, authors, publishers, series] = await Promise.all([
                 prisma.format.findMany({
                     where:   { products: { some: {} } },
                     select:  { id: true, title: true },
@@ -873,6 +885,21 @@ export const getFilterOptions = async (req, res) => {
                     take:    500
                 }),
             ]);
+
+            // Consolidate the raw format rows into the only two book formats the storefront
+            // exposes — Hardcover and Paperback. Each bucket carries a comma-joined list of
+            // its underlying format ids (e.g. "2") so the existing `formats=<ids>` filter
+            // (formatId IN [...]) still matches every book tagged with any member format.
+            const formatBuckets = {}; // canonical label -> [ids]
+            for (const f of rawFormats) {
+                const label = canonicalBookFormat(f.title);
+                if (!label) continue;
+                (formatBuckets[label] = formatBuckets[label] || []).push(f.id);
+            }
+            const formats = ['Hardcover', 'Paperback']
+                .filter(label => formatBuckets[label])
+                .map(label => ({ id: formatBuckets[label].join(','), title: label }));
+
             return { formats, languages, maxPrice: priceStats?.price ?? 10000, authors, publishers, series };
         });
 
