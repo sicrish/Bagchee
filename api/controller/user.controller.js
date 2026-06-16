@@ -55,9 +55,17 @@ export const register = async (req, res) => {
         }
 
         const existing = await prisma.user.findFirst({
-            where: { OR: [{ email }, { username: username || '' }] }
+            where: { OR: [{ email }, { username: username || '' }] },
+            select: { email: true, username: true, name: true }
         });
-        if (existing) return res.status(400).json({ status: false, msg: 'User already exists with this email or username.' });
+        if (existing) {
+            // Say which field collided so a genuine duplicate isn't mistaken for a phantom.
+            if (existing.email === email) {
+                const who = existing.name ? ` (existing account: ${existing.name})` : '';
+                return res.status(400).json({ status: false, msg: `This email is already registered${who}.` });
+            }
+            return res.status(400).json({ status: false, msg: 'This username is already taken.' });
+        }
 
         let profileImageUrl = '';
         if (req.files?.profileImage) {
