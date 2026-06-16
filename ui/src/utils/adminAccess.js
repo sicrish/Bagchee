@@ -13,10 +13,8 @@ export const getAdminRole = () => {
 // Top-level sidebar items a staff login sees (must match paths in AdminSidebar.jsx).
 export const STAFF_MENU_PATHS = [
   '/admin/products',
-  '/admin/categories',
   '/admin/authors',
   '/admin/languages',
-  '/admin/tags',
   '/admin/publishers',
   '/admin/series',
 ];
@@ -27,12 +25,10 @@ export const STAFF_MENU_PATHS = [
 export const STAFF_ALLOWED_PREFIXES = [
   '/admin/products', '/admin/books',
   '/admin/add-book', '/admin/edit-book',
-  '/admin/categories', '/admin/add-category', '/admin/edit-category',
   '/admin/authors', '/admin/add-authors', '/admin/edit-author',
   '/admin/actors', '/admin/add-actor', '/admin/edit-actor',
   '/admin/artists', '/admin/add-artist', '/admin/edit-artist',
   '/admin/languages', '/admin/add-languages', '/admin/edit-languages',
-  '/admin/tags', '/admin/add-tags', '/admin/edit-tags',
   '/admin/publishers', '/admin/add-publishers', '/admin/edit-publishers',
   '/admin/series', '/admin/add-series', '/admin/edit-series',
   '/admin/labels', '/admin/add-labels', '/admin/edit-labels',

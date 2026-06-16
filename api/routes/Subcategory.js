@@ -1,6 +1,6 @@
 import express from 'express';
 import * as subcategoryController from '../controller/SubCategory.controller.js';
-import adminOrStaff from '../middleware/adminOrStaff.middleware.js';
+import adminAuth from '../middleware/adminAuth.middleware.js';
 
 const router = express.Router();
 
@@ -8,8 +8,8 @@ const router = express.Router();
 router.get("/fetch", subcategoryController.fetch);
 
 // ADMIN — mutations
-router.post("/save",   adminOrStaff, subcategoryController.save);
-router.post("/update", adminOrStaff, subcategoryController.update);
-router.delete("/delete", adminOrStaff, subcategoryController.deleteSubCategory);
+router.post("/save",   adminAuth, subcategoryController.save);
+router.post("/update", adminAuth, subcategoryController.update);
+router.delete("/delete", adminAuth, subcategoryController.deleteSubCategory);
 
 export default router;
