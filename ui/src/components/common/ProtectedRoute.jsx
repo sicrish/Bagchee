@@ -4,8 +4,10 @@ import axios from 'axios';
 import { Loader2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 
-const ProtectedRoute = ({ allowedRole }) => {
+const ProtectedRoute = ({ allowedRole, allowedRoles }) => {
   const token = localStorage.getItem('token');
+  // Accept either a single role (allowedRole) or a list (allowedRoles) — e.g. ['admin','staff'].
+  const roles = allowedRoles || (allowedRole ? [allowedRole] : null);
 
   // 🚀 MNC OPTIMIZATION: Logic to handle Guest vs User
   const { data: user, isLoading, isError } = useQuery({
@@ -33,7 +35,7 @@ const ProtectedRoute = ({ allowedRole }) => {
     },
     retry: false,
     staleTime: 1000 * 60 * 5, // 5 minute caching
-    enabled: !!token || !!allowedRole, // Sirf tab chalega jab token ho YA role protection chahiye ho
+    enabled: !!token || !!roles, // Sirf tab chalega jab token ho YA role protection chahiye ho
   });
 
   // 1. Loading State: Sirf tab dikhao jab token verify ho raha ho
@@ -51,22 +53,21 @@ const ProtectedRoute = ({ allowedRole }) => {
   }
 
   // 2. 🟢 Guest Access Logic:
-  // Agar 'allowedRole' pass nahi kiya gaya (jaise Checkout route par), 
-  // toh guest user ko bina roke aage jaane do.
-  if (!allowedRole) {
+  // Agar koi role required nahi (jaise Checkout route par), guest ko aage jaane do.
+  if (!roles) {
     return <Outlet />;
   }
 
-  // 3. 🔴 Protected Access Logic (Admin/User Only):
-  // Agar role maanga hai (allowedRole) aur user nahi hai, tabhi login bhejenge.
+  // 3. 🔴 Protected Access Logic (Admin/Staff/User Only):
+  // Agar role maanga hai aur user nahi hai, tabhi login bhejenge.
   if (!user || isError) {
     return <Navigate to="/login" replace />;
   }
 
   // 4. Role Authorization:
-  // Agar user hai par uska role match nahi karta.
-  if (allowedRole && user.role !== allowedRole) {
-    console.error(`Access Denied: Required ${allowedRole}, but user is ${user.role}`);
+  // Agar user hai par uska role allowed list me nahi hai.
+  if (!roles.includes(user.role)) {
+    console.error(`Access Denied: Required ${roles.join('/')}, but user is ${user.role}`);
     return <Navigate to="/" replace />;
   }
 

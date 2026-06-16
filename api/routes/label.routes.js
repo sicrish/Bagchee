@@ -1,6 +1,6 @@
 import express from "express";
 import * as LabelController from "../controller/label.controller.js";
-import adminAuth from '../middleware/adminAuth.middleware.js';
+import adminOrStaff from '../middleware/adminOrStaff.middleware.js';
 
 const router = express.Router();
 
@@ -9,8 +9,8 @@ router.get("/list",    LabelController.getAllLabels);
 router.get("/get/:id", LabelController.getLabelById);
 
 // ADMIN — mutations
-router.post("/save",         adminAuth, LabelController.saveLabel);
-router.patch("/update/:id",  adminAuth, LabelController.updateLabel);
-router.delete("/delete/:id", adminAuth, LabelController.deleteLabel);
+router.post("/save",         adminOrStaff, LabelController.saveLabel);
+router.patch("/update/:id",  adminOrStaff, LabelController.updateLabel);
+router.delete("/delete/:id", adminOrStaff, LabelController.deleteLabel);
 
 export default router;

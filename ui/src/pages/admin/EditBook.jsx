@@ -168,7 +168,8 @@ const EditBook = () => {
                 axios.get(`${API_URL}/formats/list`),
                 axios.get(`${API_URL}/series/list?limit=1000`),
                 axios.get(`${API_URL}/publishers/list?limit=1000`),
-                axios.get(`${API_URL}/settings/list`),
+                // /settings/list is admin-only; a 'staff' login gets 403 — degrade gracefully (see AddBook).
+                axios.get(`${API_URL}/settings/list`).catch(() => ({ data: { status: false, data: [] } })),
                 axios.get(`${API_URL}/product/get/${id}`)
             ]);
 

@@ -150,6 +150,18 @@ const navigate = useNavigate();
           membershipStart: fresh.membershipStart,
           membershipEnd: fresh.membershipEnd,
         }));
+        // /user/verify downgrades an expired membership server-side; mirror it into
+        // localStorage so cart/checkout (which read membership from there) stop
+        // applying the 10% for a lapsed member without needing a re-login.
+        try {
+          const stored = JSON.parse(localStorage.getItem('auth') || '{}');
+          if (stored.userDetails) {
+            stored.userDetails.membership = fresh.membership;
+            stored.userDetails.membershipStart = fresh.membershipStart;
+            stored.userDetails.membershipEnd = fresh.membershipEnd;
+            localStorage.setItem('auth', JSON.stringify(stored));
+          }
+        } catch { /* ignore */ }
       }
     }).catch(() => {});
   }, []);
@@ -422,6 +434,23 @@ const navigate = useNavigate();
                 </div>
               </Transition>
             </div>
+          )}
+
+          {/* Right: NON-MEMBERS (incl. expired) — offer to buy / renew */}
+          {user?.membership !== "active" && (
+            <Link
+              to="/membership"
+              className="relative overflow-hidden bg-gradient-to-r from-primary to-primary-dark rounded-xl p-3 sm:p-4 shadow-lg border border-primary/50 min-w-[240px] sm:min-w-[260px] flex items-center gap-3 sm:gap-4 group transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5"
+            >
+              <div className="absolute top-0 right-0 -translate-y-4 translate-x-4 w-24 h-24 bg-white opacity-10 rounded-full blur-xl pointer-events-none"></div>
+              <div className="relative z-10 w-10 h-10 sm:w-12 sm:h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/30 shrink-0">
+                <Award className="text-accent w-5 h-5 sm:w-6 sm:h-6" strokeWidth={2.5} />
+              </div>
+              <div className="relative z-10">
+                <p className="text-[10px] font-montserrat font-bold text-accent uppercase tracking-widest mb-0.5">Bagchee</p>
+                <p className="text-white text-sm sm:text-base font-display font-bold">Get Membership — Save 10%</p>
+              </div>
+            </Link>
           )}
         </div>
 

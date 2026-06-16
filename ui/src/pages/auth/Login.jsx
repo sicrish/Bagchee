@@ -7,12 +7,14 @@ import axios from '../../utils/axiosConfig.js';
 import toast from 'react-hot-toast';
 
 import Logo from '../../components/common/Logo.jsx';
-import { useMutation } from '@tanstack/react-query'; // 🟢 React Query Mutation
-import { encryptData } from '../../utils/encryption.js'; // 🔒 Encryption Utility Import
+import { useMutation } from '@tanstack/react-query';
+import { encryptData } from '../../utils/encryption.js';
+import { useGeo } from '../../context/GeoContext.jsx';
 
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { isIndia } = useGeo();
   const from = location.state?.from || '/account';
 
   // 1. States
@@ -69,6 +71,9 @@ const Login = () => {
 
         if (userRole === 'admin') {
           navigate('/admin');
+        } else if (userRole === 'staff') {
+          // Staff land on their data-entry home (the dashboard is admin-only).
+          navigate('/admin/products');
         } else {
           navigate(from, { replace: true });
         }
@@ -212,14 +217,16 @@ const Login = () => {
           </div>
 
           {/* Footer Link */}
-          <div className="text-center mt-6 text-sm text-text-muted">
-            <p>
-              Dont have an account?{' '}
-              <Link to="/register" state={location.state} className="font-bold text-primary hover:text-primary-dark hover:underline ml-1 font-montserrat">
-                Register here
-              </Link>
-            </p>
-          </div>
+          {!isIndia && (
+            <div className="text-center mt-6 text-sm text-text-muted">
+              <p>
+                Dont have an account?{' '}
+                <Link to="/register" state={location.state} className="font-bold text-primary hover:text-primary-dark hover:underline ml-1 font-montserrat">
+                  Register here
+                </Link>
+              </p>
+            </div>
+          )}
 
         </form>
       </div>

@@ -5,6 +5,7 @@ import sendMail, { sendPasswordResetEmail } from './email.controller.js';
 import prisma from '../lib/prisma.js';
 import dotenv from 'dotenv';
 import { saveFileLocal, deleteFileLocal } from '../utils/fileHandler.js';
+import { isMembershipExpired } from '../lib/membership.js';
 
 dotenv.config();
 
@@ -22,6 +23,12 @@ export const verifyUser = async (req, res) => {
                 membership: true, membershipStart: true, membershipEnd: true }
         });
         if (!user) return res.status(404).json({ success: false, msg: 'User not found' });
+        // Lazily downgrade an expired membership so the storefront (which keys on the
+        // 'active' String) stops treating them as a member.
+        if (isMembershipExpired(user)) {
+            user.membership = 'inactive';
+            prisma.user.update({ where: { id: user.id }, data: { membership: 'inactive' } }).catch(() => {});
+        }
         res.status(200).json({ success: true, user });
     } catch (error) {
         res.status(500).json({ success: false, msg: 'Server Error during verification' });
@@ -118,6 +125,13 @@ export const login = async (req, res) => {
 
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) return res.status(401).json({ status: false, msg: 'Invalid Credentials' });
+
+        // Lazily downgrade an expired membership so userDetails (and thus the storefront)
+        // reflects the real status from this login onward.
+        if (isMembershipExpired(user)) {
+            user.membership = 'inactive';
+            prisma.user.update({ where: { id: user.id }, data: { membership: 'inactive' } }).catch(() => {});
+        }
 
         const payload = { subject: user.email, userId: user.id, role: user.role };
         const token = jwt.sign(payload, process.env.JWT_SECRET_KEY, { expiresIn: rememberMe ? '7d' : '5h' });

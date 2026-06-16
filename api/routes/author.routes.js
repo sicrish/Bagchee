@@ -1,6 +1,6 @@
 import express from "express";
 import * as AuthorController from "../controller/author.controller.js";
-import adminAuth from '../middleware/adminAuth.middleware.js';
+import adminOrStaff from '../middleware/adminOrStaff.middleware.js';
 
 const router = express.Router();
 
@@ -12,8 +12,8 @@ router.get("/get/:id",        AuthorController.getAuthorById);
 router.get("/:id/books",      AuthorController.getBooksByAuthorId);
 
 // ADMIN — mutations
-router.post("/save",         adminAuth, AuthorController.saveAuthor);
-router.patch("/update/:id",  adminAuth, AuthorController.updateAuthor);
-router.delete("/delete/:id", adminAuth, AuthorController.deleteAuthor);
+router.post("/save",         adminOrStaff, AuthorController.saveAuthor);
+router.patch("/update/:id",  adminOrStaff, AuthorController.updateAuthor);
+router.delete("/delete/:id", adminOrStaff, AuthorController.deleteAuthor);
 
 export default router;

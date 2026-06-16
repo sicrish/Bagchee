@@ -1,6 +1,6 @@
 import express from 'express';
 import * as ProductController from '../controller/Product.controller.js';
-import adminAuth from '../middleware/adminAuth.middleware.js';
+import adminOrStaff from '../middleware/adminOrStaff.middleware.js';
 import optionalAuth from '../middleware/optionalAuth.middleware.js';
 
 const router = express.Router();
@@ -15,11 +15,13 @@ router.get("/filter-options",                 ProductController.getFilterOptions
 router.get("/best-sellers",                   ProductController.getBestSellers);
 router.get("/recommended",                    ProductController.getRecommended);
 router.get("/sale-products",                  ProductController.getSaleProducts);
+router.get("/sale-categories",                ProductController.getSaleCategories);
+router.get("/new-arrival-categories",         ProductController.getNewArrivalCategories);
 router.get("/new-arrivals",                   ProductController.getNewArrivals);
 
 // ADMIN — product mutations
-router.post("/save",          adminAuth, ProductController.save);
-router.patch("/update/:id",   adminAuth, ProductController.update);
-router.delete("/delete/:id",  adminAuth, ProductController.deleteProduct);
+router.post("/save",          adminOrStaff, ProductController.save);
+router.patch("/update/:id",   adminOrStaff, ProductController.update);
+router.delete("/delete/:id",  adminOrStaff, ProductController.deleteProduct);
 
 export default router;

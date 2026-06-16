@@ -169,7 +169,9 @@ const AddBook = () => {
                 axios.get(`${API_URL}/formats/list`),
                 axios.get(`${API_URL}/series/list?limit=1000`),
                 axios.get(`${API_URL}/publishers/list?limit=1000`),
-                axios.get(`${API_URL}/settings/list`)
+                // /settings/list is admin-only (bank details/thresholds). A 'staff' login gets 403 here —
+                // degrade gracefully so the book form still loads; arrivalDays falls back to its default.
+                axios.get(`${API_URL}/settings/list`).catch(() => ({ data: { status: false, data: [] } }))
             ]);
 
             return {

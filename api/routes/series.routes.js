@@ -1,6 +1,6 @@
 import express from "express";
 import * as SeriesController from "../controller/series.controller.js";
-import adminAuth from '../middleware/adminAuth.middleware.js';
+import adminOrStaff from '../middleware/adminOrStaff.middleware.js';
 
 const router = express.Router();
 
@@ -10,8 +10,8 @@ router.get("/by-slug/:slug",  SeriesController.getSeriesBySlug);
 router.get("/get/:id",        SeriesController.getSeriesById);
 
 // ADMIN — mutations
-router.post("/save",         adminAuth, SeriesController.saveSeries);
-router.patch("/update/:id",  adminAuth, SeriesController.updateSeries);
-router.delete("/delete/:id", adminAuth, SeriesController.deleteSeries);
+router.post("/save",         adminOrStaff, SeriesController.saveSeries);
+router.patch("/update/:id",  adminOrStaff, SeriesController.updateSeries);
+router.delete("/delete/:id", adminOrStaff, SeriesController.deleteSeries);
 
 export default router;

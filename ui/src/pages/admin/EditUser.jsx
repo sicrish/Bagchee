@@ -19,6 +19,7 @@ const EditUser = () => {
     username: '',
     email: '',
     status: 1,
+    role: 'user',
     firstname: '',
     lastname: '',
     company: '',
@@ -81,7 +82,8 @@ const EditUser = () => {
             registrationDate: data.createdAt ? new Date(data.createdAt).toLocaleString() : "N/A",
             username: data.username || "", 
             email: data.email || "",
-            status: data.status, 
+            status: data.status,
+            role: data.role || "user",
             firstname: fName,
             lastname: lName,
             company: data.company || "",
@@ -136,7 +138,7 @@ const EditUser = () => {
         country: addr.country || 'India',
         phone: addr.phone || ''
     });
-    setCurrentAddressId(addr._id);
+    setCurrentAddressId(addr.id);
     setIsEditingAddress(true);
     setShowAddressModal(true);
   };
@@ -245,6 +247,7 @@ const EditUser = () => {
       data.append('lastname', formData.lastname);
 
       data.append('membership', formData.membership);
+      data.append('role', formData.role);
       data.append('isGuest', formData.isGuest);
       if(formData.membershipStart) data.append('membershipStart', formData.membershipStart);
       if(formData.membershipEnd) data.append('membershipEnd', formData.membershipEnd);
@@ -389,7 +392,7 @@ const EditUser = () => {
                           <button type="button" onClick={() => openEditModal(addr)} className="p-2 bg-white border border-gray-200 rounded text-blue-500 hover:bg-blue-50 hover:border-blue-200 transition-all" title="Edit Address">
                               <Edit size={14} />
                           </button>
-                          <button type="button" onClick={() => handleDeleteAddress(addr._id)} className="p-2 bg-white border border-gray-200 rounded text-red-500 hover:bg-red-50 hover:border-red-200 transition-all" title="Delete Address">
+                          <button type="button" onClick={() => handleDeleteAddress(addr.id)} className="p-2 bg-white border border-gray-200 rounded text-red-500 hover:bg-red-50 hover:border-red-200 transition-all" title="Delete Address">
                               <Trash2 size={14} />
                           </button>
                         </div>
@@ -408,6 +411,21 @@ const EditUser = () => {
                 >
                   <Plus size={14} /> Add New Address
                 </button>
+              </div>
+            </div>
+
+            {/* Role — access level. 'staff' = restricted data-entry login (catalog only). */}
+            <div className="grid grid-cols-12 gap-2 md:gap-4 items-start">
+              <label className={labelClass}>Role</label>
+              <div className={inputContainer}>
+                <select name="role" value={formData.role} onChange={handleChange} className={inputClass}>
+                  <option value="user">User (customer)</option>
+                  <option value="staff">Staff (data entry only)</option>
+                  <option value="admin">Admin (full access)</option>
+                </select>
+                <p className="text-[11px] text-gray-500 mt-1 font-montserrat leading-snug">
+                  Staff can only add/edit catalog — products, categories, authors, publishers, series, tags, languages. No access to orders, users, payments, coupons or settings.
+                </p>
               </div>
             </div>
 

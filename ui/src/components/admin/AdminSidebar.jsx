@@ -4,6 +4,7 @@ import React, { useState, useCallback, memo } from 'react';
 import { ChevronLeft, ChevronRight, LogOut, Menu, X } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { getAdminRole, STAFF_MENU_PATHS } from '../../utils/adminAccess';
 
 const AdminSidebar = () => {
   const location = useLocation();
@@ -39,6 +40,12 @@ const AdminSidebar = () => {
     { name: "Meta", path: "/admin/meta-tags" },
     { name: "Setting", path: "/admin/settings" },
   ];
+
+  // Staff see only the data-entry subset; admins see everything.
+  const role = getAdminRole();
+  const visibleMenuItems = role === 'staff'
+    ? menuItems.filter((item) => STAFF_MENU_PATHS.includes(item.path))
+    : menuItems;
 
   // 🟢 LOGOUT FUNCTION (Optimized with useCallback)
   const handleLogout = useCallback(() => {
@@ -117,7 +124,7 @@ const AdminSidebar = () => {
         {/* --- MENU LIST --- */}
         <nav className={`flex-1 overflow-y-auto overflow-x-hidden py-4 custom-scrollbar ${isCollapsed ? 'hidden' : 'block'}`}>
           <ul className="space-y-1">
-            {menuItems.map((item, index) => {
+            {visibleMenuItems.map((item, index) => {
               const isActive = location.pathname === item.path;
               return (
                 <li key={index}>

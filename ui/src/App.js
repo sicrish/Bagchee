@@ -59,6 +59,7 @@ const Cart = lazy(() => import('./pages/website/Cart.jsx'));
 
 const Checkout = lazy(() => import('./pages/website/Checkout.jsx'));
 // import Checkout from './pages/website/Checkout.jsx';
+const PayPalReturn = lazy(() => import('./pages/website/PayPalReturn.jsx'));
 
 const PaymentPage = lazy(() => import('./pages/website/PaymentPage.jsx'));
 
@@ -706,6 +707,7 @@ function App() {
               {/* <Route path="help/10" element={<HelpPrivacySecurity />} /> */}
               {/* trace-order moved outside WebsiteLayout (no header, like login page) */}
               <Route path="order-receipt" element={<OrderReceipt />} />
+              <Route path="paypal-return" element={<PayPalReturn />} />
               <Route path="pay/:orderId/:token" element={<PaymentPage />} />
               <Route path="manage-account" element={<Profile />} />
               <Route path="payment-options" element={<PaymentOptions />} />
@@ -724,8 +726,10 @@ function App() {
             <Route path="/trace-order" element={<TraceOrder />} />
 
 
-            <Route element={<ProtectedRoute allowedRole="admin" />}>
+            <Route element={<ProtectedRoute allowedRoles={['admin', 'staff']} />}>
               {/* --- SECTION 3: ADMIN DASHBOARD --- */}
+              {/* Both admin + staff can enter /admin; AdminLayout path-gates staff to
+                  catalog data-entry screens, and the backend 403s admin-only routes. */}
               <Route path="/admin" element={<AdminLayout />}>
 
                 {/* Dashboard Home */}

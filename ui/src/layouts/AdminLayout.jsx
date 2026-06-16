@@ -1,22 +1,30 @@
-    import React from 'react';
-    import { Outlet } from 'react-router-dom';
-    // 🟢 Path update kiya hai folder structure ke hisab se
-    import AdminSidebar from '../components/admin/AdminSidebar';
+import React from 'react';
+import { Outlet, useLocation, Navigate } from 'react-router-dom';
+import AdminSidebar from '../components/admin/AdminSidebar';
+import { getAdminRole, isStaffAllowedPath } from '../utils/adminAccess';
 
-    const AdminLayout = () => {
-    return (
-        <div className="flex h-screen bg-gray-50 font-body overflow-hidden">
-        
-        {/* Sidebar Fixed Left */}
-        <AdminSidebar />
+const AdminLayout = () => {
+  const location = useLocation();
 
-        {/* Dynamic Content Right Side */}
-        <div className="flex-1 overflow-y-auto">
-            <Outlet />
-        </div>
+  // A restricted 'staff' login may only open catalog data-entry screens; any other
+  // /admin path (orders, users, payments, settings, the dashboard, …) bounces them to
+  // their home. The backend still enforces this with 403s — this just keeps the UI
+  // coherent so staff never see (or land on) an admin-only screen.
+  if (getAdminRole() === 'staff' && !isStaffAllowedPath(location.pathname)) {
+    return <Navigate to="/admin/products" replace />;
+  }
 
-        </div>
-    );
-    };
+  return (
+    <div className="flex h-screen bg-gray-50 font-body overflow-hidden">
+      {/* Sidebar Fixed Left */}
+      <AdminSidebar />
 
-    export default AdminLayout;
+      {/* Dynamic Content Right Side */}
+      <div className="flex-1 overflow-y-auto">
+        <Outlet />
+      </div>
+    </div>
+  );
+};
+
+export default AdminLayout;

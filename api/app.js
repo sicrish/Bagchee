@@ -293,6 +293,14 @@ app.listen(PORT, () => {
         if (lastMembershipReminderCheck && (now - lastMembershipReminderCheck) < 23 * 60 * 60 * 1000) return;
         lastMembershipReminderCheck = now;
         try {
+            // Downgrade expired memberships so the 'active' String stays honest even for
+            // users who never log back in (login/verify also downgrade lazily).
+            const downgraded = await prisma.user.updateMany({
+                where: { membership: 'active', membershipEnd: { lt: now } },
+                data: { membership: 'inactive' }
+            });
+            if (downgraded.count) console.log(`Membership expired -> downgraded ${downgraded.count} user(s)`);
+
             const in30 = new Date(now); in30.setDate(in30.getDate() + 30);
             const in28 = new Date(now); in28.setDate(in28.getDate() + 28);
             const users = await prisma.user.findMany({

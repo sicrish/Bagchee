@@ -1,6 +1,6 @@
 import express from "express";
 import * as TagController from "../controller/tag.controller.js";
-import adminAuth from '../middleware/adminAuth.middleware.js';
+import adminOrStaff from '../middleware/adminOrStaff.middleware.js';
 
 const router = express.Router();
 
@@ -9,8 +9,8 @@ router.get("/list",    TagController.getAllTags);
 router.get("/get/:id", TagController.getTagById);
 
 // ADMIN — mutations
-router.post("/save",         adminAuth, TagController.saveTag);
-router.patch("/update/:id",  adminAuth, TagController.updateTag);
-router.delete("/delete/:id", adminAuth, TagController.deleteTag);
+router.post("/save",         adminOrStaff, TagController.saveTag);
+router.patch("/update/:id",  adminOrStaff, TagController.updateTag);
+router.delete("/delete/:id", adminOrStaff, TagController.deleteTag);
 
 export default router;

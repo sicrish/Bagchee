@@ -4,6 +4,7 @@ import { sendOrderConfirmation, sendOrderShippedEmail, sendOrderStatusEmail, sen
 import { calcDiscount, couponAlreadyUsed } from './coupon.controller.js';
 import { createGiftCardsForOrder, applyWalletBalance } from './giftCard.controller.js';
 import { activeItems, payableTotal, payableShipping } from '../lib/orderTotals.js';
+import { isMembershipActive } from '../lib/membership.js';
 
 // Payment type detection helpers
 const isWireTransfer = (title) => {
@@ -189,10 +190,11 @@ export const saveOrder = async (req, res) => {
             const clientRequestsMembership = req.body.membership === 'Yes' || req.body.membership === true;
             if (clientRequestsMembership) {
                 const [dbUser, dbSettings] = await Promise.all([
-                    prisma.user.findUnique({ where: { id: customerId }, select: { membership: true } }),
+                    prisma.user.findUnique({ where: { id: customerId }, select: { membership: true, membershipEnd: true } }),
                     prisma.settings.findFirst({ orderBy: { id: 'desc' }, select: { memberDiscount: true } })
                 ]);
-                if (dbUser?.membership === true) {
+                // Honor expiry: an expired member (stale token / lapsed) gets no discount.
+                if (isMembershipActive(dbUser)) {
                     const memberDiscountPct = Number(dbSettings?.memberDiscount) || 0;
                     serverMembershipDiscount = Math.round((physicalSubtotal * memberDiscountPct / 100) * 100) / 100;
                 }

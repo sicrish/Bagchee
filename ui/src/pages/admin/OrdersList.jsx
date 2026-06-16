@@ -25,6 +25,18 @@ const statusBadgeClass = (raw) => {
   return 'bg-gray-100 text-gray-700';                                                            // anything else
 };
 
+// Customer label for the orders list — mirrors the order-detail page (EditOrders.jsx).
+// Guest-checkout orders have no user record (customerId null); surface them as
+// "Guest Customer — First Last" (falling back to shipping email) instead of "Unknown Customer".
+const customerDisplay = (o) => {
+  const named = o.customer?.name || o.customer_id?.name;
+  if (named) return named;
+  const isGuest = !(o.customerId || o.customer?.id || o.customer_id);
+  if (!isGuest) return 'Unknown Customer';
+  const who = [o.shippingFirstName, o.shippingLastName].filter(Boolean).join(' ') || o.shippingEmail || '';
+  return 'Guest Customer' + (who ? ` — ${who}` : '');
+};
+
 const OrdersList = () => {
   const navigate = useNavigate();
     const {confirm}=useConfirm()
@@ -141,7 +153,7 @@ const OrdersList = () => {
     return orders.filter((order, index) => {
       const orderNum  = (order.orderNumber || order.order_number || "").toString().toLowerCase();
       const displayId = (order.id || index + 1).toString().toLowerCase();
-      const custName  = (order.customer?.name || order.customer_id?.name || "").toLowerCase();
+      const custName  = customerDisplay(order).toLowerCase();
 
       return (
         displayId.includes(filters.id.toLowerCase()) &&
@@ -237,7 +249,7 @@ const handleExport = async () => {
           "Transaction ID": order.transactionId || order.transaction_id || "-",
 
           // --- Customer Info ---
-          "Customer Name": order.customer?.name || order.customer_id?.name || "Unknown",
+          "Customer Name": customerDisplay(order),
           "Customer Email": order.customer?.email || order.customer_id?.email || "-",
 
           // --- Shipping Details (flat camelCase from Prisma) ---
@@ -409,7 +421,7 @@ const handleExport = async () => {
                   // Simple format = ORD-16953 (old platform, matches customer receipt)
                   // Timestamp format = ORD-1716574815045-369 (new platform)
                   const isSimpleOrderNum = /^ORD-\d+$/.test(orderNum);
-                  const custName  = order.customer?.name || order.customer_id?.name || "Unknown Customer";
+                  const custName  = customerDisplay(order);
                   const payType   = order.paymentType || order.payment_type || '-';
                   const payStatus = order.paymentStatus || order.payment_status || 'Pending';
                   const statusVal = order.status || 'Pending';
