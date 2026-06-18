@@ -195,11 +195,14 @@ const Wishlist = () => {
               // 3. Status & Meta
               const rating = fullProduct.rating || 0;
               const ratingCount = fullProduct.rated_times || 0;
-              // `availability` is the numeric stock count; `stock` is a status string
-              // ("active"), so never compare stock to 0. Unknown availability = treat as
-              // in stock (don't show a false "out of stock").
+              // `stock` is the canonical status string ('active'/'inactive') set by the
+              // admin toggle; `availability` is the numeric quantity (defaults 0). Out of
+              // stock = stock is inactive OR a known availability is <= 0. Matches
+              // BookDetail.jsx — don't rely on availability alone: ~1,036 books are
+              // stock=inactive with availability>0 and would otherwise show buyable.
               const availabilityNum = Number(fullProduct.availability);
-              const outOfStock = Number.isFinite(availabilityNum) && availabilityNum <= 0;
+              const outOfStock = fullProduct.stock === 'inactive'
+                || (Number.isFinite(availabilityNum) && availabilityNum <= 0);
               const author = getAuthorName(fullProduct);
               const slug = createSlug(fullProduct.title);
               const productUrl = `/books/${fullProduct.bagcheeId || fullProduct.bagchee_id || fullProduct.id || fullProduct._id}/${slug}`;
