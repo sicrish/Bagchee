@@ -100,16 +100,38 @@ export const confirmSubscriber = async (req, res) => {
     }
 };
 
-// ── PUBLIC: newsletter categories for the preferences checkboxes ───────────────
+// ── PUBLIC: newsletter categories (+ sub-categories) for the preferences page ──
 // GET /newsletter-subs/categories
+// Returns each flagged newsletter category with its active sub-categories nested
+// under `children` (self-referential categories.parent_id hierarchy — the same
+// sub-categories the storefront uses, e.g. Art and Architecture → Painting).
 export const getNewsletterCategories = async (req, res) => {
     try {
-        const cats = await prisma.category.findMany({
+        const mains = await prisma.category.findMany({
             where:   { newsletterCategory: true, active: true },
             select:  { id: true, title: true, slug: true, newsletterOrder: true },
             orderBy: [{ newsletterOrder: 'asc' }, { title: 'asc' }],
         });
-        res.status(200).json({ status: true, data: cats });
+
+        const mainIds = mains.map(m => m.id);
+        const children = mainIds.length
+            ? await prisma.category.findMany({
+                where:   { parentId: { in: mainIds }, active: true },
+                select:  { id: true, title: true, slug: true, parentId: true },
+                orderBy: { title: 'asc' },
+              })
+            : [];
+
+        const byParent = {};
+        for (const c of children) {
+            (byParent[c.parentId] ||= []).push({ id: c.id, title: c.title, slug: c.slug });
+        }
+
+        const data = mains.map(m => ({
+            id: m.id, title: m.title, slug: m.slug,
+            children: byParent[m.id] || [],
+        }));
+        res.status(200).json({ status: true, data });
     } catch (error) {
         res.status(500).json({ status: false, msg: 'Server Error' });
     }
