@@ -37,8 +37,13 @@ const ProductModal = ({ product, isOpen, onClose }) => {
         onClose();
     }, [onClose]);
 
+    // Mirror the launching card's out-of-stock rule (ProductCardGrid/List) so quick-view
+    // stays consistent — `stock` is the canonical admin status string.
+    const isOutOfStock = product?.stock === 'inactive' || product?.stock === 'out_of_stock';
+
     const handleAddToCart = () => {
         if (product) {
+            if (isOutOfStock) { toast.error('This item is currently out of stock.'); return; }
             addToCart(product);
             toast.success(`${product.title.substring(0, 20)}... added to cart!`);
         }
@@ -149,6 +154,13 @@ const ProductModal = ({ product, isOpen, onClose }) => {
                                                 If you wish to buy or need information of this book,{' '}
                                                 <Link to="/contact-us" onClick={onClose} className="text-primary font-bold hover:underline">contact us</Link>.
                                             </p>
+                                        ) : isOutOfStock ? (
+                                            <button
+                                                disabled
+                                                className="w-full bg-gray-200 text-gray-400 py-3 rounded-lg font-bold uppercase tracking-wide flex items-center justify-center gap-2 cursor-not-allowed font-montserrat"
+                                            >
+                                                <ShoppingCart size={20} /> Out of Stock
+                                            </button>
                                         ) : (
                                             <button
                                                 onClick={handleAddToCart}
