@@ -3,10 +3,10 @@ import { useGeo } from '../../../../context/GeoContext.jsx';
 import { createSafeHtml } from '../../../../utils/sanitize';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  MapPin, Mail, Facebook, Twitter, Instagram, ArrowRight, Loader2, Pinterest, // Pinterest ke liye
+  MapPin, Mail, Facebook, Twitter, Instagram, ArrowRight, Pinterest, // Pinterest ke liye
   Chrome, ChevronDown
 } from 'lucide-react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 
 
@@ -26,26 +26,7 @@ import paypalImg from '../../../../assets/images/website/payments/PayPal.svg';
 
 const NewsletterForm = memo(({ mobile }) => {
   const [email, setEmail] = useState("");
-
-  // React Query Mutation: Backend ko data bhejne ke liye
-  const mutation = useMutation({
-    mutationFn: async (emailValue) => {
-      const API_URL = process.env.REACT_APP_API_URL;
-      const res = await axios.post(`${API_URL}/newsletter-subs/save`, { email: emailValue });
-      return res.data;
-    },
-    onSuccess: (data) => {
-      if (data.status) {
-        toast.success("Subscribed successfully! 🚀");
-        setEmail(""); // Success ke baad input clear
-      } else {
-        toast.error(data.msg || "Failed to subscribe");
-      }
-    },
-    onError: (error) => {
-      toast.error(error.response?.data?.msg || "Server Error. Try again later.");
-    }
-  });
+  const navigate = useNavigate();
 
   const handleLocalSubmit = (e) => {
     e.preventDefault();
@@ -55,7 +36,9 @@ const NewsletterForm = memo(({ mobile }) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) return toast.error("Invalid email address!");
 
-    mutation.mutate(email);
+    // Step 2 → choose interests + captcha + email confirmation (anti-spam double opt-in).
+    const clean = email.trim();
+    navigate(`/newsletter/subscribe?email=${encodeURIComponent(clean)}`, { state: { email: clean } });
   };
 
   return (
@@ -68,19 +51,14 @@ const NewsletterForm = memo(({ mobile }) => {
         value={email}
         placeholder="Enter your email for updates..."
         onChange={(e) => setEmail(e.target.value)}
-        disabled={mutation.isPending}
         className="w-full bg-transparent text-white placeholder-gray-300 px-6 py-3 focus:outline-none text-sm"
       />
       <button
         type="submit"
-        disabled={mutation.isPending}
+        aria-label="Subscribe"
         className="bg-accent text-text-main hover:bg-white hover:text-primary transition-colors px-6 py-3 flex items-center justify-center font-bold"
       >
-        {mutation.isPending ? (
-          <Loader2 size={18} className="animate-spin" />
-        ) : (
-          <ArrowRight size={18} />
-        )}
+        <ArrowRight size={18} />
       </button>
     </form>
   );

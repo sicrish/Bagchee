@@ -705,11 +705,13 @@ export const sendInvoiceEmail = async (email, order) => {
 };
 
 // ─── Newsletter subscription confirmation ───────────────────────────────────
-export const sendNewsletterConfirmation = async (email, firstName) => {
+export const sendNewsletterConfirmation = async (email, firstName, confirmUrl) => {
     try {
         const transporter = createTransporter();
         const name = escapeHtml(firstName || 'there');
         const unsubUrl = unsubscribeUrl(email);
+        // confirmUrl is the tokenized double opt-in link; fall back to the site for safety.
+        const link = confirmUrl || SITE_URL;
         const html = `
             <div style="font-family:'Inter',Helvetica,Arial,sans-serif;background-color:${theme.cream};padding:40px 0;">
               <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 15px rgba(0,0,0,.1);border:1px solid #e6decd;">
@@ -717,12 +719,15 @@ export const sendNewsletterConfirmation = async (email, firstName) => {
                 <div style="padding:36px 30px;">
                   <p style="color:${theme.textMain};font-size:20px;font-weight:700;margin:0 0 16px;">Hello, ${name}!</p>
                   <p style="color:${theme.textMain};font-size:14px;line-height:1.7;margin:0 0 14px;">
-                    Thank you for subscribing to our newsletter. You are just one step away — click on the link below to confirm your subscription.
+                    Thank you for subscribing to our newsletter. You are just one step away — click the button below to confirm your subscription.
                   </p>
-                  <p style="margin:0 0 28px;">
-                    <a href="${SITE_URL}?newsletter=confirmed&email=${encodeURIComponent(email)}" style="color:${theme.primary};font-size:14px;font-weight:600;text-decoration:underline;">
-                      Yes, I would like to receive Bagchee's newsletter.
+                  <p style="margin:0 0 16px;">
+                    <a href="${link}" style="display:inline-block;background:${theme.primary};color:#fff;font-size:14px;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:8px;">
+                      Confirm my subscription
                     </a>
+                  </p>
+                  <p style="color:${theme.textMuted};font-size:12px;line-height:1.6;margin:0 0 28px;word-break:break-all;">
+                    Or paste this link into your browser:<br>${link}
                   </p>
                   <div style="border-top:1px solid #e6decd;padding-top:16px;">
                     <p style="font-size:12px;color:${theme.textMuted};margin:0 0 4px;">You are receiving this email because you signed up on Bagchee.com.</p>

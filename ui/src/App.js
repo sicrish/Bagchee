@@ -38,6 +38,9 @@ const queryClient = new QueryClient({
 const Home = lazy(() => import('./pages/website/Home.jsx'));
 
 const Membership = lazy(() => import('./pages/website/Membership.jsx'));
+
+const NewsletterSubscribe = lazy(() => import('./pages/website/NewsletterSubscribe.jsx'));
+const NewsletterConfirm = lazy(() => import('./pages/website/NewsletterConfirm.jsx'));
 // import Membership from './pages/website/Membership.jsx';
 
 const UserDashboard = lazy(() => import('./pages/website/UserDashboard.jsx'));
@@ -626,6 +629,10 @@ function App() {
             <Route path="/" element={<WebsiteLayout />}>
               <Route index element={<Home />} />
               <Route path="membership" element={<Membership />} />
+
+              {/* Newsletter — anti-spam double opt-in (preferences + captcha → email confirm) */}
+              <Route path="newsletter/subscribe" element={<NewsletterSubscribe />} />
+              <Route path="newsletter/confirm" element={<NewsletterConfirm />} />
               <Route path="allcategories" element={<AllCategories />} />
               <Route path="allsubcategories/:slug" element={<AllSubcategories />} />
 
