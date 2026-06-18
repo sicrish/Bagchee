@@ -129,7 +129,7 @@ export const getBooksByAuthorId = async (req, res) => {
                 select: {
                     id: true, title: true, bagcheeId: true, defaultImage: true,
                     price: true, realPrice: true, discount: true, rating: true,
-                    isActive: true,
+                    isActive: true, stock: true,
                     authors: { include: { author: { select: { id: true, fullName: true } } }, take: 2 },
                 },
                 orderBy: { createdAt: 'desc' },

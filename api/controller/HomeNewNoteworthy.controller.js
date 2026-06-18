@@ -132,7 +132,7 @@ export const fetchForHome = async (req, res) => {
         ]);
         const productIds = items.map(i => i.productId);
         const products = productIds.length > 0
-            ? await prisma.product.findMany({ where: { id: { in: productIds }, isActive: true }, select: { id: true, title: true, price: true, inrPrice: true, realPrice: true, discount: true, defaultImage: true, isbn13: true, bagcheeId: true, rating: true, ratedTimes: true, synopsis: true, authors: { select: { author: { select: { id: true, firstName: true, lastName: true, fullName: true } } } } } })
+            ? await prisma.product.findMany({ where: { id: { in: productIds }, isActive: true }, select: { id: true, title: true, price: true, inrPrice: true, realPrice: true, discount: true, defaultImage: true, isbn13: true, bagcheeId: true, rating: true, ratedTimes: true, synopsis: true, stock: true, authors: { select: { author: { select: { id: true, firstName: true, lastName: true, fullName: true } } } } } })
             : [];
         const productMap = Object.fromEntries(products.map(p => [p.id, p]));
         const validItems = items.map(i => productMap[i.productId]).filter(Boolean);
