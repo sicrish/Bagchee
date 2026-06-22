@@ -57,10 +57,13 @@ const Cart = () => {
       try {
         const parsed = JSON.parse(authData);
         setUser(parsed.userDetails);
+        // Active members already own the perk — clear any stale "buying membership" flag.
+        if (parsed?.userDetails?.membership === 'active' && membershipAdded) setMembershipAdded(false);
       } catch (e) {
         // ignore
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // --- Fetch shipping options, settings, active coupons on mount ---
@@ -190,10 +193,14 @@ const Cart = () => {
       ? (Number(appliedShipping.priceUsd || appliedShipping.price_usd) || 0)
       : (isFreeShippingUnlocked ? 0 : (Number(appliedShipping.priceUsd || appliedShipping.price_usd) || STANDARD_SHIPPING_FEE));
 
+  // Already-active members get the 10% automatically (no fee); only non-members "buy" a membership.
+  const isActiveMember = !!user && user.membership === 'active';
+  const buyingMembership = membershipAdded && !isActiveMember;
+
   // Pre-compute grand total so it's transparent and testable
-  const membershipUsdForTotal = membershipAdded ? (getMembershipData().usd || 0) : 0;
+  const membershipUsdForTotal = buyingMembership ? (getMembershipData().usd || 0) : 0;
   const memberDiscountPercent = Number(settings?.member_discount || settings?.memberDiscount) || 10;
-  const memberDiscountUSD = membershipAdded
+  const memberDiscountUSD = (buyingMembership || isActiveMember)
     ? Math.round((subtotalAfterItemDiscount + membershipUsdForTotal) * (memberDiscountPercent / 100) * 100) / 100
     : 0;
   const grandTotalUSD = subtotalAfterItemDiscount + membershipUsdForTotal - memberDiscountUSD + finalShippingUSD;
@@ -207,7 +214,7 @@ const Cart = () => {
 
   // 3. Membership Data (Sirf display ke liye)
   const mData = getMembershipData();
-  const membershipPriceUI = membershipAdded ? formatPrice(mData.usd, mData.inr, mData.usd) : null;
+  const membershipPriceUI = buyingMembership ? formatPrice(mData.usd, mData.inr, mData.usd) : null;
 
   const couponDiscountUSD = (() => {
     if (!appliedCoupon) return 0;
@@ -725,7 +732,7 @@ const Cart = () => {
 
                 {/* ─── TOTALS ─── */}
                 <div className="border-t border-gray-200 pt-4 space-y-2">
-                  {membershipAdded && (
+                  {buyingMembership && (
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Membership</span>
                       <span className="font-medium text-text-main">
@@ -734,7 +741,7 @@ const Cart = () => {
                     </div>
                   )}
 
-                  {membershipAdded && memberDiscountUSD > 0 && (
+                  {memberDiscountUSD > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-green-600">Member Discount ({memberDiscountPercent}%)</span>
                       <span className="font-medium text-green-600">

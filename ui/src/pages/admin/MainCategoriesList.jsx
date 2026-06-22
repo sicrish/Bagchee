@@ -207,7 +207,7 @@ const filteredData = useMemo(() => {
                             onError={(e) => {
                               console.error("Image Load Error:", e.target.src);
                               e.target.onerror = null;
-                              e.target.src = "https://via.placeholder.com/150?text=Err";
+                              e.target.src = "https://placehold.co/150?text=Err";
                             }}
                           />
                         ) : (

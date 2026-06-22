@@ -29,15 +29,29 @@ export const CurrencyProvider = ({ children }) => {
         }
     }, [isIndia, geoLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // 2. Fetch Latest Rates (Base USD rakhenge for better accuracy)
+    // 2. Fetch Latest Rates — cached in localStorage for 24h to avoid rate-limit (1500 req/month free tier)
     useEffect(() => {
+        const CACHE_KEY = 'bagchee_exchange_rates';
+        const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
         const fetchRates = async () => {
             try {
+                // Use cached rates if fresh
+                const cached = localStorage.getItem(CACHE_KEY);
+                if (cached) {
+                    const { rates, ts } = JSON.parse(cached);
+                    if (Date.now() - ts < CACHE_TTL) {
+                        setExchangeRates(rates);
+                        setLoading(false);
+                        return;
+                    }
+                }
                 const apiKey = process.env.REACT_APP_EXCHANGE_RATE_API_KEY;
-                if (!apiKey) return;
+                if (!apiKey) { setLoading(false); return; }
                 const response = await axios.get(`https://v6.exchangerate-api.com/v6/${apiKey}/latest/USD`);
                 if (response.data?.conversion_rates) {
                     setExchangeRates(response.data.conversion_rates);
+                    localStorage.setItem(CACHE_KEY, JSON.stringify({ rates: response.data.conversion_rates, ts: Date.now() }));
                 }
             } catch (error) {
                 console.error("Rates Fetch Error:", error);

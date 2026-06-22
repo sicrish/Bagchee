@@ -27,7 +27,7 @@ const generateCode = () => {
 const sendGiftCardEmail = async (giftCard) => {
     const transporter = createTransporter();
 
-    const shopUrl = process.env.FRONTEND_URL || 'https://bagchee.com';
+    const shopUrl = (process.env.FRONTEND_URL || 'https://www.bagchee.com').split(',')[0].trim();
     const redeemUrl = `${shopUrl}/account/gift-cards`;
 
     const html = `

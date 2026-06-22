@@ -87,7 +87,7 @@ const ReviewsList = () => {
     const filteredReviews = useMemo(() => {
         return reviews.filter((item, index) => {
             const displayId = (index + 1).toString();
-            const itemIdStr = item.product?._id || "";
+            const itemIdStr = String(item.product?.id || item.product?._id || "");
             const statusText = item.active? "active" : "inactive";
             const dateStr = item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-GB') : "";
 
@@ -144,12 +144,12 @@ const ReviewsList = () => {
             return (
                 <div className="flex flex-col">
                     <span className="font-bold text-primary text-[12px]">{itemData.title}</span>
-                    <span className="text-[10px] text-gray-400 font-mono truncate w-20">{itemData._id}</span>
+                    <span className="text-[10px] text-gray-400 font-mono truncate w-20">{itemData.id || itemData._id}</span>
                 </div>
             );
         }
-        if (itemData && itemData._id) {
-            return <span className="font-mono text-[10px]">{itemData._id}</span>;
+        if (itemData && (itemData.id || itemData._id)) {
+            return <span className="font-mono text-[10px]">{itemData.id || itemData._id}</span>;
         }
         return <span className="text-gray-400 italic">-</span>;
     };

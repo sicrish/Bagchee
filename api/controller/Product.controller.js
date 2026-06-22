@@ -909,6 +909,110 @@ export const getFilterOptions = async (req, res) => {
     }
 };
 
+// GET /products/filter-facets — sidebar facets (authors / publishers / series) SCOPED to the
+// current listing context, so e.g. the Art & Architecture page shows the top-selling authors
+// OF Art & Architecture books rather than the whole catalogue's authors.
+//
+// Mirrors the listing exactly: it reuses buildWhereClause (categories / publisher / series /
+// keyword — the same params the listing fetch sends) plus the listing-type condition (?scope=
+// new-arrivals|bestsellers|recommended|sale). Ranked by units sold (soldCount), top 15.
+// The frontend sends only the STRUCTURAL scope params (not the user's transient author/format/
+// price ticks), so the facet lists stay stable while filtering. Cached 15 min per context.
+const FACET_LIMIT = 15;
+const AUTHOR_ROW_CAP = 30000; // safety cap for the in-memory author roll-up on huge scopes
+
+export const getFilterFacets = async (req, res) => {
+    try {
+        const scope = String(req.query.scope || '').toLowerCase();
+        const where = buildWhereClause(req.query);
+
+        // Add the listing-type condition, matching getRecommended/getBestSellers/etc.
+        if (scope === 'recommended') {
+            where.AND.push({ isRecommended: true });
+        } else if (scope === 'bestsellers') {
+            const settings = await getCachedSettings();
+            where.AND.push({ soldCount: { gte: settings?.bestSellerThreshold ?? 1 } });
+        } else if (scope === 'sale') {
+            const settings = await getCachedSettings();
+            where.AND.push({ discount: { gt: 0 } });
+            where.AND.push({ discount: { gte: settings?.saleThreshold ?? 0 } });
+        } else if (scope === 'new-arrivals') {
+            const settings = await getCachedSettings();
+            const days = Math.max(1, Number(settings?.newArrivalTime || 30));
+            const today = new Date();
+            const dateFrom = new Date(today);
+            dateFrom.setDate(dateFrom.getDate() - days);
+            where.AND.push({ OR: [
+                { isNewRelease: true, newReleaseUntil: { gte: today } },
+                { createdAt: { gte: dateFrom } },
+            ] });
+        }
+
+        const FIFTEEN_MIN = 15 * 60 * 1000;
+        const cacheKey = `facets:${scope}:${req.query.categories || ''}:${req.query.publishers || ''}:${req.query.series || ''}:${req.query.keyword || ''}`;
+
+        const data = await cache.get(cacheKey, FIFTEEN_MIN, async () => {
+            // Publishers & series: top by summed sales (direct groupBy with _sum).
+            const [pubGroups, serGroups, authorRows] = await Promise.all([
+                prisma.product.groupBy({
+                    by: ['publisherId'],
+                    where: { ...where, publisherId: { not: null } },
+                    _sum: { soldCount: true },
+                    orderBy: { _sum: { soldCount: 'desc' } },
+                    take: FACET_LIMIT,
+                }),
+                prisma.product.groupBy({
+                    by: ['seriesId'],
+                    where: { ...where, seriesId: { not: null } },
+                    _sum: { soldCount: true },
+                    orderBy: { _sum: { soldCount: 'desc' } },
+                    take: FACET_LIMIT,
+                }),
+                // Authors are M:N — roll up summed sales per author in memory over the scoped
+                // product↔author rows (capped), then take the top by sales.
+                prisma.productAuthor.findMany({
+                    where: { product: where },
+                    select: { authorId: true, product: { select: { soldCount: true } } },
+                    take: AUTHOR_ROW_CAP,
+                }),
+            ]);
+
+            const authSales = new Map();
+            for (const r of authorRows) {
+                authSales.set(r.authorId, (authSales.get(r.authorId) || 0) + (r.product?.soldCount || 0));
+            }
+            const topAuthorIds = [...authSales.entries()]
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, FACET_LIMIT)
+                .map(([id]) => id);
+
+            const pubIds = pubGroups.map(g => g.publisherId).filter(Boolean);
+            const serIds = serGroups.map(g => g.seriesId).filter(Boolean);
+
+            const [pubRows, serRows, authNameRows] = await Promise.all([
+                pubIds.length ? prisma.publisher.findMany({ where: { id: { in: pubIds } }, select: { id: true, title: true } }) : [],
+                serIds.length ? prisma.series.findMany({ where: { id: { in: serIds } }, select: { id: true, title: true } }) : [],
+                topAuthorIds.length ? prisma.author.findMany({ where: { id: { in: topAuthorIds } }, select: { id: true, firstName: true, lastName: true, fullName: true } }) : [],
+            ]);
+
+            const pubById = new Map(pubRows.map(p => [p.id, p]));
+            const serById = new Map(serRows.map(s => [s.id, s]));
+            const authById = new Map(authNameRows.map(a => [a.id, a]));
+
+            return {
+                authors:    topAuthorIds.map(id => authById.get(id)).filter(Boolean),
+                publishers: pubIds.map(id => pubById.get(id)).filter(Boolean),
+                series:     serIds.map(id => serById.get(id)).filter(Boolean),
+            };
+        });
+
+        res.status(200).json({ status: true, data });
+    } catch (error) {
+        console.error('getFilterFacets error:', error.message);
+        res.status(500).json({ status: false, msg: 'Server Error' });
+    }
+};
+
 // GET /products/recommended
 export const getRecommended = async (req, res) => {
     try {

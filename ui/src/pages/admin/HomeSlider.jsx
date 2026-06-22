@@ -100,7 +100,7 @@ const HomeSlider = () => {
 
       if (res.data.status && res.data.data.length > 0) {
         const exportData = res.data.data.map(item => ({
-          "ID": item._id,
+          "ID": item.id || item._id,
           "Desktop Image": item.desktopImage || 'N/A', // 🟢 Updated Key
           "Mobile Image": item.mobileImage || 'N/A',   // 🟢 Updated Key
           "Link": item.link || 'N/A',

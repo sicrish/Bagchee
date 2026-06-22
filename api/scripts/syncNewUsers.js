@@ -13,7 +13,7 @@ import mysql from 'mysql2/promise';
 const prisma = new PrismaClient();
 const MYSQL = await mysql.createPool({
     host: '127.0.0.1', user: 'bagchee_migrator', password: 'migrator_pw',
-    database: 'bagchee_old', connectionLimit: 5, dateStrings: true,
+    database: 'bagchee', connectionLimit: 5, dateStrings: true,
 });
 
 const log = (m) => console.log(`[${new Date().toISOString().slice(11,19)}] ${m}`);

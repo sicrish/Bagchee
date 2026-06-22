@@ -65,6 +65,10 @@ const ProductListing = ({ type }) => {
     const [authorsList, setAuthorsList] = useState([]);
     const [publishersList, setPublishersList] = useState([]);
     const [seriesList, setSeriesList] = useState([]);
+    // Category/listing-scoped top-selling facets (override the global lists on context pages)
+    const [facetAuthors, setFacetAuthors] = useState([]);
+    const [facetPublishers, setFacetPublishers] = useState([]);
+    const [facetSeries, setFacetSeries] = useState([]);
     const [subcategoriesList, setSubcategoriesList] = useState([]); // child categories of current slug
     const [pageTitle, setPageTitle] = useState('category');
     const [baseTitleRef, setBaseTitleRef] = useState('category'); // original title before filters
@@ -418,6 +422,40 @@ const ProductListing = ({ type }) => {
     }, [filters, type, slug, allCategories, activeCategoryIds, location.pathname, location.search, currentPage, resolvedEntityId]);
 
 
+    // --- Category/listing-scoped sidebar facets ---
+    // On context pages (a category, or a new-arrivals/bestsellers/recommended/sale listing, or a
+    // publisher/series page) the Authors/Publishers/Series filters should list the TOP-SELLING
+    // ones for THAT context — not the whole catalogue. Mirrors the listing's structural scope.
+    useEffect(() => {
+        const hasCtx = activeCategoryIds.length > 0
+            || NAV_TYPES.includes(type)
+            || ((type === 'publisher' || type === 'series') && resolvedEntityId > 0);
+        if (!hasCtx) {
+            setFacetAuthors([]); setFacetPublishers([]); setFacetSeries([]);
+            return;
+        }
+        let cancelled = false;
+        const fetchFacets = async () => {
+            const q = new URLSearchParams();
+            if (activeCategoryIds.length) q.append('categories', activeCategoryIds.join(','));
+            if (NAV_TYPES.includes(type)) q.append('scope', type);
+            if (type === 'publisher' && resolvedEntityId > 0) q.append('publishers', resolvedEntityId);
+            if (type === 'series' && resolvedEntityId > 0) q.append('series', resolvedEntityId);
+            if ([...q.keys()].length === 0) return;
+            try {
+                const res = await axios.get(`${process.env.REACT_APP_API_URL}/product/filter-facets?${q.toString()}`);
+                if (!cancelled && res.data.status) {
+                    setFacetAuthors(res.data.data.authors || []);
+                    setFacetPublishers(res.data.data.publishers || []);
+                    setFacetSeries(res.data.data.series || []);
+                }
+            } catch { /* keep previous facets on error */ }
+        };
+        fetchFacets();
+        return () => { cancelled = true; };
+    }, [type, activeCategoryIds, resolvedEntityId]);
+
+
 
 
 
@@ -502,6 +540,15 @@ const ProductListing = ({ type }) => {
         return { title: `${label} | Bagchee`, desc };
     };
     const listingMeta = buildListingMeta();
+
+    // On a category / nav-listing / publisher / series page, show the scoped top-selling facets;
+    // elsewhere (generic browse, search) fall back to the global filter lists.
+    const hasFacetContext = activeCategoryIds.length > 0
+        || NAV_TYPES.includes(type)
+        || ((type === 'publisher' || type === 'series') && resolvedEntityId > 0);
+    const sidebarAuthors    = hasFacetContext ? facetAuthors    : authorsList;
+    const sidebarPublishers = hasFacetContext ? facetPublishers : publishersList;
+    const sidebarSeries     = hasFacetContext ? facetSeries     : seriesList;
 
     return (
         <div className="min-h-screen bg-cream-50 font-body text-text-main pb-10 overflow-x-hidden">
@@ -634,9 +681,9 @@ const ProductListing = ({ type }) => {
                         subcategoriesLabel={slug ? "Sub Categories" : "Categories"}
                         formats={allFormats}
                         languages={allLanguages}
-                        authors={authorsList}
-                        publishers={publishersList}
-                        series={seriesList}
+                        authors={sidebarAuthors}
+                        publishers={sidebarPublishers}
+                        series={sidebarSeries}
                         isSalePage={type === 'sale'}
                         filterInPlace={false} /* click-through category navigation: each click opens a new page (no in-place checkbox filtering) */
                         categoryHref={categoryHref}

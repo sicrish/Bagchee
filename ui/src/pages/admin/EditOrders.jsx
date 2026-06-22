@@ -701,6 +701,26 @@ ${estDeliveryLine}
     setEmailModalOpen(true);
   };
 
+  const openCancelEmailModal = () => {
+    const firstName = formData.shipping_first_name || '';
+    const lastName  = formData.shipping_last_name  || '';
+    const customerName = [firstName, lastName].filter(Boolean).join(' ') || 'Valued Customer';
+    const orderNum  = formData.order_number || id;
+    setEmailType('cancel');
+    setEmailSubject(`Your Bagchee Order #${orderNum} Has Been Cancelled`);
+    setEmailBody(`<p>Hello ${customerName},</p>
+<p>We're sorry to inform you that due to a stock issue, we had to cancel your order, <strong>#${orderNum}</strong>. We apologize for any inconvenience this may cause and want to assure you that we're here to help.</p>
+<p>If your order includes a payment, a refund will be issued within <strong>2&ndash;4 business days</strong> to your original payment method.</p>
+<p>We know this is disappointing, and we want to make it right. As a small token of our apology, here is a special offer for your next purchase:</p>
+<div style="text-align:center;margin:18px 0;">
+  <p style="font-size:18px;font-weight:800;color:#0B2F3A;margin:0 0 8px;">15% discount on your next order!</p>
+  <div style="display:inline-block;border:2px dashed #f59e0b;border-radius:8px;padding:8px 24px;"><span style="font-size:22px;font-weight:900;letter-spacing:2px;color:#0B2F3A;font-family:monospace;">BAGCHEE15</span></div>
+</div>
+<p>We hope to serve you better next time. Please don't hesitate to reach out to us with any questions or concerns via email <a href="mailto:cservice@bagchee.com" style="color:#008DDA;font-weight:bold;">cservice@bagchee.com</a>.</p>
+<p>Best,<br><strong>The Bagchee Team</strong></p>`);
+    setEmailModalOpen(true);
+  };
+
   const openEmailModal = () => {
     setEmailType('confirmation');
     const firstName = formData.shipping_first_name || '';
@@ -886,7 +906,7 @@ ${bankDetails}
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 shrink-0">
               <h2 className="text-sm font-bold uppercase tracking-wider font-montserrat text-text-main">
-                {emailType === 'shipped' ? 'Order Shipped Email' : emailType === 'status' ? 'Order Status Email' : emailType === 'delay' ? 'Shipping Delay Notification' : 'Order Confirmation Email'}
+                {emailType === 'shipped' ? 'Order Shipped Email' : emailType === 'status' ? 'Order Status Email' : emailType === 'delay' ? 'Shipping Delay Notification' : emailType === 'cancel' ? 'Cancel Order Email' : 'Order Confirmation Email'}
               </h2>
               <button type="button" onClick={() => setEmailModalOpen(false)} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
             </div>
@@ -984,6 +1004,13 @@ ${bankDetails}
                 className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-1.5 rounded text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all"
               >
                 <Mail size={12} /> Shipping Delay Notification
+              </button>
+              <button
+                type="button"
+                onClick={openCancelEmailModal}
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all"
+              >
+                <Mail size={12} /> Cancel Order Email
               </button>
               <button type="button" onClick={() => navigate(`/admin/orders${backToListQs}`)} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
             </div>

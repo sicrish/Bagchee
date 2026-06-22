@@ -222,13 +222,6 @@ const SettingsList = () => {
                         >
                           <Edit size={14} />
                         </button>
-                        <button
-                          onClick={() => handleDelete(item.id)}
-                          className="p-2 bg-red-50 text-red-500 rounded-lg hover:bg-red-600 hover:text-white transition-all shadow-sm"
-                          title="Delete"
-                        >
-                          <Trash2 size={14} />
-                        </button>
                       </div>
                     </td>
                   </tr>

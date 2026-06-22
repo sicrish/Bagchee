@@ -60,7 +60,7 @@ const AddSocial = () => {
         title: d.title || '',
         link: d.link || '',
         whatsappPhone: extractPhone(d.link || ''),
-        order: d.order || '',
+        order: (d.ord ?? d.order ?? '').toString(),
         active: d.active ? 'true' : 'false',
       share: d.share ? 'true' : 'false',
       showInFooter: d.showInFooter ? 'true' : 'false',
@@ -150,6 +150,7 @@ data.append('isShareActive', formData.share);
 data.append('showInFooter', formData.showInFooter);
 data.append('showInProduct', formData.showInProduct);
 data.append('showInCategory', formData.showInCategory);
+data.append('order', formData.order || 0);
     
     // Append Image only if new one selected
     if (formData.icon_image) {

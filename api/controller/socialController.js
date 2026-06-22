@@ -2,12 +2,12 @@ import prisma from '../lib/prisma.js';
 import { saveFileLocal, deleteFileLocal } from '../utils/fileHandler.js';
 
 // Field mapping: icon_image→image, isActive→active, isShareActive→share
-// Note: Mongoose model had `order` field — Social table in Prisma has no order/ord column.
-// Dropped: order field (not in Prisma schema).
+// `ord` = display sort order (lower = earlier; ties fall back to id). Admin sends it as `order`.
 
 export const saveSocial = async (req, res) => {
     try {
         const { title, link, isActive, isShareActive, showInFooter, showInProduct, showInCategory } = req.body;
+        const ord = parseInt(req.body.ord ?? req.body.order, 10) || 0;
         let iconPath = '';
         if (req.files && req.files.icon_image) {
             iconPath = await saveFileLocal(req.files.icon_image, 'socials');
@@ -17,6 +17,7 @@ export const saveSocial = async (req, res) => {
                 title,
                 link,
                 image: iconPath,
+                ord,
                 active: isActive === 'true',
                 share: isShareActive === 'true',
                 showInFooter: showInFooter === 'true',
@@ -36,7 +37,7 @@ export const listSocials = async (req, res) => {
         const pageSize = parseInt(req.query.limit) || 10;
         const skip = (pageNum - 1) * pageSize;
         const [data, total] = await Promise.all([
-            prisma.social.findMany({ orderBy: { id: 'desc' }, skip, take: pageSize }),
+            prisma.social.findMany({ orderBy: [{ ord: 'asc' }, { id: 'asc' }], skip, take: pageSize }),
             prisma.social.count()
         ]);
         res.status(200).json({ status: true, data, total, totalPages: Math.ceil(total / pageSize), page: pageNum });
@@ -68,6 +69,7 @@ export const updateSocial = async (req, res) => {
         if (req.body.showInFooter !== undefined) updateData.showInFooter = req.body.showInFooter === 'true';
         if (req.body.showInProduct !== undefined) updateData.showInProduct = req.body.showInProduct === 'true';
         if (req.body.showInCategory !== undefined) updateData.showInCategory = req.body.showInCategory === 'true';
+        if (req.body.ord !== undefined || req.body.order !== undefined) updateData.ord = parseInt(req.body.ord ?? req.body.order, 10) || 0;
         if (req.files && req.files.icon_image) {
             if (social.image) await deleteFileLocal(social.image);
             updateData.image = await saveFileLocal(req.files.icon_image, 'socials');

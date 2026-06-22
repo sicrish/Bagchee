@@ -28,7 +28,46 @@ const escapeHtml = (str) => {
         .replace(/'/g, '&#39;');
 };
 
-const wrapInTemplate = (subject, bodyHtml, unsubscribeUrl = null, campaignId = null) => {
+// ── Footer social buttons ─────────────────────────────────────────────────────
+// Newsletter footer socials are sourced from the SAME admin Social table as the
+// website footer (single source of truth) so a link set once in /admin/socials
+// works everywhere. Only rows with a real http(s) link are rendered (skips the
+// empty/placeholder rows so we never ship a dead button).
+const SOCIAL_BTN = {
+    facebook:  { bg: '#1877f2', glyph: 'f' },
+    instagram: { bg: 'radial-gradient(circle at 30% 107%,#fdf497 0%,#fdf497 5%,#fd5949 45%,#d6249f 60%,#285AEB 90%)', glyph: '&#128247;' },
+    twitter:   { bg: '#000000', glyph: '&#120143;' },
+    x:         { bg: '#000000', glyph: '&#120143;' },
+    youtube:   { bg: '#ff0000', glyph: '&#9654;' },
+    whatsapp:  { bg: '#25d366', glyph: '&#128172;' },
+    pinterest: { bg: '#e60023', glyph: 'P' },
+    linkedin:  { bg: '#0a66c2', glyph: 'in' },
+};
+const buildSocialIconsHtml = (socials) => {
+    const valid = (socials || []).filter(s => s.link && /^https?:\/\//i.test(s.link.trim()));
+    if (valid.length === 0) return '';
+    const buttons = valid.map(s => {
+        const key = (s.title || '').toLowerCase().replace(/[^a-z]/g, '');
+        const st = SOCIAL_BTN[key] || { bg: theme.primary, glyph: (s.title || '?').charAt(0).toUpperCase() };
+        return `<a href="${s.link.trim()}" target="_blank" rel="noopener" style="display:inline-block;width:30px;height:30px;background:${st.bg};border-radius:50%;color:#fff;text-decoration:none;font-size:13px;font-weight:900;line-height:30px;margin:0 3px;text-align:center;">${st.glyph}</a>`;
+    }).join('');
+    return `<div style="text-align:center;margin:0 0 14px;">${buttons}</div>`;
+};
+const getFooterSocialsHtml = async () => {
+    try {
+        const socials = await prisma.social.findMany({
+            where: { active: true, showInFooter: true },
+            orderBy: [{ ord: 'asc' }, { id: 'asc' }],
+            select: { title: true, link: true }
+        });
+        return buildSocialIconsHtml(socials);
+    } catch (e) {
+        console.error('Footer socials build failed:', e.message);
+        return '';
+    }
+};
+
+const wrapInTemplate = (subject, bodyHtml, unsubscribeUrl = null, campaignId = null, socialsHtml = '') => {
     const frontendUrl = (process.env.FRONTEND_URL || 'https://www.bagchee.com').split(',')[0].trim();
     const privacyUrl = `${frontendUrl}/privacy-policy`;
     // "View in Browser" opens the sent newsletter as a web page (public route). Falls back
@@ -53,6 +92,7 @@ const wrapInTemplate = (subject, bodyHtml, unsubscribeUrl = null, campaignId = n
                     ${bodyHtml}
                 </div>
                 <div style="background-color: #fffdf5; padding: 20px; text-align: center; border-top: 1px solid #e6decd;">
+                    ${socialsHtml}
                     <p style="font-size: 11px; color: ${theme.textMuted}; margin: 0 0 8px;"><a href="${viewUrl}" target="_blank" rel="noopener" style="color: #008DDA; text-decoration: underline;">VIEW IN BROWSER</a></p>
                     <p style="font-size: 11px; color: ${theme.textMuted}; margin: 0 0 6px;"><a href="${privacyUrl}" style="color: ${theme.textMuted}; text-decoration: underline;">Privacy Policy</a>${unsubscribeUrl ? ` &nbsp;|&nbsp; <a href="${unsubscribeUrl}" style="color: ${theme.textMuted}; text-decoration: underline;">Unsubscribe</a>` : ''}</p>
                     <p style="font-size: 12px; color: ${theme.textMuted}; margin: 0;">&copy; ${new Date().getFullYear()} Bagchee. All rights reserved.</p>
@@ -66,6 +106,7 @@ const VALID_AUDIENCES = ['subscribers', 'members', 'purchasers', 'categories', '
 
 const sendToAudience = async (subject, bodyHtml, audience, specificEmails = [], selectedCategories = [], campaignId = null) => {
     const transporter = createTransporter();
+    const socialsHtml = await getFooterSocialsHtml();
 
     const FETCH_BATCH = 500;
     const SEND_BATCH = 10;
@@ -104,7 +145,7 @@ const sendToAudience = async (subject, bodyHtml, audience, specificEmails = [], 
                     // Every marketing email carries a working, per-recipient unsubscribe link
                     // (correct /newsletter-subs path + HMAC token — see api/lib/unsubscribe.js).
                     const unsubLink = unsubscribeUrl(email);
-                    const htmlContent = wrapInTemplate(escapeHtml(subject), bodyHtml, unsubLink, campaignId);
+                    const htmlContent = wrapInTemplate(escapeHtml(subject), bodyHtml, unsubLink, campaignId, socialsHtml);
                     return transporter.sendMail({
                         from: `"Bagchee" <${process.env.EMAIL_USER}>`,
                         to: email,
@@ -155,7 +196,7 @@ const sendToAudience = async (subject, bodyHtml, audience, specificEmails = [], 
             for (let i = 0; i < emails.length; i += SEND_BATCH) {
                 const batch = emails.slice(i, i + SEND_BATCH);
                 const results = await Promise.allSettled(batch.map(email => {
-                    const htmlContent = wrapInTemplate(escapeHtml(subject), bodyHtml, null, campaignId);
+                    const htmlContent = wrapInTemplate(escapeHtml(subject), bodyHtml, null, campaignId, socialsHtml);
                     return transporter.sendMail({
                         from: `"Bagchee" <${process.env.EMAIL_USER}>`,
                         to: email,
@@ -327,7 +368,7 @@ export const sendTestEmail = async (req, res) => {
         });
 
         const transporter = createTransporter();
-        const htmlContent = wrapInTemplate(escapeHtml(subject), body, null, testCampaign.id);
+        const htmlContent = wrapInTemplate(escapeHtml(subject), body, null, testCampaign.id, await getFooterSocialsHtml());
 
         await transporter.sendMail({
             from: `"Bagchee" <${process.env.EMAIL_USER}>`,
@@ -678,7 +719,7 @@ export const getCampaignPreviewHtml = async (req, res) => {
             select: { subject: true, body: true }
         });
         if (!campaign) return res.status(404).send('<p>Campaign not found</p>');
-        const html = wrapInTemplate(escapeHtml(campaign.subject), campaign.body, null, parseInt(req.params.id));
+        const html = wrapInTemplate(escapeHtml(campaign.subject), campaign.body, null, parseInt(req.params.id), await getFooterSocialsHtml());
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.send(html);
     } catch (error) {
@@ -699,7 +740,7 @@ export const viewCampaignInBrowser = async (req, res) => {
             select: { subject: true, body: true }
         });
         if (!campaign) return res.status(404).send('<p style="font-family:sans-serif;text-align:center;padding:40px;">Newsletter not found.</p>');
-        const html = wrapInTemplate(escapeHtml(campaign.subject), campaign.body, null, parseInt(req.params.id));
+        const html = wrapInTemplate(escapeHtml(campaign.subject), campaign.body, null, parseInt(req.params.id), await getFooterSocialsHtml());
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.send(html);
     } catch (error) {

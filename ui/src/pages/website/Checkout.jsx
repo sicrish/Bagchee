@@ -49,6 +49,7 @@ const Checkout = () => {
     appliedShipping,
     setAppliedShipping,
     membershipAdded,
+    setMembershipAdded,
   } = useCart();
   const { currency, formatPrice, formatPriceFixed, symbols, exchangeRates } = useContext(CurrencyContext);
 
@@ -230,6 +231,8 @@ const Checkout = () => {
       try {
         const parsed = JSON.parse(authData);
         setUser(parsed.userDetails);
+        // Active members already own the perk — clear any stale "buying membership" flag.
+        if (parsed.userDetails?.membership === 'active' && membershipAdded) setMembershipAdded(false);
         // Pre-fill guest email if logged in
         if (parsed.userDetails?.email) {
           setAccountEmail(parsed.userDetails.email);
@@ -386,13 +389,17 @@ const Checkout = () => {
     return subtotalAfterItemDiscountUSD * (exchangeRates?.[currency] || 1);
   }, [currency, exchangeRates, subtotalAfterItemDiscountUSD]);
 
+  // Already-active members get the 10% automatically (no fee); only non-members "buy" a membership.
+  const isActiveMember = !!user && user.membership === 'active';
+  const buyingMembership = membershipAdded && !isActiveMember;
+
   // ─── 🟢 STEP 2: DYNAMIC MEMBERSHIP COST (Fixed - No Ratio) ───
   const currentMembershipCost = useMemo(() => {
-    if (!membershipAdded || !settings) return 0;
+    if (!buyingMembership || !settings) return 0;
     if (currency === 'EUR') return Number(settings.membership_cost_eur) || 31;
     if (currency === 'GBP') return (Number(settings.membership_cost) || 35) * (exchangeRates?.GBP || 0.78);
     return Number(settings.membership_cost) || 35;
-  }, [membershipAdded, settings, currency, exchangeRates]);
+  }, [buyingMembership, settings, currency, exchangeRates]);
 
   // When cart has ONLY gift cards: restrict payment to PayPal/credit card, hide redeem box
   const hasOnlyGiftCards = cart.length > 0 && cart.every(i => i.itemType === 'gift_card');
@@ -410,9 +417,9 @@ const Checkout = () => {
     return usd;
   })();
 
-  // 6. Member Discount (11% Logic)
-  const memberDiscountPercent = Number(settings?.member_discount) || 11;
-  const memberDiscount = membershipAdded ? Math.round((subtotal + currentMembershipCost) * (memberDiscountPercent / 100) * 100) / 100 : 0;
+  // 6. Member Discount — applies to non-members buying a membership AND already-active members
+  const memberDiscountPercent = Number(settings?.member_discount) || 10;
+  const memberDiscount = (buyingMembership || isActiveMember) ? Math.round((subtotal + currentMembershipCost) * (memberDiscountPercent / 100) * 100) / 100 : 0;
 
   let couponDiscount = 0;
   if (appliedCoupon) {
@@ -463,8 +470,8 @@ const Checkout = () => {
     return mode === 'deferred' && !forcesDirect;
   };
 
-  const visiblePaymentMethods = (hasOnlyGiftCards || membershipAdded)
-    ? paymentMethods.filter(m => isCardOrPayPalMethod(m) || (membershipAdded && isWireTransferMethod(m)))
+  const visiblePaymentMethods = (hasOnlyGiftCards || buyingMembership)
+    ? paymentMethods.filter(m => isCardOrPayPalMethod(m) || (buyingMembership && isWireTransferMethod(m)))
     : paymentMethods;
 
   // UI Display Helper (Symbols ke saath)
@@ -742,7 +749,7 @@ const Checkout = () => {
   // ─── Place order ───
   const handlePlaceOrder = async () => {
     // Membership requires a logged-in account
-    if (membershipAdded && !user) {
+    if (buyingMembership && !user) {
       toast.error("Please sign in or create an account to purchase a membership.");
       setShowLoginDropdown(true);
       return;
@@ -2680,29 +2687,33 @@ const Checkout = () => {
                 </div>
 
 
-                {/* 🟢 2. MEMBERSHIP DETAILS IN SUMMARY (Updated for Exact Values) */}
                 {/* 🟢 2. MEMBERSHIP DETAILS IN SUMMARY (100% Dynamic) */}
-                {membershipAdded && (
+                {/* Fee row only when a non-member is buying; savings row whenever the 10% applies (incl. active members) */}
+                {(buyingMembership || memberDiscount > 0) && (
                   <div className="space-y-2 pt-2 border-t border-gray-100 border-dashed animate-fadeIn">
-                    <div className="flex justify-between items-center text-sm">
-                      <div className="flex items-center gap-1.5 font-semibold text-text-main">
-                        <Award size={14} className="text-primary" />
-                        <span>Membership Fee (1 Year)</span>
+                    {buyingMembership && (
+                      <div className="flex justify-between items-center text-sm">
+                        <div className="flex items-center gap-1.5 font-semibold text-text-main">
+                          <Award size={14} className="text-primary" />
+                          <span>Membership Fee (1 Year)</span>
+                        </div>
+                        <span className="font-bold text-primary">
+                          +{formatCheckoutDisplay(currentMembershipCost)}
+                        </span>
                       </div>
-                      <span className="font-bold text-primary">
-                        +{formatCheckoutDisplay(currentMembershipCost)}
-                      </span>
-                    </div>
+                    )}
 
-                    <div className="flex justify-between items-center text-sm text-green-600 font-medium">
-                      <div className="flex items-center gap-1.5">
-                        <Check size={14} />
-                        <span>Member Savings ({memberDiscountPercent}% OFF applied)</span>
+                    {memberDiscount > 0 && (
+                      <div className="flex justify-between items-center text-sm text-green-600 font-medium">
+                        <div className="flex items-center gap-1.5">
+                          <Check size={14} />
+                          <span>Member Savings ({memberDiscountPercent}% OFF applied)</span>
+                        </div>
+                        <span>
+                          -{formatCheckoutDisplay(memberDiscount)}
+                        </span>
                       </div>
-                      <span>
-                        -{formatCheckoutDisplay(memberDiscount)}
-                      </span>
-                    </div>
+                    )}
                   </div>
                 )}
 

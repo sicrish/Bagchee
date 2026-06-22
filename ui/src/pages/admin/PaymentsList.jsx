@@ -70,8 +70,8 @@ const PaymentsList = () => {
         "Sr No": i + 1,
         "Method Title": item.title,
         "Status": item.active ? "Active" : "Inactive",
-        "Display Order": item.order || 0,
-        "Created Date": new Date(item.createdAt).toLocaleDateString('en-GB')
+        "Orders": item.orderCount ?? 0,
+        "Display Order": item.ord || 0,
       }));
 
       await exportToExcel(dataToExport, "Payments", "PaymentMethods");
@@ -91,7 +91,7 @@ const PaymentsList = () => {
         displayId.includes(filters.id) &&
         (item.title || "").toLowerCase().includes(filters.title.toLowerCase()) &&
         statusText.includes(filters.status.toLowerCase()) &&
-        (item.order || "0").toString().includes(filters.order)
+        (item.ord || "0").toString().includes(filters.order)
       );
     });
   }, [payments, filters]);
@@ -158,12 +158,13 @@ const PaymentsList = () => {
       {/* --- DATA TABLE --- */}
       <div className="bg-white rounded border border-cream-200 overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px] border-collapse text-sm">
+          <table className="w-full min-w-[1000px] border-collapse text-sm">
             <thead>
               <tr className="bg-primary text-white border-b border-white/10 font-montserrat font-bold uppercase tracking-wider text-[11px]">
                 <th className="p-3 text-center w-24 border-r border-white/20">#</th>
                 <th className="p-3 text-left border-r border-white/20">Title</th>
                 <th className="p-3 text-left border-r border-white/20">Active</th>
+                <th className="p-3 text-center border-r border-white/20">Orders</th>
                 <th className="p-3 text-left border-r border-white/20">Order</th>
                 <th className="p-3 text-center w-32">Actions</th>
               </tr>
@@ -182,6 +183,7 @@ const PaymentsList = () => {
                 <td className="p-2 border-r border-white/20">
                   <input name="status" value={filters.status} onChange={handleFilterChange} type="text" className={filterInputClass} placeholder="active/inactive" />
                 </td>
+                <td className="p-2 border-r border-white/20"></td>
                 <td className="p-2 border-r border-white/20">
                   <input name="order" value={filters.order} onChange={handleFilterChange} type="text" className={filterInputClass} placeholder="Filter Order" />
                 </td>
@@ -196,7 +198,7 @@ const PaymentsList = () => {
             <tbody className="divide-y divide-cream-50">
               {loading ? (
                 <tr>
-                  <td colSpan="5" className="p-10 text-center text-text-muted font-bold">
+                  <td colSpan="6" className="p-10 text-center text-text-muted font-bold">
                     <div className="flex justify-center items-center gap-2">
                       <Loader2 className="animate-spin text-primary" /> Loading Payments...
                     </div>
@@ -217,7 +219,10 @@ const PaymentsList = () => {
                         {item.active ? 'active' : 'inactive'}
                       </span>
                     </td>
-                    <td className="p-3 border-r border-cream-50 text-text-main text-center font-bold">{item.order || 0}</td>
+                    <td className="p-3 border-r border-cream-50 text-center">
+                      <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-blue-50 text-blue-700">{item.orderCount ?? 0}</span>
+                    </td>
+                    <td className="p-3 border-r border-cream-50 text-text-main text-center font-bold">{item.ord || 0}</td>
                     <td className="p-3">
                       <div className="flex justify-center gap-2">
                         <button onClick={() => navigate(`/admin/edit-payments/${item.id || item._id}`)} className="p-1.5 bg-cream-50 border border-cream-200 rounded text-text-muted hover:text-primary hover:border-primary transition-all shadow-sm active:scale-95"><Edit size={14} /></button>
@@ -228,7 +233,7 @@ const PaymentsList = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="5" className="p-10 text-center text-text-muted italic font-montserrat">No matching payment options found.</td>
+                  <td colSpan="6" className="p-10 text-center text-text-muted italic font-montserrat">No matching payment options found.</td>
                 </tr>
               )}
             </tbody>

@@ -43,12 +43,14 @@ export const savePublisher = async (req, res) => {
 
 export const getAllPublishers = async (req, res) => {
     try {
+        const { q } = req.query;
         const pageNum = parseInt(req.query.page) || 1;
         const pageSize = parseInt(req.query.limit) || 10;
         const skip = (pageNum - 1) * pageSize;
+        const where = q ? { title: { contains: q, mode: 'insensitive' } } : {};
         const [publishers, total] = await Promise.all([
-            prisma.publisher.findMany({ orderBy: { order: 'asc' }, skip, take: pageSize }),
-            prisma.publisher.count()
+            prisma.publisher.findMany({ where, orderBy: { order: 'asc' }, skip, take: pageSize }),
+            prisma.publisher.count({ where })
         ]);
 
         // Resolve category names

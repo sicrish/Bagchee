@@ -1272,6 +1272,7 @@ model Social {
   showInProduct    Boolean @default(true) @map("show_in_product")
   showInCategory   Boolean @default(true) @map("show_in_category")
   showInFooter     Boolean @default(true) @map("show_in_footer")
+  ord              Int     @default(0)
 
   @@map("socials")
 }

@@ -36,11 +36,15 @@ export const getAllPayments = async (req, res) => {
         const pageNum = parseInt(req.query.page) || 1;
         const pageSize = parseInt(req.query.limit) || 10;
         const skip = (pageNum - 1) * pageSize;
-        const [list, total] = await Promise.all([
+        const [list, total, orderCounts] = await Promise.all([
             prisma.payment.findMany({ orderBy: { ord: 'asc' }, skip, take: pageSize }),
-            prisma.payment.count()
+            prisma.payment.count(),
+            prisma.order.groupBy({ by: ['paymentType'], _count: { id: true } })
         ]);
-        res.status(200).json({ status: true, data: list, total, totalPages: Math.ceil(total / pageSize), page: pageNum });
+        const countMap = {};
+        for (const row of orderCounts) countMap[row.paymentType] = row._count.id;
+        const data = list.map(p => ({ ...p, orderCount: countMap[p.title] || 0 }));
+        res.status(200).json({ status: true, data, total, totalPages: Math.ceil(total / pageSize), page: pageNum });
     } catch (error) {
         res.status(500).json({ status: false, msg: 'Server Error' });
     }

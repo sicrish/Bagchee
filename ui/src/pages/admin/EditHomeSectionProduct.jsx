@@ -127,7 +127,7 @@ const EditHomeSectionProduct = () => {
                    onChange={(e) => setFormData({...formData, home_section_id: e.target.value})} 
                    className={inputClass}
                 >
-                  {sections.map(sec => <option key={sec._id} value={sec._id}>{sec.section} - {sec.title}</option>)}
+                  {sections.map(sec => <option key={sec.id || sec._id} value={sec.id || sec._id}>{sec.section} - {sec.title}</option>)}
                 </select>
               </div>
             </div>
@@ -149,7 +149,7 @@ const EditHomeSectionProduct = () => {
                 {showDropdown && searchTerm.length > 0 && (
                   <ul className="absolute z-50 w-full bg-white border border-gray-200 mt-1 rounded-xl shadow-2xl max-h-60 overflow-y-auto">
                     {filteredProducts.map((p) => (
-                      <li key={p._id} onClick={() => handleSelectProduct(p)} className="px-4 py-3 hover:bg-primary/5 cursor-pointer flex justify-between items-center transition-colors">
+                      <li key={p.id || p._id} onClick={() => handleSelectProduct(p)} className="px-4 py-3 hover:bg-primary/5 cursor-pointer flex justify-between items-center transition-colors">
                         <span className="text-sm font-bold text-gray-700">{p.title}</span>
                         <span className="text-[10px] font-mono bg-gray-100 px-2 py-1 rounded text-gray-500">ID: {p.productId}</span>
                       </li>

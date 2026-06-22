@@ -1,16 +1,19 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { ShieldCheck, Package, Loader2, AlertTriangle } from 'lucide-react';
 import axios from '../../utils/axiosConfig';
 import { CurrencyContext } from '../../context/CurrencyContext';
 import logoImg from '../../assets/images/common/logo.png';
+import toast from 'react-hot-toast';
 
 const PaymentPage = () => {
   const { orderId, token } = useParams();
+  const [searchParams] = useSearchParams();
   const { symbols } = useContext(CurrencyContext);
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [redirecting, setRedirecting] = useState(false);
 
   const API_BASE_URL = process.env.REACT_APP_API_URL || '';
 
@@ -32,6 +35,25 @@ const PaymentPage = () => {
     fetchOrder();
   }, [orderId, token, API_BASE_URL]);
 
+  const handlePayNow = async () => {
+    setRedirecting(true);
+    try {
+      const res = await axios.post(`${API_BASE_URL}/paypal/create-order-by-token`, { orderId, token });
+      if (res.data?.status) {
+        const { approvalUrl, paypalOrderId, orderNumber } = res.data.data;
+        // Store pending info so PayPalReturn.jsx can capture it
+        sessionStorage.setItem('paypal_pending', JSON.stringify({ orderId, orderNumber, paypalOrderId, paymentToken: token }));
+        window.location.href = approvalUrl;
+      } else {
+        toast.error(res.data?.msg || 'Failed to initiate payment. Please try again.');
+        setRedirecting(false);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.msg || 'Failed to initiate payment. Please try again.');
+      setRedirecting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FDFCF8]">
@@ -52,6 +74,8 @@ const PaymentPage = () => {
       </div>
     );
   }
+
+  const wasCancelled = searchParams.get('paypal_cancelled') === '1';
 
   const currencySymbol = symbols[order?.currency] || '$';
   const items = order?.items || order?.products || [];
@@ -124,7 +148,11 @@ const PaymentPage = () => {
                   </span>
                 </div>
               ))}
-              <div className="pt-4 border-t border-gray-100 flex justify-between items-center">
+              <div className="pt-3 border-t border-gray-100 flex justify-between items-center text-sm">
+                <span className="text-gray-500 font-medium">Payment Method</span>
+                <span className="font-bold text-text-main">{order?.paymentType || order?.payment_type || 'PayPal'}</span>
+              </div>
+              <div className="pt-3 border-t border-gray-100 flex justify-between items-center">
                 <span className="text-sm font-black text-text-main uppercase tracking-wide">Total</span>
                 <span className="text-xl font-black text-primary">
                   {currencySymbol}{Number(order?.total || 0).toFixed(2)} {order?.currency}
@@ -140,12 +168,17 @@ const PaymentPage = () => {
             <p className="text-sm text-gray-500 mb-6 leading-relaxed max-w-md mx-auto">
               {gatewayDesc}
             </p>
-            <a
-              href={order?.paymentLink || '#'}
-              className={`inline-flex items-center gap-2 ${buttonBg} text-white px-8 py-3 rounded-lg font-bold text-sm uppercase tracking-wide transition-all shadow-md`}
+            <button
+              onClick={handlePayNow}
+              disabled={redirecting}
+              className={`inline-flex items-center gap-2 ${buttonBg} text-white px-8 py-3 rounded-lg font-bold text-sm uppercase tracking-wide transition-all shadow-md disabled:opacity-60`}
             >
-              {buttonLabel}
-            </a>
+              {redirecting ? <Loader2 size={16} className="animate-spin" /> : null}
+              {redirecting ? 'Redirecting…' : buttonLabel}
+            </button>
+            {wasCancelled && (
+              <p className="text-sm text-orange-600 mt-4 font-medium">Payment was cancelled. You can try again above.</p>
+            )}
             <p className="text-[10px] text-gray-400 mt-4 font-bold uppercase tracking-wider">
               256-bit SSL encrypted · Secure transaction
             </p>

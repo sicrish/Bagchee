@@ -12,6 +12,7 @@ router.get("/get/:id",           optionalAuth, ProductController.fetch);
 router.get("/related/:bagcheeId",             ProductController.getRelatedProducts);
 router.get("/search-suggestions",             ProductController.searchSuggestions);
 router.get("/filter-options",                 ProductController.getFilterOptions);
+router.get("/filter-facets",                  ProductController.getFilterFacets);
 router.get("/best-sellers",                   ProductController.getBestSellers);
 router.get("/recommended",                    ProductController.getRecommended);
 router.get("/sale-products",                  ProductController.getSaleProducts);

@@ -72,7 +72,7 @@ const EditSettings = () => {
                 membership_cost: settingsData.membershipCartPrice ?? settingsData.membership_cost ?? '',
                 membership_cost_eur: settingsData.membershipCartPriceEur ?? settingsData.membership_cost_eur ?? '',
                 membership_cart_price: settingsData.membershipCartPriceInr ?? settingsData.membership_cart_price ?? '',
-                new_arrival_time: settingsData.new_arrival_time || '',
+                new_arrival_time: settingsData.newArrivalTime || settingsData.new_arrival_time || '',
                 free_shipping_over: settingsData.freeShippingOver ?? settingsData.free_shipping_over ?? '',
                 max_shipping_days: settingsData.maxShippingDays ?? settingsData.max_shipping_days ?? '',
                 order_accepted_promo: settingsData.orderAcceptedPromo === true ? 'Yes' : (settingsData.order_accepted_promo || ''),
@@ -232,7 +232,7 @@ const EditSettings = () => {
                         </div>
 
                         <div className="grid grid-cols-12 gap-4 items-center border-b border-gray-50 pb-4">
-                            <label className={labelClass}>Now arrival time</label>
+                            <label className={labelClass}>New arrival time</label>
                             <div className="col-span-12 md:col-span-9">
                                 <input name="new_arrival_time" value={formData.new_arrival_time} onChange={handleChange} className={inputClass} />
                             </div>

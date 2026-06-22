@@ -384,7 +384,7 @@ const EMAIL_TEMPLATES = [
   { name: 'New Site Announcement', subject: 'Welcome to the New Bagchee — Enjoy 15% Off to Celebrate! 🎉', body: `<div style="background:linear-gradient(135deg,#fef9c3,#fde68a);border:2px solid #f59e0b;border-radius:10px;padding:20px;text-align:center;margin:0 0 28px;"><p style="color:#92400e;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 6px;">&#127881; Celebrate our New Site with us!</p><p style="color:#78350f;font-size:15px;margin:0 0 16px;line-height:1.6;">Experience the all-new Bagchee &mdash; faster, smarter and more beautiful than ever.</p><div style="display:inline-block;background:#ffffff;border:2px dashed #f59e0b;border-radius:8px;padding:10px 28px;"><p style="color:#6b7280;font-size:10px;margin:0 0 2px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;">Your 15% off promo code</p><p style="color:#0c2340;font-size:24px;font-weight:900;margin:0;letter-spacing:0.15em;font-family:monospace;">BAGCHEE15</p></div></div><p style="font-size:16px;font-weight:700;color:#0B2F3A;margin:0 0 8px;">Hello, Reader!</p><p style="font-size:14px;color:#374151;line-height:1.8;margin:0 0 28px;">Our brand-new website is live! To celebrate, enjoy a special discount. Experience an easier, faster way to find your favourite books today.</p><p style="font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.14em;margin:0 0 6px;padding-bottom:10px;border-bottom:2px solid #f3f4f6;">NEW &amp; NOTABLE</p><p style="font-size:20px;font-weight:800;color:#0B2F3A;margin:0 0 22px;">What&rsquo;s new?</p><div style="margin:0 0 16px;border-left:3px solid #008DDA;padding:10px 14px;background:#f0f8ff;border-radius:0 8px 8px 0;"><p style="font-size:14px;font-weight:800;color:#0B2F3A;margin:0 0 4px;">&#128269;&nbsp; New Search and Listing</p><p style="font-size:13px;color:#6b7280;margin:0 0 10px;line-height:1.7;">Find exactly what you want with our advanced filters. Search by author, category, language, format and more.</p><img src="https://res.cloudinary.com/dgmkcyrl7/image/upload/v1779721663/bagchee/newsletter-screenshots/search.png" alt="Search and Listing" style="width:100%;border-radius:6px;display:block;border:1px solid #e5e7eb;" /></div><div style="margin:0 0 16px;border-left:3px solid #008DDA;padding:10px 14px;background:#f0f8ff;border-radius:0 8px 8px 0;"><p style="font-size:14px;font-weight:800;color:#0B2F3A;margin:0 0 4px;">&#128218;&nbsp; Improved Product Page</p><p style="font-size:13px;color:#6b7280;margin:0 0 10px;line-height:1.7;">Detailed descriptions and high-quality book previews. Table of contents, sample pages and related titles all in one place.</p><img src="https://res.cloudinary.com/dgmkcyrl7/image/upload/v1779721664/bagchee/newsletter-screenshots/book-detail.png" alt="Product Page" style="width:100%;border-radius:6px;display:block;border:1px solid #e5e7eb;" /></div><div style="margin:0 0 16px;border-left:3px solid #008DDA;padding:10px 14px;background:#f0f8ff;border-radius:0 8px 8px 0;"><p style="font-size:14px;font-weight:800;color:#0B2F3A;margin:0 0 4px;">&#128179;&nbsp; Easy Checkout</p><p style="font-size:13px;color:#6b7280;margin:0 0 10px;line-height:1.7;">Faster, secure, and seamless payment experience with PayPal and multiple trusted payment options worldwide.</p><img src="https://res.cloudinary.com/dgmkcyrl7/image/upload/v1779721664/bagchee/newsletter-screenshots/new-arrivals.png" alt="Easy Checkout" style="width:100%;border-radius:6px;display:block;border:1px solid #e5e7eb;" /></div><div style="margin:0 0 16px;border-left:3px solid #008DDA;padding:10px 14px;background:#f0f8ff;border-radius:0 8px 8px 0;"><p style="font-size:14px;font-weight:800;color:#0B2F3A;margin:0 0 4px;">&#10084;&#65039;&nbsp; My Account</p><p style="font-size:13px;color:#6b7280;margin:0 0 10px;line-height:1.7;">All your favourites, order history and tracking in one place. Manage your wishlist and addresses with ease.</p><img src="https://res.cloudinary.com/dgmkcyrl7/image/upload/v1779721665/bagchee/newsletter-screenshots/my-account.png" alt="My Account" style="width:100%;border-radius:6px;display:block;border:1px solid #e5e7eb;" /></div><div style="margin:0 0 16px;border-left:3px solid #008DDA;padding:10px 14px;background:#f0f8ff;border-radius:0 8px 8px 0;"><p style="font-size:14px;font-weight:800;color:#0B2F3A;margin:0 0 4px;">&#127873;&nbsp; E-gift Cards</p><p style="font-size:13px;color:#6b7280;margin:0 0 10px;line-height:1.7;">Perfect for gifting the joy of reading. Send a Bagchee e-gift card to anyone, anywhere in the world.</p><img src="https://res.cloudinary.com/dgmkcyrl7/image/upload/v1779721666/bagchee/newsletter-screenshots/gift-card.png" alt="E-gift Cards" style="width:100%;border-radius:6px;display:block;border:1px solid #e5e7eb;" /></div><div style="margin:0 0 28px;border-left:3px solid #f59e0b;padding:10px 14px;background:#fffbeb;border-radius:0 8px 8px 0;"><p style="font-size:14px;font-weight:800;color:#0B2F3A;margin:0 0 4px;">&#128241;&nbsp; Complete Mobile Friendly</p><p style="font-size:13px;color:#6b7280;margin:0 0 10px;line-height:1.7;">Shop seamlessly on any device. Our new site is fully optimised for mobile &mdash; browse, buy and track orders on the go.</p><img src="https://res.cloudinary.com/dgmkcyrl7/image/upload/v1779721667/bagchee/newsletter-screenshots/mobile.png" alt="Mobile Friendly" style="width:100%;max-width:220px;border-radius:10px;display:block;margin:0 auto;border:1px solid #e5e7eb;" /></div><div style="border-top:1px solid #e5e7eb;margin:0 0 28px;"></div><div style="text-align:center;padding:8px 0 4px;"><p style="font-family:Georgia,'Times New Roman',serif;font-size:28px;font-style:italic;font-weight:400;color:#0B2F3A;margin:0 0 10px;line-height:1.3;letter-spacing:-0.01em;">The story doesn&rsquo;t end here&hellip;</p><p style="font-size:14px;color:#6b7280;margin:0 0 24px;line-height:1.7;">Experience the all-new Bagchee and uncover a world of unforgettable reads.</p><a href="${FRONTEND_URL}" target="_blank" style="display:inline-block;background-color:#008DDA;color:#ffffff;text-decoration:none;padding:14px 44px;font-size:15px;font-weight:700;border-radius:8px;letter-spacing:0.04em;">CONTINUE TO BAGCHEE.COM</a><p style="font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.14em;text-align:center;margin:22px 0 12px;">A PEEK INTO BAGCHEE</p><table width="100%" cellpadding="4" cellspacing="0" style="margin:0 0 16px;"><tr><td width="25%" style="padding:4px;"><a href="${FRONTEND_URL}/new-arrivals" style="display:block;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px;text-align:center;text-decoration:none;"><p style="font-size:18px;margin:0 0 4px;">&#127381;</p><p style="font-size:10px;font-weight:700;color:#1d4ed8;margin:0;">New Arrivals</p></a></td><td width="25%" style="padding:4px;"><a href="${FRONTEND_URL}" style="display:block;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px;text-align:center;text-decoration:none;"><p style="font-size:18px;margin:0 0 4px;">&#11088;</p><p style="font-size:10px;font-weight:700;color:#15803d;margin:0;">Popular Titles</p></a></td><td width="25%" style="padding:4px;"><a href="${FRONTEND_URL}/best-sellers" style="display:block;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px;text-align:center;text-decoration:none;"><p style="font-size:18px;margin:0 0 4px;">&#128293;</p><p style="font-size:10px;font-weight:700;color:#b45309;margin:0;">Bestsellers</p></a></td><td width="25%" style="padding:4px;"><a href="${FRONTEND_URL}/sale" style="display:block;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px;text-align:center;text-decoration:none;"><p style="font-size:18px;margin:0 0 4px;">&#127991;</p><p style="font-size:10px;font-weight:700;color:#b91c1c;margin:0;">Sale</p></a></td></tr></table></div>` },
 ];
 
-const getFullEmailHtml = (subject, bodyHtml) => bodyHtml.trimStart().startsWith('<!DOCTYPE') ? bodyHtml : `<!DOCTYPE html>
+const getFullEmailHtml = (subject, bodyHtml, viewUrl = FRONTEND_URL, socialsHtml = '') => bodyHtml.trimStart().startsWith('<!DOCTYPE') ? bodyHtml : `<!DOCTYPE html>
 <html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/></head>
 <body style="margin:0;padding:0;background:#F7EEDD;">
 <div style="font-family:'Inter',Helvetica,Arial,sans-serif;background-color:#F7EEDD;padding:40px 0;">
@@ -403,13 +403,40 @@ const getFullEmailHtml = (subject, bodyHtml) => bodyHtml.trimStart().startsWith(
     </div>
     <div style="padding:40px 30px;color:#0B2F3A;font-size:15px;line-height:1.7;">${bodyHtml}</div>
     <div style="background-color:#fffdf5;padding:20px;text-align:center;border-top:1px solid #e6decd;">
-      <p style="font-size:11px;color:#4A6fa5;margin:0 0 8px;"><a href="${FRONTEND_URL}" target="_blank" style="color:#008DDA;text-decoration:underline;">VIEW IN BROWSER</a></p>
+      ${socialsHtml}
+      <p style="font-size:11px;color:#4A6fa5;margin:0 0 8px;"><a href="${viewUrl}" target="_blank" style="color:#008DDA;text-decoration:underline;">VIEW IN BROWSER</a></p>
       <p style="font-size:11px;color:#4A6fa5;margin:0 0 6px;"><a href="${FRONTEND_URL}/privacy-policy" target="_blank" style="color:#4A6fa5;text-decoration:underline;">Privacy Policy</a> &nbsp;|&nbsp; <a href="${FRONTEND_URL}/unsubscribe" target="_blank" style="color:#4A6fa5;text-decoration:underline;">Unsubscribe</a></p>
       <p style="font-size:12px;color:#4A6fa5;margin:0;">&copy; ${new Date().getFullYear()} Bagchee. All rights reserved.</p>
     </div>
   </div>
 </div>
 </body></html>`;
+
+const PREVIEW_PLACEHOLDER = '<p style="padding:40px;color:#999;text-align:center;font-family:sans-serif;">No content yet</p>';
+
+// Footer social buttons for the email PREVIEW — mirrors the server-side renderer
+// (api/controller/emailCampaignController.js buildSocialIconsHtml). Sourced from the
+// same /admin/socials list so the preview matches what recipients actually receive.
+const PREVIEW_SOCIAL_BTN = {
+  facebook:  { bg: '#1877f2', glyph: 'f' },
+  instagram: { bg: 'radial-gradient(circle at 30% 107%,#fdf497 0%,#fdf497 5%,#fd5949 45%,#d6249f 60%,#285AEB 90%)', glyph: '&#128247;' },
+  twitter:   { bg: '#000000', glyph: '&#120143;' },
+  x:         { bg: '#000000', glyph: '&#120143;' },
+  youtube:   { bg: '#ff0000', glyph: '&#9654;' },
+  whatsapp:  { bg: '#25d366', glyph: '&#128172;' },
+  pinterest: { bg: '#e60023', glyph: 'P' },
+  linkedin:  { bg: '#0a66c2', glyph: 'in' },
+};
+const buildEmailSocialsHtml = (socials) => {
+  const valid = (socials || []).filter(s => s.link && /^https?:\/\//i.test(s.link.trim()));
+  if (valid.length === 0) return '';
+  const buttons = valid.map(s => {
+    const key = (s.title || '').toLowerCase().replace(/[^a-z]/g, '');
+    const st = PREVIEW_SOCIAL_BTN[key] || { bg: '#008DDA', glyph: (s.title || '?').charAt(0).toUpperCase() };
+    return `<a href="${s.link.trim()}" target="_blank" rel="noopener" style="display:inline-block;width:30px;height:30px;background:${st.bg};border-radius:50%;color:#fff;text-decoration:none;font-size:13px;font-weight:900;line-height:30px;margin:0 3px;text-align:center;">${st.glyph}</a>`;
+  }).join('');
+  return `<div style="text-align:center;margin:0 0 14px;">${buttons}</div>`;
+};
 
 // ─── Standard Promotional Banners ────────────────────────────────────────────
 const STANDARD_PROMO_BANNERS = [
@@ -553,6 +580,9 @@ const SendEmail = () => {
   const [scheduledEmails, setScheduledEmails] = useState([]);
   const [showPreview, setShowPreview] = useState(false);
 
+  // Footer social buttons shown in the preview (same source as the website footer + sent email)
+  const [footerSocials, setFooterSocials] = useState([]);
+
   // Per-audience counts
   const [audienceCounts, setAudienceCounts] = useState({ subscribers: 0, members: 0, purchasers: 0, categories: 0 });
   const [countsLoading, setCountsLoading] = useState(false);
@@ -585,6 +615,31 @@ const SendEmail = () => {
   const [productFetchLoading, setProductFetchLoading] = useState(false);
 
   const API_BASE_URL = process.env.REACT_APP_API_URL;
+
+  // Footer socials for the preview — active + show-in-footer, same as the website footer.
+  useEffect(() => {
+    axios.get(`${API_BASE_URL}/socials/list?limit=100`)
+      .then(res => { if (res.data?.status) setFooterSocials(res.data.data.filter(s => s.active && s.showInFooter)); })
+      .catch(() => {});
+  }, [API_BASE_URL]);
+
+  // Preview HTML + a blob: URL behind the footer "VIEW IN BROWSER" link so clicking it (or
+  // "Open in New Tab") opens THIS newsletter in a new tab — mirrors the recipient experience.
+  // (data: URLs can't be used: browsers block top-level navigation to them.)
+  const previewSocialsHtml = useMemo(() => buildEmailSocialsHtml(footerSocials), [footerSocials]);
+  const previewBaseHtml = useMemo(
+    () => getFullEmailHtml(subject, body || PREVIEW_PLACEHOLDER, FRONTEND_URL, previewSocialsHtml),
+    [subject, body, previewSocialsHtml]
+  );
+  const previewBlobUrl = useMemo(
+    () => URL.createObjectURL(new Blob([previewBaseHtml], { type: 'text/html' })),
+    [previewBaseHtml]
+  );
+  useEffect(() => () => { try { URL.revokeObjectURL(previewBlobUrl); } catch { /* noop */ } }, [previewBlobUrl]);
+  const previewIframeHtml = useMemo(
+    () => getFullEmailHtml(subject, body || PREVIEW_PLACEHOLDER, previewBlobUrl, previewSocialsHtml),
+    [subject, body, previewBlobUrl, previewSocialsHtml]
+  );
 
   // Fetch audience counts whenever selectedCategoryFilters changes
   const fetchAudienceCounts = useCallback(async (cats) => {
@@ -1466,7 +1521,7 @@ const SendEmail = () => {
                     // the same "view in browser" experience a recipient gets from the email footer.
                     const win = window.open('', '_blank');
                     if (win) {
-                      win.document.write(getFullEmailHtml(subject, body || '<p style="padding:40px;color:#999;text-align:center;font-family:sans-serif;">No content yet</p>'));
+                      win.document.write(previewBaseHtml);
                       win.document.close();
                     } else {
                       toast.error('Allow pop-ups to open the preview in a new tab.');
@@ -1478,7 +1533,7 @@ const SendEmail = () => {
                 </button>
                 <button
                   onClick={() => {
-                    navigator.clipboard.writeText(getFullEmailHtml(subject, body));
+                    navigator.clipboard.writeText(previewBaseHtml);
                     toast.success('Full HTML copied to clipboard!');
                   }}
                   className="bg-gray-100 border border-gray-300 text-gray-600 px-3 py-1.5 rounded font-montserrat font-bold text-xs flex items-center gap-1.5 hover:bg-gray-200 transition-all"
@@ -1500,7 +1555,7 @@ const SendEmail = () => {
               <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
                 <iframe
                   title="Email Preview"
-                  srcDoc={getFullEmailHtml(subject, body || '<p style="padding:40px;color:#999;text-align:center;font-family:sans-serif;">No content yet</p>')}
+                  srcDoc={previewIframeHtml}
                   className="w-full"
                   style={{ height: '600px', border: 'none' }}
                 />

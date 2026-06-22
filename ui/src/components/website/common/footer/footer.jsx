@@ -358,8 +358,8 @@ const Footer = () => {
               </div>
             )}
 
-            {/* 🟢 3. BAAKI SOCIAL ICONS (WhatsApp ke niche) */}
-            {otherSocialLinks.length > 0 && (
+            {/* 🟢 3. BAAKI SOCIAL ICONS (WhatsApp ke niche) — hidden for Indian IPs */}
+            {!isIndia && otherSocialLinks.length > 0 && (
               <div className="flex flex-wrap gap-2 pt-2">
                 {otherSocialLinks.map((social) => (
                   <a

@@ -50,6 +50,19 @@ const BookDetail = () => {
   const [settings, setSettings] = useState(null);
   const [showShipInfo, setShowShipInfo] = useState(false); // free-shipping info popover (#1)
 
+  // Already-active members own the 10% perk — hide the "buy a membership" promo for them.
+  const [isActiveMember, setIsActiveMember] = useState(false);
+  useEffect(() => {
+    try {
+      const auth = JSON.parse(localStorage.getItem('auth') || '{}');
+      const active = auth?.userDetails?.membership === 'active';
+      setIsActiveMember(active);
+      // Clear any stale "buying membership" cart flag for someone who's already a member.
+      if (active && membershipAdded) setMembershipAdded(false);
+    } catch (e) { /* ignore */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Close the shipping-info modal on Escape, and lock body scroll while it's open.
   useEffect(() => {
     if (!showShipInfo) return;
@@ -848,8 +861,8 @@ const BookDetail = () => {
           {/* ══ COL 3: Dynamic Buy Box / Newsletter (MNC Standard Fix) ══ */}
           <div className="lg:sticky lg:top-6 lg:self-start">
 
-            {/* 🟢 Step 1: Membership Promo Box */}
-            {(isUpcoming || !isOutOfStock) && (
+            {/* 🟢 Step 1: Membership Promo Box — hidden for already-active members */}
+            {(isUpcoming || !isOutOfStock) && !isActiveMember && (
               <MembershipPromoBox
                 formatPrice={formatPrice}
                 isChecked={membershipAdded}
@@ -872,9 +885,9 @@ const BookDetail = () => {
                 <>
                   <div>
                     <div className="flex items-baseline gap-2 flex-wrap">
-                      {/* Final Display Price (Membership Added ? 10% Off : Normal) */}
+                      {/* Final Display Price — 10% preview only while a NON-member is buying a membership */}
                       <span className="text-3xl font-bold text-gray-900">
-                        {formatPrice(book.price, inrPrice, membershipAdded ? (realPrice * 0.9) : realPrice)}
+                        {formatPrice(book.price, inrPrice, (membershipAdded && !isActiveMember) ? (realPrice * 0.9) : realPrice)}
                       </span>
 
                       {/* MRP Display (Strikethrough) */}

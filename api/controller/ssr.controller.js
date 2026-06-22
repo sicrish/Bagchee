@@ -34,6 +34,13 @@ const escAttr = (s) => String(s == null ? '' : s)
 
 const stripTags = (s) => String(s || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 
+const SITE = 'https://www.bagchee.com';
+
+// Slug — MUST match api/scripts/generateSitemaps.js toSlug so a book's canonical URL is
+// identical to its sitemap URL (a canonical that disagrees with the sitemap confuses Google).
+const toSlug = (s = '') =>
+    String(s).toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
 // Build schema.org Product JSON-LD for a book so Google can show price / availability /
 // rating rich results. Mirrors the storefront's selling-price rule (realPrice when it
 // undercuts the MRP). Returns null when there's nothing useful to emit.
@@ -81,6 +88,9 @@ function buildProductJsonLd(p, url) {
 // HTML with meta injected. `data-rh="true"` lets react-helmet-async adopt/reconcile
 // these tags on hydration instead of appending duplicates.
 export function injectBookMeta(html, p, slug = '') {
+    // The static shell carries homepage-only SEO headings (#ssr-home-h); strip them so
+    // a book page's View Source doesn't show the homepage H1.
+    html = html.replace(/<div id="ssr-home-h">[\s\S]*?<\/div>/i, '');
     if (!p) return html;
 
     const author = p.authors?.[0]?.author?.fullName || '';
@@ -92,7 +102,9 @@ export function injectBookMeta(html, p, slug = '') {
         : stripTags(p.synopsis).slice(0, 200);
     const keywords = (p.metaKeywords && p.metaKeywords.trim()) || '';
     const image = p.defaultImage || '';
-    const url = `https://www.bagchee.com/books/${encodeURIComponent(p.bagcheeId || '')}/${encodeURIComponent(slug || '')}`;
+    // Canonical URL = bagcheeId + title-slug, matching the sitemap exactly (NOT the requested
+    // URL's slug, so /books/BB../anything all collapse to one canonical). Also used for og:url.
+    const url = `${SITE}/books/${p.bagcheeId || ''}/${toSlug(p.title) || 'book'}`;
 
     const tags = [
         description && `<meta name="description" content="${escAttr(description)}" data-rh="true"/>`,
@@ -104,6 +116,15 @@ export function injectBookMeta(html, p, slug = '') {
         `<meta property="og:url" content="${escAttr(url)}" data-rh="true"/>`,
         p.isbn13 && `<meta property="books:isbn" content="${escAttr(p.isbn13)}" data-rh="true"/>`,
     ].filter(Boolean).join('');
+
+    // Canonical + robots(index,follow). NON-data-rh on purpose: react-helmet-async doesn't
+    // render <link rel=canonical> / <meta robots> client-side, so omitting data-rh means it
+    // won't strip them on hydration — they persist in the DOM AND in View-Source for crawlers.
+    // Canonical = the bagcheeId+slug URL (matches the sitemap), so every /books/:id/<anything>
+    // variant collapses to one indexed URL.
+    const seoTags =
+        `<link rel="canonical" href="${escAttr(url)}"/>` +
+        `<meta name="robots" content="index, follow"/>`;
 
     // schema.org Product JSON-LD (price / availability / rating rich results). `<` is
     // unicode-escaped so a stray "</script>" in any field can't break out of the tag.
@@ -118,8 +139,8 @@ export function injectBookMeta(html, p, slug = '') {
     } else {
         out = out.replace(/<head>/i, `<head><title data-rh="true">${escAttr(title)}</title>`);
     }
-    // Inject the rest of the meta + JSON-LD right before </head>.
-    out = out.replace(/<\/head>/i, `${tags}${ldScript}</head>`);
+    // Inject the rest of the meta + canonical/robots + JSON-LD right before </head>.
+    out = out.replace(/<\/head>/i, `${tags}${seoTags}${ldScript}</head>`);
     return out;
 }
 
@@ -162,6 +183,98 @@ export async function renderBookMeta(req, res) {
         return res.type('html').send(out);
     } catch {
         // Any failure → serve the plain SPA shell so the page never breaks.
+        return res.type('html').send(html);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Server-side meta injection for the HOME page + a curated allow-list of static
+// pages (membership / sale / about-us / contact-us / gift-card-detail / …).
+//
+// Same Apache→Node rail as the book route, but driven by the admin `meta_tags`
+// table (MetaTag model) keyed by the React path. Apache proxies each allow-listed
+// route to /render/page?path=<react-path>, so View Source / Bing / social scrapers
+// see the admin-managed title/description/keywords instead of the generic static
+// index.html. Any failure → plain SPA shell (the page can never break from this).
+//
+// Field mapping mirrors WebsiteLayout.jsx so the SSR tags and the after-JS
+// react-helmet-async tags agree (data-rh reconciliation → no duplicates / flash):
+//   <title>           ← title (fallback metaTitle)
+//   <meta name=title> ← metaTitle
+//   description        ← metaDesc      keywords ← metaKeywords
+//   og:title           ← metaTitle (fallback title)   og:description ← metaDesc
+// ---------------------------------------------------------------------------
+export function injectPageMeta(html, meta, path = '') {
+    // Keep the homepage H1/H2 SEO block (#ssr-home-h) on the home page; strip elsewhere.
+    if (path !== '/') {
+        html = html.replace(/<div id="ssr-home-h">[\s\S]*?<\/div>/i, '');
+    }
+
+    // Canonical + robots(index,follow) are independent of the admin meta row — every
+    // allow-listed page (incl. home, and pages with no meta_tags row) should still advertise
+    // a self-canonical and index,follow. NON-data-rh so react-helmet-async leaves them in
+    // place (it never renders canonical/robots client-side → nothing to reconcile/duplicate).
+    const url = `${SITE}${path === '/' ? '/' : path}`;
+    const seoTags =
+        `<link rel="canonical" href="${escAttr(url)}"/>` +
+        `<meta name="robots" content="index, follow"/>`;
+
+    if (!meta) return html.replace(/<\/head>/i, `${seoTags}</head>`);
+
+    const title = (meta.title && meta.title.trim()) || (meta.metaTitle && meta.metaTitle.trim()) || '';
+    const ogTitle = (meta.metaTitle && meta.metaTitle.trim()) || title;
+    const description = (meta.metaDesc && meta.metaDesc.trim()) || '';
+    const keywords = (meta.metaKeywords && meta.metaKeywords.trim()) || '';
+
+    const tags = [
+        ogTitle && `<meta name="title" content="${escAttr(ogTitle)}" data-rh="true"/>`,
+        description && `<meta name="description" content="${escAttr(description)}" data-rh="true"/>`,
+        keywords && `<meta name="keywords" content="${escAttr(keywords)}" data-rh="true"/>`,
+        ogTitle && `<meta property="og:title" content="${escAttr(ogTitle)}" data-rh="true"/>`,
+        description && `<meta property="og:description" content="${escAttr(description)}" data-rh="true"/>`,
+        `<meta property="og:type" content="website" data-rh="true"/>`,
+        `<meta property="og:url" content="${escAttr(url)}" data-rh="true"/>`,
+    ].filter(Boolean).join('');
+
+    let out = html;
+    if (title) {
+        if (/<title>[\s\S]*?<\/title>/i.test(out)) {
+            out = out.replace(/<title>[\s\S]*?<\/title>/i, `<title data-rh="true">${escAttr(title)}</title>`);
+        } else {
+            out = out.replace(/<head>/i, `<head><title data-rh="true">${escAttr(title)}</title>`);
+        }
+    }
+    out = out.replace(/<\/head>/i, `${tags}${seoTags}</head>`);
+    return out;
+}
+
+const _pageCache = new Map();
+
+export async function renderPageMeta(req, res) {
+    let html;
+    try {
+        html = getIndexHtml();
+    } catch {
+        return res.status(500).type('html').send('Service unavailable');
+    }
+    try {
+        let path = String(req.query.path || '/').trim();
+        if (!path.startsWith('/')) path = `/${path}`;
+        const key = path.toLowerCase();
+
+        const hit = _pageCache.get(key);
+        if (hit && (Date.now() - hit.t) < RENDER_TTL_MS) {
+            return res.type('html').send(hit.html);
+        }
+
+        const meta = await prisma.metaTag.findFirst({
+            where: { pageUrl: { equals: path, mode: 'insensitive' } },
+        });
+
+        const out = injectPageMeta(html, meta, path);
+        _pageCache.set(key, { t: Date.now(), html: out });
+        return res.type('html').send(out);
+    } catch {
         return res.type('html').send(html);
     }
 }

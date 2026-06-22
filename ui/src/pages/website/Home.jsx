@@ -30,6 +30,10 @@ const PageLoader = () => (
 function Home() {
   return (
     <div className="bg-cream-50">
+      {/* SEO headings (rendered DOM). The static shell (index.html #root) carries the same
+          H1/H2 so they also appear in View Source. sr-only = present & crawlable, no visual change. */}
+      <h1 className="sr-only">World's Largest Online Store for Indian Books with Free Worldwide Delivery</h1>
+      <h2 className="sr-only">Free Worldwide Delivery on Eligible Book Orders</h2>
       {/* 🟢 Suspense handles lazy loading state */}
       <Suspense fallback={<PageLoader />}>
 

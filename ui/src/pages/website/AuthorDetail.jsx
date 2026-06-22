@@ -126,7 +126,7 @@ const AuthorDetail = () => {
   const stats = calculateStats();
   const authorImageUrl = author.picture
     ? getFullImageUrl(author.picture)
-    : 'https://via.placeholder.com/400x400?text=Author';
+    : 'https://placehold.co/400x400?text=Author';
 
   const authorFullName = `${author.firstName || ''} ${author.lastName || ''}`.trim();
   const authorBio = author.biography ? author.biography.replace(/<[^>]+>/g, '').substring(0, 160) : `Books and biography of ${authorFullName} on Bagchee.`;
@@ -163,7 +163,7 @@ const AuthorDetail = () => {
                 src={authorImageUrl}
                 alt={`${author.firstName} ${author.lastName}`}
                 className="w-full h-full object-cover transition-transform duration-700 hover:scale-110"
-                onError={(e) => { e.target.src = 'https://via.placeholder.com/400x400?text=Author' }}
+                onError={(e) => { e.target.src = 'https://placehold.co/400x400?text=Author' }}
               />
             </div>
             {/* Decorative background circle */}

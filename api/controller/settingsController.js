@@ -157,8 +157,26 @@ export const getSetting = async (req, res) => {
 
 export const updateSetting = async (req, res) => {
     try {
-        const updated = await prisma.settings.update({ where: { id: parseInt(req.params.id) }, data: mapBody(req.body) });
+        const mapped  = mapBody(req.body);
+        const updated = await prisma.settings.update({ where: { id: parseInt(req.params.id) }, data: mapped });
         cache.invalidate('settings');
+
+        // When newArrivalTime changes, recalculate newReleaseUntil for all books
+        // that have an explicit date set, and re-activate books within the new window.
+        if (mapped.newArrivalTime !== undefined) {
+            const days = Math.max(1, Number(mapped.newArrivalTime) || 30);
+            const today = new Date();
+            prisma.$executeRawUnsafe(`
+                UPDATE products
+                SET new_release_until = created_at + (${days} || ' days')::interval,
+                    is_new_release     = CASE
+                        WHEN created_at + (${days} || ' days')::interval >= NOW() THEN true
+                        ELSE false
+                    END
+                WHERE new_release_until IS NOT NULL OR is_new_release = true
+            `).catch(() => {});
+        }
+
         res.status(200).json({ status: true, msg: 'Settings updated!', data: updated });
     } catch (error) {
         if (error.code === 'P2025') return res.status(404).json({ status: false, msg: 'Not found' });

@@ -217,7 +217,7 @@ const EditMainCategory = () => {
                         src={getFullImageUrl(existingImage)} 
                         alt="Existing" 
                         className="w-full h-full object-contain"
-                        onError={(e) => { e.target.src = "https://via.placeholder.com/150?text=Error" }}
+                        onError={(e) => { e.target.src = "https://placehold.co/150?text=Error" }}
                       />
                     ) : (
                       <div className="flex flex-col items-center text-gray-300">

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Fragment, useContext, useMemo, useRef, useCallback, memo } from 'react';
 import { createSafeHtml } from '../../../../utils/sanitize';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, ShoppingCart, User, Heart, Menu as MenuIcon, X, ChevronDown, Globe, LogIn, UserPlus, LogOut, List, MapPin, ChevronRight, Flame } from 'lucide-react';
+import { Search, ShoppingCart, User, Heart, Menu as MenuIcon, X, ChevronDown, Globe, LogIn, UserPlus, LogOut, List, MapPin, ChevronRight, Flame, Star } from 'lucide-react';
 import { Transition, Dialog, TransitionChild, DialogPanel } from '@headlessui/react';
 import { useQuery } from '@tanstack/react-query';
 import Logo from '../../../common/Logo.jsx';
@@ -722,7 +722,7 @@ const PremiumHeader = () => {
                   ) : (
                     <>
                       <Link to="/login" className="flex items-center gap-3 px-5 py-3 text-sm text-gray-700 hover:bg-primary/5 hover:text-primary transition-colors font-montserrat"><LogIn size={16} /> <span className="font-medium">LOGIN</span></Link>
-                      <Link to="/register" className="flex items-center gap-3 px-5 py-3 text-sm text-gray-700 hover:bg-primary/5 hover:text-primary transition-colors font-montserrat"><UserPlus size={16} /> <span className="font-medium">REGISTER</span></Link>
+                      {!isIndia && <Link to="/register" className="flex items-center gap-3 px-5 py-3 text-sm text-gray-700 hover:bg-primary/5 hover:text-primary transition-colors font-montserrat"><UserPlus size={16} /> <span className="font-medium">REGISTER</span></Link>}
                       <Link to="/trace-order" className="flex items-center gap-3 px-5 py-3 text-sm text-gray-700 hover:bg-primary/5 hover:text-primary transition-colors font-montserrat"><Search size={16} /> <span className="font-medium">TRACE ORDER</span></Link>
                     </>
                   )}
@@ -786,9 +786,7 @@ const PremiumHeader = () => {
                           <Link to="/login" onClick={() => setMobileAccountOpen(false)} className="flex items-center justify-center gap-2 w-full py-3 bg-primary text-white text-xs font-bold rounded-xl shadow-lg font-montserrat transition-transform active:scale-95">
                             <LogIn size={16} /> LOGIN
                           </Link>
-                          <Link to="/register" onClick={() => setMobileAccountOpen(false)} className="flex items-center justify-center gap-2 w-full py-3 border-2 border-primary text-primary text-xs font-bold rounded-xl font-montserrat transition-transform active:scale-95">
-                            <UserPlus size={16} /> REGISTER
-                          </Link>
+                          {!isIndia && <Link to="/register" onClick={() => setMobileAccountOpen(false)} className="flex items-center justify-center gap-2 w-full py-3 border-2 border-primary text-primary text-xs font-bold rounded-xl font-montserrat transition-transform active:scale-95"><UserPlus size={16} /> REGISTER</Link>}
                           <Link to="/trace-order" onClick={() => setMobileAccountOpen(false)} className="flex items-center justify-center gap-2 w-full py-3 border-2 border-primary text-primary text-xs font-bold rounded-xl font-montserrat transition-transform active:scale-95">
                             <Search size={16} /> TRACE ORDER
                           </Link>
@@ -885,8 +883,8 @@ const PremiumHeader = () => {
               const isGift = navName.toLowerCase().includes('gift');
 
               return (
+                <Fragment key={nav._id || idx}>
                 <div
-                  key={nav._id || idx}
                   className="relative group/navitem flex items-center h-full px-0.5"
                   onMouseEnter={() => hasDropdown && handleDropdownEnter(dropdownId)}
                   onMouseLeave={handleDropdownLeave}
@@ -970,6 +968,21 @@ const PremiumHeader = () => {
                     </div>
                   )}
                 </div>
+
+                {/* Get Membership — shown right after Sale button */}
+                {isSale && (
+                  <div className="relative flex items-center h-full px-0.5">
+                    <Link
+                      to="/membership"
+                      onClick={handleNavigation}
+                      className="relative flex items-center gap-1.5 transition-all duration-300 font-bold font-montserrat rounded-full whitespace-nowrap px-2 py-1.5 lg:px-4 lg:py-2 text-[10px] min-[850px]:text-xs lg:text-sm tracking-tighter lg:tracking-normal bg-gradient-to-r from-amber-400 to-yellow-300 text-gray-900 hover:from-yellow-300 hover:to-amber-500 shadow-md shadow-amber-400/30 hover:shadow-amber-400/50"
+                    >
+                      <Star size={12} className="fill-gray-900" strokeWidth={0} />
+                      <span>Get Membership</span>
+                    </Link>
+                  </div>
+                )}
+                </Fragment>
               );
             })}
 
@@ -1081,6 +1094,18 @@ const PremiumHeader = () => {
                       </Link>
                     </div>
                   )}
+
+                  {/* Get Membership CTA */}
+                  <div className="pt-3">
+                    <Link
+                      to="/membership"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center justify-center gap-2 w-full py-3 bg-gradient-to-r from-amber-400 to-yellow-300 text-gray-900 text-xs font-black rounded-xl shadow-md font-montserrat tracking-wide transition-transform active:scale-95"
+                    >
+                      <Star size={14} className="fill-gray-900" strokeWidth={0} />
+                      GET MEMBERSHIP — SAVE 10%
+                    </Link>
+                  </div>
                 </div>
 
                 {/* --- 🟢 NEW MOBILE AUTH/ACCOUNT SECTION --- */}
@@ -1110,9 +1135,7 @@ const PremiumHeader = () => {
                         <Link to="/login" onClick={() => setMobileMenuOpen(false)} className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-primary text-white text-xs font-bold rounded-lg shadow-md transition-transform active:scale-95">
                           <LogIn size={16} /> LOGIN
                         </Link>
-                        <Link to="/register" onClick={() => setMobileMenuOpen(false)} className="flex-1 flex items-center justify-center gap-2 py-2.5 border-2 border-primary text-primary text-xs font-bold rounded-lg transition-transform active:scale-95 hover:bg-primary/5">
-                          <UserPlus size={16} /> REGISTER
-                        </Link>
+                        {!isIndia && <Link to="/register" onClick={() => setMobileMenuOpen(false)} className="flex-1 flex items-center justify-center gap-2 py-2.5 border-2 border-primary text-primary text-xs font-bold rounded-lg transition-transform active:scale-95 hover:bg-primary/5"><UserPlus size={16} /> REGISTER</Link>}
                       </div>
                       <div className="pt-2">
                         <Link to="/trace-order" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-center gap-2 w-full py-2.5 bg-cream-50 text-text-main text-xs font-bold rounded-lg border border-cream-200 transition-transform active:scale-95 hover:text-primary">

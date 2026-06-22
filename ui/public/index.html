@@ -2,6 +2,14 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <!-- Google tag (gtag.js) — GA4 traffic analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-G46P07QZD5"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-G46P07QZD5');
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="preconnect" href="https://res.cloudinary.com" crossorigin />
@@ -38,7 +46,12 @@
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="root"></div>
+    <div id="root"><div id="ssr-home-h"><!--
+      Homepage SEO headings in the static shell so they appear in View Source (CRA is
+      client-rendered; React replaces #root on mount). Mirrored as real headings in
+      Home.jsx for the rendered DOM. sr-only inline style avoids a load flash. Book pages
+      strip this block server-side (ssr.controller.js) so they don't carry the home H1.
+      --><h1 style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">World's Largest Online Store for Indian Books with Free Worldwide Delivery</h1><h2 style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">Free Worldwide Delivery on Eligible Book Orders</h2></div></div>
     <!--
       This HTML file is a template.
       If you open it directly in the browser, you will see an empty page.

@@ -75,7 +75,7 @@ import backInStockRoutes from './routes/backInStock.routes.js';
 import emailCampaignRoutes from './routes/emailCampaignRoutes.js';
 import { processScheduledEmails } from './controller/emailCampaignController.js';
 import { sendMembershipExpiryReminder } from './controller/email.controller.js';
-import { renderBookMeta } from './controller/ssr.controller.js';
+import { renderBookMeta, renderPageMeta } from './controller/ssr.controller.js';
 import prisma from './lib/prisma.js';
 import sitemapRoutes from './routes/sitemap.routes.js';
 import disclaimerRoutes from './routes/disclaimerRoutes.js';
@@ -130,6 +130,12 @@ app.use(compression());
 // title/description/keywords. Registered BEFORE the rate limiter so crawlers hitting
 // many book pages are never throttled; it always falls back to the plain SPA shell.
 app.get('/render/books/:bagcheeId/:slug', renderBookMeta);
+
+// ── Server-side meta injection for the home page + curated static pages ──
+// Apache proxies an allow-list of static routes (home, /membership, /sale, …) to
+// /render/page?path=<react-path>; Node injects that page's admin meta_tags meta into
+// the SPA shell. Registered before the rate limiter; always falls back to plain shell.
+app.get('/render/page', renderPageMeta);
 
 app.use(helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' },

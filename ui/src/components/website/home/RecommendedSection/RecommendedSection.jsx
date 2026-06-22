@@ -29,7 +29,7 @@ const RecommendedSection = () => {
         queryKey: ['recommended-products', page],
         queryFn: async () => {
             const API_URL = process.env.REACT_APP_API_URL;
-            const res = await axios.get(`${API_URL}/product/recommended?page=${page}&limit=${itemsPerPage}`);
+            const res = await axios.get(`${API_URL}/product/recommended?page=${page}&limit=${itemsPerPage}&random=true`);
             return res.data;
         },
         placeholderData: (previousData) => previousData,

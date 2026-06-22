@@ -202,7 +202,7 @@ const HomeBestSellerForm = () => {
                     <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded shadow-lg mt-1 max-h-60 overflow-y-auto z-50">
                         {searchResults.map((prod) => (
                             <div 
-                                key={prod._id} 
+                                key={prod.id || prod._id}
                                 onClick={() => handleSelectProduct(prod)}
                                 className="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-0 flex flex-col justify-center"
                             >

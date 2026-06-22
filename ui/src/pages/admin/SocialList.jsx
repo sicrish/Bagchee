@@ -67,7 +67,7 @@ const SocialsList = () => {
         "Sr No": i + 1,
         "Title": item.title,
         "Link URL": item.link,
-        "Order": item.order || 0,
+        "Order": item.ord ?? item.order ?? 0,
         "Status": item.active ? "Active" : "Inactive",
         "Show in Footer": item.showInFooter ? "Yes" : "No",
         "Show in Product": item.showInProduct ? "Yes" : "No"
