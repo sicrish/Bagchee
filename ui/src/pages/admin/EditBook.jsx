@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { Save, RotateCcw, Plus, Search, Check, X, Upload, Eye, Loader2, ChevronDown } from 'lucide-react';
+import { Save, RotateCcw, Plus, Search, Check, X, Upload, Eye, Loader2, ChevronDown, ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useNavigate, useParams } from 'react-router-dom';
 import JoditEditor from 'jodit-react';
@@ -806,6 +806,13 @@ const EditBook = () => {
         <div className="bg-gray-50 min-h-screen font-body text-text-main">
             <div className="bg-primary text-white border-b px-6 py-3 flex justify-between items-center shadow-sm">
                 <h1 className="text-lg font-bold text-gray-700 uppercase tracking-tight">Edit Book</h1>
+                <button
+                    type="button"
+                    onClick={() => navigate('/admin/books')}
+                    className="flex items-center gap-2 bg-white/15 hover:bg-white/25 text-white border border-white/30 px-4 py-1.5 rounded text-[11px] font-bold uppercase tracking-tight transition-colors"
+                >
+                    <ArrowLeft size={14} /> Back to Books
+                </button>
             </div>
 
             <div className="max-w-6xl mx-auto p-6">

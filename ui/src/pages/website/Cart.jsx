@@ -153,6 +153,17 @@ const Cart = () => {
   // Total number of physical books (excludes gift cards — they don't ship)
   const totalBooks = cart.reduce((acc, item) => item.itemType === 'gift_card' ? acc : acc + item.quantity, 0);
 
+  // Estimated-arrival prep days — mirrors Checkout exactly so the cart shows the SAME date.
+  // Max product dispatch days across physical items (e.g. "1-2" -> 2) + the global buffer.
+  const maxShipDays = cart
+    .filter(i => i.itemType !== 'gift_card')
+    .reduce((max, item) => {
+      const parts = String(item.shipDays || item.ship_days || '0').split('-').map(Number).filter(n => !isNaN(n));
+      const d = parts.length > 0 ? Math.max(...parts) : 0;
+      return d > max ? d : max;
+    }, 0);
+  const totalPrepDays = maxShipDays + Number(settings?.maxShippingDays || settings?.max_shipping_days || 0);
+
   // 1. Original Base Totals (MNC logic ke liye zaroori hai)
   const originalBaseUSD = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
   const originalBaseINR = cart.reduce((acc, item) => acc + ((item.inrPrice ?? item.inr_price ?? 0) * item.quantity), 0);
@@ -699,6 +710,12 @@ const Cart = () => {
     const effectiveUsd = (isTiered || !isFreeShippingUnlocked) ? rawUsd : 0;
     const isSelected = (appliedShipping?.id || appliedShipping?._id) === optId;
 
+    // Same estimate as checkout: today + this option's max-day-limit + prep days.
+    const maxDayLimit = Number(option.maxDayLimit || option.max_day_limit) || 0;
+    const deliveryDate = (maxDayLimit > 0 || totalPrepDays > 0)
+      ? (() => { const dt = new Date(); dt.setDate(dt.getDate() + maxDayLimit + totalPrepDays); return dt.toLocaleDateString('en-US', { day: 'numeric', month: 'short' }); })()
+      : null;
+
     let displayPrice;
     if (currency === 'EUR') {
       const eurPrice = option.priceEur || option.price_eur || effectiveUsd * (exchangeRates?.EUR || 0.92);
@@ -719,6 +736,7 @@ const Cart = () => {
           />
           <div className='min-w-0 flex-1'>
             <span className="text-sm font-semibold text-text-main block truncate sm:whitespace-normal">{option.title}</span>
+            {deliveryDate && <span className="text-[10px] text-gray-400 block">Estimated delivery by {deliveryDate}</span>}
             {effectiveUsd === 0 && <span className="text-[10px] text-green-600 font-bold">FREE</span>}
           </div>
         </div>

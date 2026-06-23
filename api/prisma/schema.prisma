@@ -455,6 +455,10 @@ model Order {
   // Admin comment/notes on the order
   comment             String    @default("")
 
+  // Original note the customer left at checkout — read-only in admin, kept separate
+  // from the admin `comment` above so admin edits never overwrite the customer's words.
+  customerComment     String    @default("") @map("customer_comment")
+
   // --- Shipping Details (flat columns) ---
   shippingEmail       String    @default("") @map("shipping_email")
   shippingFirstName   String    @default("") @map("shipping_f_name")

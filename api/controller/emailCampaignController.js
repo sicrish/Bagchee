@@ -43,15 +43,43 @@ const SOCIAL_BTN = {
     pinterest: { bg: '#e60023', glyph: 'P' },
     linkedin:  { bg: '#0a66c2', glyph: 'in' },
 };
+// Canonical icon order for the email footer: Facebook, Twitter, Instagram, WhatsApp
+// (then any other configured networks). Twitter + Instagram are ALWAYS shown — as
+// non-clickable icons until a real link is set in /admin/socials (client request:
+// show the icons now, links to be added later). Other networks render only when
+// they have a valid http(s) link.
+const EMAIL_SOCIAL_ORDER = ['facebook', 'twitter', 'instagram', 'whatsapp', 'youtube', 'pinterest', 'linkedin'];
+const ALWAYS_SHOW_ICONS = new Set(['twitter', 'instagram']);
+const socialIconStyle = (bg) => `display:inline-block;width:30px;height:30px;background:${bg};border-radius:50%;color:#fff;text-decoration:none;font-size:13px;font-weight:900;line-height:30px;margin:0 3px;text-align:center;`;
+
 const buildSocialIconsHtml = (socials) => {
-    const valid = (socials || []).filter(s => s.link && /^https?:\/\//i.test(s.link.trim()));
-    if (valid.length === 0) return '';
-    const buttons = valid.map(s => {
+    // Map normalized title -> first valid http(s) link configured in /admin/socials.
+    const linkByKey = {};
+    (socials || []).forEach(s => {
         const key = (s.title || '').toLowerCase().replace(/[^a-z]/g, '');
-        const st = SOCIAL_BTN[key] || { bg: theme.primary, glyph: (s.title || '?').charAt(0).toUpperCase() };
-        return `<a href="${s.link.trim()}" target="_blank" rel="noopener" style="display:inline-block;width:30px;height:30px;background:${st.bg};border-radius:50%;color:#fff;text-decoration:none;font-size:13px;font-weight:900;line-height:30px;margin:0 3px;text-align:center;">${st.glyph}</a>`;
-    }).join('');
-    return `<div style="text-align:center;margin:0 0 14px;">${buttons}</div>`;
+        if (key && s.link && /^https?:\/\//i.test(s.link.trim()) && !linkByKey[key]) linkByKey[key] = s.link.trim();
+    });
+    if (linkByKey.x && !linkByKey.twitter) linkByKey.twitter = linkByKey.x; // "X" === Twitter
+
+    const renderIcon = (key) => {
+        const st = SOCIAL_BTN[key];
+        if (!st) return '';
+        const link = linkByKey[key];
+        if (link) return `<a href="${link}" target="_blank" rel="noopener" style="${socialIconStyle(st.bg)}">${st.glyph}</a>`;
+        if (ALWAYS_SHOW_ICONS.has(key)) return `<span style="${socialIconStyle(st.bg)}">${st.glyph}</span>`;
+        return '';
+    };
+
+    const icons = EMAIL_SOCIAL_ORDER.map(renderIcon).filter(Boolean);
+    // Append any other configured networks (with a real link) not already shown.
+    Object.keys(linkByKey).forEach(key => {
+        if (key === 'x' || EMAIL_SOCIAL_ORDER.includes(key)) return;
+        const st = SOCIAL_BTN[key] || { bg: theme.primary, glyph: key.charAt(0).toUpperCase() };
+        icons.push(`<a href="${linkByKey[key]}" target="_blank" rel="noopener" style="${socialIconStyle(st.bg)}">${st.glyph}</a>`);
+    });
+
+    if (icons.length === 0) return '';
+    return `<div style="text-align:center;margin:0 0 14px;">${icons.join('')}</div>`;
 };
 const getFooterSocialsHtml = async () => {
     try {

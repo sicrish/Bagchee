@@ -254,6 +254,7 @@ export const saveOrder = async (req, res) => {
                 couponId:           couponId && !isNaN(couponId) ? couponId : null,
                 couponDiscount:     couponDiscount,
                 comment:            req.body.comment                     || '',
+                customerComment:    req.body.customer_comment || req.body.customerComment || '',
                 estimatedDelivery:  req.body.estimatedDelivery ? new Date(req.body.estimatedDelivery) : null,
 
                 ...extractShipping(req.body),

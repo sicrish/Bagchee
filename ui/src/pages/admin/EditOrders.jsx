@@ -206,6 +206,7 @@ const EditOrders = () => {
   const [addProductIdInput, setAddProductIdInput] = useState('');
 
   const [commentContent, setCommentContent] = useState('');
+  const [customerComment, setCustomerComment] = useState('');
 
   // Huge Form State (Same as AddOrders)
   const [formData, setFormData] = useState({
@@ -353,6 +354,7 @@ const EditOrders = () => {
 
           setOrderProducts(d.items || d.products || []);
           setCommentContent(d.comment || '');
+          setCustomerComment(d.customerComment || d.customer_comment || '');
           setPaymentLink(d.paymentLink || d.payment_link || '');
           setPurchaseOrderNumber(d.purchaseOrderNumber || d.purchase_order_number || '');
         } else if (orderRes.status === 'rejected') {
@@ -716,7 +718,7 @@ ${estDeliveryLine}
   <p style="font-size:18px;font-weight:800;color:#0B2F3A;margin:0 0 8px;">15% discount on your next order!</p>
   <div style="display:inline-block;border:2px dashed #f59e0b;border-radius:8px;padding:8px 24px;"><span style="font-size:22px;font-weight:900;letter-spacing:2px;color:#0B2F3A;font-family:monospace;">BAGCHEE15</span></div>
 </div>
-<p>We hope to serve you better next time. Please don't hesitate to reach out to us with any questions or concerns via email <a href="mailto:cservice@bagchee.com" style="color:#008DDA;font-weight:bold;">cservice@bagchee.com</a>.</p>
+<p>We hope to serve you better next time. Please don't hesitate to reach out to us with any questions or concerns via email <a href="mailto:email@bagchee.com" style="color:#008DDA;font-weight:bold;">email@bagchee.com</a>.</p>
 <p>Best,<br><strong>The Bagchee Team</strong></p>`);
     setEmailModalOpen(true);
   };
@@ -1438,6 +1440,17 @@ ${bankDetails}
               <label className={labelClass}>Billing phone</label>
               <div className="col-span-9"><input type="text" name="billing_phone" value={formData.billing_phone} onChange={handleChange} className={inputClass} /></div>
             </div>
+
+            {/* --- CUSTOMER COMMENT (read-only — left by the buyer at checkout) --- */}
+            {customerComment && customerComment.trim() && (
+              <div className="grid grid-cols-12 gap-4 items-start mt-6">
+                <label className="col-span-12 sm:col-span-3 text-left sm:text-right text-[11px] font-bold text-text-muted uppercase font-montserrat pt-2">Customer Comment</label>
+                <div className="col-span-12 sm:col-span-9">
+                  <div className="border border-amber-300 bg-amber-50 rounded p-3 text-sm text-gray-800 whitespace-pre-wrap break-words">{customerComment}</div>
+                  <p className="text-[10px] text-gray-400 mt-1">Left by the customer at checkout — read-only.</p>
+                </div>
+              </div>
+            )}
 
             {/* --- COMMENT --- */}
             <div className="grid grid-cols-12 gap-4 items-start mt-6">

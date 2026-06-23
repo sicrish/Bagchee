@@ -427,15 +427,35 @@ const PREVIEW_SOCIAL_BTN = {
   pinterest: { bg: '#e60023', glyph: 'P' },
   linkedin:  { bg: '#0a66c2', glyph: 'in' },
 };
+// Canonical icon order for the email footer — mirrors the server renderer
+// (emailCampaignController.js buildSocialIconsHtml). Twitter + Instagram always show
+// (non-clickable until a link is set in /admin/socials); others need a valid link.
+const EMAIL_SOCIAL_ORDER = ['facebook', 'twitter', 'instagram', 'whatsapp', 'youtube', 'pinterest', 'linkedin'];
+const ALWAYS_SHOW_ICONS = new Set(['twitter', 'instagram']);
+const previewIconStyle = (bg) => `display:inline-block;width:30px;height:30px;background:${bg};border-radius:50%;color:#fff;text-decoration:none;font-size:13px;font-weight:900;line-height:30px;margin:0 3px;text-align:center;`;
 const buildEmailSocialsHtml = (socials) => {
-  const valid = (socials || []).filter(s => s.link && /^https?:\/\//i.test(s.link.trim()));
-  if (valid.length === 0) return '';
-  const buttons = valid.map(s => {
+  const linkByKey = {};
+  (socials || []).forEach(s => {
     const key = (s.title || '').toLowerCase().replace(/[^a-z]/g, '');
-    const st = PREVIEW_SOCIAL_BTN[key] || { bg: '#008DDA', glyph: (s.title || '?').charAt(0).toUpperCase() };
-    return `<a href="${s.link.trim()}" target="_blank" rel="noopener" style="display:inline-block;width:30px;height:30px;background:${st.bg};border-radius:50%;color:#fff;text-decoration:none;font-size:13px;font-weight:900;line-height:30px;margin:0 3px;text-align:center;">${st.glyph}</a>`;
-  }).join('');
-  return `<div style="text-align:center;margin:0 0 14px;">${buttons}</div>`;
+    if (key && s.link && /^https?:\/\//i.test(s.link.trim()) && !linkByKey[key]) linkByKey[key] = s.link.trim();
+  });
+  if (linkByKey.x && !linkByKey.twitter) linkByKey.twitter = linkByKey.x;
+  const renderIcon = (key) => {
+    const st = PREVIEW_SOCIAL_BTN[key];
+    if (!st) return '';
+    const link = linkByKey[key];
+    if (link) return `<a href="${link}" target="_blank" rel="noopener" style="${previewIconStyle(st.bg)}">${st.glyph}</a>`;
+    if (ALWAYS_SHOW_ICONS.has(key)) return `<span style="${previewIconStyle(st.bg)}">${st.glyph}</span>`;
+    return '';
+  };
+  const icons = EMAIL_SOCIAL_ORDER.map(renderIcon).filter(Boolean);
+  Object.keys(linkByKey).forEach(key => {
+    if (key === 'x' || EMAIL_SOCIAL_ORDER.includes(key)) return;
+    const st = PREVIEW_SOCIAL_BTN[key] || { bg: '#008DDA', glyph: key.charAt(0).toUpperCase() };
+    icons.push(`<a href="${linkByKey[key]}" target="_blank" rel="noopener" style="${previewIconStyle(st.bg)}">${st.glyph}</a>`);
+  });
+  if (icons.length === 0) return '';
+  return `<div style="text-align:center;margin:0 0 14px;">${icons.join('')}</div>`;
 };
 
 // ─── Standard Promotional Banners ────────────────────────────────────────────
@@ -472,9 +492,45 @@ const STANDARD_PROMO_BANNERS = [
     textColor: '#0B2F3A',
     link: `${FRONTEND_URL}/gift-card-detail`,
   },
+  {
+    id: 'facebook',
+    name: 'Follow us on Facebook',
+    subtitle: 'Read more, Discover more',
+    bgColor: '#1877f2',
+    textColor: '#FFFFFF',
+    // Default Facebook page; the builder overrides this with the LIVE footer
+    // Facebook link (from /admin/socials) when this banner is selected.
+    link: 'https://facebook.com/profile.php?id=61590938522351',
+  },
 ];
 
-const buildStandardPromoHtml = (promo, compact = false) => `<table cellpadding="0" cellspacing="0" border="0" style="width:100%;border-radius:8px;overflow:hidden;margin:16px 0;background:${promo.bgColor};font-family:Inter,Helvetica,Arial,sans-serif;">
+const buildStandardPromoHtml = (promo, compact = false) => {
+  // Facebook "follow us" banner — styled after the Facebook cover photo (FB blue,
+  // round "f" badge + page handle). Links to the same page as the footer FB icon.
+  if (promo.id === 'facebook') {
+    const iconSize = compact ? 28 : 34;
+    return `<table cellpadding="0" cellspacing="0" border="0" style="width:100%;border-radius:8px;overflow:hidden;margin:16px 0;background:${promo.bgColor};font-family:Inter,Helvetica,Arial,sans-serif;">
+  <tr>
+    <td style="padding:${compact ? '12px 20px' : '18px 24px'};text-align:center;">
+      <p style="font-size:${compact ? '11px' : '12px'};color:#ffffff;opacity:0.9;margin:0 0 ${compact ? '6px' : '8px'};letter-spacing:0.04em;">Read more, Discover more</p>
+      <a href="${promo.link}" target="_blank" style="text-decoration:none;display:inline-block;">
+        <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
+          <tr>
+            <td style="vertical-align:middle;padding-right:10px;">
+              <span style="display:inline-block;width:${iconSize}px;height:${iconSize}px;background:#ffffff;border-radius:50%;color:#1877f2;font-size:${compact ? '18px' : '22px'};font-weight:900;line-height:${iconSize}px;text-align:center;font-family:Georgia,'Times New Roman',serif;">f</span>
+            </td>
+            <td style="vertical-align:middle;text-align:left;">
+              <span style="display:block;color:#ffffff;font-size:${compact ? '14px' : '16px'};font-weight:800;line-height:1.2;">Follow us on Facebook</span>
+              <span style="display:block;color:#ffffff;font-size:${compact ? '12px' : '13px'};opacity:0.9;line-height:1.3;">/ Bagchee</span>
+            </td>
+          </tr>
+        </table>
+      </a>
+    </td>
+  </tr>
+</table>`;
+  }
+  return `<table cellpadding="0" cellspacing="0" border="0" style="width:100%;border-radius:8px;overflow:hidden;margin:16px 0;background:${promo.bgColor};font-family:Inter,Helvetica,Arial,sans-serif;">
   <tr>
     <td style="padding:${compact ? '12px 20px' : '18px 24px'};text-align:center;">
       <p style="font-size:${compact ? '14px' : '16px'};font-weight:800;color:${promo.textColor};margin:0 0 3px;">${promo.name}</p>
@@ -483,6 +539,7 @@ const buildStandardPromoHtml = (promo, compact = false) => `<table cellpadding="
     </td>
   </tr>
 </table>`;
+};
 
 const AUDIENCE_OPTIONS = [
   { key: 'subscribers', label: 'All newsletter subscribers' },
@@ -1130,10 +1187,15 @@ const SendEmail = () => {
                                   key={promo.id}
                                   type="button"
                                   onClick={() => {
+                                    // Facebook banner links to the SAME page as the footer FB icon
+                                    // (from /admin/socials); falls back to the banner's default link.
+                                    const fbLink = footerSocials.find(s => /facebook/i.test(s.title || '') && /^https?:\/\//i.test((s.link || '').trim()))?.link?.trim();
+                                    const link = (promo.id === 'facebook' && fbLink) ? fbLink : promo.link;
+                                    const promoData = link === promo.link ? promo : { ...promo, link };
                                     updateBanner(idx, 'type', 'promo');
                                     updateBanner(idx, 'promoId', promo.id);
-                                    updateBanner(idx, 'promoData', promo);
-                                    updateBanner(idx, 'link', promo.link);
+                                    updateBanner(idx, 'promoData', promoData);
+                                    updateBanner(idx, 'link', link);
                                   }}
                                   style={{ background: promo.bgColor }}
                                   className={`w-full rounded-lg p-3 text-left border-2 transition-all ${banner.promoId === promo.id ? 'border-primary ring-2 ring-primary/30' : 'border-transparent hover:border-gray-300'}`}

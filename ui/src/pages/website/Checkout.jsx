@@ -962,7 +962,7 @@ const Checkout = () => {
         coupon_id: appliedCoupon?.couponId || null,
         shipping_details: shippingDetails,
         billing_details: billingDetails,
-        comment: orderNotes,
+        customer_comment: orderNotes,
         estimatedDelivery: (() => {
           if (!appliedShipping || hasOnlyGiftCards) return null;
           const maxDay = appliedShipping.maxDayLimit || appliedShipping.max_day_limit || 0;
