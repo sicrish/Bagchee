@@ -5,6 +5,12 @@ import { calcDiscount, couponAlreadyUsed } from './coupon.controller.js';
 import { createGiftCardsForOrder, applyWalletBalance } from './giftCard.controller.js';
 import { activeItems, payableTotal, payableShipping } from '../lib/orderTotals.js';
 import { isMembershipActive } from '../lib/membership.js';
+import { getUsdConversionRate } from '../lib/exchangeRates.js';
+
+// Currencies the order is actually settled in (PayPal accepts these). The order's monetary
+// fields are computed authoritatively in USD then converted to one of these. Everything else
+// (USD itself, plus INR which is display-only for India and never reaches PayPal) stays in USD.
+const FX_CONVERTIBLE = new Set(['EUR', 'GBP']);
 
 // Payment type detection helpers
 const isWireTransfer = (title) => {
@@ -209,7 +215,28 @@ export const saveOrder = async (req, res) => {
         }
 
         const subtotal = subtotalBeforeGiftWallet;
-        const total = Math.max(0, Math.round((subtotal + shippingCost - couponDiscount - serverMembershipDiscount - giftCardWalletDeduction) * 100) / 100);
+        let total = Math.max(0, Math.round((subtotal + shippingCost - couponDiscount - serverMembershipDiscount - giftCardWalletDeduction) * 100) / 100);
+
+        // ── Multi-currency settlement ──────────────────────────────────────────────
+        // Everything above is authoritative in USD (item prices come from the DB, never
+        // the client). For the foreign currencies PayPal settles in (EUR/GBP) we now convert
+        // every stored monetary value to that currency with a server-side rate, so the order
+        // total, line items, shipping and discounts — and therefore payableTotal()/the PayPal
+        // charge, the invoice, the email and the admin view — are all consistent and the
+        // customer pays the correct amount in their own currency (matching what they saw at
+        // checkout). The gift-card WALLET deduction stays in USD: it draws down a USD store
+        // credit balance, so it's already been applied to the USD total before this conversion.
+        if (FX_CONVERTIBLE.has(currency)) {
+            const fxRate = await getUsdConversionRate(currency);
+            if (fxRate > 0 && fxRate !== 1) {
+                const fx = (usd) => Math.round((Number(usd) || 0) * fxRate * 100) / 100;
+                total                    = fx(total);
+                shippingCost             = fx(shippingCost);
+                serverMembershipDiscount = fx(serverMembershipDiscount);
+                couponDiscount           = fx(couponDiscount);
+                itemsData = itemsData.map(i => ({ ...i, price: fx(i.price) }));
+            }
+        }
 
         const orderNumber = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
         const paymentTitle = req.body.payment_type || req.body.paymentType || '';

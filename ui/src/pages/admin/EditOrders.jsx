@@ -1020,6 +1020,18 @@ ${bankDetails}
 
           <div className="p-8 space-y-3">
 
+            {/* --- CUSTOMER COMMENT (read-only — left by the buyer at checkout; surfaced prominently in red so it's seen on open) --- */}
+            {customerComment && customerComment.trim() && (
+              <div className="flex items-start gap-3 bg-red-50 border-2 border-red-400 rounded-lg p-4 shadow-sm">
+                <AlertTriangle size={20} className="text-red-600 shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-red-700 font-montserrat mb-1">Customer Comment</p>
+                  <p className="text-sm font-semibold text-red-700 whitespace-pre-wrap break-words">{customerComment}</p>
+                  <p className="text-[10px] text-red-400 mt-1">Left by the customer at checkout — read-only.</p>
+                </div>
+              </div>
+            )}
+
             {/* # Field */}
             <div className="grid grid-cols-12 gap-4 items-center">
               <label className={labelClass}>#</label>
@@ -1441,18 +1453,7 @@ ${bankDetails}
               <div className="col-span-9"><input type="text" name="billing_phone" value={formData.billing_phone} onChange={handleChange} className={inputClass} /></div>
             </div>
 
-            {/* --- CUSTOMER COMMENT (read-only — left by the buyer at checkout) --- */}
-            {customerComment && customerComment.trim() && (
-              <div className="grid grid-cols-12 gap-4 items-start mt-6">
-                <label className="col-span-12 sm:col-span-3 text-left sm:text-right text-[11px] font-bold text-text-muted uppercase font-montserrat pt-2">Customer Comment</label>
-                <div className="col-span-12 sm:col-span-9">
-                  <div className="border border-amber-300 bg-amber-50 rounded p-3 text-sm text-gray-800 whitespace-pre-wrap break-words">{customerComment}</div>
-                  <p className="text-[10px] text-gray-400 mt-1">Left by the customer at checkout — read-only.</p>
-                </div>
-              </div>
-            )}
-
-            {/* --- COMMENT --- */}
+            {/* --- COMMENT (admin's editable note — customer's checkout comment is shown in red at the top) --- */}
             <div className="grid grid-cols-12 gap-4 items-start mt-6">
               <label className="col-span-12 sm:col-span-3 text-left sm:text-right text-[11px] font-bold text-text-muted uppercase font-montserrat pt-2">Comment</label>
               <div className="col-span-12 sm:col-span-9 border border-gray-300 rounded overflow-hidden shadow-sm min-h-[200px]">

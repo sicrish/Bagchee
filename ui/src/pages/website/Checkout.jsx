@@ -417,6 +417,15 @@ const Checkout = () => {
     return usd;
   })();
 
+  // USD (un-converted) shipping — sent to the server, which computes the whole order in USD
+  // and converts it to the chosen currency itself. The display above keeps using shippingCost.
+  const shippingCostUSD = (() => {
+    if (!appliedShipping || hasOnlyGiftCards) return 0;
+    const isTiered = TIERED_OPTION_IDS.has(appliedShipping.id || appliedShipping._id);
+    if (!isTiered && isFreeShippingUnlocked) return 0;
+    return getDbShippingUsd(appliedShipping);
+  })();
+
   // 6. Member Discount — applies to non-members buying a membership AND already-active members
   const memberDiscountPercent = Number(settings?.member_discount) || 10;
   const memberDiscount = (buyingMembership || isActiveMember) ? Math.round((subtotal + currentMembershipCost) * (memberDiscountPercent / 100) * 100) / 100 : 0;
@@ -431,10 +440,15 @@ const Checkout = () => {
     ? Math.min(appliedGiftCard.balance, subtotal + currentMembershipCost - memberDiscount - couponDiscount + shippingCost)
     : 0;
 
-  // Wallet balance deduction
-  const walletDeduction = useWalletBalance && giftCardWalletBalance > 0
-    ? Math.min(giftCardWalletBalance, Math.max(0, subtotal + currentMembershipCost - memberDiscount - couponDiscount - giftCardDiscount + shippingCost))
+  // Wallet balance deduction. The gift-card wallet is a USD store credit, so compute the
+  // deduction in USD (the pre-wallet total / rate), then send that USD figure to the server.
+  // The converted equivalent (× rate) is what we subtract from the displayed currency total.
+  const fxRate = currency === 'USD' ? 1 : (exchangeRates?.[currency] || (currency === 'EUR' ? 0.92 : currency === 'GBP' ? 0.78 : 1));
+  const preWalletTotal = subtotal + currentMembershipCost - memberDiscount - couponDiscount - giftCardDiscount + shippingCost;
+  const walletDeductionUSD = (useWalletBalance && giftCardWalletBalance > 0)
+    ? Math.min(giftCardWalletBalance, Math.max(0, preWalletTotal / fxRate))
     : 0;
+  const walletDeduction = walletDeductionUSD * fxRate;
 
   // 🏆 GRAND TOTAL
   const total = Math.max(0, (subtotal + currentMembershipCost - memberDiscount - couponDiscount - giftCardDiscount - walletDeduction) + shippingCost);
@@ -949,9 +963,9 @@ const Checkout = () => {
           senderName: item.senderName,
           message: item.message || '',
         })),
-        giftCardWalletApplied: walletDeduction,
+        giftCardWalletApplied: walletDeductionUSD,
         total: total,
-        shipping_cost: shippingCost,
+        shipping_cost: shippingCostUSD,
         currency: currency,
         payment_type: paymentTitle,
         shipping_type: appliedShipping?.title || "Standard Shipping",
@@ -2857,10 +2871,10 @@ const Checkout = () => {
                       <span>-${giftCardDiscount.toFixed(2)}</span>
                     </div>
                   )}
-                  {walletDeduction > 0 && (
+                  {walletDeductionUSD > 0 && (
                     <div className="flex justify-between text-xs text-green-600 mb-1">
                       <span>Wallet Balance</span>
-                      <span>-${walletDeduction.toFixed(2)}</span>
+                      <span>-${walletDeductionUSD.toFixed(2)}</span>
                     </div>
                   )}
                   <div className="flex justify-between items-center">

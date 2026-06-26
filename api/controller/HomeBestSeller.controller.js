@@ -153,12 +153,13 @@ export const fetchForHome = async (req, res) => {
         // Manual admin picks (active only)
         const manualEntries = await prisma.homeBestSeller.findMany({ where: { isActive: true }, orderBy: { order: 'asc' } });
         const manualProductIds = manualEntries.map(e => e.productId);
+        // Best sellers box shows in-stock BOOKS only (no CDs / CD-ROMs / DVDs / handicrafts, no out-of-stock).
         const manualProducts = manualProductIds.length > 0
-            ? await prisma.product.findMany({ where: { id: { in: manualProductIds }, isActive: true }, select: { id: true, title: true, price: true, inrPrice: true, realPrice: true, discount: true, defaultImage: true, isbn13: true, bagcheeId: true, soldCount: true, rating: true, ratedTimes: true, synopsis: true, stock: true, authors: { select: { author: { select: { id: true, firstName: true, lastName: true, fullName: true } } } } } })
+            ? await prisma.product.findMany({ where: { id: { in: manualProductIds }, isActive: true, productType: 'book', stock: { not: 'inactive' } }, select: { id: true, title: true, price: true, inrPrice: true, realPrice: true, discount: true, defaultImage: true, isbn13: true, bagcheeId: true, soldCount: true, rating: true, ratedTimes: true, synopsis: true, stock: true, authors: { select: { author: { select: { id: true, firstName: true, lastName: true, fullName: true } } } } } })
             : [];
-        // Auto best sellers (by soldCount, excluding manual picks) — fetch top 100 then shuffle
+        // Auto best sellers — all-time top 100 sold in-stock BOOKS (excluding manual picks), then shuffle to rotate
         const autoProducts = await prisma.product.findMany({
-            where: { isActive: true, soldCount: { gt: 0 }, id: { notIn: manualProductIds } },
+            where: { isActive: true, soldCount: { gt: 0 }, id: { notIn: manualProductIds }, productType: 'book', stock: { not: 'inactive' } },
             orderBy: { soldCount: 'desc' },
             take: 100,
             select: { id: true, title: true, price: true, inrPrice: true, realPrice: true, discount: true, defaultImage: true, isbn13: true, bagcheeId: true, soldCount: true, rating: true, ratedTimes: true, synopsis: true, stock: true, authors: { select: { author: { select: { id: true, firstName: true, lastName: true, fullName: true } } } } }
