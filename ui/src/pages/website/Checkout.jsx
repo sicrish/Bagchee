@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { useMutation } from '@tanstack/react-query';
 import { encryptData } from '../../utils/encryption.js';
 import { createSafeHtml } from '../../utils/sanitize';
+import { shippingPriceFor } from '../../utils/shipping';
 
 import {
   CheckCircle,
@@ -358,11 +359,9 @@ const Checkout = () => {
     const isTiered = TIERED_OPTION_IDS.has(option.id || option._id);
     // Free-shipping-over-$50 applies only to standard (non-tiered) options.
     if (!isTiered && isFreeShippingUnlocked) return 0;
-    // Price always comes from the admin-set shipping option (single source of truth).
-    const usd = getDbShippingUsd(option);
-    if (currency === 'EUR') return usd * (exchangeRates?.EUR || 0.92);
-    if (currency === 'GBP') return usd * (exchangeRates?.GBP || 0.78);
-    return usd;
+    // The admin's per-currency value IS the price (priceEur/priceGbp/priceUsd) — no FX
+    // conversion — so this matches the cart and the PayPal charge exactly (29-June).
+    return shippingPriceFor(option, currency);
   };
 
   // ─── 🟢 STEP 1: RAW PRODUCT SUBTOTAL (Discounted) ───
@@ -410,11 +409,9 @@ const Checkout = () => {
     const isTiered = TIERED_OPTION_IDS.has(appliedShipping.id || appliedShipping._id);
     // Free-shipping-over-$50 applies only to standard (non-tiered) options.
     if (!isTiered && isFreeShippingUnlocked) return 0;
-    // Price always comes from the admin-set shipping option (single source of truth).
-    const usd = getDbShippingUsd(appliedShipping);
-    if (currency === 'EUR') return usd * (exchangeRates?.EUR || 0.92);
-    if (currency === 'GBP') return usd * (exchangeRates?.GBP || 0.78);
-    return usd;
+    // The admin's per-currency value IS the price (no FX conversion) → cart == checkout ==
+    // the amount the server charges via PayPal (29-June).
+    return shippingPriceFor(appliedShipping, currency);
   })();
 
   // USD (un-converted) shipping — sent to the server, which computes the whole order in USD
@@ -969,6 +966,9 @@ const Checkout = () => {
         currency: currency,
         payment_type: paymentTitle,
         shipping_type: appliedShipping?.title || "Standard Shipping",
+        // Lets the server read the admin's per-currency shipping price authoritatively
+        // (priceEur/priceGbp/priceUsd) so the charge matches what's shown here (29-June).
+        shipping_option_id: appliedShipping?.id || appliedShipping?._id || null,
         payment_status: "Pending",
         transaction_id: "",
         membership: isLoggedInMember ? "Yes" : "No",

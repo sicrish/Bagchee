@@ -13,8 +13,9 @@ const AddShippingOptions = () => {
     max_day_limit: '',
     price_usd: '',
     price_eur: '',
+    price_gbp: '',
     price_inr: '',
-    active: '', 
+    active: '',
     order: ''
   });
 
@@ -41,9 +42,10 @@ const AddShippingOptions = () => {
           setFormData({ 
             title: '', 
             max_day_limit: '', 
-            price_usd: '', 
-            price_eur: '', 
-            price_inr: '', 
+            price_usd: '',
+            price_eur: '',
+            price_gbp: '',
+            price_inr: '',
             active: '', 
             order: '' 
           });
@@ -146,7 +148,23 @@ const AddShippingOptions = () => {
               </div>
             </div>
 
-            {/* 5. Price INR */}
+            {/* 5. Price GBP */}
+            <div className="grid grid-cols-12 gap-4 items-center">
+              <label className={labelClass}>
+                Price gbp (£)
+              </label>
+              <div className="col-span-9">
+                <input
+                  type="text"
+                  name="price_gbp"
+                  value={formData.price_gbp}
+                  onChange={handleChange}
+                  className={inputClass}
+                />
+              </div>
+            </div>
+
+            {/* 6. Price INR */}
             <div className="grid grid-cols-12 gap-4 items-center">
               <label className={labelClass}>
                 Price inr

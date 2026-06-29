@@ -122,7 +122,7 @@ const navigate = useNavigate();
         return <Truck className="w-4 h-4" />;
       case 'payment pending':
         return <Clock className="w-4 h-4" />;
-      case 'IN PROGRESS':
+      case 'in progress':
         return <RefreshCw className="w-4 h-4" />;
       case 'cancelled':
         return <XCircle className="w-4 h-4" />;
@@ -141,6 +141,8 @@ const navigate = useNavigate();
         return 'bg-amber-100 text-amber-700 border-amber-200';
       case 'processing':
         return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+      case 'in progress':
+        return 'bg-blue-100 text-blue-700 border-blue-200';
       case 'cancelled':
         return 'bg-red-100 text-red-700 border-red-200';
       default:
@@ -196,7 +198,7 @@ const navigate = useNavigate();
 
   const activeOrders = orders.filter((order) => {
     const status = (order.status || '').toLowerCase();
-    return status === 'processing' || status === 'payment pending' || status === 'not yet ordered' || status === 'pending';
+    return status === 'processing' || status === 'in progress' || status === 'payment pending' || status === 'not yet ordered' || status === 'pending';
   }).length;
 
   // 🟢 FRONTEND PAGINATION LOGIC

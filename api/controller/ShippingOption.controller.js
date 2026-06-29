@@ -1,7 +1,7 @@
 import prisma from '../lib/prisma.js';
 
 // Field mapping: max_day_limit→maxDayLimit, price_usd→priceUsd, price_eur→priceEur,
-// price_inr→priceInr, order→ord, isActive/active('yes'/'no')→active(Boolean)
+// price_gbp→priceGbp, price_inr→priceInr, order→ord, isActive/active('yes'/'no')→active(Boolean)
 // displayOrder from old Mongoose model is now just `ord` in Prisma
 
 export const saveShippingOption = async (req, res) => {
@@ -18,6 +18,7 @@ export const saveShippingOption = async (req, res) => {
                 maxDayLimit: Number(data.max_day_limit) || 0,
                 priceUsd: Number(data.price_usd) || 0,
                 priceEur: Number(data.price_eur) || 0,
+                priceGbp: Number(data.price_gbp) || 0,
                 priceInr: Number(data.price_inr) || 0,
                 ord: Number(data.order) || 0,
                 active: activeStatus
@@ -63,6 +64,7 @@ export const updateShippingOption = async (req, res) => {
         if (data.max_day_limit !== undefined) updateData.maxDayLimit = Number(data.max_day_limit);
         if (data.price_usd !== undefined) updateData.priceUsd = Number(data.price_usd);
         if (data.price_eur !== undefined) updateData.priceEur = Number(data.price_eur);
+        if (data.price_gbp !== undefined) updateData.priceGbp = Number(data.price_gbp);
         if (data.price_inr !== undefined) updateData.priceInr = Number(data.price_inr);
         if (data.order !== undefined) updateData.ord = Number(data.order);
         if (data.active === 'yes') updateData.active = true;

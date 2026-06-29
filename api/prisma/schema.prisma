@@ -772,6 +772,7 @@ model ShippingOption {
   maxDayLimit Int     @default(0) @map("max_day_limit")
   priceUsd    Float   @default(0) @map("price_usd")
   priceEur    Float   @default(0) @map("price_eur")
+  priceGbp    Float   @default(0) @map("price_gbp")
   priceInr    Float   @default(0) @map("price_inr")
   active      Boolean @default(true)
   ord         Int     @default(0)

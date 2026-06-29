@@ -1,11 +1,12 @@
 import React, { createContext, useState, useEffect, useCallback, useContext } from 'react';
 import axios from 'axios';
 import GeoContext from './GeoContext.jsx';
+import { countryToCurrency } from '../utils/geoCurrency.js';
 
 export const CurrencyContext = createContext();
 
 export const CurrencyProvider = ({ children }) => {
-    const { isIndia, geoLoaded } = useContext(GeoContext);
+    const { isIndia, geoLoaded, country } = useContext(GeoContext);
     const stored = localStorage.getItem('bagchee_currency');
     // Never initialise to INR from localStorage — geo controls that, not user preference
     const [currency, setCurrency] = useState((stored && stored !== 'INR') ? stored : 'USD');
@@ -14,20 +15,33 @@ export const CurrencyProvider = ({ children }) => {
 
     const symbols = { USD: '$', EUR: '€', GBP: '£', INR: '₹' };
 
-    // Force INR for India, block INR for non-India (once geo is known)
+    // Geo-driven default currency (once geo is known). India is a hard rule: always INR for
+    // Indian visitors, never INR for anyone else. For everyone else, a FIRST-TIME visitor (no
+    // manual choice yet) defaults to their region's currency — EU+EEA→EUR, UK→GBP, else USD.
+    // A manual switch from the header sets bagchee_currency_manual and always wins (29-June).
     useEffect(() => {
         if (!geoLoaded) return;
         const auth = JSON.parse(localStorage.getItem('auth') || '{}');
         const isAdmin = auth.userDetails?.role === 'admin';
         if (isAdmin) return; // admins bypass geo currency restriction
+
         if (isIndia) {
             setCurrency('INR');
             localStorage.setItem('bagchee_currency', 'INR');
+            return;
+        }
+
+        const manual = localStorage.getItem('bagchee_currency_manual') === '1';
+        if (!manual) {
+            const geoCur = countryToCurrency(country); // EUR / GBP / USD (never INR for non-India)
+            setCurrency(geoCur);
+            localStorage.setItem('bagchee_currency', geoCur);
         } else if (currency === 'INR') {
+            // Stale INR carried over by a non-India visitor — reset to USD.
             setCurrency('USD');
             localStorage.setItem('bagchee_currency', 'USD');
         }
-    }, [isIndia, geoLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [isIndia, geoLoaded, country]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // 2. Fetch Latest Rates — cached in localStorage for 24h to avoid rate-limit (1500 req/month free tier)
     useEffect(() => {
@@ -66,6 +80,13 @@ export const CurrencyProvider = ({ children }) => {
         localStorage.setItem('bagchee_currency', currency);
     }, [currency]);
 
+    // Explicit user choice from the header switcher — remember it so it survives reloads and
+    // overrides the geo default on future visits. (India stays locked to INR via the effect above.)
+    const selectCurrency = useCallback((c) => {
+        localStorage.setItem('bagchee_currency_manual', '1');
+        setCurrency(c);
+    }, []);
+
   /**
    * formatPrice(mainPrice, inrPrice, displayPrice)
    * mainPrice    — USD base price from backend
@@ -97,7 +118,7 @@ export const CurrencyProvider = ({ children }) => {
   }, [currency, exchangeRates]);
 
     return (
-        <CurrencyContext.Provider value={{ currency, setCurrency, formatPrice, loading, symbols }}>
+        <CurrencyContext.Provider value={{ currency, setCurrency, selectCurrency, formatPrice, loading, symbols }}>
             {children}
         </CurrencyContext.Provider>
     );

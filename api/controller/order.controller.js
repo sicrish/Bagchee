@@ -151,19 +151,35 @@ export const saveOrder = async (req, res) => {
         const giftCardSubtotal = giftCardItems.reduce((sum, gc) => sum + parseFloat(gc.amount), 0);
         const subtotalBeforeGiftWallet = physicalSubtotal + giftCardSubtotal;
 
-        let shippingCost = Math.max(0, Number(req.body.shipping_cost || req.body.shippingCost) || 0);
+        // ── Shipping cost (29-June) ────────────────────────────────────────────────
+        // Shipping is the admin-defined value FOR THE ORDER'S CURRENCY (ShippingOption
+        // priceUsd / priceEur / priceGbp), NOT an FX conversion of the USD price — so the
+        // cart, checkout, PayPal charge, invoice and admin view all show the exact same
+        // number with zero exchange-rate drift. We keep a USD figure (shippingCostUsd) only
+        // for the USD-side maths (the gift-wallet cap); shippingNative is what gets stored.
+        const shippingOptionId = parseInt(req.body.shipping_option_id || req.body.shippingOptionId);
+        const shipOpt = !isNaN(shippingOptionId)
+            ? await prisma.shippingOption.findUnique({ where: { id: shippingOptionId } })
+            : null;
+        const shippingIsNative = !!shipOpt; // admin per-currency value → never FX-converted
+        const shipPriceFor = (cur) => {
+            if (!shipOpt) return Math.max(0, Number(req.body.shipping_cost || req.body.shippingCost) || 0);
+            if (cur === 'EUR') return Math.max(0, Number(shipOpt.priceEur) || 0);
+            if (cur === 'GBP') return Math.max(0, Number(shipOpt.priceGbp) || 0);
+            return Math.max(0, Number(shipOpt.priceUsd) || 0); // USD / INR / anything else
+        };
+        let shippingCostUsd = shipPriceFor('USD');     // gift-wallet cap + USD-side maths
+        let shippingNative  = shipPriceFor(currency);  // stored on the order, in order currency
 
-        // Server-side free-shipping enforcement: if the selling subtotal (realPrice || price)
-        // meets the threshold and shipping is not an Express/Expedited (tiered) option,
-        // override any incorrectly charged shipping fee to $0.
-        if (shippingCost > 0 && itemsData.length > 0) {
-            // i.price is already the selling price (realPrice when discounted, else MRP)
-            const sellingSubtotal = itemsData.reduce((sum, i) => sum + i.price * i.quantity, 0);
+        // Server-side free-shipping enforcement (unchanged rule): standard (non-tiered) orders
+        // whose selling subtotal meets the USD threshold ship free, regardless of client input.
+        if (itemsData.length > 0) {
             const shippingType = (req.body.shipping_type || req.body.shippingType || '').toLowerCase();
             const isTieredShipping = shippingType.includes('express') || shippingType.includes('expedited');
-            const freeShippingThreshold = 50; // matches frontend constant
-            if (!isTieredShipping && sellingSubtotal >= freeShippingThreshold) {
-                shippingCost = 0;
+            const freeShippingThreshold = 50; // matches frontend constant; physicalSubtotal is USD
+            if (!isTieredShipping && physicalSubtotal >= freeShippingThreshold) {
+                shippingCostUsd = 0;
+                shippingNative  = 0;
             }
         }
 
@@ -210,33 +226,41 @@ export const saveOrder = async (req, res) => {
             if (clientRequestsGiftWallet > 0) {
                 const dbUser = await prisma.user.findUnique({ where: { id: customerId }, select: { giftCardBalance: true } });
                 const available = dbUser?.giftCardBalance || 0;
-                giftCardWalletDeduction = Math.min(available, clientRequestsGiftWallet, subtotalBeforeGiftWallet + shippingCost);
+                giftCardWalletDeduction = Math.min(available, clientRequestsGiftWallet, subtotalBeforeGiftWallet + shippingCostUsd);
             }
         }
 
         const subtotal = subtotalBeforeGiftWallet;
-        let total = Math.max(0, Math.round((subtotal + shippingCost - couponDiscount - serverMembershipDiscount - giftCardWalletDeduction) * 100) / 100);
+        // Items minus all discounts, in USD. Shipping is added AFTER any FX conversion below,
+        // because it's an admin per-currency amount that must NOT be rate-converted (29-June).
+        let total = Math.max(0, Math.round((subtotal - couponDiscount - serverMembershipDiscount - giftCardWalletDeduction) * 100) / 100);
 
         // ── Multi-currency settlement ──────────────────────────────────────────────
-        // Everything above is authoritative in USD (item prices come from the DB, never
-        // the client). For the foreign currencies PayPal settles in (EUR/GBP) we now convert
-        // every stored monetary value to that currency with a server-side rate, so the order
-        // total, line items, shipping and discounts — and therefore payableTotal()/the PayPal
-        // charge, the invoice, the email and the admin view — are all consistent and the
-        // customer pays the correct amount in their own currency (matching what they saw at
-        // checkout). The gift-card WALLET deduction stays in USD: it draws down a USD store
-        // credit balance, so it's already been applied to the USD total before this conversion.
+        // Everything above is authoritative in USD (item prices come from the DB, never the
+        // client). For the foreign currencies PayPal settles in (EUR/GBP) we convert the line
+        // items and discounts with a server-side rate, so the order total, line items and
+        // discounts — and therefore payableTotal()/the PayPal charge, the invoice, the email
+        // and the admin view — are consistent and the customer pays the correct amount in their
+        // own currency. SHIPPING is the admin's per-currency value (added after this block,
+        // un-converted). The gift-card WALLET deduction stays in USD: it draws down a USD
+        // store-credit balance, already applied to the USD total before this conversion.
         if (FX_CONVERTIBLE.has(currency)) {
             const fxRate = await getUsdConversionRate(currency);
             if (fxRate > 0 && fxRate !== 1) {
                 const fx = (usd) => Math.round((Number(usd) || 0) * fxRate * 100) / 100;
                 total                    = fx(total);
-                shippingCost             = fx(shippingCost);
                 serverMembershipDiscount = fx(serverMembershipDiscount);
                 couponDiscount           = fx(couponDiscount);
                 itemsData = itemsData.map(i => ({ ...i, price: fx(i.price) }));
+                // Legacy fallback only: with no resolved shipping option the client amount is
+                // USD and must be converted. The admin per-currency value is already native.
+                if (!shippingIsNative) shippingNative = fx(shippingNative);
             }
         }
+        // Shipping = admin per-currency amount; add on top of the (converted) item total so
+        // cart == checkout == PayPal charge exactly, with no FX drift on the shipping line.
+        const shippingCost = Math.max(0, Math.round((Number(shippingNative) || 0) * 100) / 100);
+        total = Math.max(0, Math.round((total + shippingCost) * 100) / 100);
 
         const orderNumber = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
         const paymentTitle = req.body.payment_type || req.body.paymentType || '';
@@ -547,7 +571,7 @@ export const updateOrder = async (req, res) => {
             && !isPurchaseOrder(effectivePaymentType)) {
             const curStatus = (existing?.status || '').toLowerCase();
             if (['pending', 'payment pending', 'approval pending'].includes(curStatus)) {
-                updateData.status = 'processing';
+                updateData.status = 'In Progress';
             }
         }
 

@@ -207,11 +207,22 @@ export const capturePayPalOrderByToken = async (req, res) => {
 
         const captureId = captureData.purchase_units?.[0]?.payments?.captures?.[0]?.id;
 
+        // Paid → move the order to "In Progress" and flip every active (non-cancelled)
+        // line item that isn't already further along, so admin (Order Status box + the
+        // status beside each item), customer My-Account and guest trace all reflect it
+        // immediately (29-June).
+        const itemsToProgress = activeItems(order.items).filter(
+            (it) => !['shipped', 'delivered', 'completed'].includes(String(it.status || '').toLowerCase())
+        );
+
         await prisma.$transaction([
             prisma.order.update({
                 where: { id: dbOrderId },
-                data: { paymentStatus: 'paid', transactionId: captureId || token },
+                data: { paymentStatus: 'paid', status: 'In Progress', transactionId: captureId || token },
             }),
+            ...itemsToProgress.map(item =>
+                prisma.orderItem.update({ where: { id: item.id }, data: { status: 'In Progress' } })
+            ),
             ...activeItems(order.items).map(item =>
                 prisma.product.update({
                     where: { id: item.productId },
@@ -293,11 +304,22 @@ export const capturePayPalOrder = async (req, res) => {
 
         const captureId = captureData.purchase_units?.[0]?.payments?.captures?.[0]?.id;
 
+        // Paid → move the order to "In Progress" and flip every active (non-cancelled)
+        // line item that isn't already further along, so admin (Order Status box + the
+        // status beside each item), customer My-Account and guest trace all reflect it
+        // immediately (29-June).
+        const itemsToProgress = activeItems(order.items).filter(
+            (it) => !['shipped', 'delivered', 'completed'].includes(String(it.status || '').toLowerCase())
+        );
+
         await prisma.$transaction([
             prisma.order.update({
                 where: { id: dbOrderId },
-                data: { paymentStatus: 'paid', transactionId: captureId || token },
+                data: { paymentStatus: 'paid', status: 'In Progress', transactionId: captureId || token },
             }),
+            ...itemsToProgress.map(item =>
+                prisma.orderItem.update({ where: { id: item.id }, data: { status: 'In Progress' } })
+            ),
             ...activeItems(order.items).map(item =>
                 prisma.product.update({
                     where: { id: item.productId },

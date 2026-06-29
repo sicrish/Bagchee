@@ -165,8 +165,9 @@ const OrderStatus = () => {
             case 'partially shipped':
             case 'in transit':
                 return { step: 2, color: 'text-blue-600', bgPill: 'bg-blue-50 border-blue-200', icon: Truck, label: 'Shipped' };
-            case 'confirmed':
             case 'in progress':
+                return { step: 1, color: 'text-primary', bgPill: 'bg-primary-50 border-primary-100', icon: ClipboardCheck, label: 'In Progress' };
+            case 'confirmed':
             case 'new':
             case 'processing':
                 return { step: 1, color: 'text-primary', bgPill: 'bg-primary-50 border-primary-100', icon: ClipboardCheck, label: 'Confirmed' };

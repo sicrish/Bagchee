@@ -373,7 +373,7 @@ CategoriesDropdown.displayName = 'CategoriesDropdown';
 --------------------------------------------------------- */
 const PremiumHeader = () => {
 
-  const { currency, setCurrency } = useContext(CurrencyContext);
+  const { currency, selectCurrency } = useContext(CurrencyContext);
   const { cartItemCount, wishlistCount } = useCart();
   const { isIndia } = useGeo();
   const navigate = useNavigate();
@@ -659,7 +659,7 @@ const PremiumHeader = () => {
               <div className="absolute top-full right-0 pt-2 w-24 hidden group-hover:block z-50">
                 <div className="bg-white shadow-xl rounded-md overflow-hidden border border-gray-100 py-1">
                   {currencies.map((c) => (
-                    <div key={c} onClick={() => setCurrency(c)} className={`px-4 py-2 text-xs font-bold hover:bg-gray-50 transition-colors text-text-main cursor-pointer flex items-center justify-between font-montserrat ${currency === c ? 'text-primary bg-primary/5' : ''}`}>{c}</div>
+                    <div key={c} onClick={() => selectCurrency(c)} className={`px-4 py-2 text-xs font-bold hover:bg-gray-50 transition-colors text-text-main cursor-pointer flex items-center justify-between font-montserrat ${currency === c ? 'text-primary bg-primary/5' : ''}`}>{c}</div>
                   ))}
                 </div>
               </div>
@@ -1159,7 +1159,7 @@ const PremiumHeader = () => {
                     
                     <div className={`absolute bottom-full right-0 mb-2 w-24 bg-white shadow-xl rounded-lg border border-cream-200 overflow-hidden transition-all duration-200 ${mobileCurrencyOpen ? 'opacity-100 scale-100 visible' : 'opacity-0 scale-95 invisible'}`}>
                       {currencies.map((c) => (
-                        <div key={c} onClick={() => { setCurrency(c); setMobileCurrencyOpen(false); }} className={`px-4 py-2 text-xs font-bold hover:bg-cream-50 transition-colors text-text-main cursor-pointer text-center font-montserrat ${currency === c ? 'text-primary bg-primary/5' : ''}`}>
+                        <div key={c} onClick={() => { selectCurrency(c); setMobileCurrencyOpen(false); }} className={`px-4 py-2 text-xs font-bold hover:bg-cream-50 transition-colors text-text-main cursor-pointer text-center font-montserrat ${currency === c ? 'text-primary bg-primary/5' : ''}`}>
                           {c}
                         </div>
                       ))}

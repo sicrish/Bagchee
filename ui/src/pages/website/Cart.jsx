@@ -6,6 +6,7 @@ import { CurrencyContext } from '../../context/CurrencyContext';
 import axios from '../../utils/axiosConfig';
 import toast from 'react-hot-toast';
 import { NO_IMAGE } from '../../utils/imageUrl';
+import { shippingPriceFor } from '../../utils/shipping';
 // Import payment icons like footer
 import visaImg from '../../assets/images/website/payments/Visa.svg';
 import amexImg from '../../assets/images/website/payments/american.png';
@@ -118,15 +119,6 @@ const Cart = () => {
   }, [API_BASE_URL]);
 
   // --- Helpers ---
-  const getShippingPrice = (option) => {
-    if (!option) return 0;
-    if (settings?.free_shipping_over > 0 && Number(cartTotal) >= settings.free_shipping_over) {
-      return 0;
-    }
-    if (currency === 'EUR') return option.priceEur || 0;
-    return option.priceUsd || 0;
-  };
-
   // 🟢 Updated: Ye function ab USD aur INR dono values return karega
   // Taaki formatPrice context ise sahi ratio mein convert kar sake
   const getMembershipData = () => {
@@ -198,11 +190,20 @@ const Cart = () => {
   const appliedOptId = appliedShipping?.id;
   const isTieredOption = TIERED_OPTION_IDS.has(appliedOptId);
 
-  const finalShippingUSD = (hasOnlyGiftCards || !appliedShipping)
+  // Shipping the customer is actually charged, in DISPLAY currency, taken straight from the
+  // admin's per-currency ShippingOption value (priceEur / priceGbp / priceUsd) — NOT an FX
+  // conversion — so the cart, checkout and PayPal charge all show the SAME number (29-June).
+  const shippingDisplayValue = (hasOnlyGiftCards || !appliedShipping)
     ? 0
-    : isTieredOption
-      ? (Number(appliedShipping.priceUsd || appliedShipping.price_usd) || 0)
-      : (isFreeShippingUnlocked ? 0 : (Number(appliedShipping.priceUsd || appliedShipping.price_usd) || STANDARD_SHIPPING_FEE));
+    : (!isTieredOption && isFreeShippingUnlocked)
+      ? 0
+      : shippingPriceFor(appliedShipping, currency);
+
+  // Express that same amount as a USD figure so the existing USD→currency total maths below
+  // (formatPrice) reproduces it EXACTLY — ÷rate then ×rate cancels, so there's no FX drift.
+  const displayShippingRate = currency === 'USD' ? 1
+    : Number(exchangeRates?.[currency]) || (currency === 'EUR' ? 0.92 : currency === 'GBP' ? 0.78 : currency === 'INR' ? 84 : 1);
+  const finalShippingUSD = displayShippingRate ? shippingDisplayValue / displayShippingRate : shippingDisplayValue;
 
   // Already-active members get the 10% automatically (no fee); only non-members "buy" a membership.
   const isActiveMember = !!user && user.membership === 'active';
@@ -716,13 +717,11 @@ const Cart = () => {
       ? (() => { const dt = new Date(); dt.setDate(dt.getDate() + maxDayLimit + totalPrepDays); return dt.toLocaleDateString('en-US', { day: 'numeric', month: 'short' }); })()
       : null;
 
-    let displayPrice;
-    if (currency === 'EUR') {
-      const eurPrice = option.priceEur || option.price_eur || effectiveUsd * (exchangeRates?.EUR || 0.92);
-      displayPrice = effectiveUsd === 0 ? 'Free' : `€${Number(eurPrice).toFixed(2)}`;
-    } else if (currency === 'GBP') displayPrice = effectiveUsd === 0 ? 'Free' : `£${(effectiveUsd * (exchangeRates?.GBP || 0.78)).toFixed(2)}`;
-    else if (currency === 'USD') displayPrice = effectiveUsd === 0 ? 'Free' : `$${effectiveUsd.toFixed(2)}`;
-    else displayPrice = effectiveUsd === 0 ? 'Free' : `${symbols?.[currency] || ''}${(effectiveUsd * (exchangeRates?.[currency] || 1)).toFixed(2)}`;
+    // Price shown per option = the admin's per-currency value (single source of truth — same
+    // number the summary and the PayPal charge use). effectiveUsd === 0 means this option is
+    // free here (a standard option once the free-shipping threshold is met).
+    const optShipCur = shippingPriceFor(option, currency);
+    const displayPrice = effectiveUsd === 0 ? 'Free' : `${symbols?.[currency] || (currency + ' ')}${optShipCur.toFixed(2)}`;
 
     return (
       <label key={optId} className={`flex items-start justify-between p-3 cursor-pointer rounded border transition-colors ${isSelected ? 'bg-primary/5 border-primary/30' : 'border-gray-100 hover:border-gray-200'}`}>

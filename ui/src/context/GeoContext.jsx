@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 
-const GeoContext = createContext({ isIndia: false, indiaMaintenance: false, geoLoaded: false });
+const GeoContext = createContext({ isIndia: false, indiaMaintenance: false, geoLoaded: false, country: '' });
 
 const getIsAdmin = () => {
     try {
@@ -23,6 +23,7 @@ export const GeoProvider = ({ children }) => {
     const [rawIsIndia, setRawIsIndia] = useState(cached ? !!cached.isIndia : false);
     const [indiaMaintenance, setIndiaMaintenance] = useState(cached ? !!cached.maintenance : false);
     const [geoLoaded, setGeoLoaded] = useState(!!cached);
+    const [country, setCountry] = useState(cached?.country ? String(cached.country).toUpperCase() : '');
     const [isAdmin, setIsAdmin] = useState(getIsAdmin);
 
     // Keep isAdmin current on mount and cross-tab login/logout
@@ -34,13 +35,16 @@ export const GeoProvider = ({ children }) => {
     }, []);
 
     useEffect(() => {
-        if (readGeoCache()) return; // already initialised from cache synchronously
+        const c = readGeoCache();
+        if (c && c.country) return; // already have full geo (incl. country) from cache
         axios.get(`${process.env.REACT_APP_API_URL}/geo`)
             .then(res => {
-                const { isIndia: india, maintenance } = res.data;
+                const { isIndia: india, maintenance, country: ctry } = res.data;
+                const code = String(ctry || '').toUpperCase();
                 setRawIsIndia(!!india);
                 setIndiaMaintenance(!!maintenance);
-                sessionStorage.setItem('bagchee_geo', JSON.stringify({ isIndia: !!india, maintenance: !!maintenance }));
+                setCountry(code);
+                sessionStorage.setItem('bagchee_geo', JSON.stringify({ isIndia: !!india, maintenance: !!maintenance, country: code }));
             })
             .catch(() => {})
             .finally(() => setGeoLoaded(true));
@@ -50,7 +54,7 @@ export const GeoProvider = ({ children }) => {
     const isIndia = rawIsIndia && !isAdmin;
 
     return (
-        <GeoContext.Provider value={{ isIndia, indiaMaintenance, geoLoaded }}>
+        <GeoContext.Provider value={{ isIndia, indiaMaintenance, geoLoaded, country }}>
             {children}
         </GeoContext.Provider>
     );

@@ -15,6 +15,7 @@ const EditShippingOptions = () => {
     max_day_limit: '',
     price_usd: '',
     price_eur: '',
+    price_gbp: '',
     price_inr: '',
     active: '',
     order: ''
@@ -40,6 +41,7 @@ useEffect(() => {
           
           price_usd: data.priceUsd || '',
           price_eur: data.priceEur || '',
+          price_gbp: data.priceGbp || '',
           price_inr: data.priceInr || '',
           
           // Boolean to String conversion for Select Dropdown
@@ -143,6 +145,13 @@ useEffect(() => {
               <label className={labelClass}>Price eur</label>
               <div className="col-span-9">
                 <input type="number" name="price_eur" value={formData.price_eur} onChange={handleChange} className={inputClass} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-12 gap-4 items-center">
+              <label className={labelClass}>Price gbp (£)</label>
+              <div className="col-span-9">
+                <input type="number" name="price_gbp" value={formData.price_gbp} onChange={handleChange} className={inputClass} />
               </div>
             </div>
 

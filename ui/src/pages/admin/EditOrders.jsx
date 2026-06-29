@@ -1472,7 +1472,7 @@ ${bankDetails}
                   <option value="failed">Failed</option>
                   <option value="refunded">Refunded</option>
                 </select>
-                <p className="text-[10px] text-text-muted mt-1 ml-1">Marking <strong>Paid</strong> on a pay-later order (wire / UNESCO) moves it to <strong>Processing</strong> in the customer's account. Purchase Orders are Net-30 — marking Paid only updates the payment status; set the order status yourself.</p>
+                <p className="text-[10px] text-text-muted mt-1 ml-1">Marking <strong>Paid</strong> on a pay-later order (wire / UNESCO) moves it to <strong>In Progress</strong> in the customer's account. Purchase Orders are Net-30 — marking Paid only updates the payment status; set the order status yourself.</p>
               </div>
             </div>
             <div className="grid grid-cols-12 gap-4 items-center">
