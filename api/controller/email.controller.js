@@ -405,6 +405,14 @@ export const sendOrderConfirmation = async (email, order) => {
                                 ? `<p style="font-size:13px;color:${theme.textMuted};margin:0 0 4px;">Shipping: ${escapeHtml(order.currency || 'USD')} ${payableShipping(order).toFixed(2)}</p>`
                                 : `<p style="font-size:13px;color:#16a34a;margin:0 0 4px;font-weight:600;">Shipping: FREE</p>`
                             }
+                            ${Number(order.membershipFee) > 0
+                                ? `<p style="font-size:13px;color:${theme.textMuted};margin:0 0 4px;">Membership: +${escapeHtml(order.currency || 'USD')} ${Number(order.membershipFee).toFixed(2)}</p>`
+                                : ''
+                            }
+                            ${Number(order.membershipDiscount) > 0
+                                ? `<p style="font-size:13px;color:#16a34a;margin:0 0 4px;font-weight:600;">Member discount: &minus;${escapeHtml(order.currency || 'USD')} ${Number(order.membershipDiscount).toFixed(2)}</p>`
+                                : ''
+                            }
                             ${Number(order.couponDiscount) > 0
                                 ? `<p style="font-size:13px;color:#16a34a;margin:0 0 4px;font-weight:600;">Coupon${(order.coupon && order.coupon.code) ? ` (${escapeHtml(order.coupon.code)})` : ''}: &minus;${escapeHtml(order.currency || 'USD')} ${Number(order.couponDiscount).toFixed(2)}</p>`
                                 : ''

@@ -447,7 +447,9 @@ model Order {
   purchaseOrderNumber String    @default("") @map("purchase_order_number")
 
   // Membership & Coupons
-  membership          String    @default("No")          // "Yes" | "No"
+  membership          String    @default("No")          // "Yes" | "No" — did this order get the member discount
+  membershipPurchased Boolean   @default(false) @map("membership_purchased") // this order BOUGHT a membership → activate on payment
+  membershipFee       Float     @default(0) @map("membership_fee")           // membership purchase fee, in the order currency
   membershipDiscount  Float     @default(0) @map("membership_discount")
   couponId            Int?      @map("coupon_id")
   couponDiscount      Float     @default(0) @map("coupon_discount") // actual discount applied at order time

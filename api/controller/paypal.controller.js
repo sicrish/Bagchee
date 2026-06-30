@@ -244,8 +244,9 @@ export const capturePayPalOrderByToken = async (req, res) => {
             if (fullOrder) sendOrderConfirmation(customerEmail, fullOrder).catch(() => {});
         }
 
-        // Activate membership if applicable
-        if (order.membership === 'Yes' && order.customerId) {
+        // Activate membership only when THIS order purchased one (M1). Never re-activate an
+        // existing member just because they placed an order (M2: no silent renewal / repeat email).
+        if (order.membershipPurchased && order.customerId) {
             const now = new Date();
             const oneYearLater = new Date(now);
             oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
@@ -341,8 +342,9 @@ export const capturePayPalOrder = async (req, res) => {
             if (fullOrder) sendOrderConfirmation(customerEmail, fullOrder).catch(() => {});
         }
 
-        // Activate membership if this order included one
-        if (order.membership === 'Yes' && order.customerId) {
+        // Activate membership only when THIS order purchased one (M1). Never re-activate an
+        // existing member just because they placed an order (M2: no silent renewal / repeat email).
+        if (order.membershipPurchased && order.customerId) {
             const now = new Date();
             const oneYearLater = new Date(now);
             oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);

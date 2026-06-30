@@ -973,6 +973,9 @@ const Checkout = () => {
         transaction_id: "",
         membership: isLoggedInMember ? "Yes" : "No",
         membership_discount: isLoggedInMember ? 10 : 0,
+        // A non-member buying a membership on this order — the server charges the fee and
+        // activates the membership when payment is captured (separate from the discount above).
+        membership_purchase: buyingMembership,
         coupon_id: appliedCoupon?.couponId || null,
         shipping_details: shippingDetails,
         billing_details: billingDetails,

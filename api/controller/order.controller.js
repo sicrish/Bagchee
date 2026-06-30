@@ -1,6 +1,6 @@
 import prisma from '../lib/prisma.js';
 import crypto from 'crypto';
-import { sendOrderConfirmation, sendOrderShippedEmail, sendOrderStatusEmail, sendPaymentLinkEmail, sendInvoiceEmail, sendCustomConfirmationEmail } from './email.controller.js';
+import { sendOrderConfirmation, sendOrderShippedEmail, sendOrderStatusEmail, sendPaymentLinkEmail, sendInvoiceEmail, sendCustomConfirmationEmail, sendMembershipWelcome } from './email.controller.js';
 import { calcDiscount, couponAlreadyUsed } from './coupon.controller.js';
 import { createGiftCardsForOrder, applyWalletBalance } from './giftCard.controller.js';
 import { activeItems, payableTotal, payableShipping } from '../lib/orderTotals.js';
@@ -11,6 +11,18 @@ import { getUsdConversionRate } from '../lib/exchangeRates.js';
 // fields are computed authoritatively in USD then converted to one of these. Everything else
 // (USD itself, plus INR which is display-only for India and never reaches PayPal) stays in USD.
 const FX_CONVERTIBLE = new Set(['EUR', 'GBP']);
+
+const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
+
+// Membership fee in the customer's currency, mirroring Checkout.jsx (currentMembershipCost):
+// EUR uses the admin's stored price; GBP/USD (and anything else) derive from the USD price ×
+// the order's FX rate — so the amount charged equals what the cart and checkout displayed.
+const membershipFeeForCurrency = (currency, settings, feeUsd, rate) => {
+    if (currency === 'EUR') return round2(Number(settings?.membershipCartPriceEur) || feeUsd * rate);
+    if (currency === 'INR') return round2(Number(settings?.membershipCartPriceInr) || feeUsd * rate);
+    if (currency === 'GBP') return round2(feeUsd * rate);
+    return round2(feeUsd); // USD + anything else
+};
 
 // Payment type detection helpers
 const isWireTransfer = (title) => {
@@ -205,28 +217,53 @@ export const saveOrder = async (req, res) => {
             }
         }
 
-        // Membership and gift card wallet only apply to logged-in users
-        let serverMembershipDiscount = 0;
+        // ── Membership (purchase + discount) — logged-in users only ────────────────
+        // Two independent things can happen on one order:
+        //   • DISCOUNT — a verified active member who asked for it, OR a non-member buying a
+        //     membership on this order, gets `member_discount`% off. Applied to items here
+        //     (USD, FX-converted with the items) and to the fee below (native).
+        //   • PURCHASE — a logged-in non-member who added a membership pays the membership FEE
+        //     (an admin per-currency amount, like shipping) and is ACTIVATED when the payment
+        //     is captured. `membershipPurchased` is the single source of truth for activation,
+        //     so an existing member is never silently re-subscribed on a normal order (M2).
+        const orderRate = FX_CONVERTIBLE.has(currency) ? await getUsdConversionRate(currency) : 1;
+        let serverMembershipDiscount = 0;   // member discount on ITEMS (USD; FX-converted with items)
+        let membershipFeeUsd = 0;           // USD fee — gift-wallet cap + USD-side maths
+        let membershipFeeNative = 0;        // fee in the order currency (native, added after FX)
+        let membershipDiscountNative = 0;   // member discount on the FEE, in the order currency (native)
+        let buysMembership = false;         // → activates the membership when the order is paid
+        let memberDiscountApplied = false;
         let giftCardWalletDeduction = 0;
         if (customerId) {
-            const clientRequestsMembership = req.body.membership === 'Yes' || req.body.membership === true;
-            if (clientRequestsMembership) {
-                const [dbUser, dbSettings] = await Promise.all([
-                    prisma.user.findUnique({ where: { id: customerId }, select: { membership: true, membershipEnd: true } }),
-                    prisma.settings.findFirst({ orderBy: { id: 'desc' }, select: { memberDiscount: true } })
-                ]);
-                // Honor expiry: an expired member (stale token / lapsed) gets no discount.
-                if (isMembershipActive(dbUser)) {
-                    const memberDiscountPct = Number(dbSettings?.memberDiscount) || 0;
-                    serverMembershipDiscount = Math.round((physicalSubtotal * memberDiscountPct / 100) * 100) / 100;
+            const wantsMemberDiscount  = req.body.membership === 'Yes' || req.body.membership === true;
+            const clientBuysMembership = req.body.membership_purchase === true || req.body.membershipPurchase === true;
+            const dbUser = await prisma.user.findUnique({
+                where: { id: customerId },
+                select: { membership: true, membershipEnd: true, giftCardBalance: true },
+            });
+            // Honor expiry: a lapsed member (stale token) is treated as a non-member.
+            const alreadyActive = isMembershipActive(dbUser);
+            // Only a logged-in NON-member can buy (an active member already has it → no double charge).
+            buysMembership = clientBuysMembership && !alreadyActive;
+            if ((wantsMemberDiscount && alreadyActive) || buysMembership) {
+                const dbSettings = await prisma.settings.findFirst({
+                    orderBy: { id: 'desc' },
+                    select: { memberDiscount: true, membershipCartPrice: true, membershipCartPriceEur: true, membershipCartPriceInr: true },
+                });
+                const memberDiscountPct = Number(dbSettings?.memberDiscount) || 0;
+                serverMembershipDiscount = round2(physicalSubtotal * memberDiscountPct / 100); // on items (USD)
+                memberDiscountApplied = true;
+                if (buysMembership) {
+                    membershipFeeUsd         = Number(dbSettings?.membershipCartPrice) || 0;
+                    membershipFeeNative      = membershipFeeForCurrency(currency, dbSettings, membershipFeeUsd, orderRate);
+                    membershipDiscountNative = round2(membershipFeeNative * memberDiscountPct / 100);
                 }
             }
 
             const clientRequestsGiftWallet = parseFloat(req.body.giftCardWalletApplied) || 0;
             if (clientRequestsGiftWallet > 0) {
-                const dbUser = await prisma.user.findUnique({ where: { id: customerId }, select: { giftCardBalance: true } });
                 const available = dbUser?.giftCardBalance || 0;
-                giftCardWalletDeduction = Math.min(available, clientRequestsGiftWallet, subtotalBeforeGiftWallet + shippingCostUsd);
+                giftCardWalletDeduction = Math.min(available, clientRequestsGiftWallet, subtotalBeforeGiftWallet + shippingCostUsd + membershipFeeUsd);
             }
         }
 
@@ -245,7 +282,7 @@ export const saveOrder = async (req, res) => {
         // un-converted). The gift-card WALLET deduction stays in USD: it draws down a USD
         // store-credit balance, already applied to the USD total before this conversion.
         if (FX_CONVERTIBLE.has(currency)) {
-            const fxRate = await getUsdConversionRate(currency);
+            const fxRate = orderRate; // resolved once above (also used for the membership fee)
             if (fxRate > 0 && fxRate !== 1) {
                 const fx = (usd) => Math.round((Number(usd) || 0) * fxRate * 100) / 100;
                 total                    = fx(total);
@@ -257,10 +294,14 @@ export const saveOrder = async (req, res) => {
                 if (!shippingIsNative) shippingNative = fx(shippingNative);
             }
         }
-        // Shipping = admin per-currency amount; add on top of the (converted) item total so
-        // cart == checkout == PayPal charge exactly, with no FX drift on the shipping line.
-        const shippingCost = Math.max(0, Math.round((Number(shippingNative) || 0) * 100) / 100);
-        total = Math.max(0, Math.round((total + shippingCost) * 100) / 100);
+        // Shipping + membership fee = admin per-currency amounts; add on top of the (converted)
+        // item total so cart == checkout == PayPal charge exactly, with no FX drift on those
+        // lines. The fee carries the member discount too (10% off the fee, mirroring checkout).
+        const shippingCost = Math.max(0, round2(shippingNative));
+        const membershipNet = round2(membershipFeeNative - membershipDiscountNative);
+        // Total member discount stored for the admin/email view = items portion (now FX'd) + fee portion.
+        const totalMembershipDiscount = Math.max(0, round2(serverMembershipDiscount + membershipDiscountNative));
+        total = Math.max(0, round2(total + shippingCost + membershipNet));
 
         const orderNumber = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
         const paymentTitle = req.body.payment_type || req.body.paymentType || '';
@@ -300,8 +341,10 @@ export const saveOrder = async (req, res) => {
                 paymentStatus:      'pending',
                 transactionId:      '',
                 purchaseOrderNumber,
-                membership:         req.body.membership                  || 'No',
-                membershipDiscount: serverMembershipDiscount,
+                membership:          memberDiscountApplied ? 'Yes' : 'No', // did this order get the member discount
+                membershipPurchased: buysMembership,                       // → activate membership when paid
+                membershipFee:       Math.max(0, round2(membershipFeeNative)),
+                membershipDiscount:  totalMembershipDiscount,
                 couponId:           couponId && !isNaN(couponId) ? couponId : null,
                 couponDiscount:     couponDiscount,
                 comment:            req.body.comment                     || '',
@@ -548,8 +591,8 @@ export const updateOrder = async (req, res) => {
         if (req.body.estimated_delivery !== undefined) updateData.estimatedDelivery = req.body.estimated_delivery ? new Date(req.body.estimated_delivery) : null;
         if (req.body.shippedAt !== undefined) updateData.shippedAt = req.body.shippedAt ? new Date(req.body.shippedAt) : null;
 
-        // Look up current order state once (for shippedAt + payment-paid auto-advance)
-        const existing = await prisma.order.findUnique({ where: { id }, select: { shippedAt: true, status: true, paymentType: true } });
+        // Look up current order state once (for shippedAt + payment-paid auto-advance + membership)
+        const existing = await prisma.order.findUnique({ where: { id }, select: { shippedAt: true, status: true, paymentType: true, membershipPurchased: true, customerId: true } });
 
         // Auto-set shippedAt when status changes to shipped
         const newStatus = (updateData.status || '').toLowerCase();
@@ -587,6 +630,28 @@ export const updateOrder = async (req, res) => {
         await prisma.order.update({
             where: { id }, data: updateData
         });
+
+        // Activate a PURCHASED membership when the admin marks the order Paid (wire / PO / manual)
+        // — mirrors the PayPal capture path. Guarded by membershipPurchased so only genuine
+        // purchases activate, and the active-member check keeps it idempotent (no re-extension /
+        // duplicate welcome email if Paid is toggled twice).
+        if ((updateData.paymentStatus || '').toLowerCase() === 'paid'
+            && existing?.membershipPurchased && existing?.customerId) {
+            const memberNow = await prisma.user.findUnique({
+                where: { id: existing.customerId },
+                select: { email: true, name: true, membership: true, membershipEnd: true },
+            });
+            if (!isMembershipActive(memberNow)) {
+                const now = new Date();
+                const oneYearLater = new Date(now);
+                oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+                await prisma.user.update({
+                    where: { id: existing.customerId },
+                    data: { membership: 'active', membershipStart: now, membershipEnd: oneYearLater },
+                });
+                if (memberNow?.email) sendMembershipWelcome(memberNow.email, memberNow.name, oneYearLater).catch(() => {});
+            }
+        }
 
         // Optional: per-item status updates (admin can update individual line items)
         if (req.body.items && Array.isArray(req.body.items)) {
