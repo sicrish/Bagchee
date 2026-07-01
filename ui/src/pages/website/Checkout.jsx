@@ -2026,7 +2026,11 @@ const Checkout = () => {
                           {price === 0 ? (
                             <span className="text-primary">Free</span>
                           ) : (
-                            formatPrice(price)
+                            // `price` is already in the customer's currency (shippingPriceFor →
+                            // priceEur/priceGbp/priceUsd). Use the symbol-only formatter — NOT
+                            // formatPrice, which would re-multiply by the FX rate and show e.g.
+                            // €13.80 instead of €15.00 (must match the cart + order summary).
+                            formatCheckoutDisplay(price)
                           )}
                         </span>
                       </label>
