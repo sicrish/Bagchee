@@ -204,13 +204,16 @@ const Footer = () => {
 
       if (isEmail) {
         // Agar pichli kuch address lines jama hain, toh pehle unhe EK SATH print karo (Sirf Ek Map Icon ke sath)
+        // 🟢 Indian IPs: address chhupao, sirf email dikhao (client request)
         if (addressBuffer.length > 0) {
-          resultHtml += `
-            <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 8px; line-height: 1.5;">
-              ${mapIcon}
-              <div style="flex: 1; word-break: break-word;">${addressBuffer.join('<br/>')}</div>
-            </div>
-          `;
+          if (!isIndia) {
+            resultHtml += `
+              <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 8px; line-height: 1.5;">
+                ${mapIcon}
+                <div style="flex: 1; word-break: break-word;">${addressBuffer.join('<br/>')}</div>
+              </div>
+            `;
+          }
           addressBuffer = []; // Print karne ke baad buffer khali kar do
         }
 
@@ -228,7 +231,8 @@ const Footer = () => {
     });
 
     // Step 4: Loop khatam hone ke baad, agar buffer me kuch bacha hai, toh usko print kar do
-    if (addressBuffer.length > 0) {
+    // 🟢 Indian IPs ke liye address block skip (email upar already print ho chuka hai)
+    if (addressBuffer.length > 0 && !isIndia) {
       resultHtml += `
         <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 8px; line-height: 1.5;">
           ${mapIcon}

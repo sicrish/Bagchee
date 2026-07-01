@@ -131,7 +131,7 @@ const contactInfo = [
               {/* Contact Info Card */}
               <div className="md:col-span-1 bg-cream-100 rounded-xl border border-gray-200 p-8 md:p-10 shadow-sm">
                 <div className="space-y-4">
-                  {contactInfo.filter(info => !(isIndia && info.title === 'WhatsApp')).map((info, index) => (
+                  {contactInfo.filter(info => !(isIndia && (info.title === 'WhatsApp' || info.title === 'Address'))).map((info, index) => (
                     <div
                       key={index}
                       className="flex gap-4 p-4 bg-cream-100 rounded-lg border border-gray-200"
