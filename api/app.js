@@ -10,6 +10,7 @@ if (missingEnv.length) {
 import express from 'express';
 import compression from 'compression';
 import helmet from 'helmet';
+import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
 import fileupload from 'express-fileupload';
 import cors from 'cors';
@@ -86,17 +87,42 @@ import geoRoutes from './routes/geo.routes.js';
 
 const app = express();
 
-// Trust proxy — required for Railway/Vercel (reverse proxy) so rate limiting works correctly
+// Trust exactly one hop — the local Apache proxy. Apache runs mod_remoteip
+// (/etc/apache2/conf-enabled/remoteip-cloudflare.conf, server-only) which resolves the
+// REAL visitor IP from CF-Connecting-IP, honoring it only when the TCP peer is inside
+// Cloudflare's published ranges, so the X-Forwarded-For entry Apache appends is the
+// visitor — req.ip and every rate-limit bucket become per-visitor and unspoofable.
+// Without that Apache piece req.ip is the Cloudflare EDGE ip: every visitor + bot
+// behind a CF colo shared one bucket, so bot crawls randomly 429'd real users.
 app.set('trust proxy', 1);
 
+// A verified admin/staff JWT lifts the global rate limit. The admin SPA fires several
+// API calls per page, and bots sharing the limiter must never blank the admin panel
+// (client-reported 2026-07-02: /admin/categories showed "Failed to load categories"
+// because crawler traffic had burned the shared bucket). HMAC verify costs
+// microseconds and only runs when a Bearer token is present.
+const hasStaffToken = (req) => {
+    const token = (req.header('Authorization') || '').split(' ')[1];
+    if (!token) return false;
+    try {
+        const { role } = jwt.verify(token, process.env.JWT_SECRET_KEY);
+        return role === 'admin' || role === 'staff';
+    } catch {
+        return false;
+    }
+};
+
 // Global Limiter
-// Ek IP se 15 minute mein maximum 200 requests
+// Per real visitor IP (see trust proxy note above): 400 requests / 15 minutes.
+// Sized for an SPA firing ~8-10 API calls per page view, with headroom for carrier
+// CGNAT where many customers can share one public IP.
 const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: process.env.NODE_ENV === 'production' ? 200 : 2000,
+    max: process.env.NODE_ENV === 'production' ? 400 : 2000,
     message: { status: false, msg: "Too many requests, please try again later." },
-    standardHeaders: true, 
+    standardHeaders: true,
     legacyHeaders: false,
+    skip: hasStaffToken,
 });
 
 // 🟢 Strict Limiter: Sirf Login aur Register ke liye
