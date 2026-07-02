@@ -731,7 +731,11 @@ export const searchSuggestions = async (req, res) => {
             prisma.category.findMany({
                 where: { active: true, title: { contains: kw, mode: 'insensitive' } },
                 select: { id: true, title: true, slug: true },
-                take: 5,
+                // Over-fetch as a dedup pool: the same category exists as duplicate
+                // same-slug rows, one per product-type branch (e.g. "Ayurveda" ×3).
+                // Deduped by slug below, then capped back to 5.
+                orderBy: { id: 'asc' },
+                take: 15,
             }),
             prisma.series.findMany({
                 where: { title: { contains: kw, mode: 'insensitive' } },
@@ -773,7 +777,20 @@ export const searchSuggestions = async (req, res) => {
             });
         });
 
-        categories.forEach(c => data.push({ id: c.id, title: c.title, slug: c.slug, type: 'category' }));
+        // Collapse duplicate same-slug category rows (one per product-type branch) —
+        // the dropdown links every category to /books/<slug>, so the dupes all led to
+        // the same page anyway. Distinct slugs (e.g. Music / Music CD / World Music)
+        // stay separate suggestions.
+        const seenCatKeys = new Set();
+        let catCount = 0;
+        categories.forEach(c => {
+            const key = (c.slug || '').trim().toLowerCase()
+                || (c.title || '').trim().toLowerCase().replace(/\s+/g, ' ');
+            if (catCount >= 5 || seenCatKeys.has(key)) return;
+            seenCatKeys.add(key);
+            catCount += 1;
+            data.push({ id: c.id, title: c.title, slug: c.slug, type: 'category' });
+        });
         series.forEach(s => {
             const seriesSlug = s.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
             data.push({ id: s.id, title: s.title, slug: seriesSlug, type: 'series' });

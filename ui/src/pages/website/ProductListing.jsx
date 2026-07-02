@@ -16,6 +16,34 @@ import ProductModal from '../../components/website/ProductModal';
 // vs category pages which browse to /books/:slug.
 const NAV_TYPES = ['sale', 'new-arrivals', 'bestsellers', 'recommended'];
 
+// The same category title+slug exists as separate rows per product-type branch
+// (Books / CD Roms / Videos), and productType is 0 on nearly every row, so the only
+// reliable disambiguation is parentId ancestry: prefer the row whose branch root is
+// Books. The admin edits the Books row, so its meta is the one to show. MUST stay in
+// sync with pickCategoryMetaSource in api/controller/ssr.controller.js — the SSR rail
+// (/render/category/:slug) injects this exact meta pre-JS, and Helmet reconciles it.
+const isBooksBranchCat = (cat, byId) => {
+    let cur = cat, guard = 0;
+    while (cur && guard++ < 15) {
+        const t = (cur.categorytitle || cur.title || '').trim().toLowerCase();
+        if ((cur.slug || '').toLowerCase() === 'books' || t === 'books') return true;
+        const pid = cur.parentId || cur.parentid;
+        cur = pid ? byId[String(pid)] : null;
+    }
+    return false;
+};
+const pickCategoryMetaSource = (matches, byId) => {
+    const pool = matches.filter(c => c.active !== false); // SSR reads active rows only
+    if (!pool.length) return null;
+    const hasMeta = (c) => Boolean(
+        String(c.metaTitle || c.meta_title || '').trim()
+        || String(c.metaDesc || c.meta_description || '').trim()
+        || String(c.metaKeywords || c.meta_keywords || '').trim()
+    );
+    const score = (c) => (isBooksBranchCat(c, byId) ? 2 : 0) + (hasMeta(c) ? 1 : 0);
+    return [...pool].sort((a, b) => (score(b) - score(a)) || ((a.id || a._id) - (b.id || b._id)))[0];
+};
+
 const ProductListing = ({ type }) => {
     const { slug } = useParams();
     const location = useLocation();
@@ -75,6 +103,7 @@ const ProductListing = ({ type }) => {
     const [flatCats, setFlatCats] = useState([]);
     const [categoryTrail, setCategoryTrail] = useState([]); // breadcrumb ancestry for category pages
     const [activeCategoryIds, setActiveCategoryIds] = useState([]); // resolved ids of the current category context (drives the fetch)
+    const [catMeta, setCatMeta] = useState(null); // admin meta of the resolved category (Books-branch row) — mirrors the SSR rail
 
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
@@ -140,6 +169,7 @@ const ProductListing = ({ type }) => {
                     setFlatCats(flatCategories);
                     setCategoryTrail([]); // reset; only category pages (below) build a trail
                     setActiveCategoryIds([]); // reset; the active-category branch below sets it
+                    setCatMeta(null); // reset; the active-category branch below sets it
                     setCurrentPage(1);    // new category context → back to page 1
 
                     // Nav pages narrow IN-CONTEXT via ?category=<slug>; category pages use the
@@ -176,16 +206,21 @@ const ProductListing = ({ type }) => {
                             // slug/title) so the product fetch narrows by every one. This is the
                             // single source of truth the fetch reads — keeps listing, sidebar and
                             // breadcrumb in agreement (no separate race-prone resolution).
-                            const matchIds = flatCategories.filter(c => {
+                            const catMatches = flatCategories.filter(c => {
                                 if (c.slug && (c.slug === activeCatSlug || c.slug.endsWith('/' + activeCatSlug))) return true;
                                 const ct = (c.categorytitle || c.title || '').toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]/g, '');
                                 return ct === cleanUrlSlug;
-                            }).map(c => c.id || c._id).filter(Boolean);
+                            });
+                            const matchIds = catMatches.map(c => c.id || c._id).filter(Boolean);
                             setActiveCategoryIds(matchIds);
-                            // Breadcrumb ancestry: walk up the parentId chain so customers can
-                            // jump back to any earlier category while drilling into sub-categories.
                             const byId = {};
                             flatCategories.forEach(c => { byId[String(c.id || c._id)] = c; });
+                            // Meta source among the duplicate same-slug rows: Books-branch row
+                            // preferred — the SAME rule as the SSR rail, so the after-JS Helmet
+                            // tags equal the server-injected ones.
+                            setCatMeta(pickCategoryMetaSource(catMatches, byId));
+                            // Breadcrumb ancestry: walk up the parentId chain so customers can
+                            // jump back to any earlier category while drilling into sub-categories.
                             const trail = [];
                             let cur = foundCat, guard = 0;
                             while (cur && guard++ < 12) {
@@ -534,8 +569,17 @@ const ProductListing = ({ type }) => {
             label = baseTitleRef;
             desc = `Books published by ${baseTitleRef}, available at Bagchee. ${tail}`;
         } else {
+            // Category page: the resolved category's admin meta (Books-branch row)
+            // wins over the generic strings — mirrors the SSR rail
+            // (/render/category/:slug) so Helmet reconciles the server-injected
+            // tags instead of flashing different ones. Falls back to the generic
+            // strings, which the SSR rail also mirrors for meta-less categories.
+            const mTitle = String(catMeta?.metaTitle || catMeta?.meta_title || '').trim();
+            const mDesc = String(catMeta?.metaDesc || catMeta?.meta_description || '').trim();
+            const mKw = String(catMeta?.metaKeywords || catMeta?.meta_keywords || '').trim();
             label = `${baseTitleRef} Books`;
-            desc = `Browse ${baseTitleRef} books at Bagchee. ${tail}`;
+            desc = mDesc || `Browse ${baseTitleRef} books at Bagchee. ${tail}`;
+            return { title: mTitle || `${label} | Bagchee`, desc, keywords: mKw || undefined };
         }
         return { title: `${label} | Bagchee`, desc };
     };
@@ -556,6 +600,7 @@ const ProductListing = ({ type }) => {
                 <Helmet>
                     <title>{listingMeta.title}</title>
                     <meta name="description" content={listingMeta.desc} />
+                    {listingMeta.keywords && <meta name="keywords" content={listingMeta.keywords} />}
                     <meta property="og:title" content={listingMeta.title} />
                     <meta property="og:description" content={listingMeta.desc} />
                 </Helmet>

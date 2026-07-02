@@ -75,7 +75,7 @@ import backInStockRoutes from './routes/backInStock.routes.js';
 import emailCampaignRoutes from './routes/emailCampaignRoutes.js';
 import { processScheduledEmails } from './controller/emailCampaignController.js';
 import { sendMembershipExpiryReminder } from './controller/email.controller.js';
-import { renderBookMeta, renderPageMeta } from './controller/ssr.controller.js';
+import { renderBookMeta, renderPageMeta, renderCategoryMeta } from './controller/ssr.controller.js';
 import prisma from './lib/prisma.js';
 import sitemapRoutes from './routes/sitemap.routes.js';
 import disclaimerRoutes from './routes/disclaimerRoutes.js';
@@ -136,6 +136,14 @@ app.get('/render/books/:bagcheeId/:slug', renderBookMeta);
 // /render/page?path=<react-path>; Node injects that page's admin meta_tags meta into
 // the SPA shell. Registered before the rate limiter; always falls back to plain shell.
 app.get('/render/page', renderPageMeta);
+
+// ── Server-side meta injection for category listing pages ──
+// Apache proxies the 1-segment /books/:slug URL here (2-segment book URLs keep the
+// book rail above); Node injects the Category row's admin meta title/description/
+// keywords, preferring the Books-branch row among duplicate same-slug categories.
+// Deliberately injects NO canonical/robots (listing pages). Registered before the
+// rate limiter; always falls back to the plain SPA shell.
+app.get('/render/category/:slug', renderCategoryMeta);
 
 app.use(helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' },
