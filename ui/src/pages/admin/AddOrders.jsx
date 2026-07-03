@@ -149,7 +149,7 @@ const AddOrders = () => {
       inr_price: product.inr_price || 0,
       real_price:product.real_price||0,
       quantity: 1,
-      status: 'Pending', // Default Status
+      status: '', // no default — 'Pending' isn't an order_statuses name, so it rendered blank anyway
       courier: '',
       tracking_id: '',
       return_note: '',
@@ -229,12 +229,22 @@ const AddOrders = () => {
     if (validProducts.length === 0) {
         return toast.error("At least one product with a name is required!");
     }
+
+    // Every row must come from the product search — a hand-typed row has no product_id
+    // and the server rejects the whole order with an opaque 400.
+    const unlinked = validProducts.filter(p => !p.product_id && !p.productId && !p.id);
+    if (unlinked.length > 0) {
+        return toast.error(`"${unlinked[0].name}" isn't linked to a catalog product — add products via the search box above the table.`);
+    }
     setLoading(true);
     const toastId = toast.loading("Saving order...");
 
     try {
       const payload = {
         ...formData,
+        // Unlocks the admin-manual branch in saveOrder: typed prices, status, payment
+        // status, transaction id, order date honored; free-shipping rule not forced.
+        admin_manual: true,
         coupon_id: formData.coupon_id === "" ? null : formData.coupon_id,
         shipping_details: {
           email: formData.shipping_email,
@@ -321,7 +331,7 @@ const AddOrders = () => {
             {/* # Field */}
             <div className="grid grid-cols-12 gap-4 items-center">
               <label className={labelClass}>#</label>
-              <div className="col-span-9"><input type="text" name="order_number" value={formData.order_number} onChange={handleChange} className={inputClass} /></div>
+              <div className="col-span-9"><input type="text" name="order_number" value={formData.order_number} placeholder="Auto-generated on save" disabled className={`${inputClass} bg-gray-50 cursor-not-allowed`} onChange={handleChange} /></div>
             </div>
 
             {/* Created At */}

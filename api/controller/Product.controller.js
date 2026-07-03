@@ -635,11 +635,15 @@ export const fetch = async (req, res) => {
         const { page, limit, sort, showAll, id } = req.query;
 
         const pageNum  = Math.max(1, Number(page)  || 1);
-        const pageSize = Math.min(100, Math.max(1, Number(limit) || 36));
-        const skip     = (pageNum - 1) * pageSize;
 
         // showAll is restricted to admin — public users always see active products only
         const isAdmin = req.user?.role === 'admin';
+
+        // Admins may request export-scale pages (the Books-list Excel export sends
+        // limit=100000 — the old flat 100 cap silently truncated it to 100 of ~138k
+        // products). Public callers stay capped at 100.
+        const pageSize = Math.min(isAdmin ? 200000 : 100, Math.max(1, Number(limit) || 36));
+        const skip     = (pageNum - 1) * pageSize;
         const where = buildWhereClause(req.query, { includeInactive: isAdmin && showAll === 'true' });
 
         // Direct ID lookup override
@@ -653,6 +657,13 @@ export const fetch = async (req, res) => {
         // Use lightweight include for public list views, full include for admin
         const includeSet = isAdmin ? PRODUCT_INCLUDE : PRODUCT_LIST_INCLUDE;
 
+        // Export-scale admin fetches skip the heavy relation includes entirely — 138k rows
+        // with images/formats/authors would exhaust memory. Scalars only: exactly the
+        // columns the admin Books-list Excel export consumes.
+        const exportScale = isAdmin && pageSize > 1000;
+        const EXPORT_SELECT = { id: true, title: true, bagcheeId: true, price: true,
+            realPrice: true, metaTitle: true, isbn10: true, isbn13: true, productType: true };
+
         // Cache single-product detail fetches by bagchee_id (common from BookDetail page)
         const bagcheeIdParam = req.query.bagchee_id;
         if (bagcheeIdParam && !isAdmin) {
@@ -664,7 +675,10 @@ export const fetch = async (req, res) => {
         }
 
         const [products, total] = await Promise.all([
-            prisma.product.findMany({ where, include: includeSet, orderBy, skip, take: pageSize }),
+            prisma.product.findMany({
+                where, orderBy, skip, take: pageSize,
+                ...(exportScale ? { select: EXPORT_SELECT } : { include: includeSet }),
+            }),
             prisma.product.count({ where })
         ]);
 

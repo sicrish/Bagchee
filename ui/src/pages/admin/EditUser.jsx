@@ -249,8 +249,10 @@ const EditUser = () => {
       data.append('membership', formData.membership);
       data.append('role', formData.role);
       data.append('isGuest', formData.isGuest);
-      if(formData.membershipStart) data.append('membershipStart', formData.membershipStart);
-      if(formData.membershipEnd) data.append('membershipEnd', formData.membershipEnd);
+      // Always send the dates — an empty value must CLEAR the stored date (the controller
+      // nulls empty strings); skipping the append made cleared dates silently stick.
+      data.append('membershipStart', formData.membershipStart || '');
+      data.append('membershipEnd', formData.membershipEnd || '');
       data.append('forceDirectPayment', formData.forceDirectPayment);
 
       if (formData.image) data.append('profileImage', formData.image);

@@ -49,8 +49,9 @@ const ProductList = () => {
       params.append("showAll", "true");
 
       // Pagination Params (Export ke waqt limit bypass karega)
+      // 200000: matches the server's admin cap — 133k+ books, 100k would clip the export
       params.append("page", isExport ? 1 : currentPage);
-      params.append("limit", isExport ? 100000 : itemsPerPage);
+      params.append("limit", isExport ? 200000 : itemsPerPage);
 
       if (searchTerm) params.append("keyword", searchTerm);
       

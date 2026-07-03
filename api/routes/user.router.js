@@ -4,9 +4,11 @@ const router = express.Router();
 import * as usercontroller from '../controller/user.controller.js';
 import authMiddleware from '../middleware/auth.middleware.js';
 import adminAuth from '../middleware/adminAuth.middleware.js';
+import optionalAuth from '../middleware/optionalAuth.middleware.js';
 
-// PUBLIC — no auth needed
-router.post("/register",        usercontroller.register);
+// PUBLIC — no auth needed (optionalAuth: the admin AddUser page registers through
+// this endpoint and may set membership fields; anonymous signups cannot)
+router.post("/register",        optionalAuth, usercontroller.register);
 router.post("/login",           usercontroller.login);
 router.post("/forgot-password", usercontroller.forgotPassword);
 router.post("/reset-password",  usercontroller.resetPassword);

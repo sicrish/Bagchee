@@ -82,6 +82,7 @@ import sitemapRoutes from './routes/sitemap.routes.js';
 import disclaimerRoutes from './routes/disclaimerRoutes.js';
 import contactRoutes from './routes/contactRoutes.js';
 import geoRoutes from './routes/geo.routes.js';
+import { getDisplayRates } from './lib/exchangeRates.js';
 
 
 
@@ -284,6 +285,17 @@ app.use('/terms', termsRoutes);
 app.use('/disclaimer', disclaimerRoutes);
 app.use('/contact', contactRoutes);
 app.use('/geo', geoRoutes);
+// Storefront display rates — same server-side cache that settles orders, so the
+// prices the customer sees use the exact rate the charge will use (see lib/exchangeRates.js).
+app.get('/exchange-rates', async (req, res) => {
+    try {
+        const rates = await getDisplayRates();
+        res.set('Cache-Control', 'public, max-age=900'); // 15 min at the edge is plenty
+        res.status(200).json({ status: true, rates });
+    } catch (e) {
+        res.status(200).json({ status: true, rates: { USD: 1, EUR: 0.92, GBP: 0.78, INR: 84 } });
+    }
+});
 app.use('/side-banner-one', sideBannerOneRoutes);
 app.use('/socials', socialRoutes);
 app.use('/side-banner-two', sideBannerTwoRoutes);

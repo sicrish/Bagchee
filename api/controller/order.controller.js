@@ -100,8 +100,15 @@ export const saveOrder = async (req, res) => {
     try {
         // Resolve customerId — null for guests
         let customerId = null;
+        // Admin manual entry (AddOrders sends admin_manual:true) posts here too. That flow —
+        // and only that flow — may set fields checkout customers never can: typed item
+        // prices, status, payment status, transaction id and the order date (mirroring what
+        // updateOrder already trusts). An admin shopping the storefront checkout stays a
+        // normal customer: server prices, free-shipping rule, computed status.
+        const isAdminCaller = req.user?.role === 'admin';
+        const isAdminManual = isAdminCaller && req.body.admin_manual === true;
         if (req.user) {
-            customerId = req.user.role === 'admin'
+            customerId = isAdminCaller
                 ? parseInt(req.body.customer_id || req.body.customerId || req.user.userId)
                 : parseInt(req.user.userId);
             if (isNaN(customerId)) customerId = null;
@@ -146,11 +153,16 @@ export const saveOrder = async (req, res) => {
                 const sellingPrice = (dbProd.realPrice > 0 && dbProd.realPrice < dbProd.price)
                     ? dbProd.realPrice
                     : dbProd.price;
+                // Admin manual orders may carry a negotiated per-line price (USD, like the DB
+                // prices); customers never override — the DB selling price is authoritative.
+                const typedPrice = Number(p.price);
+                const adminPrice = isAdminManual && p.price !== '' && p.price !== null
+                    && p.price !== undefined && !isNaN(typedPrice) && typedPrice >= 0;
                 return {
                     productId:    pId,
                     name:         p.name || p.title || dbProd.title || '',
                     image:        dbProd.defaultImage || '',
-                    price:        sellingPrice,
+                    price:        adminPrice ? typedPrice : sellingPrice,
                     realPrice:    dbProd.realPrice || 0,
                     quantity:     Math.min(100, Math.max(1, Number(p.quantity) || 1)),
                     status:       p.status           || '',
@@ -185,7 +197,9 @@ export const saveOrder = async (req, res) => {
 
         // Server-side free-shipping enforcement (unchanged rule): standard (non-tiered) orders
         // whose selling subtotal meets the USD threshold ship free, regardless of client input.
-        if (itemsData.length > 0) {
+        // Admin manual orders keep whatever shipping the admin typed — the free-shipping
+        // rule is a storefront promise, not a constraint on negotiated phone/wire orders.
+        if (itemsData.length > 0 && !isAdminManual) {
             const shippingType = (req.body.shipping_type || req.body.shippingType || '').toLowerCase();
             const isTieredShipping = shippingType.includes('express') || shippingType.includes('expedited');
             const freeShippingThreshold = 50; // matches frontend constant; physicalSubtotal is USD
@@ -328,6 +342,20 @@ export const saveOrder = async (req, res) => {
             ? (req.body.purchaseOrderNumber || req.body.purchase_order_number || '')
             : '';
 
+        // Admin manual entry: the AddOrders form offers Status / Payment status /
+        // Transaction id / Order date — honor them instead of silently discarding
+        // (the page used to send all four and the server ignored every one).
+        if (isAdminManual && typeof req.body.status === 'string' && req.body.status.trim()) {
+            initialStatus = req.body.status.trim();
+        }
+        const initialPaymentStatus = (isAdminManual && typeof req.body.payment_status === 'string' && req.body.payment_status.trim())
+            ? req.body.payment_status.trim()
+            : 'pending';
+        const initialTransactionId = isAdminManual ? String(req.body.transaction_id || '') : '';
+        const manualCreatedAt = (isAdminManual && req.body.created_at && !isNaN(new Date(req.body.created_at).getTime()))
+            ? new Date(req.body.created_at)
+            : null;
+
         const order = await prisma.order.create({
             data: {
                 orderNumber,
@@ -338,9 +366,10 @@ export const saveOrder = async (req, res) => {
                 paymentType:        paymentTitle,
                 shippingType:       req.body.shipping_type || req.body.shippingType || '',
                 status:             initialStatus,
-                paymentStatus:      'pending',
-                transactionId:      '',
+                paymentStatus:      initialPaymentStatus,
+                transactionId:      initialTransactionId,
                 purchaseOrderNumber,
+                ...(manualCreatedAt ? { createdAt: manualCreatedAt } : {}),
                 membership:          memberDiscountApplied ? 'Yes' : 'No', // did this order get the member discount
                 membershipPurchased: buysMembership,                       // → activate membership when paid
                 membershipFee:       Math.max(0, round2(membershipFeeNative)),

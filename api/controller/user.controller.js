@@ -78,6 +78,16 @@ export const register = async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
+        // Membership fields are admin-only (the admin AddUser page registers through this
+        // endpoint). A public signup must never be able to self-grant an active membership
+        // (10% on every order) by posting membership fields with the form.
+        const isAdminCaller = req.user?.role === 'admin';
+        if (!isAdminCaller) {
+            membership = 'inactive';
+            membershipStart = null;
+            membershipEnd = null;
+        }
+
         const user = await prisma.user.create({
             data: {
                 name: fullName,
@@ -165,7 +175,9 @@ export const fetch = async (req, res) => {
     try {
         const { page, limit, role, status: statusFilter, email, name, membership, search } = req.query;
         const pageNum = Math.max(1, parseInt(page) || 1);
-        const pageSize = Math.min(100, Math.max(1, parseInt(limit) || 10));
+        // 100k ceiling: the admin Excel export requests limit=100000 — the old 100 cap
+        // silently truncated it to the newest 100 of ~30k users. Admin-only route, lean select.
+        const pageSize = Math.min(100000, Math.max(1, parseInt(limit) || 10));
         const skip = (pageNum - 1) * pageSize;
 
         const where = {};

@@ -38,3 +38,18 @@ export async function getUsdConversionRate(currency) {
     const rate = Number(rates?.[currency]);
     return rate > 0 ? rate : (FALLBACK[currency] || 1);
 }
+
+// The display rates served to the storefront (GET /exchange-rates). Same cache the order
+// settlement uses, so what the customer SEES is priced with the identical rate the server
+// CHARGES with. (Before this, the frontend fetched exchangerate-api directly with its own
+// key/cache — no key was ever configured in the UI build, so the client sat on fallback
+// rates forever while the server could go live → a silent display≠charge drift.)
+const DISPLAY_FALLBACK = { USD: 1, EUR: 0.92, GBP: 0.78, INR: 84 }; // mirrors CurrencyContext defaults
+export async function getDisplayRates() {
+    const rates = await loadRates();
+    const pick = (cur) => {
+        const r = Number(rates?.[cur]);
+        return r > 0 ? r : DISPLAY_FALLBACK[cur];
+    };
+    return { USD: 1, EUR: pick('EUR'), GBP: pick('GBP'), INR: pick('INR') };
+}

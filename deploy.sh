@@ -36,7 +36,6 @@ deploy_ui() {
   cd "$PROJECT_ROOT/ui"
   REACT_APP_API_URL=https://www.bagchee.com/api \
   REACT_APP_FRONTEND_URL=https://www.bagchee.com \
-  REACT_APP_EXCHANGE_RATE_API_KEY=01b425d377751fbbed67dcdc \
   REACT_APP_ENCRYPTION_SECRET=metXFqhCDc39LVSNnwthDmdYQLGZZVx10rR8Qzybw7Au3C2lW/JqdunzKD9ieoQ+ \
   REACT_APP_RECAPTCHA_SITE_KEY="${REACT_APP_RECAPTCHA_SITE_KEY:-}" \
   npm run build || { echo "✗ Build FAILED — aborting deploy, server untouched"; exit 1; }

@@ -1173,6 +1173,13 @@ ${bankDetails}
                 >
                   <option value="">Select Payment type</option>
 
+                  {/* Legacy payment types ("Check or money order", "Western Union", trailing-space
+                      variants…) aren't in the payments table — inject the raw stored value so the
+                      select doesn't render blank (same pattern as the per-item status resolver). */}
+                  {formData.payment_type && !paymentMethods.some(pm => pm.title === formData.payment_type) && (
+                    <option value={formData.payment_type}>{formData.payment_type}</option>
+                  )}
+
                   {/* 🟢 DYNAMIC OPTIONS FROM BACKEND */}
                   {paymentMethods.length > 0 ? (
                     paymentMethods.map((pm) => (
@@ -1198,6 +1205,13 @@ ${bankDetails}
                   className={dropdownClass}
                 >
                   <option value="">Select Shipping type</option>
+
+                  {/* ~93% of orders carry old-site shipping titles ("12-15 Days Free Worldwide
+                      Shipping", "6-16 Days Standard…") that aren't among today's options — inject
+                      the raw stored value so the select doesn't render blank. */}
+                  {formData.shipping_type && !shippingOptions.some(opt => opt.title === formData.shipping_type) && (
+                    <option value={formData.shipping_type}>{formData.shipping_type}</option>
+                  )}
 
                   {/* 🟢 DYNAMIC SHIPPING OPTIONS FROM BACKEND */}
                   {shippingOptions.length > 0 ? (
@@ -1526,6 +1540,12 @@ ${bankDetails}
               <div className="col-span-9">
                 <select name="payment_status" value={formData.payment_status} onChange={handleChange} className={dropdownClass}>
                   <option value="">Select Payment Status</option>
+                  {/* Migrated orders hold legacy PayPal statuses ("Completed", "Reversed",
+                      "Denied", case variants) — inject the raw value so it doesn't render blank.
+                      Picking a canonical option below rewrites it on save, which is fine. */}
+                  {formData.payment_status && !['pending', 'paid', 'failed', 'refunded'].includes(formData.payment_status) && (
+                    <option value={formData.payment_status}>{formData.payment_status}</option>
+                  )}
                   <option value="pending">Pending</option>
                   <option value="paid">Paid</option>
                   <option value="failed">Failed</option>
