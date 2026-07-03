@@ -25,6 +25,21 @@ const statusBadgeClass = (raw) => {
   return 'bg-gray-100 text-gray-700';                                                            // anything else
 };
 
+// Excel export: stored statuses are a mix of canonical names ('Shipped'), case variants
+// ('in progress'), and — on items migrated from the old site — bare numeric
+// order_statuses ids ('3' = Shipped). Resolve to the status name so the spreadsheet
+// never shows raw ids; unknown values fall through unchanged.
+const statusName = (raw, statuses) => {
+  const s = String(raw ?? '').trim();
+  if (!s) return '';
+  if (/^\d+$/.test(s)) {
+    const byId = statuses.find((st) => String(st.id ?? st._id) === s);
+    return byId ? byId.name : s;
+  }
+  const byName = statuses.find((st) => String(st.name).toLowerCase() === s.toLowerCase());
+  return byName ? byName.name : s;
+};
+
 // Customer label for the orders list — mirrors the order-detail page (EditOrders.jsx).
 // Guest-checkout orders have no user record (customerId null); surface them as
 // "Guest Customer — First Last" (falling back to shipping email) instead of "Unknown Customer".
@@ -212,9 +227,14 @@ const handleExport = async () => {
   const toastId = toast.loading("Fetching all order details for export...");
   try {
     const API_URL = process.env.REACT_APP_API_URL;
-    
-    // Backend se poora data mangwayein (Pagination bypass)
-    const res = await axios.get(`${API_URL}/orders/list?limit=100000`);
+
+    // Backend se poora data mangwayein (Pagination bypass). Status list rides along to
+    // resolve legacy numeric item statuses; if it fails, export still runs on raw values.
+    const [res, statusRes] = await Promise.all([
+      axios.get(`${API_URL}/orders/list?limit=100000`),
+      axios.get(`${API_URL}/order-status/list?limit=1000`).catch(() => null),
+    ]);
+    const orderStatuses = statusRes?.data?.status ? (statusRes.data.data || []) : [];
 
     if (res.data.status && res.data.data) {
       const allOrders = res.data.data;
@@ -227,14 +247,14 @@ const handleExport = async () => {
       // 2. Mapping logic — Prisma returns flat camelCase fields
       const dataToExport = allOrders.map((order, index) => {
         const productDetails = (order.items || order.products || []).map(p =>
-          `${p.name || p.product?.title || 'Item'} (Price: ${p.price}, Qty: ${p.quantity}, Status: ${p.status || 'N/A'})`
+          `${p.name || p.product?.title || 'Item'} (Price: ${p.price}, Qty: ${p.quantity}, Status: ${statusName(p.status, orderStatuses) || 'N/A'})`
         ).join(" | ") || "-";
 
         return {
           "Sr No": index + 1,
           "Order Number": order.orderNumber || order.order_number || "-",
           "Order Date": formatDate(order.createdAt),
-          "Order Status": order.status || "pending",
+          "Order Status": statusName(order.status, orderStatuses) || "pending",
 
           // --- Financials ---
           "Currency": order.currency || "USD",

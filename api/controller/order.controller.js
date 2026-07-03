@@ -421,7 +421,10 @@ export const getAllOrders = async (req, res) => {
     try {
         const { page, limit, status, search, customer_id } = req.query;
         const pageNum  = Math.max(1, Number(page)  || 1);
-        const pageSize = Math.min(100, Math.max(1, Number(limit) || 10));
+        // 20k ceiling: big enough that the admin Excel export (limit=100000) really returns
+        // EVERY order — the old 100 cap silently truncated the "full data" export to the
+        // newest 100 rows — while still bounding a runaway query. Admin-only route.
+        const pageSize = Math.min(20000, Math.max(1, Number(limit) || 10));
         const skip     = (pageNum - 1) * pageSize;
 
         const conditions = [];
