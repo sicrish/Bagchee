@@ -610,11 +610,13 @@ export const updateOrder = async (req, res) => {
         // control (they set Processing / Shipped / etc. independently). Wire / UNESCO keep the
         // auto-advance so their pre-payment state clears once payment is confirmed.
         const effectivePaymentType = updateData.paymentType || existing?.paymentType || '';
+        let autoAdvancedToInProgress = false;
         if ((updateData.paymentStatus || '').toLowerCase() === 'paid' && updateData.status === undefined
             && !isPurchaseOrder(effectivePaymentType)) {
             const curStatus = (existing?.status || '').toLowerCase();
             if (['pending', 'payment pending', 'approval pending'].includes(curStatus)) {
                 updateData.status = 'In Progress';
+                autoAdvancedToInProgress = true;
             }
         }
 
@@ -668,6 +670,19 @@ export const updateOrder = async (req, res) => {
                     ? prisma.orderItem.update({ where: { id: itemId }, data: itemUpdate })
                     : Promise.resolve();
             }));
+        }
+
+        // The paid auto-advance moved the ORDER to In Progress; mirror it onto the line
+        // items (same rule as the PayPal captures — skip cancelled and anything already
+        // shipped/delivered/completed) so the status beside each item matches the Order
+        // Status box. Must run AFTER the items loop above: EditOrders sends every item's
+        // pre-save status on save, which would otherwise overwrite this flip.
+        if (autoAdvancedToInProgress) {
+            const orderItems = await prisma.orderItem.findMany({ where: { orderId: id }, select: { id: true, status: true } });
+            const keepAsIs = ['cancelled', 'shipped', 'delivered', 'completed'];
+            await Promise.all(orderItems
+                .filter((it) => !keepAsIs.includes(String(it.status || '').trim().toLowerCase()))
+                .map((it) => prisma.orderItem.update({ where: { id: it.id }, data: { status: 'In Progress' } })));
         }
 
         // Re-fetch after all updates so the response reflects the latest item data

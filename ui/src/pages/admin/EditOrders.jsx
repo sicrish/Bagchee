@@ -389,11 +389,14 @@ const EditOrders = () => {
   }, [searchQuery, isDropdownOpen]);
 
   const handleSelectProduct = (product) => {
+    // /order-status/list is name-sorted, so [0] is 'Cancelled' — a terrible default for a
+    // freshly added row (it would render as "Cancelled (out of print)"). Start blank; the
+    // admin picks the real status.
     const newRow = {
       name: product.title,
       price: product.price || 0,
       quantity: 1,
-      status: orderStatuses.length > 0 ? orderStatuses[0].name : 'Pending',
+      status: '',
       courierId: '', trackingCode: '', returnNote: '', cancelNote: ''
     };
     setOrderProducts(prev => {
@@ -856,6 +859,26 @@ ${bankDetails}
     (statusOptions.find((o) => o.value.toLowerCase() === String(formData.status || '').toLowerCase()) || {}).value
     ?? formData.status;
 
+  // Item statuses in the wild: canonical names ('Shipped'), case variants ('in progress',
+  // the payment captures' 'In Progress'), legacy numeric order_statuses ids migrated from
+  // the old site ('3', '1', '5'…), and 'Pending' from admin-created orders. The per-item
+  // <select> binds by exact string, so every one of those rendered as a BLANK box. Resolve
+  // each row's stored status to the option it should display; non-canonical values get an
+  // injected <option> whose value IS the raw stored status, so nothing is rewritten in the
+  // DB unless the admin actually picks a different status.
+  const itemStatusBinding = (raw) => {
+    const s = String(raw ?? '').trim();
+    if (!s) return { value: '' };
+    if (s.toLowerCase() === 'cancelled') return { value: 'cancelled' };
+    if (/^\d+$/.test(s)) {
+      const byId = orderStatuses.find((st) => String(st.id ?? st._id) === s);
+      return { value: s, extraOption: { value: s, label: byId ? byId.name : s } };
+    }
+    const byName = orderStatuses.find((st) => String(st.name).toLowerCase() === s.toLowerCase());
+    if (byName) return { value: byName.name };
+    return { value: s, extraOption: { value: s, label: s } };
+  };
+
   if (fetching) {
     return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary" size={40} /></div>
   }
@@ -1185,26 +1208,34 @@ ${bankDetails}
           </tr>
         </thead>
         <tbody>
-          {orderProducts.map((row, index) => (
+          {orderProducts.map((row, index) => {
+            // Strikethrough + "excluded" badge only for name-cancelled rows — that is what the
+            // backend's isCancelledItem actually excludes from the invoice/charge. A legacy
+            // numeric '5' displays as "Cancelled" in the select but is NOT excluded, so it
+            // must not carry the badge.
+            const isCancelledRow = String(row.status ?? '').trim().toLowerCase() === 'cancelled';
+            const statusBind = itemStatusBinding(row.status);
+            return (
             <tr key={index}>
               <td className="border p-1">
                 <div
-                  className={`cursor-pointer px-1 py-0.5 rounded transition-colors ${String(row.status).toLowerCase() === 'cancelled' ? 'text-gray-400 line-through hover:bg-gray-50' : 'text-blue-600 hover:text-blue-800 underline hover:bg-blue-50'}`}
+                  className={`cursor-pointer px-1 py-0.5 rounded transition-colors ${isCancelledRow ? 'text-gray-400 line-through hover:bg-gray-50' : 'text-blue-600 hover:text-blue-800 underline hover:bg-blue-50'}`}
                   onClick={() => handleProductClick(row)}
                   title="Click to view product details"
                 >
                   {row.name || row.product?.title || row.title || '—'}
                 </div>
-                {String(row.status).toLowerCase() === 'cancelled' && (
+                {isCancelledRow && (
                   <span className="inline-block mt-0.5 text-[9px] font-bold text-red-600 bg-red-50 border border-red-200 rounded px-1">Excluded from invoice &amp; payment</span>
                 )}
               </td>
               <td className="border p-1"><input type="number" value={row.price} onChange={(e) => handleProductChange(index, 'price', e.target.value)} className="w-full outline-none bg-transparent" /></td>
               <td className="border p-1"><input type="number" value={row.quantity} onChange={(e) => handleProductChange(index, 'quantity', e.target.value)} className="w-full outline-none bg-transparent" /></td>
               <td className="border-b p-1">
-                <select value={row.status} onChange={(e) => handleProductChange(index, 'status', e.target.value)} className={`w-full outline-none bg-transparent text-[10px] ${String(row.status).toLowerCase() === 'cancelled' ? 'text-red-600 font-bold' : ''}`}>
+                <select value={statusBind.value} onChange={(e) => handleProductChange(index, 'status', e.target.value)} className={`w-full outline-none bg-transparent text-[10px] ${isCancelledRow ? 'text-red-600 font-bold' : ''}`}>
                   <option value="">Status</option>
                   <option value="cancelled">Cancelled (out of print)</option>
+                  {statusBind.extraOption && <option value={statusBind.extraOption.value}>{statusBind.extraOption.label}</option>}
                   {orderStatuses.filter((st) => String(st.name).toLowerCase() !== 'cancelled').map((st) => <option key={st.id || st._id} value={st.name}>{st.name}</option>)}
                 </select>
               </td>
@@ -1219,7 +1250,8 @@ ${bankDetails}
               <td className="border p-1"><input type="text" value={row.cancelNote || ''} onChange={(e) => handleProductChange(index, 'cancelNote', e.target.value)} className="w-full outline-none bg-transparent" /></td>
               <td className="border p-1 text-center"><button type="button" onClick={() => removeProductRow(index)}><Trash2 size={12} className="text-red-500" /></button></td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
     </div>

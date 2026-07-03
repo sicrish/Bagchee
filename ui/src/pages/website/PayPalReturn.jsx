@@ -39,8 +39,11 @@ export default function PayPalReturn() {
                 const auth = JSON.parse(localStorage.getItem('auth') || '{}');
                 const token_jwt = auth?.token;
 
-                // Deferred-payment customers arrive without a JWT — use token-based capture
-                const useTokenCapture = !token_jwt && pending.paymentToken;
+                // Payment-link flows carry a paymentToken that itself proves the customer may
+                // pay this order — always capture through it. Falling back to the JWT capture
+                // would 403 when the logged-in account doesn't own the order (e.g. a guest
+                // order's payment link opened while signed in), even though PayPal approved.
+                const useTokenCapture = Boolean(pending.paymentToken);
                 const endpoint = useTokenCapture ? '/paypal/capture-by-token' : '/paypal/capture-order';
                 const body = useTokenCapture
                     ? { token, orderId: pending.orderId, paymentToken: pending.paymentToken }
