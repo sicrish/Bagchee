@@ -655,21 +655,63 @@ export const updateOrder = async (req, res) => {
             }
         }
 
-        // Optional: per-item status updates (admin can update individual line items)
+        // Optional: per-item changes from the admin order form.
+        //   rows WITH an id  → update in place (status / courier / tracking / notes)
+        //   rows WITHOUT one → newly added via "Search Book to Add" → CREATE them here
+        //     (previously they were silently dropped, so adding a book to an existing
+        //     order never persisted). Needs the row's productId from the search result;
+        //     products that don't exist are skipped rather than 500ing on the FK.
         if (req.body.items && Array.isArray(req.body.items)) {
-            await Promise.all(req.body.items.map(item => {
-                const itemId = parseInt(item.id);
-                if (isNaN(itemId)) return Promise.resolve();
-                const itemUpdate = {};
-                if (item.status       !== undefined) itemUpdate.status       = item.status;
-                if (item.courierId    !== undefined) itemUpdate.courierId    = parseInt(item.courierId) || null;
-                if (item.trackingCode !== undefined) itemUpdate.trackingCode = item.trackingCode;
-                if (item.returnNote   !== undefined) itemUpdate.returnNote   = item.returnNote;
-                if (item.cancelNote   !== undefined) itemUpdate.cancelNote   = item.cancelNote;
-                return Object.keys(itemUpdate).length
-                    ? prisma.orderItem.update({ where: { id: itemId }, data: itemUpdate })
-                    : Promise.resolve();
-            }));
+            const rows = req.body.items;
+            const newRows = rows.filter((it) =>
+                isNaN(parseInt(it.id)) && !isNaN(parseInt(it.productId ?? it.product_id)));
+            let creatable = [];
+            if (newRows.length) {
+                const pids = [...new Set(newRows.map((it) => parseInt(it.productId ?? it.product_id)))];
+                const found = await prisma.product.findMany({ where: { id: { in: pids } }, select: { id: true } });
+                const foundIds = new Set(found.map((p) => p.id));
+                creatable = newRows.filter((it) => foundIds.has(parseInt(it.productId ?? it.product_id)));
+            }
+
+            await Promise.all([
+                ...rows.map(item => {
+                    const itemId = parseInt(item.id);
+                    if (isNaN(itemId)) return Promise.resolve();
+                    const itemUpdate = {};
+                    if (item.status       !== undefined) itemUpdate.status       = item.status;
+                    if (item.courierId    !== undefined) itemUpdate.courierId    = parseInt(item.courierId) || null;
+                    if (item.trackingCode !== undefined) itemUpdate.trackingCode = item.trackingCode;
+                    if (item.returnNote   !== undefined) itemUpdate.returnNote   = item.returnNote;
+                    if (item.cancelNote   !== undefined) itemUpdate.cancelNote   = item.cancelNote;
+                    return Object.keys(itemUpdate).length
+                        ? prisma.orderItem.update({ where: { id: itemId }, data: itemUpdate })
+                        : Promise.resolve();
+                }),
+                ...creatable.map(item => prisma.orderItem.create({
+                    data: {
+                        orderId:      id,
+                        productId:    parseInt(item.productId ?? item.product_id),
+                        name:         item.name || '',
+                        image:        item.image || '',
+                        price:        Number(item.price) || 0,
+                        quantity:     parseInt(item.quantity) || 1,
+                        status:       item.status || '',
+                        courierId:    parseInt(item.courierId) || null,
+                        trackingCode: item.trackingCode || '',
+                        returnNote:   item.returnNote || '',
+                        cancelNote:   item.cancelNote || '',
+                    },
+                })),
+            ]);
+        }
+
+        // Rows the admin deleted from the items table (trash icon). Scoped to this order so
+        // a stray id can never touch another order's items.
+        const removedItemIds = (Array.isArray(req.body.removed_item_ids) ? req.body.removed_item_ids
+            : Array.isArray(req.body.removedItemIds) ? req.body.removedItemIds : [])
+            .map((x) => parseInt(x)).filter((x) => !isNaN(x));
+        if (removedItemIds.length) {
+            await prisma.orderItem.deleteMany({ where: { id: { in: removedItemIds }, orderId: id } });
         }
 
         // The paid auto-advance moved the ORDER to In Progress; mirror it onto the line

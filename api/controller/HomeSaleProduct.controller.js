@@ -110,7 +110,7 @@ export const searchMainInventory = async (req, res) => {
         if (!q) return res.status(200).json({ status: true, data: [] });
         const products = await prisma.product.findMany({
             where: { OR: [{ title: { contains: q, mode: 'insensitive' } }, { bagcheeId: { contains: q, mode: 'insensitive' } }, { isbn13: { contains: q, mode: 'insensitive' } }, { isbn10: { contains: q, mode: 'insensitive' } }] },
-            select: { id: true, title: true, price: true, bagcheeId: true, isbn13: true, defaultImage: true },
+            select: { id: true, title: true, price: true, realPrice: true, bagcheeId: true, isbn13: true, defaultImage: true },
             take: 10
         });
         res.status(200).json({ status: true, data: products });

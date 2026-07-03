@@ -203,6 +203,7 @@ const EditOrders = () => {
 
   // Product Rows
   const [orderProducts, setOrderProducts] = useState([]);
+  const [removedItemIds, setRemovedItemIds] = useState([]); // existing item ids deleted from the table, applied on save
   const [addProductIdInput, setAddProductIdInput] = useState('');
 
   const [commentContent, setCommentContent] = useState('');
@@ -392,9 +393,15 @@ const EditOrders = () => {
     // /order-status/list is name-sorted, so [0] is 'Cancelled' — a terrible default for a
     // freshly added row (it would render as "Cancelled (out of print)"). Start blank; the
     // admin picks the real status.
+    // Default to the selling price when it undercuts MRP — same rule saveOrder charges by.
+    const mrp = Number(product.price) || 0;
+    const real = Number(product.realPrice) || 0;
     const newRow = {
+      productId: product.id,          // updateOrder CREATEs id-less rows from this on save
+      bagcheeId: product.bagcheeId,   // lets the name link open the book page
       name: product.title,
-      price: product.price || 0,
+      image: product.defaultImage || '',
+      price: real > 0 && real < mrp ? real : mrp,
       quantity: 1,
       status: '',
       courierId: '', trackingCode: '', returnNote: '', cancelNote: ''
@@ -438,6 +445,10 @@ const EditOrders = () => {
   };
 
   const removeProductRow = (index) => {
+    // Existing rows must also be deleted server-side on save (previously they were only
+    // removed from local state and reappeared on reload). New unsaved rows just vanish.
+    const row = orderProducts[index];
+    if (row?.id) setRemovedItemIds((prev) => [...prev, row.id]);
     const list = [...orderProducts];
     list.splice(index, 1);
     setOrderProducts(list);
@@ -534,8 +545,11 @@ const EditOrders = () => {
         billingPostcode:   formData.billing_postcode,
         billingPhone:      formData.billing_phone,
 
-        // Items — controller reads req.body.items with camelCase sub-fields
+        // Items — controller reads req.body.items with camelCase sub-fields.
+        // Rows without an id are new (Search Book to Add) and get created server-side;
+        // removed_item_ids are existing rows the admin deleted from the table.
         items: orderProducts,
+        removed_item_ids: removedItemIds,
       };
 
       const API_URL = process.env.REACT_APP_API_URL;
@@ -544,6 +558,19 @@ const EditOrders = () => {
 
       if (res.data.status) {
         toast.success("Order updated successfully! 📦", { id: toastId });
+        // Sync from the server's fresh copy: new rows get their DB ids (so saving again
+        // can't re-create them), deletions clear, and a mark-Paid auto-advance ('In
+        // Progress' on the order + items) shows immediately without a reload.
+        const fresh = res.data.data;
+        if (fresh) {
+          setOrderProducts(fresh.items || []);
+          setRemovedItemIds([]);
+          setFormData((prev) => ({
+            ...prev,
+            status: fresh.status ?? prev.status,
+            payment_status: fresh.paymentStatus ?? prev.payment_status,
+          }));
+        }
         if (actionType === 'back') {
           navigate(`/admin/orders${backToListQs}`);
         }
