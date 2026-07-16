@@ -1,20 +1,19 @@
-import geoip from 'geoip-lite';
+import { resolveClientCountry } from '../lib/clientRequest.js';
+import { blockedCountrySet } from '../lib/blocklist.js';
 
-export const getGeo = (req, res) => {
-    // Prefer Cloudflare header (present when traffic goes through CF proxy)
-    const cfCountry = (req.headers['cf-ipcountry'] || '').toUpperCase();
-    if (cfCountry && cfCountry !== 'XX') {
-        const isIndia = cfCountry === 'IN';
-        const maintenance = isIndia && process.env.INDIA_MAINTENANCE === 'true';
-        return res.json({ country: cfCountry, isIndia, maintenance });
-    }
-
-    // Fallback: local GeoIP database (handles Railway/direct-IP calls with no CF header)
-    const raw = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
-    const ip = raw.split(',')[0].trim().replace(/^::ffff:/, '');
-    const geo = geoip.lookup(ip);
-    const country = (geo?.country || '').toUpperCase();
+export const getGeo = async (req, res) => {
+    // Cloudflare header first, else the local GeoIP database — both via the shared
+    // helper so /geo and the saveOrder blocklist gate always agree on where a visitor is.
+    const country = resolveClientCountry(req) || 'UNKNOWN';
     const isIndia = country === 'IN';
     const maintenance = isIndia && process.env.INDIA_MAINTENANCE === 'true';
-    res.json({ country: country || 'UNKNOWN', isIndia, maintenance });
+
+    // Countries barred from ordering (admin blocklist, e.g. BD): they browse normally
+    // but the storefront hides purchase actions — saveOrder enforces it server-side.
+    let orderBlocked = false;
+    try {
+        orderBlocked = (await blockedCountrySet()).has(country);
+    } catch { /* /geo must never fail because of the blocklist */ }
+
+    res.json({ country, isIndia, maintenance, orderBlocked });
 };

@@ -489,6 +489,11 @@ export const addAddress = async (req, res) => {
         const { type, firstName, lastname, lastName, houseNo, street,
             address2, landmark, city, state, pincode, country, phone, company, isDefault } = req.body;
 
+        // Country is required — the old silent 'India' default here is how migrated
+        // addresses poisoned orders with the wrong country (16-July, order 17655).
+        if (!country || !String(country).trim())
+            return res.status(400).json({ status: false, msg: 'Country is required.' });
+
         const address = await prisma.address.create({
             data: {
                 userId,
@@ -502,7 +507,7 @@ export const addAddress = async (req, res) => {
                 city: city || '',
                 state: state || '',
                 pincode: pincode || '',
-                country: country || 'India',
+                country: String(country).trim(),
                 phone: phone || '',
                 company: company || '',
                 isDefault: isDefault === true || isDefault === 'true'

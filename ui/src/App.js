@@ -381,6 +381,7 @@ const AddOrders = lazy(() => import('./pages/admin/AddOrders.jsx'));
 
 // import EditOrders from './pages/admin/EditOrders.jsx';
 const EditOrders = lazy(() => import('./pages/admin/EditOrders.jsx'));
+const Blocklist = lazy(() => import('./pages/admin/Blocklist.jsx'));
 
 
 //order-status
@@ -809,6 +810,7 @@ function App() {
                 <Route path="orders" element={<OrdersList />} />
                 <Route path="add-orders" element={<AddOrders />} />
                 <Route path="edit-orders/:id" element={<EditOrders />} />
+                <Route path="blocklist" element={<Blocklist />} />
                 <Route path="order-status" element={<OrderStatusesList />} />
                 <Route path="add-order-status" element={<AddOrderStatus />} />
                 <Route path="edit-order-status/:id" element={<EditOrderStatus />} />

@@ -6,6 +6,8 @@ import { createGiftCardsForOrder, applyWalletBalance } from './giftCard.controll
 import { activeItems, payableTotal, payableShipping } from '../lib/orderTotals.js';
 import { isMembershipActive } from '../lib/membership.js';
 import { getUsdConversionRate } from '../lib/exchangeRates.js';
+import { findBlockMatch } from '../lib/blocklist.js';
+import { resolveClientIp, resolveClientCountry } from '../lib/clientRequest.js';
 
 // Currencies the order is actually settled in (PayPal accepts these). The order's monetary
 // fields are computed authoritatively in USD then converted to one of these. Everything else
@@ -120,6 +122,37 @@ export const saveOrder = async (req, res) => {
         if (!products.length && !giftCardItems.length)
             return res.status(400).json({ status: false, msg: 'Order must have at least one item' });
 
+        // Shipping/billing extracted once — used by the guards below, the coupon
+        // once-per-user check and the order create.
+        const shippingInfo = extractShipping(req.body);
+        const billingInfo  = extractBilling(req.body);
+
+        // ── Blocklist gate + origin capture (16-July) — customers only ─────────────
+        // Admin entries (storefront or AddOrders manual) skip the gate, and the
+        // admin's own IP is never recorded as the customer's.
+        let customerIp = '', customerCountry = '';
+        if (!isAdminCaller) {
+            customerIp      = resolveClientIp(req);
+            customerCountry = resolveClientCountry(req);
+            const accountEmail = customerId
+                ? (await prisma.user.findUnique({ where: { id: customerId }, select: { email: true } }))?.email
+                : '';
+            const blockedBy = await findBlockMatch({
+                emails:  [shippingInfo.shippingEmail, accountEmail],
+                ip:      customerIp,
+                country: customerCountry,
+            });
+            if (blockedBy) {
+                console.warn(`Blocked order attempt (${blockedBy.kind}=${blockedBy.value}) ip=${customerIp} country=${customerCountry} email=${shippingInfo.shippingEmail}`);
+                return res.status(403).json({ status: false, msg: 'Unable to place order. Please contact customer support.' });
+            }
+
+            // Country must be present on customer orders — silent empties are how migrated
+            // 'India' address defaults once leaked into orders unnoticed (order 17655).
+            if (!shippingInfo.shippingCountry.trim())
+                return res.status(400).json({ status: false, msg: 'Shipping country is required.' });
+        }
+
         // Validate gift card items (amount range + required fields)
         for (const gc of giftCardItems) {
             const amount = parseFloat(gc.amount);
@@ -221,7 +254,7 @@ export const saveOrder = async (req, res) => {
                     if (coupon.oncePerUser) {
                         const used = await couponAlreadyUsed(coupon.id, {
                             customerId,
-                            email: extractShipping(req.body).shippingEmail,
+                            email: shippingInfo.shippingEmail,
                         });
                         if (used) return res.status(400).json({ status: false, msg: 'You have already used this coupon. Please remove it to continue.' });
                     }
@@ -379,9 +412,11 @@ export const saveOrder = async (req, res) => {
                 comment:            req.body.comment                     || '',
                 customerComment:    req.body.customer_comment || req.body.customerComment || '',
                 estimatedDelivery:  req.body.estimatedDelivery ? new Date(req.body.estimatedDelivery) : null,
+                customerIp,
+                customerCountry,
 
-                ...extractShipping(req.body),
-                ...extractBilling(req.body),
+                ...shippingInfo,
+                ...billingInfo,
 
                 items: { create: itemsData.map(({ realPrice, ...rest }) => rest) }
             },

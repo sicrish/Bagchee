@@ -305,9 +305,11 @@ const EditBook = () => {
             const tocImgs = book.tocImages || book.toc_images;
             const relImgs = book.images || book.related_images;
             const sampImgs = book.sampleImages || book.sample_images;
-            if (tocImgs && tocImgs.length > 0) setTocImagesList(tocImgs.map((img) => ({ id: img.id || img._id, image: img.file || img.image || img.url, order: img.ord ?? img.order ?? 0, file: null })));
-            if (relImgs && relImgs.length > 0) setRelatedImagesList(relImgs.map((img) => ({ id: img.id || img._id, image: img.file || img.image || img.url, order: img.ord ?? img.order ?? 0, file: null })));
-            if (sampImgs && sampImgs.length > 0) setSampleImagesList(sampImgs.map((img) => ({ id: img.id || img._id, image: img.file || img.image || img.url, order: img.ord ?? img.order ?? 0, file: null })));
+            // dbId marks rows that exist in the DB — the save sends them as the gallery's
+            // keep-list so removals/reorders persist (rows from addImageRow have no dbId).
+            if (tocImgs && tocImgs.length > 0) setTocImagesList(tocImgs.map((img) => ({ id: img.id || img._id, dbId: img.id || img._id || null, image: img.file || img.image || img.url, order: img.ord ?? img.order ?? 0, file: null })));
+            if (relImgs && relImgs.length > 0) setRelatedImagesList(relImgs.map((img) => ({ id: img.id || img._id, dbId: img.id || img._id || null, image: img.file || img.image || img.url, order: img.ord ?? img.order ?? 0, file: null })));
+            if (sampImgs && sampImgs.length > 0) setSampleImagesList(sampImgs.map((img) => ({ id: img.id || img._id, dbId: img.id || img._id || null, image: img.file || img.image || img.url, order: img.ord ?? img.order ?? 0, file: null })));
 
             const tocImagePath = book.tocImage || book.toc_image;
             if (tocImagePath) {
@@ -725,9 +727,19 @@ const EditBook = () => {
             }
             if (tocImageFile) data.append('toc_image', tocImageFile);
 
-            tocImagesList.forEach(item => { if (item.file) { data.append(`toc_images`, item.file); data.append(`toc_images_order`, item.order); } });
-            relatedImagesList.forEach(item => { if (item.file) { data.append(`related_images`, item.file); data.append(`related_images_order`, item.order); } });
-            sampleImagesList.forEach(item => { if (item.file) { data.append(`sample_images`, item.file); data.append(`sample_images_order`, item.order); } });
+            // Uploads carry a _replace tag: the dbId of the row this file replaces in
+            // place ('' = brand-new row). Prevents "Replace" from appending a duplicate.
+            tocImagesList.forEach(item => { if (item.file) { data.append(`toc_images`, item.file); data.append(`toc_images_order`, item.order); data.append(`toc_images_replace`, item.dbId || ''); } });
+            relatedImagesList.forEach(item => { if (item.file) { data.append(`related_images`, item.file); data.append(`related_images_order`, item.order); data.append(`related_images_replace`, item.dbId || ''); } });
+            sampleImagesList.forEach(item => { if (item.file) { data.append(`sample_images`, item.file); data.append(`sample_images_order`, item.order); data.append(`sample_images_replace`, item.dbId || ''); } });
+
+            // Keep-lists: the existing DB rows still present in the form. The server
+            // deletes rows missing from these and persists ord changes — so removing an
+            // image + Save finally sticks (16-July, book 109342).
+            const keepOf = (list) => JSON.stringify(list.filter(i => i.dbId).map(i => ({ id: i.dbId, ord: Number(i.order) || 0 })));
+            data.append('related_images_keep', keepOf(relatedImagesList));
+            data.append('toc_images_keep', keepOf(tocImagesList));
+            data.append('sample_images_keep', keepOf(sampleImagesList));
 
             updateBookMutation.mutate(data, {
                 onSuccess: (res) => {

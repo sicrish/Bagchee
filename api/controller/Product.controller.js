@@ -71,6 +71,70 @@ const processDynamicImages = async (files, orders, folderName) => {
     return result;
 };
 
+// Update-flow variant (16-July): zips each file with its `<field>_replace` tag BEFORE
+// uploading, so a failed upload can never shift an upload onto the wrong replace id.
+// replaceId > 0 means "this file replaces existing row <id>"; 0 means "new row".
+const processDynamicImagesTagged = async (files, orders, replaceIds, folderName) => {
+    const fileArr  = Array.isArray(files)      ? files      : (files ? [files] : []);
+    const orderArr = Array.isArray(orders)     ? orders     : (orders !== undefined && orders !== null ? [orders] : []);
+    const replArr  = Array.isArray(replaceIds) ? replaceIds : (replaceIds !== undefined && replaceIds !== null ? [replaceIds] : []);
+    const result = [];
+    for (let i = 0; i < fileArr.length; i++) {
+        try {
+            const path = await saveFileLocal(fileArr[i], folderName);
+            result.push({ image: path, order: Number(orderArr[i]) || 0, replaceId: parseInt(replArr[i]) || 0 });
+        } catch (err) {
+            console.error('Image upload error:', err.message);
+        }
+    }
+    return result;
+};
+
+// `<field>_keep` = JSON [{id, ord}] of the existing gallery rows that survived the edit.
+// Absent field → legacy caller → null (leave existing rows untouched, append-only).
+// Unparseable → null too (never treat garbage as "delete everything").
+const parseKeepList = (raw) => {
+    if (raw === undefined || raw === null) return null;
+    try {
+        const arr = JSON.parse(raw);
+        if (!Array.isArray(arr)) return null;
+        return arr.map(x => ({ id: parseInt(x.id), ord: Number(x.ord) || 0 })).filter(x => !isNaN(x.id) && x.id > 0);
+    } catch { return null; }
+};
+
+// Reconcile one gallery (products_images / products_tocs / products_sample_images):
+// delete rows the admin removed, persist ord changes on kept rows, then route each
+// upload to an in-place replace (no more duplicate rows) or a fresh create.
+const reconcileGallery = async (model, productId, keepList, uploads) => {
+    if (keepList !== null) {
+        const existing = await model.findMany({ where: { productId }, select: { id: true, file: true, ord: true } });
+        const keepIds = new Set(keepList.map(k => k.id));
+        const toDelete = existing.filter(r => !keepIds.has(r.id));
+        if (toDelete.length) {
+            await model.deleteMany({ where: { productId, id: { in: toDelete.map(r => r.id) } } });
+            for (const r of toDelete) await deleteFileLocal(r.file); // no-ops on legacy non-Cloudinary URLs
+        }
+        const byId = new Map(existing.map(r => [r.id, r]));
+        for (const k of keepList) {
+            const row = byId.get(k.id);
+            if (row && (row.ord ?? 0) !== k.ord) await model.update({ where: { id: k.id }, data: { ord: k.ord } });
+        }
+    }
+    const creates = [];
+    for (const up of uploads) {
+        if (up.replaceId > 0) {
+            const old = await model.findUnique({ where: { id: up.replaceId } });
+            if (old && old.productId === productId) {
+                await model.update({ where: { id: up.replaceId }, data: { file: up.image, ord: up.order } });
+                await deleteFileLocal(old.file);
+                continue;
+            }
+        }
+        creates.push({ productId, file: up.image, ord: up.order });
+    }
+    if (creates.length) await model.createMany({ data: creates });
+};
+
 // Build a Prisma WHERE clause from query-string filters.
 // Returns { AND: [...conditions] } so callers can push extra conditions.
 const buildWhereClause = (query, { includeInactive = false } = {}) => {
@@ -456,9 +520,9 @@ export const update = async (req, res) => {
             req.body.product_tags      !== undefined ? resolveToIds(prisma.tag,      req.body.product_tags)      : Promise.resolve(null),
             req.body.product_formats   !== undefined ? resolveToIds(prisma.format,   req.body.product_formats)   : Promise.resolve(null),
             req.body.product_languages !== undefined ? resolveToIds(prisma.language, req.body.product_languages) : Promise.resolve(null),
-            processDynamicImages(req.files?.related_images, req.body.related_images_order, 'products'),
-            processDynamicImages(req.files?.toc_images,     req.body.toc_images_order,     'products'),
-            processDynamicImages(req.files?.sample_images,  req.body.sample_images_order,  'products'),
+            processDynamicImagesTagged(req.files?.related_images, req.body.related_images_order, req.body.related_images_replace, 'products'),
+            processDynamicImagesTagged(req.files?.toc_images,     req.body.toc_images_order,     req.body.toc_images_replace,     'products'),
+            processDynamicImagesTagged(req.files?.sample_images,  req.body.sample_images_order,  req.body.sample_images_replace,  'products'),
         ]);
 
         // ── Junction table replacements (sequential, no transaction to avoid timeout) ──
@@ -507,10 +571,14 @@ export const update = async (req, res) => {
             if (resolvedLanguageIds.length) await prisma.productLanguage.createMany({ data: resolvedLanguageIds.map(lId => ({ productId: id, languageId: lId })) });
         }
 
-        // Append new images
-        if (newRelated.length) await prisma.productImage.createMany({ data: newRelated.map(i => ({ productId: id, file: i.image, ord: i.order })) });
-        if (newToc.length)     await prisma.productToc.createMany({ data: newToc.map(i => ({ productId: id, file: i.image, ord: i.order })) });
-        if (newSample.length)  await prisma.productSampleImage.createMany({ data: newSample.map(i => ({ productId: id, file: i.image, ord: i.order })) });
+        // Reconcile galleries (16-July): the admin form sends `<field>_keep` = the existing
+        // rows that survived the edit — rows missing from it are DELETED (removals finally
+        // persist), kept rows get their ord updated, and tagged uploads replace in place
+        // instead of appending duplicates. Callers not sending `_keep` (AddBook, older
+        // bundles) keep the old append-only behavior.
+        await reconcileGallery(prisma.productImage,       id, parseKeepList(req.body.related_images_keep), newRelated);
+        await reconcileGallery(prisma.productToc,         id, parseKeepList(req.body.toc_images_keep),     newToc);
+        await reconcileGallery(prisma.productSampleImage, id, parseKeepList(req.body.sample_images_keep),  newSample);
 
         const result = await prisma.product.findUnique({ where: { id }, include: PRODUCT_INCLUDE });
         cache.invalidate('filter-options');

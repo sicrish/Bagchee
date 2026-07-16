@@ -82,6 +82,7 @@ import sitemapRoutes from './routes/sitemap.routes.js';
 import disclaimerRoutes from './routes/disclaimerRoutes.js';
 import contactRoutes from './routes/contactRoutes.js';
 import geoRoutes from './routes/geo.routes.js';
+import blocklistRoutes from './routes/blocklist.routes.js';
 import { getDisplayRates } from './lib/exchangeRates.js';
 
 
@@ -285,6 +286,7 @@ app.use('/terms', termsRoutes);
 app.use('/disclaimer', disclaimerRoutes);
 app.use('/contact', contactRoutes);
 app.use('/geo', geoRoutes);
+app.use('/blocklist', blocklistRoutes);
 // Storefront display rates — same server-side cache that settles orders, so the
 // prices the customer sees use the exact rate the charge will use (see lib/exchangeRates.js).
 app.get('/exchange-rates', async (req, res) => {

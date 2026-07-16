@@ -14,7 +14,9 @@ const ProductCardList = ({ data, onQuickView }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const { formatPrice } = useContext(CurrencyContext);
     const { addToCart, toggleWishlist, isInWishlist } = useCart();
-    const { isIndia } = useGeo();
+    const { isIndia, orderBlocked } = useGeo();
+    // Browse-only visitors: India (existing rules) or a blocklisted country (e.g. BD)
+    const cannotOrder = isIndia || orderBlocked;
     const queryClient = useQueryClient();
 
     // 🟢 Optimization 1: Memoize Product URL (Slug Logic)
@@ -184,7 +186,7 @@ const ProductCardList = ({ data, onQuickView }) => {
                 </div>
 
                 {/* Buttons */}
-                {isIndia ? (
+                {cannotOrder ? (
                     <p className="text-xs text-text-muted mt-4 italic">
                         If you wish to buy or need information of this book,{' '}
                         <Link to="/contact-us" className="text-primary font-bold hover:underline">contact us</Link>.

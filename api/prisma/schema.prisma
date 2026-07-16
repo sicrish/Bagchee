@@ -461,6 +461,11 @@ model Order {
   // from the admin `comment` above so admin edits never overwrite the customer's words.
   customerComment     String    @default("") @map("customer_comment")
 
+  // Where the customer placed the order from (16-July) — captured at checkout for
+  // forensics and one-click blocking; left empty for admin manual entries.
+  customerIp          String    @default("") @map("customer_ip")
+  customerCountry     String    @default("") @map("customer_country")
+
   // --- Shipping Details (flat columns) ---
   shippingEmail       String    @default("") @map("shipping_email")
   shippingFirstName   String    @default("") @map("shipping_f_name")
@@ -500,6 +505,20 @@ model Order {
   @@index([status])
   @@index([createdAt])
   @@map("orders")
+}
+
+// Customers barred from ordering (16-July) — matched in saveOrder by email (exact),
+// IP (exact, or prefix when the value ends in '.'/':'), or ISO country code ("BD").
+// Managed in /admin/blocklist and via the Block Customer button on an order.
+model BlockedParty {
+  id        Int      @id @default(autoincrement())
+  kind      String   // 'email' | 'ip' | 'country'
+  value     String
+  note      String   @default("")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([kind, value])
+  @@map("blocked_parties")
 }
 
 // Individual line items within an order

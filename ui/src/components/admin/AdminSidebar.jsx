@@ -30,6 +30,7 @@ const AdminSidebar = () => {
     { name: "Help pages", path: "/admin/help-pages" },
     { name: "Socials", path: "/admin/socials" },
     { name: "Orders", path: "/admin/orders" },
+    { name: "Blocked Customers", path: "/admin/blocklist" },
     { name: "Order status", path: "/admin/order-status" },
     { name: "Reviews", path: "/admin/reviews" },
     { name: "Couriers", path: "/admin/couriers" },

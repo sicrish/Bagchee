@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 
-const GeoContext = createContext({ isIndia: false, indiaMaintenance: false, geoLoaded: false, country: '' });
+const GeoContext = createContext({ isIndia: false, indiaMaintenance: false, geoLoaded: false, country: '', orderBlocked: false });
 
 const getIsAdmin = () => {
     try {
@@ -24,6 +24,8 @@ export const GeoProvider = ({ children }) => {
     const [indiaMaintenance, setIndiaMaintenance] = useState(cached ? !!cached.maintenance : false);
     const [geoLoaded, setGeoLoaded] = useState(!!cached);
     const [country, setCountry] = useState(cached?.country ? String(cached.country).toUpperCase() : '');
+    // Server-driven "browse but can't order" flag (admin blocklist countries, e.g. BD)
+    const [rawOrderBlocked, setRawOrderBlocked] = useState(cached ? !!cached.orderBlocked : false);
     const [isAdmin, setIsAdmin] = useState(getIsAdmin);
 
     // Keep isAdmin current on mount and cross-tab login/logout
@@ -36,25 +38,29 @@ export const GeoProvider = ({ children }) => {
 
     useEffect(() => {
         const c = readGeoCache();
-        if (c && c.country) return; // already have full geo (incl. country) from cache
+        // Only trust a cache that has the full current shape — a pre-16-July cache
+        // lacks orderBlocked and must be refreshed.
+        if (c && c.country && c.orderBlocked !== undefined) return;
         axios.get(`${process.env.REACT_APP_API_URL}/geo`)
             .then(res => {
-                const { isIndia: india, maintenance, country: ctry } = res.data;
+                const { isIndia: india, maintenance, country: ctry, orderBlocked: blocked } = res.data;
                 const code = String(ctry || '').toUpperCase();
                 setRawIsIndia(!!india);
                 setIndiaMaintenance(!!maintenance);
                 setCountry(code);
-                sessionStorage.setItem('bagchee_geo', JSON.stringify({ isIndia: !!india, maintenance: !!maintenance, country: code }));
+                setRawOrderBlocked(!!blocked);
+                sessionStorage.setItem('bagchee_geo', JSON.stringify({ isIndia: !!india, maintenance: !!maintenance, country: code, orderBlocked: !!blocked }));
             })
             .catch(() => {})
             .finally(() => setGeoLoaded(true));
     }, []);
 
-    // Admins bypass all India IP restrictions
+    // Admins bypass all IP-based restrictions (India display rules AND order blocks)
     const isIndia = rawIsIndia && !isAdmin;
+    const orderBlocked = rawOrderBlocked && !isAdmin;
 
     return (
-        <GeoContext.Provider value={{ isIndia, indiaMaintenance, geoLoaded, country }}>
+        <GeoContext.Provider value={{ isIndia, indiaMaintenance, geoLoaded, country, orderBlocked }}>
             {children}
         </GeoContext.Provider>
     );

@@ -12,7 +12,9 @@ import axios from '../../utils/axiosConfig.js';
 const ProductCardGrid = ({ data, onQuickView }) => {
     const { formatPrice } = useContext(CurrencyContext);
     const { addToCart, toggleWishlist, isInWishlist } = useCart();
-    const { isIndia } = useGeo();
+    const { isIndia, orderBlocked } = useGeo();
+    // Browse-only visitors: India (existing rules) or a blocklisted country (e.g. BD)
+    const cannotOrder = isIndia || orderBlocked;
     const queryClient = useQueryClient();
 
     // 🟢 Optimization 1: Memoize Slug Creation
@@ -161,7 +163,7 @@ const ProductCardGrid = ({ data, onQuickView }) => {
                     </div>
 
                     {/* Action Buttons */}
-                    {!isIndia && (
+                    {!cannotOrder && (
                     <div className="flex gap-1.5 md:gap-2">
                         <button
                             onClick={handleWishlist}

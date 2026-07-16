@@ -15,7 +15,9 @@ import axios from '../../utils/axiosConfig.js';
 const ProductModal = ({ product, isOpen, onClose }) => {
     const { addToCart, toggleWishlist, isInWishlist } = useCart();
     const { formatPrice } = useContext(CurrencyContext);
-    const { isIndia } = useGeo();
+    const { isIndia, orderBlocked } = useGeo();
+    // Browse-only visitors: India (existing rules) or a blocklisted country (e.g. BD)
+    const cannotOrder = isIndia || orderBlocked;
     const queryClient = useQueryClient();
 
     // 🟢 Wishlist Mutation (Syncing with backend in background)
@@ -149,7 +151,7 @@ const ProductModal = ({ product, isOpen, onClose }) => {
 
                                     {/* --- BOTTOM ACTIONS --- */}
                                     <div className="mt-auto pt-4 border-t border-gray-100 bg-white space-y-3">
-                                        {isIndia ? (
+                                        {cannotOrder ? (
                                             <p className="text-xs text-text-muted italic text-center py-2">
                                                 If you wish to buy or need information of this book,{' '}
                                                 <Link to="/contact-us" onClick={onClose} className="text-primary font-bold hover:underline">contact us</Link>.
@@ -177,7 +179,7 @@ const ProductModal = ({ product, isOpen, onClose }) => {
                                             >
                                                 View Full Details
                                             </Link>
-                                            {!isIndia && (
+                                            {!cannotOrder && (
                                             <button
                                                 onClick={handleWishlist}
                                                 disabled={wishlistMutation.isPending}

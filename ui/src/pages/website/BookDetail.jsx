@@ -25,7 +25,9 @@ const BookDetail = () => {
   const { addToCart, cart, updateQuantity, membershipAdded, setMembershipAdded, toggleWishlist, isInWishlist } = useCart();
 
   const { formatPrice, currency } = useContext(CurrencyContext);
-  const { isIndia } = useGeo();
+  const { isIndia, orderBlocked } = useGeo();
+  // Browse-only visitors: India (existing rules) or a blocklisted country (e.g. BD)
+  const cannotOrder = isIndia || orderBlocked;
 
   const [book, setBook] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -910,7 +912,7 @@ const BookDetail = () => {
                       <CalendarDays className="w-4 h-4" />
                       <span>{upcomingReleaseStr ? `This item will be released on ${upcomingReleaseStr}` : 'Available for pre-order'}</span>
                     </div>
-                  ) : !isIndia ? (
+                  ) : !cannotOrder ? (
                     <div className={`flex items-center gap-1.5 text-xs font-semibold ${isLowStock ? 'text-orange-600' : 'text-green-600'}`}>
                       {isLowStock ? <AlertTriangle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
                       <span>{isLowStock ? `Only ${book.availability} left — order soon!` : 'In Stock'}</span>
@@ -918,7 +920,7 @@ const BookDetail = () => {
                   ) : null}
 
                   {/* Delivery Info — hidden for Indian IPs (worldwide-shipping msg not relevant) */}
-                  {!isUpcoming && !isIndia && (
+                  {!isUpcoming && !cannotOrder && (
                     <div className="bg-blue-50 border border-blue-100 rounded px-1.5 py-3 space-y-2">
                       <div className="flex items-center gap-1">
                         <Package className="w-3.5 h-3.5 text-primary shrink-0" />
@@ -987,8 +989,8 @@ const BookDetail = () => {
                     </div>
                   ), document.body)}
 
-                  {/* 3. Action Section: India / Pre-Order / Normal Selling */}
-                  {isIndia ? (
+                  {/* 3. Action Section: browse-only (India/blocked country) / Pre-Order / Normal Selling */}
+                  {cannotOrder ? (
                     <div className="p-4 bg-cream-50 border border-cream-200 rounded-lg text-sm text-text-main font-body">
                       If you wish to buy or need information of this book,{' '}
                       <Link to="/contact-us" className="text-primary font-bold hover:underline">contact us</Link>.
@@ -1039,9 +1041,9 @@ const BookDetail = () => {
                 </>
               )}
 
-              {/* Footer: Share only for India, Wishlist+Share for others */}
+              {/* Footer: Share only for browse-only visitors, Wishlist+Share for others */}
               <div className="flex gap-2 pt-2 border-t border-gray-100">
-                {!isIndia && (
+                {!cannotOrder && (
                 <button
                   onClick={handleWishlist}
                   className={`flex-1 py-2 px-3 rounded text-[11px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 border ${isWishlisted ? "bg-red-50 text-red-500 border-red-200" : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"}`}

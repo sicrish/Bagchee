@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Check, RotateCcw, X, Loader2, Plus, Trash2, Printer, Mail, Search, Copy, AlertTriangle, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Check, RotateCcw, X, Loader2, Plus, Trash2, Printer, Mail, Search, Copy, AlertTriangle, ArrowLeft, ChevronLeft, ChevronRight, Ban } from 'lucide-react';
 import JoditEditor from 'jodit-react';
 import axios from '../../utils/axiosConfig.js';
 import toast from 'react-hot-toast';
@@ -174,6 +174,13 @@ const EditOrders = () => {
   const [fetching, setFetching] = useState(true);
   const [approving, setApproving] = useState(false);
   const [paymentLink, setPaymentLink] = useState('');
+  // Where the customer placed the order from (empty on orders older than 16-July)
+  const [customerOrigin, setCustomerOrigin] = useState({ ip: '', country: '' });
+  // Block Customer modal
+  const [showBlockModal, setShowBlockModal] = useState(false);
+  const [blockChecks, setBlockChecks] = useState({ email: true, ip: true, country: false });
+  const [blockNote, setBlockNote] = useState('');
+  const [blocking, setBlocking] = useState(false);
   const [resending, setResending] = useState(false);
   const [emailingInvoice, setEmailingInvoice] = useState(false);
   const [purchaseOrderNumber, setPurchaseOrderNumber] = useState('');
@@ -331,7 +338,9 @@ const EditOrders = () => {
             shipping_address_1:    d.shippingAddress1     || d.shipping_details?.address1 || '',
             shipping_address_2:    d.shippingAddress2     || d.shipping_details?.address2 || '',
             shipping_company:      d.shippingCompany      || d.shipping_details?.company || '',
-            shipping_country:      d.shippingCountry      || d.shipping_details?.country || 'India',
+            // No 'India' fallback: an unset country must LOOK unset, not like a fact —
+            // a false 'India' here is what hid the Switzerland bug (16-July, order 17655).
+            shipping_country:      d.shippingCountry      || d.shipping_details?.country || '',
             shipping_state_region: d.shippingState        || d.shipping_details?.state || '',
             shipping_city:         d.shippingCity         || d.shipping_details?.city || '',
             shipping_postcode:     d.shippingPostcode     || d.shipping_details?.postcode || '',
@@ -343,7 +352,7 @@ const EditOrders = () => {
             billing_address_1:    d.billingAddress1    || d.billing_details?.address1 || '',
             billing_address_2:    d.billingAddress2    || d.billing_details?.address2 || '',
             billing_company:      d.billingCompany     || d.billing_details?.company || '',
-            billing_country:      d.billingCountry     || d.billing_details?.country || 'India',
+            billing_country:      d.billingCountry     || d.billing_details?.country || '',
             billing_state_region: d.billingState       || d.billing_details?.state || '',
             billing_city:         d.billingCity        || d.billing_details?.city || '',
             billing_postcode:     d.billingPostcode    || d.billing_details?.postcode || '',
@@ -358,6 +367,10 @@ const EditOrders = () => {
           setCustomerComment(d.customerComment || d.customer_comment || '');
           setPaymentLink(d.paymentLink || d.payment_link || '');
           setPurchaseOrderNumber(d.purchaseOrderNumber || d.purchase_order_number || '');
+          setCustomerOrigin({
+            ip: d.customerIp || d.customer_ip || '',
+            country: d.customerCountry || d.customer_country || '',
+          });
         } else if (orderRes.status === 'rejected') {
           toast.error("Failed to load order data");
         } else {
@@ -733,6 +746,30 @@ ${estDeliveryLine}
     setEmailModalOpen(true);
   };
 
+  // Block Customer (16-July): writes blocklist entries — saveOrder then rejects any
+  // order matching the blocked email / IP / country (guest or logged in).
+  const handleBlockCustomer = async () => {
+    const API_URL = process.env.REACT_APP_API_URL;
+    const targets = [];
+    if (blockChecks.email && formData.shipping_email) targets.push({ kind: 'email', value: formData.shipping_email });
+    if (blockChecks.ip && customerOrigin.ip) targets.push({ kind: 'ip', value: customerOrigin.ip });
+    if (blockChecks.country && customerOrigin.country) targets.push({ kind: 'country', value: customerOrigin.country });
+    if (!targets.length) { toast.error('Select at least one thing to block'); return; }
+    setBlocking(true);
+    try {
+      for (const t of targets) {
+        await axios.post(`${API_URL}/blocklist/create`, { ...t, note: blockNote || `Blocked from order #${formData.order_number || id}` });
+      }
+      toast.success(`Blocked ${targets.map(t => `${t.kind} ${t.value}`).join(', ')}`);
+      setShowBlockModal(false);
+      setBlockNote('');
+    } catch (e) {
+      toast.error(e.response?.data?.msg || 'Failed to add block');
+    } finally {
+      setBlocking(false);
+    }
+  };
+
   const openCancelEmailModal = () => {
     const firstName = formData.shipping_first_name || '';
     const lastName  = formData.shipping_last_name  || '';
@@ -951,6 +988,56 @@ ${bankDetails}
         </div>
       </div>
 
+      {/* ─── Block Customer Modal (16-July) ─── */}
+      {showBlockModal && (
+        <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4" onClick={() => setShowBlockModal(false)}>
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-red-600 flex items-center gap-2 font-montserrat">
+                <Ban size={14} /> Block Customer
+              </h3>
+              <button type="button" onClick={() => setShowBlockModal(false)} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <p className="text-[11px] text-gray-500 leading-relaxed">
+                Blocked customers can never place an order again (guest or logged in) — they get a generic
+                "contact customer support" error at checkout. Manage all blocks under <b>Blocked Customers</b> in the admin menu.
+              </p>
+              <label className={`flex items-start gap-2.5 text-xs ${formData.shipping_email ? 'cursor-pointer' : 'opacity-40'}`}>
+                <input type="checkbox" className="mt-0.5" disabled={!formData.shipping_email}
+                  checked={blockChecks.email && !!formData.shipping_email}
+                  onChange={(e) => setBlockChecks((p) => ({ ...p, email: e.target.checked }))} />
+                <span><b>Email</b><br /><span className="font-mono text-gray-600">{formData.shipping_email || 'no email on this order'}</span></span>
+              </label>
+              <label className={`flex items-start gap-2.5 text-xs ${customerOrigin.ip ? 'cursor-pointer' : 'opacity-40'}`}>
+                <input type="checkbox" className="mt-0.5" disabled={!customerOrigin.ip}
+                  checked={blockChecks.ip && !!customerOrigin.ip}
+                  onChange={(e) => setBlockChecks((p) => ({ ...p, ip: e.target.checked }))} />
+                <span><b>IP address</b><br /><span className="font-mono text-gray-600">{customerOrigin.ip || 'not recorded (order predates IP capture)'}</span></span>
+              </label>
+              <label className={`flex items-start gap-2.5 text-xs ${customerOrigin.country ? 'cursor-pointer' : 'opacity-40'}`}>
+                <input type="checkbox" className="mt-0.5" disabled={!customerOrigin.country}
+                  checked={blockChecks.country && !!customerOrigin.country}
+                  onChange={(e) => setBlockChecks((p) => ({ ...p, country: e.target.checked }))} />
+                <span><b>Entire country</b> <span className="font-mono text-gray-600">{customerOrigin.country || '—'}</span><br />
+                <span className="text-red-500">Blocks EVERY customer ordering from this country — use with care.</span></span>
+              </label>
+              <input type="text" value={blockNote} onChange={(e) => setBlockNote(e.target.value)}
+                placeholder={`Note (default: Blocked from order #${formData.order_number || id})`}
+                className="w-full border border-gray-200 rounded px-3 py-2 text-xs" />
+              <div className="flex justify-end gap-2 pt-1">
+                <button type="button" onClick={() => setShowBlockModal(false)}
+                  className="px-4 py-2 rounded text-[11px] font-bold uppercase tracking-wider bg-gray-100 hover:bg-gray-200 text-gray-600">Cancel</button>
+                <button type="button" onClick={handleBlockCustomer} disabled={blocking}
+                  className="px-4 py-2 rounded text-[11px] font-bold uppercase tracking-wider bg-red-600 hover:bg-red-700 text-white flex items-center gap-1.5 disabled:opacity-50">
+                  {blocking ? <Loader2 size={12} className="animate-spin" /> : <Ban size={12} />} Block
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ─── Order Confirmation Email Modal ─── */}
       {emailModalOpen && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
@@ -1016,7 +1103,14 @@ ${bankDetails}
         <form className="bg-white rounded border border-cream-200 shadow-sm overflow-hidden">
 
           <div className="bg-cream-100 px-6 py-2 border-b border-cream-200 flex justify-between items-center">
-            <h2 className="text-[11px] font-bold uppercase tracking-wider font-montserrat text-text-muted">Order Details</h2>
+            <div className="flex items-center gap-3">
+              <h2 className="text-[11px] font-bold uppercase tracking-wider font-montserrat text-text-muted">Order Details</h2>
+              {customerOrigin.ip && (
+                <span className="text-[10px] text-gray-400 font-mono" title="Where the customer placed this order from">
+                  placed from {customerOrigin.ip}{customerOrigin.country ? ` · ${customerOrigin.country}` : ''}
+                </span>
+              )}
+            </div>
             <div className="flex gap-2 items-center">
               {formData.status === 'approval pending' && (
                 <button
@@ -1063,6 +1157,14 @@ ${bankDetails}
                 className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all"
               >
                 <Mail size={12} /> Cancel Order Email
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowBlockModal(true)}
+                className="bg-gray-900 hover:bg-black text-white px-4 py-1.5 rounded text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all"
+                title="Stop this customer from placing any future orders"
+              >
+                <Ban size={12} /> Block Customer
               </button>
               <button type="button" onClick={() => navigate(`/admin/orders${backToListQs}`)} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
             </div>
