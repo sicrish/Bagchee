@@ -6,12 +6,15 @@ import {
 import { useNavigate } from 'react-router-dom'; // 🟢 Import useParams
 import axios from '../../utils/axiosConfig';
 import {useConfirm} from '../../context/ConfirmContext.jsx'
+import { getAdminRole } from '../../utils/adminAccess.js';
 
 import toast from 'react-hot-toast';
 
 const ProductList = () => {
   const navigate = useNavigate();
   const {confirm}=useConfirm()
+  // Staff logins are data-entry only — no book deletion (backend delete route is admin-only too)
+  const isStaff = getAdminRole() === 'staff';
 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -400,12 +403,14 @@ const ProductList = () => {
                         >
                           <Edit size={14} />
                         </button>
-                        <button
-                          onClick={() => handleDelete(item.id || item._id)}
-                          className="p-1.5 bg-gray-100 border rounded text-red-500 hover:bg-white transition-all shadow-sm"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        {!isStaff && (
+                          <button
+                            onClick={() => handleDelete(item.id || item._id)}
+                            className="p-1.5 bg-gray-100 border rounded text-red-500 hover:bg-white transition-all shadow-sm"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

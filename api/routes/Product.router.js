@@ -1,6 +1,7 @@
 import express from 'express';
 import * as ProductController from '../controller/Product.controller.js';
 import adminOrStaff from '../middleware/adminOrStaff.middleware.js';
+import adminAuth from '../middleware/adminAuth.middleware.js';
 import optionalAuth from '../middleware/optionalAuth.middleware.js';
 
 const router = express.Router();
@@ -20,9 +21,9 @@ router.get("/sale-categories",                ProductController.getSaleCategorie
 router.get("/new-arrival-categories",         ProductController.getNewArrivalCategories);
 router.get("/new-arrivals",                   ProductController.getNewArrivals);
 
-// ADMIN — product mutations
+// ADMIN — product mutations (staff may create/edit but never delete)
 router.post("/save",          adminOrStaff, ProductController.save);
 router.patch("/update/:id",   adminOrStaff, ProductController.update);
-router.delete("/delete/:id",  adminOrStaff, ProductController.deleteProduct);
+router.delete("/delete/:id",  adminAuth,    ProductController.deleteProduct);
 
 export default router;

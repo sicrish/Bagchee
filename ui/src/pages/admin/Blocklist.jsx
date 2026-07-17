@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Ban, Trash2, Plus, Loader2, ShieldAlert } from 'lucide-react';
+import { Ban, Unlock, Plus, Loader2, ShieldAlert } from 'lucide-react';
 import axios from '../../utils/axiosConfig.js';
 import toast from 'react-hot-toast';
 
@@ -146,8 +146,9 @@ const Blocklist = () => {
                       </td>
                       <td className="px-4 py-2.5 text-right">
                         <button type="button" onClick={() => handleDelete(entry)}
-                          className="bg-red-50 text-red-500 p-2 rounded hover:bg-red-100 transition-colors" title="Unblock">
-                          <Trash2 size={14} />
+                          className="bg-green-50 text-green-700 border border-green-200 px-3 py-1.5 rounded hover:bg-green-100 transition-colors text-[11px] font-bold uppercase tracking-wider inline-flex items-center gap-1.5"
+                          title="Remove this block — they can order again">
+                          <Unlock size={13} /> Unblock
                         </button>
                       </td>
                     </tr>
