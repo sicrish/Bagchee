@@ -126,8 +126,8 @@ const Blocklist = () => {
                   <tr className="bg-cream-100 text-[10px] uppercase tracking-wider text-gray-500">
                     <th className="text-left px-4 py-2.5">Type</th>
                     <th className="text-left px-4 py-2.5">Value</th>
-                    <th className="text-left px-4 py-2.5">Note</th>
-                    <th className="text-left px-4 py-2.5">Added</th>
+                    <th className="text-left px-4 py-2.5 hidden sm:table-cell">Note</th>
+                    <th className="text-left px-4 py-2.5 hidden sm:table-cell">Added</th>
                     <th className="px-4 py-2.5"></th>
                   </tr>
                 </thead>
@@ -139,9 +139,9 @@ const Blocklist = () => {
                           {entry.kind}
                         </span>
                       </td>
-                      <td className="px-4 py-2.5 font-mono text-xs">{entry.value}</td>
-                      <td className="px-4 py-2.5 text-xs text-gray-500">{entry.note || '—'}</td>
-                      <td className="px-4 py-2.5 text-xs text-gray-400 whitespace-nowrap">
+                      <td className="px-4 py-2.5 font-mono text-xs break-all">{entry.value}</td>
+                      <td className="px-4 py-2.5 text-xs text-gray-500 hidden sm:table-cell">{entry.note || '—'}</td>
+                      <td className="px-4 py-2.5 text-xs text-gray-400 whitespace-nowrap hidden sm:table-cell">
                         {entry.createdAt ? new Date(entry.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
                       </td>
                       <td className="px-4 py-2.5 text-right">
