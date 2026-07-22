@@ -1843,12 +1843,12 @@ const BookDetail = () => {
         </div>
       )}
 
-      {/* 🟢 Others Also Bought Section */}
+      {/* 🟢 Customer Also Bought Section — books co-ordered with this one */}
       {alsoBoughtBooks.length > 0 && (
         <div className="max-w-380 mx-auto px-4 mt-8 mb-8">
           <div className="bg-cream-100 border border-gray-200 rounded p-6">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-xl font-display font-bold text-gray-900">Others Also Bought</h2>
+              <h2 className="text-xl font-display font-bold text-gray-900">Customer Also Bought</h2>
               {alsoBoughtBooks.length > 4 && (
                 <div className="flex gap-2">
                   <button onClick={() => alsoBoughtCarouselRef.current?.scrollBy({ left: -300, behavior: 'smooth' })} className="p-1.5 bg-cream-100 hover:bg-cream-200 rounded transition-colors">

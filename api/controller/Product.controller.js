@@ -613,11 +613,11 @@ export const getRelatedProducts = async (req, res) => {
         const result = await cache.get(`related:${bagcheeId}`, FIVE_MIN, async () => {
             const product = await prisma.product.findFirst({
                 where: { bagcheeId: { equals: bagcheeId, mode: 'insensitive' } },
-                select: { id: true, leadingCategoryId: true, seriesId: true, publisherId: true, relatedProducts: true }
+                select: { id: true, leadingCategoryId: true, seriesId: true, relatedProducts: true }
             });
             if (!product) return null;
 
-            const { id, leadingCategoryId, seriesId, publisherId, relatedProducts } = product;
+            const { id, leadingCategoryId, seriesId, relatedProducts } = product;
 
             // Fetch admin-selected related products first (if any)
             let adminRelated = [];
@@ -663,12 +663,30 @@ export const getRelatedProducts = async (req, res) => {
                     orderBy: { id: 'asc' },
                     take: 20
                 }) : Promise.resolve([]),
-                publisherId ? prisma.product.findMany({
-                    where: { publisherId, isActive: true, NOT: { id } },
-                    include: PRODUCT_LIST_INCLUDE,
-                    orderBy: { soldCount: 'desc' },
-                    take: 20
-                }) : Promise.resolve([]),
+                // "Customer Also Bought" — books that appear in the SAME orders as this
+                // product (market-basket co-occurrence), ranked by how many distinct orders
+                // pair them together. Empty when the book has no shared-order history.
+                (async () => {
+                    const rows = await prisma.$queryRaw`
+                        SELECT poi2.product_id AS id, COUNT(DISTINCT poi2.order_id)::int AS freq
+                        FROM product_to_order poi1
+                        JOIN product_to_order poi2
+                          ON poi2.order_id = poi1.order_id AND poi2.product_id <> poi1.product_id
+                        WHERE poi1.product_id = ${id}
+                        GROUP BY poi2.product_id
+                        ORDER BY freq DESC, poi2.product_id DESC
+                        LIMIT 20
+                    `;
+                    if (!rows.length) return [];
+                    const coIds = rows.map(r => Number(r.id));
+                    const prods = await prisma.product.findMany({
+                        where: { id: { in: coIds }, isActive: true },
+                        include: PRODUCT_LIST_INCLUDE,
+                    });
+                    // findMany ignores `in` order — restore the co-occurrence ranking.
+                    const rank = new Map(coIds.map((pid, i) => [pid, i]));
+                    return prods.sort((a, b) => (rank.get(a.id) ?? 99) - (rank.get(b.id) ?? 99));
+                })(),
             ]);
 
             const adminRelatedIds = new Set(adminRelated.map(b => b.id));
