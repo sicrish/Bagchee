@@ -634,29 +634,66 @@ export const getRelatedProducts = async (req, res) => {
                 }
             }
 
-            // Walk up category tree to find root category for broader related books
-            let rootCategoryId = leadingCategoryId;
-            if (leadingCategoryId) {
-                let current = await prisma.category.findUnique({
-                    where: { id: leadingCategoryId },
-                    select: { id: true, parentId: true }
+            // "You May Also Like" source category (23-July client spec): the book's
+            // admin "leading category" itself; when that is blank, the DEEPEST of the
+            // book's assigned categories — the last set shown in the admin category
+            // box (Health, Mind & Body > Alternative Medicine > Ayurveda → Ayurveda).
+            let sourceCategoryId = leadingCategoryId || null;
+            if (!sourceCategoryId) {
+                const links = await prisma.productCategory.findMany({
+                    where: { productId: id },
+                    select: { categoryId: true },
+                    orderBy: { categoryId: 'asc' },
                 });
-                while (current?.parentId && current.parentId > 2) {
-                    current = await prisma.category.findUnique({
-                        where: { id: current.parentId },
-                        select: { id: true, parentId: true }
-                    });
+                if (links.length) {
+                    // The junction stores every level of each assigned chain, so the
+                    // deepest node is a chain's leaf. Depth comes from walking parentId
+                    // over the full (small) category table — `level` can be null on
+                    // admin-created categories.
+                    const cats = await prisma.category.findMany({ select: { id: true, parentId: true } });
+                    const parentOf = new Map(cats.map(c => [c.id, c.parentId]));
+                    const depthOf = (cid) => {
+                        let depth = 0, cur = parentOf.get(cid);
+                        const seen = new Set([cid]);
+                        while (cur && parentOf.has(cur) && !seen.has(cur) && depth < 15) {
+                            seen.add(cur);
+                            cur = parentOf.get(cur);
+                            depth++;
+                        }
+                        return depth;
+                    };
+                    let bestDepth = -1;
+                    for (const { categoryId } of links) {
+                        const d = depthOf(categoryId);
+                        if (d >= bestDepth) { sourceCategoryId = categoryId; bestDepth = d; }
+                    }
                 }
-                if (current) rootCategoryId = current.id;
             }
 
             const [relatedRaw, seriesRaw, alsoBoughtRaw] = await Promise.all([
-                rootCategoryId ? prisma.product.findMany({
-                    where: { AND: [{ isActive: true }, { OR: [{ leadingCategoryId: rootCategoryId }, { categories: { some: { categoryId: rootCategoryId } } }] }, { NOT: { id } }] },
-                    include: PRODUCT_LIST_INCLUDE,
-                    orderBy: { soldCount: 'desc' },
-                    take: 20
-                }) : Promise.resolve([]),
+                // Top-100 bestsellers of the source category, a random 15 of them per
+                // cache refresh so the box rotates instead of pinning the same books.
+                sourceCategoryId ? (async () => {
+                    const top = await prisma.product.findMany({
+                        where: { AND: [{ isActive: true }, { OR: [{ leadingCategoryId: sourceCategoryId }, { categories: { some: { categoryId: sourceCategoryId } } }] }, { NOT: { id } }] },
+                        select: { id: true },
+                        orderBy: [{ soldCount: 'desc' }, { id: 'desc' }],
+                        take: 100,
+                    });
+                    const pool = top.map(t => t.id);
+                    for (let i = pool.length - 1; i > 0; i--) {
+                        const j = Math.floor(Math.random() * (i + 1));
+                        [pool[i], pool[j]] = [pool[j], pool[i]];
+                    }
+                    const pick = pool.slice(0, 15);
+                    if (!pick.length) return [];
+                    const prods = await prisma.product.findMany({
+                        where: { id: { in: pick } },
+                        include: PRODUCT_LIST_INCLUDE,
+                    });
+                    const rank = new Map(pick.map((pid, i) => [pid, i]));
+                    return prods.sort((a, b) => (rank.get(a.id) ?? 99) - (rank.get(b.id) ?? 99));
+                })() : Promise.resolve([]),
                 seriesId ? prisma.product.findMany({
                     where: { seriesId, isActive: true, NOT: { id } },
                     include: PRODUCT_LIST_INCLUDE,
