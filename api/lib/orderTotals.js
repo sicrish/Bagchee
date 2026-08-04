@@ -1,23 +1,31 @@
 // Shared rule for partial-order invoicing (#5 — June 2026).
 //
-// When an admin marks an out-of-print line item as "cancelled", that item is excluded
-// from the customer-facing invoice, the payment page, and EVERY charge path
-// (Razorpay / PayPal) so the customer pays only for the available titles.
+// When an admin cancels a line item — 'cancelled' (out of print) or 'cancelled - other'
+// (cancelled for any other reason, e.g. on the customer's request — Aug 2026) — that item
+// is excluded from the customer-facing invoice, the payment page, and EVERY charge path
+// (Razorpay / PayPal) so the customer pays only for the remaining titles.
 //
 // This is the single source of truth — imported by the order / razorpay / paypal / email
 // controllers and the invoice PDF generator so the amount shown to the customer and the
 // amount actually charged can never drift apart.
 
-export const CANCELLED_STATUS = 'cancelled';
+export const CANCELLED_STATUS = 'cancelled';               // out of print
+export const CANCELLED_OTHER_STATUS = 'cancelled - other'; // any other cancellation reason
 
-// An item is "cancelled" when its per-item status equals 'cancelled' (case-insensitive).
+// Explicit value set — deliberately NOT a prefix match, so no legacy status string can
+// ever silently join the money path. Legacy numeric ids (e.g. '5' = the order_statuses
+// "Cancelled" row on migrated items) stay excluded from this on purpose.
+// ⚠️ KEEP IN SYNC with the frontend mirrors (EditOrders.jsx / Account/OrderStatus.jsx).
+const CANCELLED_STATUSES = new Set([CANCELLED_STATUS, CANCELLED_OTHER_STATUS]);
+
+// An item is "cancelled" when its per-item status is one of the cancel values (case-insensitive).
 export const isCancelledItem = (item) =>
-    String(item?.status ?? '').trim().toLowerCase() === CANCELLED_STATUS;
+    CANCELLED_STATUSES.has(String(item?.status ?? '').trim().toLowerCase());
 
 // Line items the customer actually pays for / sees.
 export const activeItems = (items = []) => (items || []).filter((it) => !isCancelledItem(it));
 
-// Line items that have been cancelled (out of print).
+// Line items that have been cancelled (out of print or otherwise).
 export const cancelledItems = (items = []) => (items || []).filter(isCancelledItem);
 
 // Gross value (price × qty) of a list of line items, rounded to 2 dp.

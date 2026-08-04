@@ -12,6 +12,11 @@ import AccountLayout from '../../../layouts/AccountLayout';
 import axios from '../../../utils/axiosConfig';
 import toast from 'react-hot-toast';
 
+// Item-level cancel statuses — mirrors isCancelledItem in api/lib/orderTotals.js.
+// 'cancelled' = out of print; 'cancelled - other' = cancelled for any other reason.
+// Both are excluded from the invoice and the amount charged.
+const isCancelledItemStatus = (s) => ['cancelled', 'cancelled - other'].includes(String(s || '').trim().toLowerCase());
+
 const OrderStatus = () => {
     const { orderId } = useParams();
     const navigate = useNavigate();
@@ -36,9 +41,9 @@ const OrderStatus = () => {
     const handleViewInvoice = () => {
         const o = order;
         const num = o.orderNumber || o.order_number || orderId;
-        // Out-of-print (cancelled) items are excluded from the invoice — matches the emailed
-        // PDF and the amount actually charged.
-        const items = (o.items || o.products || []).filter(it => String(it.status || '').toLowerCase() !== 'cancelled');
+        // Cancelled items (out of print / other) are excluded from the invoice — matches the
+        // emailed PDF and the amount actually charged.
+        const items = (o.items || o.products || []).filter(it => !isCancelledItemStatus(it.status));
         const invoiceTotal = o.payableTotal != null ? o.payableTotal : Number(o.total || 0);
         const rows = items.map(it => `
             <tr>
@@ -94,14 +99,14 @@ const OrderStatus = () => {
     const items      = order.items || order.products || [];
     const orderNum   = order.orderNumber || order.order_number || order._id?.slice(-8)?.toUpperCase() || orderId;
 
-    // Out-of-print (cancelled) line items are netted out of the order total. `order.total`
+    // Cancelled line items (out of print / other) are netted out of the order total. `order.total`
     // already includes shipping, so payableTotal IS the all-in amount (no separate shipping add).
     // Fallback (older cached payloads) nets the cancelled lines off the stored total.
-    const cancelledItemsCount = items.filter(it => String(it.status || '').toLowerCase() === 'cancelled').length;
+    const cancelledItemsCount = items.filter(it => isCancelledItemStatus(it.status)).length;
     const displayTotal = order.payableTotal != null
         ? order.payableTotal
         : Math.max(0, (order.total || 0) - items
-            .filter(it => String(it.status || '').toLowerCase() === 'cancelled')
+            .filter(it => isCancelledItemStatus(it.status))
             .reduce((s, it) => s + (Number(it.price) || 0) * (Number(it.quantity) || 1), 0));
     const placedAt   = order.createdAt   || order.created_at;
     const shippedAt  = order.shippedAt   || order.shipped_at;
@@ -172,6 +177,7 @@ const OrderStatus = () => {
             case 'processing':
                 return { step: 1, color: 'text-primary', bgPill: 'bg-primary-50 border-primary-100', icon: ClipboardCheck, label: 'Confirmed' };
             case 'cancelled':
+            case 'cancelled - other':
             case 'google cancelled':
                 return { step: -1, color: 'text-red-600', bgPill: 'bg-red-50 border-red-100', icon: XCircle, label: 'Cancelled' };
             case 'on hold':
@@ -466,8 +472,10 @@ const OrderStatus = () => {
                             const activeStatus = item.status || order.status || 'pending';
                             const config = getStatusConfig(activeStatus);
                             const itemIsShipped = config.step >= 2;
-                            // Out-of-print line item: shown struck-through (like admin) and excluded from the invoice/charge
-                            const itemCancelled = String(item.status || '').toLowerCase() === 'cancelled';
+                            // Cancelled line item: shown struck-through (like admin) and excluded from the invoice/charge.
+                            // 'cancelled' = out of print, 'cancelled - other' = any other reason — badge text differs.
+                            const itemCancelled = isCancelledItemStatus(item.status);
+                            const itemOutOfPrint = String(item.status || '').trim().toLowerCase() === 'cancelled';
 
                             // Tracking link
                             const trackingCode = item.trackingCode || item.tracking_code || item.tracking_id || '';
@@ -500,7 +508,7 @@ const OrderStatus = () => {
                                                 {item.quantity > 1 && <p className="text-xs text-text-muted mt-0.5">Qty: {item.quantity}</p>}
                                                 {itemCancelled && (
                                                     <span className="inline-block mt-1.5 text-[10px] font-black text-red-600 bg-red-50 border border-red-200 rounded px-1.5 py-0.5 uppercase tracking-wide">
-                                                        Out of print · excluded from invoice &amp; payment
+                                                        {itemOutOfPrint ? 'Out of print' : 'Cancelled'} · excluded from invoice &amp; payment
                                                     </span>
                                                 )}
 
@@ -534,7 +542,8 @@ const OrderStatus = () => {
                                         {/* Status badge — includes payment status */}
                                         <div className="flex flex-col items-start md:items-end gap-2 shrink-0">
                                             <span className={`px-4 py-1.5 rounded-2xl text-xs font-black uppercase tracking-widest border flex items-center gap-1.5 ${config.bgPill} ${config.color}`}>
-                                                <config.icon size={13} /> {activeStatus}
+                                                {/* Cancelled rows show the friendly label — the raw 'cancelled - other' value never surfaces */}
+                                                <config.icon size={13} /> {itemCancelled ? config.label : activeStatus}
                                             </span>
                                             {payStatus && (
                                                 <span className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border ${payBadgeClass()}`}>
@@ -580,7 +589,7 @@ const OrderStatus = () => {
                                         <div className={`p-4 rounded-xl border flex items-center gap-3 ${config.bgPill}`}>
                                             <config.icon className={config.color} size={22} />
                                             <div>
-                                                <p className={`text-sm font-bold ${config.color}`}>This item is {activeStatus}.</p>
+                                                <p className={`text-sm font-bold ${config.color}`}>This item is {itemCancelled ? 'cancelled' : activeStatus}.</p>
                                                 {(item.cancelNote || item.cancel_note || item.returnNote || item.return_note) && (
                                                     <p className="text-xs mt-1 text-gray-600">Reason: {item.cancelNote || item.cancel_note || item.returnNote || item.return_note}</p>
                                                 )}
@@ -638,7 +647,7 @@ const OrderStatus = () => {
                             </p>
                             {cancelledItemsCount > 0 && (
                                 <p className="text-[10px] text-red-500 font-bold mt-0.5">
-                                    Adjusted — {cancelledItemsCount} out-of-print {cancelledItemsCount === 1 ? 'item' : 'items'} removed
+                                    Adjusted — {cancelledItemsCount} cancelled {cancelledItemsCount === 1 ? 'item' : 'items'} removed
                                 </p>
                             )}
                         </div>

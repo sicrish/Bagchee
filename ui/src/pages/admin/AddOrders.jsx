@@ -430,9 +430,15 @@ const AddOrders = () => {
                               className="w-full outline-none bg-transparent text-[10px]"
                             >
                               <option value="">Select Status</option>
+                              {/* Cancel options mirror EditOrders: 'cancelled' = out of print,
+                                  'cancelled - other' = any other reason. Both are excluded from
+                                  invoice & charge (api/lib/orderTotals.js). The DB "Cancelled"
+                                  row is filtered out so its name can't collide with them. */}
+                              <option value="cancelled">Cancelled (out of print)</option>
+                              <option value="cancelled - other">Cancelled</option>
                               {/* 🟢 Dynamic Row Status Options */}
-                              {orderStatuses.map((st) => (
-                                <option key={st.id || st.id || st._id} value={st.name}>
+                              {orderStatuses.filter((st) => String(st.name).toLowerCase() !== 'cancelled').map((st) => (
+                                <option key={st.id || st._id} value={st.name}>
                                   {st.name}
                                 </option>
                               ))}

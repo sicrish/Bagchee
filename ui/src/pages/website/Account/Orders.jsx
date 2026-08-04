@@ -152,11 +152,12 @@ const navigate = useNavigate();
 
   const getOrderTotal = (order) => {
     // `order.total` already includes shipping; `payableTotal` (from the API) additionally
-    // nets out any out-of-print (cancelled) items so the list agrees with the order detail,
-    // the invoice and the amount charged. Fallback nets cancelled lines off the stored total.
+    // nets out any cancelled items (out of print / other — mirrors api/lib/orderTotals.js)
+    // so the list agrees with the order detail, the invoice and the amount charged.
+    // Fallback nets cancelled lines off the stored total.
     if (order.payableTotal != null) return order.payableTotal;
     const cancelled = (order.items || order.products || [])
-      .filter((it) => String(it.status || '').toLowerCase() === 'cancelled')
+      .filter((it) => ['cancelled', 'cancelled - other'].includes(String(it.status || '').trim().toLowerCase()))
       .reduce((s, it) => s + (Number(it.price) || 0) * (Number(it.quantity) || 1), 0);
     return Math.max(0, (order.total || 0) - cancelled);
   };

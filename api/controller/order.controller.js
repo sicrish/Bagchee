@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { sendOrderConfirmation, sendOrderShippedEmail, sendOrderStatusEmail, sendPaymentLinkEmail, sendInvoiceEmail, sendCustomConfirmationEmail, sendMembershipWelcome } from './email.controller.js';
 import { calcDiscount, couponAlreadyUsed } from './coupon.controller.js';
 import { createGiftCardsForOrder, applyWalletBalance } from './giftCard.controller.js';
-import { activeItems, payableTotal, payableShipping } from '../lib/orderTotals.js';
+import { activeItems, payableTotal, payableShipping, isCancelledItem } from '../lib/orderTotals.js';
 import { isMembershipActive } from '../lib/membership.js';
 import { getUsdConversionRate } from '../lib/exchangeRates.js';
 import { findBlockMatch } from '../lib/blocklist.js';
@@ -788,9 +788,9 @@ export const updateOrder = async (req, res) => {
         // pre-save status on save, which would otherwise overwrite this flip.
         if (autoAdvancedToInProgress) {
             const orderItems = await prisma.orderItem.findMany({ where: { orderId: id }, select: { id: true, status: true } });
-            const keepAsIs = ['cancelled', 'shipped', 'delivered', 'completed'];
+            const keepAsIs = ['shipped', 'delivered', 'completed'];
             await Promise.all(orderItems
-                .filter((it) => !keepAsIs.includes(String(it.status || '').trim().toLowerCase()))
+                .filter((it) => !isCancelledItem(it) && !keepAsIs.includes(String(it.status || '').trim().toLowerCase()))
                 .map((it) => prisma.orderItem.update({ where: { id: it.id }, data: { status: 'In Progress' } })));
         }
 

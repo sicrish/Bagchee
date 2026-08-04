@@ -6,6 +6,14 @@ import axios from '../../utils/axiosConfig.js';
 import toast from 'react-hot-toast';
 import CustomerSelect from '../../components/admin/CustomerSelect.jsx';
 
+// ── Item-level cancel statuses ────────────────────────────────────────────────
+// 'cancelled' = out of print; 'cancelled - other' = cancelled for any other reason
+// (customer request by email etc. — Aug 2026). Both are struck through and excluded
+// from the invoice, the payment link and every charge path.
+// ⚠️ MUST mirror isCancelledItem in api/lib/orderTotals.js (the backend authority).
+const CANCELLED_ITEM_STATUSES = ['cancelled', 'cancelled - other'];
+const isCancelledItemStatus = (s) => CANCELLED_ITEM_STATUSES.includes(String(s ?? '').trim().toLowerCase());
+
 // ── Tiered shipping (Expedited / Express) re-rate for partial invoicing (#5) ──
 // When out-of-print line items are cancelled, Expedited/Express shipping is re-banded
 // for the REMAINING books (it's priced in quantity bands, not per book). This mirrors
@@ -36,7 +44,7 @@ const previewPayableShipping = (shippingCost, shippingType, items = []) => {
   if (!tiers) return shipping;
   const countBooks = (arr) => arr.reduce((n, it) => n + (Number(it.quantity) || 1), 0);
   const allBooks = countBooks(items);
-  const remaining = countBooks(items.filter((p) => String(p.status).toLowerCase() !== 'cancelled'));
+  const remaining = countBooks(items.filter((p) => !isCancelledItemStatus(p.status)));
   if (remaining >= allBooks) return shipping;
   const origUsd = tierUsdFor(tiers, allBooks);
   if (origUsd <= 0) return shipping;
@@ -798,13 +806,13 @@ ${estDeliveryLine}
     const orderNum  = formData.order_number || id;
     const currency  = formData.currency || 'USD';
     const dueDate   = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-    // Exclude cancelled (out-of-print) line items so the email shows only payable titles (#5)
-    const activeProducts = orderProducts.filter(p => String(p.status).toLowerCase() !== 'cancelled');
+    // Exclude cancelled line items (out of print / other) so the email shows only payable titles (#5)
+    const activeProducts = orderProducts.filter(p => !isCancelledItemStatus(p.status));
     const itemRows  = activeProducts.map(p =>
       `<li>${p.name || p.product?.title || 'Item'} &times; ${p.quantity || 1} &mdash; ${currency} ${Number(p.price || 0).toFixed(2)}</li>`
     ).join('');
     const cancelledSum = orderProducts
-      .filter(p => String(p.status).toLowerCase() === 'cancelled')
+      .filter(p => isCancelledItemStatus(p.status))
       .reduce((s, p) => s + (Number(p.price) || 0) * (Number(p.quantity) || 1), 0);
     // Re-rate Expedited/Express shipping for the remaining books (matches backend payable)
     const shippingDrop = Math.max(0, (Number(formData.shipping_cost) || 0)
@@ -934,6 +942,7 @@ ${bankDetails}
     const s = String(raw ?? '').trim();
     if (!s) return { value: '' };
     if (s.toLowerCase() === 'cancelled') return { value: 'cancelled' };
+    if (s.toLowerCase() === 'cancelled - other') return { value: 'cancelled - other' };
     if (/^\d+$/.test(s)) {
       const byId = orderStatuses.find((st) => String(st.id ?? st._id) === s);
       return { value: s, extraOption: { value: s, label: byId ? byId.name : s } };
@@ -1352,11 +1361,11 @@ ${bankDetails}
         </thead>
         <tbody>
           {orderProducts.map((row, index) => {
-            // Strikethrough + "excluded" badge only for name-cancelled rows — that is what the
-            // backend's isCancelledItem actually excludes from the invoice/charge. A legacy
+            // Strikethrough + "excluded" badge only for the two cancel values — that is what
+            // the backend's isCancelledItem actually excludes from the invoice/charge. A legacy
             // numeric '5' displays as "Cancelled" in the select but is NOT excluded, so it
             // must not carry the badge.
-            const isCancelledRow = String(row.status ?? '').trim().toLowerCase() === 'cancelled';
+            const isCancelledRow = isCancelledItemStatus(row.status);
             const statusBind = itemStatusBinding(row.status);
             return (
             <tr key={index}>
@@ -1378,6 +1387,7 @@ ${bankDetails}
                 <select value={statusBind.value} onChange={(e) => handleProductChange(index, 'status', e.target.value)} className={`w-full outline-none bg-transparent text-[10px] ${isCancelledRow ? 'text-red-600 font-bold' : ''}`}>
                   <option value="">Status</option>
                   <option value="cancelled">Cancelled (out of print)</option>
+                  <option value="cancelled - other">Cancelled</option>
                   {statusBind.extraOption && <option value={statusBind.extraOption.value}>{statusBind.extraOption.label}</option>}
                   {orderStatuses.filter((st) => String(st.name).toLowerCase() !== 'cancelled').map((st) => <option key={st.id || st._id} value={st.name}>{st.name}</option>)}
                 </select>
@@ -1402,7 +1412,7 @@ ${bankDetails}
     {/* Out-of-print exclusion note + live payable preview (#5) */}
     {(() => {
       const cancelledSum = orderProducts
-        .filter(p => String(p.status).toLowerCase() === 'cancelled')
+        .filter(p => isCancelledItemStatus(p.status))
         .reduce((s, p) => s + (Number(p.price) || 0) * (Number(p.quantity) || 1), 0);
       if (cancelledSum <= 0) return null;
       const cur = formData.currency || 'USD';
@@ -1412,7 +1422,7 @@ ${bankDetails}
       const payablePreview = Math.max(0, (Number(formData.total) || 0) - cancelledSum - shippingDrop);
       return (
         <div className="mt-3 text-[11px] bg-amber-50 border border-amber-200 rounded p-2 text-amber-800 leading-relaxed">
-          <strong>Cancelled (out-of-print) items are excluded.</strong> The customer&apos;s invoice &amp; payment link will charge{' '}
+          <strong>Cancelled items are excluded.</strong> The customer&apos;s invoice &amp; payment link will charge{' '}
           <strong>{cur} {payablePreview.toFixed(2)}</strong> instead of the full order total {cur} {Number(formData.total || 0).toFixed(2)}.
           {shippingDrop > 0 && (
             <> Shipping is re-rated for the remaining books: <strong>{cur} {fullShipping.toFixed(2)} → {cur} {newShipping.toFixed(2)}</strong>.</>

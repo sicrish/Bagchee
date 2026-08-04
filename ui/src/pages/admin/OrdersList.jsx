@@ -40,6 +40,17 @@ const statusName = (raw, statuses) => {
   return byName ? byName.name : s;
 };
 
+// Item-level statuses additionally carry the two cancel values from the per-item dropdown
+// ('cancelled' = out of print, 'cancelled - other' = any other reason — both excluded from
+// invoice & charge). Label them distinctly so the export stays truthful. Order-level
+// statuses never store 'cancelled - other', so plain statusName keeps handling those.
+const itemStatusName = (raw, statuses) => {
+  const lower = String(raw ?? '').trim().toLowerCase();
+  if (lower === 'cancelled') return 'Cancelled (out of print)';
+  if (lower === 'cancelled - other') return 'Cancelled';
+  return statusName(raw, statuses);
+};
+
 // Customer label for the orders list — mirrors the order-detail page (EditOrders.jsx).
 // Guest-checkout orders have no user record (customerId null); surface them as
 // "Guest Customer — First Last" (falling back to shipping email) instead of "Unknown Customer".
@@ -247,7 +258,7 @@ const handleExport = async () => {
       // 2. Mapping logic — Prisma returns flat camelCase fields
       const dataToExport = allOrders.map((order, index) => {
         const productDetails = (order.items || order.products || []).map(p =>
-          `${p.name || p.product?.title || 'Item'} (Price: ${p.price}, Qty: ${p.quantity}, Status: ${statusName(p.status, orderStatuses) || 'N/A'})`
+          `${p.name || p.product?.title || 'Item'} (Price: ${p.price}, Qty: ${p.quantity}, Status: ${itemStatusName(p.status, orderStatuses) || 'N/A'})`
         ).join(" | ") || "-";
 
         return {
