@@ -25,6 +25,7 @@ const OrderStatus = () => {
 
     const [order, setOrder] = useState(location.state?.orderData || null);
     const [cancelling, setCancelling] = useState(false);
+    const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
     const [showInvoiceMenu, setShowInvoiceMenu] = useState(false);
     const [emailingInvoice, setEmailingInvoice] = useState(false);
 
@@ -196,20 +197,23 @@ const OrderStatus = () => {
     // ── Can cancel? (blocked once shipped or beyond) ──────────────────────────
     const SHIPPED_STATUSES = ['shipped', 'partially shipped', 'in transit', 'delivered', 'completed', 'cancelled'];
     const canCancel = !SHIPPED_STATUSES.includes(orderStatus);
+    const cancelRequestedAt = order.cancelRequestedAt || order.cancel_requested_at || null;
 
+    // Cancelling is a REQUEST: we email the shop and acknowledge to the customer, then the
+    // team cancels the order (status → Cancelled) and confirms by email.
     const handleCancel = async () => {
-        if (!window.confirm('Are you sure you want to cancel this order? This cannot be undone.')) return;
+        setConfirmCancelOpen(false);
         setCancelling(true);
         try {
-            const res = await axios.post(`${API_BASE_URL}/orders/${order.id || orderId}/cancel`);
+            const res = await axios.post(`${API_BASE_URL}/orders/${order.id || orderId}/cancel-request`);
             if (res.data.status) {
-                toast.success('Order cancelled successfully.');
-                setOrder(res.data.data);
+                toast.success(res.data.msg || 'Your cancellation request has been sent.');
+                if (res.data.data) setOrder(res.data.data);
             } else {
-                toast.error(res.data.msg || 'Could not cancel order.');
+                toast.error(res.data.msg || 'Could not send your cancellation request.');
             }
         } catch (err) {
-            toast.error(err.response?.data?.msg || 'Failed to cancel order.');
+            toast.error(err.response?.data?.msg || 'Could not send your cancellation request.');
         } finally {
             setCancelling(false);
         }
@@ -424,10 +428,21 @@ const OrderStatus = () => {
                                 </div>
                             </Link>
 
-                            {/* Cancel Order */}
+                            {/* Cancel Order — sends a cancellation request to our team */}
                             {canCancel ? (
+                                cancelRequestedAt ? (
+                                    <div className="flex items-center gap-3 p-3.5 rounded-xl bg-amber-50 border border-amber-200">
+                                        <div className="w-9 h-9 rounded-full bg-white shadow-sm flex shrink-0 items-center justify-center text-amber-500">
+                                            <Ban className="w-4 h-4" />
+                                        </div>
+                                        <div>
+                                            <span className="block text-amber-700 font-bold text-sm font-montserrat">Cancellation Requested</span>
+                                            <span className="block text-[11px] text-amber-600">We&apos;ll confirm by email shortly</span>
+                                        </div>
+                                    </div>
+                                ) : (
                                 <button
-                                    onClick={handleCancel}
+                                    onClick={() => setConfirmCancelOpen(true)}
                                     disabled={cancelling}
                                     className="group flex items-center justify-between p-3.5 rounded-xl bg-cream-50 border border-gray-200 hover:border-red-400 hover:shadow-md transition-all disabled:opacity-60"
                                 >
@@ -436,10 +451,11 @@ const OrderStatus = () => {
                                             {cancelling ? <Loader2 className="w-4 h-4 animate-spin" /> : <Ban className="w-4 h-4" />}
                                         </div>
                                         <span className="text-red-500 font-bold text-sm font-montserrat group-hover:text-red-600">
-                                            {cancelling ? 'Cancelling...' : 'Cancel Order'}
+                                            {cancelling ? 'Sending...' : 'Cancel Order'}
                                         </span>
                                     </div>
                                 </button>
+                                )
                             ) : (
                                 orderStatus !== 'cancelled' && (
                                     <div className="flex items-center gap-3 p-3.5 rounded-xl bg-gray-50 border border-gray-100 opacity-50 cursor-not-allowed">
@@ -653,6 +669,40 @@ const OrderStatus = () => {
                         </div>
                     </div>
                 </div>
+
+                {/* ── CANCEL CONFIRMATION POPUP ─────────────────────────────────── */}
+                {confirmCancelOpen && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4" onClick={() => setConfirmCancelOpen(false)}>
+                        <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center" onClick={(e) => e.stopPropagation()}>
+                            <div className="w-12 h-12 rounded-full bg-red-50 text-red-500 flex items-center justify-center mx-auto mb-4">
+                                <Ban className="w-6 h-6" />
+                            </div>
+                            <h3 className="text-lg font-black text-text-main font-montserrat mb-2">
+                                Do you really want to cancel this order?
+                            </h3>
+                            <p className="text-sm text-text-muted mb-6">
+                                We&apos;ll send your cancellation request for order <strong>#{orderNum}</strong> to our team and email you
+                                as soon as it&apos;s cancelled.
+                            </p>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setConfirmCancelOpen(false)}
+                                    className="flex-1 py-2.5 rounded-lg border border-gray-300 text-text-main font-bold text-sm hover:bg-gray-50 transition-colors"
+                                >
+                                    No
+                                </button>
+                                <button
+                                    onClick={handleCancel}
+                                    disabled={cancelling}
+                                    className="flex-1 py-2.5 rounded-lg bg-red-500 text-white font-bold text-sm hover:bg-red-600 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                                >
+                                    {cancelling && <Loader2 className="w-4 h-4 animate-spin" />}
+                                    Yes, cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
             </div>
         </AccountLayout>

@@ -29,6 +29,9 @@ router.post("/:id/send-confirmation-email", adminAuth, OrderController.sendConfi
 router.post("/:id/send-shipped-email", adminAuth, OrderController.sendShippedEmail);
 router.post("/:id/send-status-email",  adminAuth, OrderController.sendStatusEmail);
 router.post("/:id/send-invoice",       authMiddleware, OrderController.sendInvoice);
-router.post("/:id/cancel",             authMiddleware, OrderController.cancelOrder);
+// Customer asks for a cancellation (emails the shop + acknowledges) — admin still decides.
+// `/cancel` kept as an alias so an older cached bundle keeps working after deploy.
+router.post("/:id/cancel-request",     authMiddleware, OrderController.requestOrderCancellation);
+router.post("/:id/cancel",             authMiddleware, OrderController.requestOrderCancellation);
 
 export default router;

@@ -556,6 +556,123 @@ export const sendOrderStatusEmail = async (email, order) => {
     }
 };
 
+// ── Cancellation request (5-Aug-2026) ────────────────────────────────────────
+// A customer asking to cancel from My Account sends TWO emails: the shop gets the request
+// with the order details so it can act on it, and the customer gets an acknowledgement.
+// Cancelling itself stays a manual admin decision (order status → Cancelled).
+
+// Where cancellation requests are delivered: the admin Settings "emails copy" list
+// (prod: malaykbagchi@gmail.com,email@bagchee.com), falling back to email@bagchee.com.
+const shopInboxAddresses = async () => {
+    try {
+        const settings = await prisma.settings.findFirst({ orderBy: { id: 'desc' }, select: { emailsCopy: true } });
+        if (settings?.emailsCopy?.trim()) return settings.emailsCopy.trim();
+    } catch { /* non-critical — fall through to the default */ }
+    return 'email@bagchee.com';
+};
+
+export const sendCancellationRequestToShop = async (order) => {
+    const transporter = createTransporter();
+    const to = await shopInboxAddresses();
+
+    const currency = order.currency || 'USD';
+    const rows = (order.items || []).map(item => `
+        <tr>
+            <td style="padding:8px 0;border-bottom:1px solid #e6decd;color:${theme.textMain};">${escapeHtml(item.name || item.product?.title || 'Item')}</td>
+            <td style="padding:8px 0;border-bottom:1px solid #e6decd;text-align:center;color:${theme.textMain};">${Number(item.quantity) || 1}</td>
+            <td style="padding:8px 0;border-bottom:1px solid #e6decd;text-align:right;color:${theme.textMain};">${escapeHtml(currency)} ${Number(item.price || 0).toFixed(2)}</td>
+        </tr>`).join('');
+
+    const customerName = [order.shippingFirstName, order.shippingLastName].filter(Boolean).join(' ')
+        || order.customer?.name || '—';
+    const customerEmail = order.shippingEmail || order.customer?.email || '—';
+    const placedOn = order.createdAt
+        ? new Date(order.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })
+        : '—';
+
+    const template = `
+        <div style="font-family:'Inter',Helvetica,Arial,sans-serif;background-color:${theme.cream};padding:40px 0;">
+          <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 15px rgba(0,0,0,.1);border:1px solid #e6decd;">
+            ${emailHeader('Order Cancellation Request')}
+            <div style="padding:36px 30px;">
+              <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:14px 16px;margin-bottom:22px;">
+                <p style="margin:0;font-size:14px;color:#991b1b;font-weight:700;">
+                  The customer has requested cancellation of order #${escapeHtml(order.orderNumber || String(order.id))}.
+                </p>
+              </div>
+              <table style="width:100%;font-size:14px;color:${theme.textMain};margin-bottom:22px;">
+                <tr><td style="padding:4px 0;color:${theme.textMuted};width:130px;">Order</td><td style="padding:4px 0;"><strong>#${escapeHtml(order.orderNumber || String(order.id))}</strong></td></tr>
+                <tr><td style="padding:4px 0;color:${theme.textMuted};">Placed on</td><td style="padding:4px 0;">${escapeHtml(placedOn)}</td></tr>
+                <tr><td style="padding:4px 0;color:${theme.textMuted};">Customer</td><td style="padding:4px 0;">${escapeHtml(customerName)}</td></tr>
+                <tr><td style="padding:4px 0;color:${theme.textMuted};">Email</td><td style="padding:4px 0;">${escapeHtml(customerEmail)}</td></tr>
+                <tr><td style="padding:4px 0;color:${theme.textMuted};">Order status</td><td style="padding:4px 0;">${escapeHtml(order.status || '—')}</td></tr>
+                <tr><td style="padding:4px 0;color:${theme.textMuted};">Payment</td><td style="padding:4px 0;">${escapeHtml(order.paymentType || '—')} · ${escapeHtml(order.paymentStatus || '—')}</td></tr>
+                <tr><td style="padding:4px 0;color:${theme.textMuted};">Amount</td><td style="padding:4px 0;"><strong>${escapeHtml(currency)} ${payableTotal(order).toFixed(2)}</strong></td></tr>
+              </table>
+              ${rows ? `
+              <table style="width:100%;border-collapse:collapse;margin-bottom:22px;">
+                <thead><tr>
+                  <th style="text-align:left;padding-bottom:8px;border-bottom:2px solid #e6decd;color:${theme.textMuted};font-size:13px;">Item</th>
+                  <th style="text-align:center;padding-bottom:8px;border-bottom:2px solid #e6decd;color:${theme.textMuted};font-size:13px;">Qty</th>
+                  <th style="text-align:right;padding-bottom:8px;border-bottom:2px solid #e6decd;color:${theme.textMuted};font-size:13px;">Price</th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+              </table>` : ''}
+              <div style="text-align:center;margin:8px 0 0;">
+                <a href="${SITE_URL}/admin/edit-orders/${order.id}" style="display:inline-block;background:${theme.primary};color:#fff;text-decoration:none;padding:13px 32px;font-size:15px;font-weight:700;border-radius:8px;">
+                  Open Order in Admin
+                </a>
+              </div>
+            </div>
+            ${emailFooter()}
+          </div>
+        </div>`;
+
+    await transporter.sendMail({
+        from: `"Bagchee" <no-reply@bagchee.com>`,
+        to,
+        subject: `Cancellation Request — Order #${order.orderNumber || order.id}`,
+        html: template,
+    });
+};
+
+export const sendCancellationRequestReceived = async (email, order) => {
+    const transporter = createTransporter();
+    const firstName = escapeHtml(order.shippingFirstName || order.customer?.name?.split(' ')[0] || 'there');
+    const orderNum  = escapeHtml(order.orderNumber || `#${order.id}`);
+
+    const template = `
+        <div style="font-family:'Inter',Helvetica,Arial,sans-serif;background-color:${theme.cream};padding:40px 0;">
+          <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 15px rgba(0,0,0,.1);border:1px solid #e6decd;">
+            ${emailHeader('Cancellation Request Received')}
+            <div style="padding:40px 30px;">
+              <h2 style="color:${theme.textMain};font-size:20px;margin-bottom:10px;">Your cancellation request has been sent</h2>
+              <p style="color:${theme.textMain};font-size:15px;line-height:1.7;margin:0 0 14px;">Hi <strong>${firstName}</strong>,</p>
+              <p style="color:${theme.textMain};font-size:15px;line-height:1.7;margin:0 0 14px;">
+                We have received your request to cancel order <strong>${orderNum}</strong>. Our team will review it
+                and confirm by email as soon as the order has been cancelled.
+              </p>
+              <p style="color:${theme.textMain};font-size:15px;line-height:1.7;margin:0 0 24px;">
+                If the order has already been dispatched we will let you know instead.
+              </p>
+              <div style="text-align:center;margin:8px 0 0;">
+                <a href="${SITE_URL}/account/orders" style="display:inline-block;background:${theme.primary};color:#fff;text-decoration:none;padding:13px 32px;font-size:15px;font-weight:700;border-radius:8px;">
+                  View My Orders
+                </a>
+              </div>
+            </div>
+            ${emailFooter()}
+          </div>
+        </div>`;
+
+    await transporter.sendMail({
+        from: `"Bagchee" <no-reply@bagchee.com>`,
+        to: email,
+        subject: `Cancellation Request Received — Order ${orderNum}`,
+        html: template,
+    });
+};
+
 // Payment link email — sent to customer when admin approves a deferred CC/PayPal order
 export const sendPaymentLinkEmail = async (email, order, paymentLink) => {
     try {

@@ -25,9 +25,11 @@ const SHIP_TIERS = {
   expedited: [[1,2,20],[3,6,35],[7,11,50], [12,15,80], [16,20,120],[21,25,150],[26,36,175],[37,50,222],[51,100,280],[101,Infinity,400]],
 };
 const tierTableForType = (shippingType) => {
-  const t = String(shippingType || '').toLowerCase();
+  const t = String(shippingType || '').trim().toLowerCase();
   if (t.includes('expedited')) return SHIP_TIERS.expedited;
   if (t.includes('express')) return SHIP_TIERS.express;
+  // The live Express option is titled "3-5 Days Worldwide Delivery" — no keyword to match on.
+  if (t === '3-5 days worldwide delivery') return SHIP_TIERS.express;
   return null;
 };
 const tierUsdFor = (tiers, books) => {
@@ -35,6 +37,7 @@ const tierUsdFor = (tiers, books) => {
   const band = tiers.find(([min, max]) => books >= min && books <= max);
   return band ? band[2] : tiers[tiers.length - 1][2];
 };
+const countBooks = (arr = []) => arr.reduce((n, it) => n + (Number(it.quantity) || 1), 0);
 // Shipping the customer will actually be charged after cancellations. Returns the
 // original cost unchanged for standard/free shipping or when nothing is cancelled.
 const previewPayableShipping = (shippingCost, shippingType, items = []) => {
@@ -42,7 +45,6 @@ const previewPayableShipping = (shippingCost, shippingType, items = []) => {
   if (shipping <= 0) return 0;
   const tiers = tierTableForType(shippingType);
   if (!tiers) return shipping;
-  const countBooks = (arr) => arr.reduce((n, it) => n + (Number(it.quantity) || 1), 0);
   const allBooks = countBooks(items);
   const remaining = countBooks(items.filter((p) => !isCancelledItemStatus(p.status)));
   if (remaining >= allBooks) return shipping;
@@ -52,6 +54,23 @@ const previewPayableShipping = (shippingCost, shippingType, items = []) => {
   const scaled = Math.round(shipping * (newUsd / origUsd) * 100) / 100;
   return Math.max(0, Math.min(shipping, scaled));
 };
+
+// ── Free-shipping rule mirror (5-Aug-2026) ────────────────────────────────────
+// Editing the items table (quantity, price, add / remove, cancel a title) moves the
+// order's money: standard shipping is re-tested against the free-shipping threshold for
+// the remaining books, and the Total follows. This mirrors api/lib/shippingRule.js +
+// updateOrder so the form previews exactly what the save will store. The rule itself
+// ({ tiered, matched, baseCost, freeMin }, all in the ORDER's currency) is served with
+// the order by the admin endpoint — never guessed here.
+const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
+const lineSum = (items = []) => round2(items.reduce((s, p) => s + (Number(p.price) || 0) * (Number(p.quantity) || 1), 0));
+const activeLineSum = (items = []) => lineSum(items.filter((p) => !isCancelledItemStatus(p.status)));
+const standardShippingFor = (rule, subtotal) => {
+  if (!rule || rule.tiered || !rule.matched || !(Number(rule.baseCost) > 0)) return null;
+  if (Number(subtotal) <= 0) return 0;
+  return Number(subtotal) >= Number(rule.freeMin) ? 0 : Number(rule.baseCost);
+};
+const near = (a, b) => Math.abs((Number(a) || 0) - (Number(b) || 0)) < 0.005;
 
 const EditOrders = () => {
   const navigate = useNavigate();
@@ -221,6 +240,13 @@ const EditOrders = () => {
   const [removedItemIds, setRemovedItemIds] = useState([]); // existing item ids deleted from the table, applied on save
   const [addProductIdInput, setAddProductIdInput] = useState('');
 
+  // Money preview (5-Aug): the order's free-shipping rule + the amounts it was loaded with.
+  // Every recompute is a DELTA from this baseline (never a re-derivation of the total), so
+  // gift cards, wallet deductions, coupon and membership amounts inside it stay intact.
+  const [shippingRule, setShippingRule] = useState(null);
+  const baselineRef = useRef(null); // { items, total, shipping, shippingType, paid }
+  const [cancelRequestedAt, setCancelRequestedAt] = useState(null);
+
   const [commentContent, setCommentContent] = useState('');
   const [customerComment, setCustomerComment] = useState('');
 
@@ -371,6 +397,25 @@ const EditOrders = () => {
           });
 
           setOrderProducts(d.items || d.products || []);
+          setShippingRule(d.shippingRule || null);
+          setCancelRequestedAt(d.cancelRequestedAt || d.cancel_requested_at || null);
+          baselineRef.current = {
+            items: (d.items || d.products || []).map((it) => ({ price: it.price, quantity: it.quantity, status: it.status })),
+            total: Number(d.total) || 0,
+            shipping: Number(d.shippingCost ?? d.shipping_cost) || 0,
+            shippingType: d.shippingType || d.shipping_type || '',
+            status: d.status || '',
+            // An order that is already paid keeps its recorded amounts — the server won't
+            // move them either (`total` is the record of what the customer was charged).
+            paid: ['paid', 'completed', 'refunded'].includes(String(d.paymentStatus || d.payment_status || '').toLowerCase()),
+          };
+          // Orders whose books were cancelled / edited before this rule existed still carry the
+          // stale shipping. Run one pass now so the Total the admin sees on open is the one
+          // Update will store — instead of only correcting itself after they touch something.
+          applyMoneyPreview(d.items || d.products || [], undefined, {
+            rule: d.shippingRule || null,
+            shippingType: d.shippingType || d.shipping_type || '',
+          });
           setCommentContent(d.comment || '');
           setCustomerComment(d.customerComment || d.customer_comment || '');
           setPaymentLink(d.paymentLink || d.payment_link || '');
@@ -427,10 +472,9 @@ const EditOrders = () => {
       status: '',
       courierId: '', trackingCode: '', returnNote: '', cancelNote: ''
     };
-    setOrderProducts(prev => {
-      const updated = [...prev, newRow];
-      return updated;
-    });
+    const updated = [...orderProducts, newRow];
+    setOrderProducts(updated);
+    applyMoneyPreview(updated);
     setSearchQuery("");
     setIsDropdownOpen(false);
   };
@@ -438,12 +482,61 @@ const EditOrders = () => {
 
 
 
+  // Recompute Total (and standard shipping) after an items-table or shipping-cost edit.
+  // Mirrors the money follow-through in api/controller/order.controller.updateOrder:
+  //   total  = loaded total + (items now − items at load) + (shipping now − shipping at load)
+  //   shipping = free-shipping rule re-applied to the REMAINING (non-cancelled) books,
+  //              unless the admin typed their own figure or changed the shipping method.
+  // Always a delta from the loaded baseline, so it's idempotent while typing.
+  const applyMoneyPreview = (nextProducts, typedShipping, opts = {}) => {
+    const b = baselineRef.current;
+    if (!b || b.paid) return;
+    // `rule` / `shippingType` can be passed in when the order has just loaded and the
+    // matching state hasn't been committed yet.
+    const rule = opts.rule !== undefined ? opts.rule : shippingRule;
+
+    const prevShipping = b.shipping;
+    const adminSet = typedShipping !== undefined && !near(Number(typedShipping) || 0, prevShipping);
+    const typeChanged = (opts.shippingType ?? formData.shipping_type ?? '') !== (b.shippingType || '');
+    let shipping = adminSet ? Math.max(0, Number(typedShipping) || 0) : prevShipping;
+
+    if (!adminSet && !typeChanged) {
+      if (rule?.tiered) {
+        const tiers = tierTableForType(b.shippingType);
+        const oldBand = tiers ? tierUsdFor(tiers, countBooks(b.items)) : 0;
+        const newBand = tiers ? tierUsdFor(tiers, countBooks(nextProducts)) : 0;
+        if (prevShipping > 0 && oldBand > 0 && newBand !== oldBand)
+          shipping = round2(prevShipping * (newBand / oldBand));
+      } else {
+        // The stored cost counts as rule-managed when it matches what the rule gives for
+        // either the remaining books or the full original set (an order cancelled before
+        // this change still carries the free shipping it earned from the full set).
+        const ruleActiveBefore = standardShippingFor(rule, activeLineSum(b.items));
+        const ruleAllBefore    = standardShippingFor(rule, lineSum(b.items));
+        if (ruleActiveBefore !== null && (near(prevShipping, ruleActiveBefore) || near(prevShipping, ruleAllBefore))) {
+          const want = standardShippingFor(rule, activeLineSum(nextProducts));
+          if (want !== null) shipping = want;
+        }
+      }
+    }
+
+    const total = Math.max(0, round2(b.total + (lineSum(nextProducts) - lineSum(b.items)) + (shipping - prevShipping)));
+    setFormData(prev => ({
+      ...prev,
+      total: total.toFixed(2),
+      // While the admin is typing in the shipping box, leave their raw text alone.
+      ...(typedShipping === undefined ? { shipping_cost: shipping.toFixed(2) } : {}),
+    }));
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => {
       const updated = { ...prev, [name]: value };
       return updated;
     });
+    // Shipping is part of the order total — keep the Total in step with a manual edit.
+    if (name === 'shipping_cost') applyMoneyPreview(orderProducts, value);
   };
 
   // --- Product Table Logic ---
@@ -461,7 +554,9 @@ const EditOrders = () => {
       cancelNote: ''
     };
 
-    setOrderProducts([...orderProducts, newRow]);
+    const updated = [...orderProducts, newRow];
+    setOrderProducts(updated);
+    applyMoneyPreview(updated);
     setAddProductIdInput('');
   };
 
@@ -473,13 +568,14 @@ const EditOrders = () => {
     const list = [...orderProducts];
     list.splice(index, 1);
     setOrderProducts(list);
+    applyMoneyPreview(list);
   };
 
   const handleProductChange = (index, field, value) => {
-    const list = [...orderProducts];
-    list[index][field] = value;
+    const list = orderProducts.map((row, i) => (i === index ? { ...row, [field]: value } : row));
     setOrderProducts(list);
-    
+    // Price / quantity / cancelling a title all move the order's money.
+    if (['price', 'quantity', 'status'].includes(field)) applyMoneyPreview(list);
   };
 
   const handleProductClick = (product) => {
@@ -580,20 +676,40 @@ const EditOrders = () => {
       if (res.data.status) {
         toast.success("Order updated successfully! 📦", { id: toastId });
         // Sync from the server's fresh copy: new rows get their DB ids (so saving again
-        // can't re-create them), deletions clear, and a mark-Paid auto-advance ('In
-        // Progress' on the order + items) shows immediately without a reload.
+        // can't re-create them), deletions clear, a mark-Paid auto-advance ('In Progress'
+        // on the order + items) shows immediately, and Total / Shipping show the amounts
+        // the server actually stored after the items-driven recompute.
         const fresh = res.data.data;
+        const wasCancelled = String(baselineRef.current?.status || '').toLowerCase() === 'cancelled';
         if (fresh) {
           setOrderProducts(fresh.items || []);
           setRemovedItemIds([]);
+          if (fresh.shippingRule) setShippingRule(fresh.shippingRule);
           setFormData((prev) => ({
             ...prev,
             status: fresh.status ?? prev.status,
             payment_status: fresh.paymentStatus ?? prev.payment_status,
+            total: fresh.total != null ? Number(fresh.total).toFixed(2) : prev.total,
+            shipping_cost: fresh.shippingCost != null ? Number(fresh.shippingCost).toFixed(2) : prev.shipping_cost,
           }));
+          // New baseline — further edits are deltas from what is now stored.
+          baselineRef.current = {
+            items: (fresh.items || []).map((it) => ({ price: it.price, quantity: it.quantity, status: it.status })),
+            total: Number(fresh.total) || 0,
+            shipping: Number(fresh.shippingCost) || 0,
+            shippingType: fresh.shippingType || '',
+            status: fresh.status || '',
+            paid: ['paid', 'completed', 'refunded'].includes(String(fresh.paymentStatus || '').toLowerCase()),
+          };
         }
         if (actionType === 'back') {
           navigate(`/admin/orders${backToListQs}`);
+          return;
+        }
+        // Order just moved to Cancelled → offer the cancellation email straight away
+        // (pre-filled "as per your request" when the customer asked for it).
+        if (!wasCancelled && String(fresh?.status || '').toLowerCase() === 'cancelled') {
+          openCancelEmailModal(!!(fresh?.cancelRequestedAt || cancelRequestedAt));
         }
       }
     } catch (error) {
@@ -778,14 +894,24 @@ ${estDeliveryLine}
     }
   };
 
-  const openCancelEmailModal = () => {
+  // Cancellation email. Two openings: the toolbar button, and automatically after a save
+  // that sets the order status to Cancelled. When the CUSTOMER asked for the cancellation
+  // (Cancel Order in My Account) the wording confirms it was done on their request instead
+  // of apologising for a stock issue.
+  const openCancelEmailModal = (onRequest = !!cancelRequestedAt) => {
     const firstName = formData.shipping_first_name || '';
     const lastName  = formData.shipping_last_name  || '';
     const customerName = [firstName, lastName].filter(Boolean).join(' ') || 'Valued Customer';
     const orderNum  = formData.order_number || id;
     setEmailType('cancel');
     setEmailSubject(`Your Bagchee Order #${orderNum} Has Been Cancelled`);
-    setEmailBody(`<p>Hello ${customerName},</p>
+    setEmailBody(onRequest
+      ? `<p>Hello ${customerName},</p>
+<p>As per your request, we have cancelled your order <strong>#${orderNum}</strong>.</p>
+<p>If your order includes a payment, a refund will be issued within <strong>2&ndash;4 business days</strong> to your original payment method.</p>
+<p>We're sorry to see this order go and we hope to serve you again soon. If there is anything we can help with, please write to us at <a href="mailto:email@bagchee.com" style="color:#008DDA;font-weight:bold;">email@bagchee.com</a>.</p>
+<p>Best,<br><strong>The Bagchee Team</strong></p>`
+      : `<p>Hello ${customerName},</p>
 <p>We're sorry to inform you that due to a stock issue, we had to cancel your order, <strong>#${orderNum}</strong>. We apologize for any inconvenience this may cause and want to assure you that we're here to help.</p>
 <p>If your order includes a payment, a refund will be issued within <strong>2&ndash;4 business days</strong> to your original payment method.</p>
 <p>We know this is disappointing, and we want to make it right. As a small token of our apology, here is a special offer for your next purchase:</p>
@@ -1162,7 +1288,7 @@ ${bankDetails}
               </button>
               <button
                 type="button"
-                onClick={openCancelEmailModal}
+                onClick={() => openCancelEmailModal()}
                 className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all"
               >
                 <Mail size={12} /> Cancel Order Email
@@ -1189,6 +1315,20 @@ ${bankDetails}
                   <p className="text-[11px] font-bold uppercase tracking-wider text-red-700 font-montserrat mb-1">Customer Comment</p>
                   <p className="text-sm font-semibold text-red-700 whitespace-pre-wrap break-words">{customerComment}</p>
                   <p className="text-[10px] text-red-400 mt-1">Left by the customer at checkout — read-only.</p>
+                </div>
+              </div>
+            )}
+
+            {/* --- CANCELLATION REQUEST (customer pressed "Cancel Order" in My Account) --- */}
+            {cancelRequestedAt && String(formData.status || '').toLowerCase() !== 'cancelled' && (
+              <div className="flex items-start gap-3 bg-amber-50 border-2 border-amber-400 rounded-lg p-4 shadow-sm">
+                <Ban size={20} className="text-amber-600 shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-amber-700 font-montserrat mb-1">Cancellation Requested</p>
+                  <p className="text-sm font-semibold text-amber-800">
+                    The customer asked to cancel this order on {new Date(cancelRequestedAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}.
+                  </p>
+                  <p className="text-[10px] text-amber-600 mt-1">Set Status to <strong>Cancelled</strong> and click Update — the cancellation email opens automatically.</p>
                 </div>
               </div>
             )}
@@ -1409,25 +1549,46 @@ ${bankDetails}
       </table>
     </div>
 
-    {/* Out-of-print exclusion note + live payable preview (#5) */}
+    {/* Live money preview: what the customer will be charged + what this edit changed (#5, 5-Aug) */}
     {(() => {
+      const b = baselineRef.current;
+      const cur = formData.currency || 'USD';
       const cancelledSum = orderProducts
         .filter(p => isCancelledItemStatus(p.status))
         .reduce((s, p) => s + (Number(p.price) || 0) * (Number(p.quantity) || 1), 0);
-      if (cancelledSum <= 0) return null;
-      const cur = formData.currency || 'USD';
       const fullShipping = Number(formData.shipping_cost) || 0;
-      const newShipping = previewPayableShipping(formData.shipping_cost, formData.shipping_type, orderProducts);
+      const newShipping  = previewPayableShipping(formData.shipping_cost, formData.shipping_type, orderProducts);
       const shippingDrop = Math.max(0, fullShipping - newShipping);
       const payablePreview = Math.max(0, (Number(formData.total) || 0) - cancelledSum - shippingDrop);
+
+      // Did this edit move the stored numbers? (items / shipping / total vs what was loaded)
+      const totalChanged    = b && !near(Number(formData.total) || 0, b.total);
+      const shippingChanged = b && !near(fullShipping, b.shipping);
+      if (cancelledSum <= 0 && !totalChanged && !shippingChanged) return null;
+
       return (
         <div className="mt-3 text-[11px] bg-amber-50 border border-amber-200 rounded p-2 text-amber-800 leading-relaxed">
-          <strong>Cancelled items are excluded.</strong> The customer&apos;s invoice &amp; payment link will charge{' '}
-          <strong>{cur} {payablePreview.toFixed(2)}</strong> instead of the full order total {cur} {Number(formData.total || 0).toFixed(2)}.
-          {shippingDrop > 0 && (
-            <> Shipping is re-rated for the remaining books: <strong>{cur} {fullShipping.toFixed(2)} → {cur} {newShipping.toFixed(2)}</strong>.</>
+          {cancelledSum > 0 && (
+            <>
+              <strong>Cancelled items are excluded.</strong> The customer&apos;s invoice &amp; payment link will charge{' '}
+              <strong>{cur} {payablePreview.toFixed(2)}</strong> instead of the full order total {cur} {Number(formData.total || 0).toFixed(2)}.
+              {shippingDrop > 0 && (
+                <> Shipping is re-rated for the remaining books: <strong>{cur} {fullShipping.toFixed(2)} → {cur} {newShipping.toFixed(2)}</strong>.</>
+              )}{' '}
+            </>
           )}
-          {' '}Click <strong>Save</strong> before sending the payment link or invoice so the change takes effect.
+          {shippingChanged && (
+            <>
+              Shipping {fullShipping > b.shipping ? 'added' : 'updated'}: <strong>{cur} {b.shipping.toFixed(2)} → {cur} {fullShipping.toFixed(2)}</strong>
+              {fullShipping > b.shipping && shippingRule?.freeMin > 0
+                ? ` — the remaining books are under the ${cur} ${Number(shippingRule.freeMin).toFixed(2)} free-shipping threshold.`
+                : '.'}{' '}
+            </>
+          )}
+          {totalChanged && (
+            <>Order total: <strong>{cur} {b.total.toFixed(2)} → {cur} {Number(formData.total || 0).toFixed(2)}</strong>.{' '}</>
+          )}
+          Click <strong>Update</strong> before sending the payment link or invoice so the change takes effect.
         </div>
       );
     })()}

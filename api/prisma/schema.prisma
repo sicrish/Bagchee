@@ -494,6 +494,10 @@ model Order {
   shippedAt           DateTime? @map("shipped_at")           // set when status changes to 'shipped'
   estimatedDelivery   DateTime? @map("estimated_delivery")    // admin sets expected delivery date
 
+  // Customer asked (from My Account) for this order to be cancelled — notifies the shop by
+  // email; the admin still decides and sets the status. Null = no request. (5-Aug-2026)
+  cancelRequestedAt   DateTime? @map("cancel_requested_at")
+
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
 

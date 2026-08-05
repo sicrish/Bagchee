@@ -29,13 +29,13 @@ export const activeItems = (items = []) => (items || []).filter((it) => !isCance
 export const cancelledItems = (items = []) => (items || []).filter(isCancelledItem);
 
 // Gross value (price × qty) of a list of line items, rounded to 2 dp.
-const sumItems = (items = []) =>
+export const sumItems = (items = []) =>
     Math.round((items || []).reduce(
         (sum, it) => sum + (Number(it.price) || 0) * (Number(it.quantity) || 1), 0) * 100) / 100;
 
 // Total book count of a list of line items (every OrderItem is a physical book —
 // gift cards are NOT stored as order items, they go through a separate path).
-const bookCount = (items = []) =>
+export const bookCount = (items = []) =>
     (items || []).reduce((n, it) => n + (Number(it.quantity) || 1), 0);
 
 // ---------------------------------------------------------------------------
@@ -74,21 +74,39 @@ const EXPEDITED_TIERS = [ // Expedited (8-12 Business Days) — option id 3
     { min: 101, max: Infinity, usd: 400 },
 ];
 
-// Which tier table applies to this order, from its stored shippingType string.
-// Mirrors the keyword detection in order.controller.saveOrder. Standard / free
-// shipping returns null (never recomputed). Check 'expedited' before 'express'.
-const tierTableFor = (order) => {
-    const t = String(order?.shippingType ?? '').toLowerCase();
+// Titles of tiered options that carry no 'express' / 'expedited' keyword. The live Express
+// option (shipping id 5) is titled "3-5 Days Worldwide Delivery", so keyword detection alone
+// silently treated it as flat standard shipping. ⚠️ KEEP IN SYNC with TIERED_OPTION_IDS
+// (ids 3 + 5) in lib/shippingRule.js, ui/src/pages/website/Cart.jsx and Checkout.jsx.
+const TIERED_TITLES = new Map([
+    ['3-5 days worldwide delivery', EXPRESS_TIERS],
+]);
+
+// Which tier table applies to a shippingType string. Standard / free shipping returns null
+// (never re-banded). Check 'expedited' before 'express'.
+const tierTableForType = (shippingType) => {
+    const t = String(shippingType ?? '').trim().toLowerCase();
     if (t.includes('expedited')) return EXPEDITED_TIERS;
     if (t.includes('express')) return EXPRESS_TIERS;
-    return null;
+    return TIERED_TITLES.get(t) || null;
 };
+const tierTableFor = (order) => tierTableForType(order?.shippingType);
 
 // Band rate (USD) for a given book count. 0 books = 0; above the table = top band.
 const tierUsd = (tiers, books) => {
     if (books <= 0) return 0;
     const band = tiers.find((b) => books >= b.min && books <= b.max);
     return band ? band.usd : tiers[tiers.length - 1].usd;
+};
+
+// Is this shipping type priced in quantity bands (Expedited / Express) rather than flat?
+export const isTieredShipping = (shippingType) => !!tierTableForType(shippingType);
+
+// Band rate (USD) for a shipping type + book count; null for standard/free shipping.
+// Used to re-scale a tiered order's stored cost when the admin edits quantities.
+export const tierRateUsd = (shippingType, books) => {
+    const tiers = tierTableForType(shippingType);
+    return tiers ? tierUsd(tiers, books) : null;
 };
 
 // Shipping the customer should actually be charged after any cancellations.

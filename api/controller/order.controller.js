@@ -1,9 +1,10 @@
 import prisma from '../lib/prisma.js';
 import crypto from 'crypto';
-import { sendOrderConfirmation, sendOrderShippedEmail, sendOrderStatusEmail, sendPaymentLinkEmail, sendInvoiceEmail, sendCustomConfirmationEmail, sendMembershipWelcome } from './email.controller.js';
+import { sendOrderConfirmation, sendOrderShippedEmail, sendOrderStatusEmail, sendPaymentLinkEmail, sendInvoiceEmail, sendCustomConfirmationEmail, sendMembershipWelcome, sendCancellationRequestToShop, sendCancellationRequestReceived } from './email.controller.js';
 import { calcDiscount, couponAlreadyUsed } from './coupon.controller.js';
 import { createGiftCardsForOrder, applyWalletBalance } from './giftCard.controller.js';
-import { activeItems, payableTotal, payableShipping, isCancelledItem } from '../lib/orderTotals.js';
+import { activeItems, payableTotal, payableShipping, isCancelledItem, sumItems, bookCount, tierRateUsd } from '../lib/orderTotals.js';
+import { resolveShippingRule, standardShippingFor, isTieredOption, FREE_SHIPPING_MIN_USD } from '../lib/shippingRule.js';
 import { isMembershipActive } from '../lib/membership.js';
 import { getUsdConversionRate } from '../lib/exchangeRates.js';
 import { findBlockMatch } from '../lib/blocklist.js';
@@ -233,10 +234,20 @@ export const saveOrder = async (req, res) => {
         // Admin manual orders keep whatever shipping the admin typed — the free-shipping
         // rule is a storefront promise, not a constraint on negotiated phone/wire orders.
         if (itemsData.length > 0 && !isAdminManual) {
-            const shippingType = (req.body.shipping_type || req.body.shippingType || '').toLowerCase();
-            const isTieredShipping = shippingType.includes('express') || shippingType.includes('expedited');
-            const freeShippingThreshold = 50; // matches frontend constant; physicalSubtotal is USD
-            if (!isTieredShipping && physicalSubtotal >= freeShippingThreshold) {
+            const shippingType = req.body.shipping_type || req.body.shippingType || '';
+            // Expedited / Express are never free. Detected by option ID as well as by keyword:
+            // the live Express option is titled "3-5 Days Worldwide Delivery" (no 'express' in
+            // it), so the keyword test alone waived its charge on any cart over the threshold
+            // — order 17666 (17-July) shipped Express for €0 because of exactly this.
+            // Resolve by title when the client didn't send an option id (older cached bundle),
+            // so the guard never depends on what the browser posted.
+            const tierOpt = shipOpt || (shippingType.trim()
+                ? await prisma.shippingOption.findFirst({
+                    where: { title: { equals: shippingType.trim(), mode: 'insensitive' } }, select: { id: true } })
+                : null);
+            const isTiered = isTieredOption(tierOpt, shippingType);
+            const freeShippingThreshold = FREE_SHIPPING_MIN_USD; // physicalSubtotal is USD
+            if (!isTiered && physicalSubtotal >= freeShippingThreshold) {
                 shippingCostUsd = 0;
                 shippingNative  = 0;
             }
@@ -577,6 +588,10 @@ export const getOrderById = async (req, res) => {
         order.payableTotal = payableTotal(order);
         order.payableShipping = payableShipping(order);
 
+        // Admin only: the free-shipping rule for this order, so the order form can preview the
+        // same total / shipping the save will compute (api/lib/shippingRule.js).
+        if (req.user.role === 'admin') order.shippingRule = await resolveShippingRule(order);
+
         res.status(200).json({ status: true, data: order });
     } catch (error) {
         res.status(500).json({ status: false, msg: 'Server Error' });
@@ -658,8 +673,17 @@ export const updateOrder = async (req, res) => {
         if (req.body.estimated_delivery !== undefined) updateData.estimatedDelivery = req.body.estimated_delivery ? new Date(req.body.estimated_delivery) : null;
         if (req.body.shippedAt !== undefined) updateData.shippedAt = req.body.shippedAt ? new Date(req.body.shippedAt) : null;
 
-        // Look up current order state once (for shippedAt + payment-paid auto-advance + membership)
-        const existing = await prisma.order.findUnique({ where: { id }, select: { shippedAt: true, status: true, paymentType: true, membershipPurchased: true, customerId: true } });
+        // Look up current order state once (for shippedAt + payment-paid auto-advance + membership
+        // + the money follow-through below, which needs the pre-save totals and line items).
+        const existing = await prisma.order.findUnique({
+            where: { id },
+            select: {
+                shippedAt: true, status: true, paymentType: true, membershipPurchased: true, customerId: true,
+                total: true, shippingCost: true, currency: true, shippingType: true, paymentStatus: true,
+                items: { select: { id: true, price: true, quantity: true, status: true } },
+            },
+        });
+        const itemsBefore = existing?.items || [];
 
         // Auto-set shippedAt when status changes to shipped
         const newStatus = (updateData.status || '').toLowerCase();
@@ -745,6 +769,16 @@ export const updateOrder = async (req, res) => {
                     const itemId = parseInt(item.id);
                     if (isNaN(itemId)) return Promise.resolve();
                     const itemUpdate = {};
+                    // Quantity + price are editable in the admin items table but used to be
+                    // dropped here, so "reduce the quantity and save" never persisted (5-Aug).
+                    // Blank / unparseable input is ignored rather than written as 0.
+                    const qty = parseInt(item.quantity);
+                    if (item.quantity !== undefined && !isNaN(qty) && qty >= 1)
+                        itemUpdate.quantity = Math.min(1000, qty);
+                    const linePrice = Number(item.price);
+                    if (item.price !== undefined && item.price !== null && item.price !== ''
+                        && !isNaN(linePrice) && linePrice >= 0)
+                        itemUpdate.price = Math.round(linePrice * 100) / 100;
                     if (item.status       !== undefined) itemUpdate.status       = item.status;
                     if (item.courierId    !== undefined) itemUpdate.courierId    = parseInt(item.courierId) || null;
                     if (item.trackingCode !== undefined) itemUpdate.trackingCode = item.trackingCode;
@@ -794,8 +828,87 @@ export const updateOrder = async (req, res) => {
                 .map((it) => prisma.orderItem.update({ where: { id: it.id }, data: { status: 'In Progress' } })));
         }
 
+        // ── Money follows the items (5-Aug-2026) ─────────────────────────────────
+        // The admin items table is editable (quantity, price, add / remove a book) and a title
+        // can be marked cancelled / out of print — but none of that used to move the order's
+        // money. So an order that lost a book kept the FREE shipping it earned at checkout even
+        // though the remaining books no longer reach the threshold, and the payment link, the
+        // invoice, the customer's My Account and the PayPal charge all under-billed.
+        //
+        //   • `total` moves by exactly the item delta (+ any shipping change). It is NOT
+        //     re-derived from the line items, so gift cards, wallet deductions and the coupon /
+        //     membership amounts baked into it survive untouched.
+        //   • `total` stays the FULL order value, cancelled lines included — payableTotal()
+        //     nets those out for the customer, so subtracting them here would double-count.
+        //   • Standard shipping is re-tested against the free-shipping threshold for the
+        //     REMAINING (non-cancelled) books. Tiered Expedited / Express shipping is only
+        //     re-scaled when the book count changes band, because payableShipping() still
+        //     re-bands the cancelled part on the fly from the stored full-band cost.
+        //   • Shipping is only touched when the stored figure is the one the rule itself
+        //     produced — an admin who typed their own shipping amount keeps it (and the total
+        //     then follows that edit instead).
+        //   • An order that was ALREADY PAID before this save is left alone: its `total` is the
+        //     record of what the customer was actually charged.
+        const paidBefore = ['paid', 'completed', 'refunded'].includes(String(existing?.paymentStatus || '').toLowerCase());
+        const itemsTouched = (req.body.items && Array.isArray(req.body.items)) || removedItemIds.length > 0;
+        if (existing && itemsTouched && !paidBefore) {
+            const itemsAfter = await prisma.orderItem.findMany({
+                where: { orderId: id }, select: { price: true, quantity: true, status: true },
+            });
+
+            const prevTotal    = Number(existing.total) || 0;
+            const prevShipping = Number(existing.shippingCost) || 0;
+            const typeChanged  = updateData.shippingType !== undefined && updateData.shippingType !== existing.shippingType;
+            const adminSetShipping = updateData.shippingCost !== undefined
+                && Number.isFinite(updateData.shippingCost)
+                && Math.abs(updateData.shippingCost - prevShipping) > 0.005;
+
+            const itemsDelta = round2(sumItems(itemsAfter) - sumItems(itemsBefore));
+
+            let newShipping = adminSetShipping ? Math.max(0, Number(updateData.shippingCost)) : prevShipping;
+            if (!adminSetShipping && !typeChanged) {
+                const rule = await resolveShippingRule({ currency: existing.currency, shippingType: existing.shippingType });
+                if (rule.tiered) {
+                    const oldBand = tierRateUsd(existing.shippingType, bookCount(itemsBefore));
+                    const newBand = tierRateUsd(existing.shippingType, bookCount(itemsAfter));
+                    if (prevShipping > 0 && oldBand > 0 && newBand !== oldBand)
+                        newShipping = round2(prevShipping * (newBand / oldBand));
+                } else {
+                    // The stored cost counts as rule-managed when it matches what the rule gives
+                    // for either the remaining books or the full original set — an order whose
+                    // item was cancelled before this change still carries the free shipping it
+                    // earned from the full set.
+                    const ruleActiveBefore = standardShippingFor(rule, sumItems(activeItems(itemsBefore)));
+                    const ruleAllBefore    = standardShippingFor(rule, sumItems(itemsBefore));
+                    const managed = ruleActiveBefore !== null
+                        && (Math.abs(prevShipping - ruleActiveBefore) < 0.005
+                         || Math.abs(prevShipping - ruleAllBefore)    < 0.005);
+                    if (managed) {
+                        const want = standardShippingFor(rule, sumItems(activeItems(itemsAfter)));
+                        if (want !== null) newShipping = want;
+                    }
+                }
+            }
+
+            const shippingDelta = round2(newShipping - prevShipping);
+            if (itemsDelta !== 0 || shippingDelta !== 0) {
+                await prisma.order.update({
+                    where: { id },
+                    data: {
+                        total:        Math.max(0, round2(prevTotal + itemsDelta + shippingDelta)),
+                        shippingCost: Math.max(0, round2(newShipping)),
+                    },
+                });
+            }
+        }
+
         // Re-fetch after all updates so the response reflects the latest item data
         const freshOrder = await prisma.order.findUnique({ where: { id }, include: ORDER_DETAIL_INCLUDE });
+        if (freshOrder) {
+            freshOrder.payableTotal    = payableTotal(freshOrder);
+            freshOrder.payableShipping = payableShipping(freshOrder);
+            freshOrder.shippingRule    = await resolveShippingRule(freshOrder);
+        }
         res.status(200).json({ status: true, msg: 'Order updated successfully', data: freshOrder });
     } catch (error) {
         console.error('Update Order Error:', error.message);
@@ -1032,34 +1145,53 @@ export const sendStatusEmail = async (req, res) => {
     }
 };
 
-// POST /orders/:id/cancel  (auth — customer cancels own order, blocked once shipped)
-export const cancelOrder = async (req, res) => {
+// POST /orders/:id/cancel-request  (auth — customer ASKS for their order to be cancelled)
+//
+// The button in My Account used to cancel the order outright, but it never worked: the owner
+// check compared `req.user.id` against customerId and the JWT carries `userId`, so every call
+// 403'd ("nothing happens"). Per the client (5-Aug) this is now a REQUEST, not a cancellation:
+// the shop is emailed the request, the customer is emailed an acknowledgement, and an admin
+// decides — the order status only changes when they set it in the admin order page.
+export const requestOrderCancellation = async (req, res) => {
     try {
         const id = parseInt(req.params.id);
         if (isNaN(id)) return res.status(400).json({ status: false, msg: 'Invalid ID' });
 
-        const order = await prisma.order.findUnique({ where: { id }, select: { id: true, customerId: true, status: true } });
+        const order = await prisma.order.findUnique({ where: { id }, include: ORDER_DETAIL_INCLUDE });
         if (!order) return res.status(404).json({ status: false, msg: 'Order not found' });
 
-        // Only the order owner can cancel
-        if (order.customerId !== req.user.id) {
+        // Only the order owner may ask (admins can cancel from the admin panel instead)
+        const requesterId = parseInt(req.user?.userId);
+        if (req.user?.role !== 'admin' && (!order.customerId || order.customerId !== requesterId)) {
             return res.status(403).json({ status: false, msg: 'Not authorized to cancel this order' });
         }
 
         const blocked = ['shipped', 'partially shipped', 'in transit', 'delivered', 'completed', 'cancelled'];
         if (blocked.includes((order.status || '').toLowerCase())) {
-            return res.status(400).json({ status: false, msg: `Order cannot be cancelled — current status: ${order.status}` });
+            return res.status(400).json({ status: false, msg: `This order can no longer be cancelled — current status: ${order.status}` });
+        }
+
+        // Already asked — don't spam the shop with a second email, just confirm.
+        if (order.cancelRequestedAt) {
+            return res.json({ status: true, msg: 'Your cancellation request has already been sent. Our team will be in touch.', data: order });
         }
 
         const updated = await prisma.order.update({
             where: { id },
-            data: { status: 'cancelled' },
-            include: ORDER_DETAIL_INCLUDE
+            data: { cancelRequestedAt: new Date() },
+            include: ORDER_DETAIL_INCLUDE,
         });
-        res.json({ status: true, msg: 'Order cancelled successfully.', data: updated });
+
+        // The shop notification is the point of the feature — if it fails, tell the customer
+        // rather than silently swallowing it. The acknowledgement to the customer is best-effort.
+        await sendCancellationRequestToShop(updated);
+        const customerEmail = updated.shippingEmail || updated.customer?.email;
+        if (customerEmail) sendCancellationRequestReceived(customerEmail, updated).catch(() => {});
+
+        res.json({ status: true, msg: 'Your cancellation request has been sent.', data: updated });
     } catch (error) {
-        console.error('Cancel order error:', error);
-        res.status(500).json({ status: false, msg: 'Failed to cancel order' });
+        console.error('Cancel request error:', error);
+        res.status(500).json({ status: false, msg: 'Could not send your cancellation request. Please contact us.' });
     }
 };
 
