@@ -9,6 +9,8 @@
 // controllers and the invoice PDF generator so the amount shown to the customer and the
 // amount actually charged can never drift apart.
 
+const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
+
 export const CANCELLED_STATUS = 'cancelled';               // out of print
 export const CANCELLED_OTHER_STATUS = 'cancelled - other'; // any other cancellation reason
 
@@ -138,6 +140,70 @@ export const payableShipping = (order) => {
     return Math.max(0, Math.min(shipping, scaled)); // can only ever lower the charge
 };
 
+// ---------------------------------------------------------------------------
+// Membership (Aug 2026)
+//
+// A membership bought with an order is money on the order that is NOT a line item: the fee
+// lives in `order.membershipFee` and the member discount — a percentage of (items + fee) —
+// in `order.membershipDiscount`, both in the order's own currency.
+//
+// The stored discount is always the discount for the order's CURRENT full item set plus the
+// fee (updateOrder keeps it that way when an admin edits the items), so the effective rate
+// can be recovered from those two columns alone — no settings lookup, no extra column, and
+// EUR/GBP orders stay correct with no exchange rates, exactly like payableShipping()'s
+// ratio-scaling.
+//
+// ⚠️ LEGACY DATA GUARD. Migrated orders stored the member-discount PERCENTAGE — a bare `10` —
+// in `membershipDiscount` rather than a currency amount: 2,720 prod rows, every one created
+// on or before 2026-05-12. Real per-order amounts have only been written since the membership
+// money model shipped on 2026-06-30 (commit `0d99f51`). So the column is read as money only
+// for orders from that date onwards, or for any order carrying a membership fee (which only
+// the current code can produce). Legacy orders keep exactly today's behaviour: their number
+// never enters payableTotal and is never rescaled by an admin edit. An order payload without
+// `createdAt` falls back to the fee test, which still covers every membership PURCHASE.
+// ---------------------------------------------------------------------------
+const MEMBERSHIP_MONEY_FROM = new Date('2026-06-30T00:00:00Z').getTime();
+
+export const membershipFeeOf = (order) => Math.max(0, Number(order?.membershipFee) || 0);
+
+export const hasMembershipMoney = (order) => {
+    if (membershipFeeOf(order) > 0) return true;
+    const created = order?.createdAt ? new Date(order.createdAt).getTime() : NaN;
+    return Number.isFinite(created) && created >= MEMBERSHIP_MONEY_FROM;
+};
+
+// The member discount as a real currency amount (0 for legacy percentage rows).
+export const membershipDiscountOf = (order) =>
+    hasMembershipMoney(order) ? Math.max(0, Number(order?.membershipDiscount) || 0) : 0;
+
+// Everything the member discount was calculated on: all items (cancelled included) + the fee.
+export const membershipBase = (items, fee) => round2(sumItems(items) + (Number(fee) || 0));
+
+// Effective member-discount rate for this order, recovered from the stored amounts.
+export const membershipRate = (order) => {
+    const disc = membershipDiscountOf(order);
+    if (disc <= 0) return 0;
+    const base = membershipBase(order?.items, membershipFeeOf(order));
+    return base > 0 ? disc / base : 0;
+};
+
+// Member discount the customer actually keeps once cancelled lines are excluded — the same
+// rate applied to the remaining books plus the fee.
+export const payableMembershipDiscount = (order) => {
+    const disc = membershipDiscountOf(order);
+    if (disc <= 0) return 0;
+    const payable = round2(membershipRate(order) * membershipBase(activeItems(order?.items), membershipFeeOf(order)));
+    return Math.max(0, Math.min(disc, payable)); // never more than was granted
+};
+
+// A membership shown as a line in the items table. Renderers only — NEVER push this into
+// `order.items`, or sumItems()/payableTotal() would count the fee twice.
+export const MEMBERSHIP_LINE_NAME = 'Bagchee Membership (1 Year)';
+export const membershipLine = (order) => {
+    const fee = hasMembershipMoney(order) ? membershipFeeOf(order) : 0;
+    return fee > 0 ? { name: MEMBERSHIP_LINE_NAME, price: fee, quantity: 1, isMembership: true } : null;
+};
+
 // Amount to charge / display: the order's stored total minus any cancelled lines AND
 // minus any shipping that no longer applies once those lines are gone. order.total already
 // includes every line + the original (full) shipping that was on the order when it was
@@ -146,6 +212,12 @@ export const payableShipping = (order) => {
 export const payableTotal = (order) => {
     const cancelledSum = sumItems(cancelledItems(order?.items));
     const shippingReduction = Math.max(0, (Number(order?.shippingCost) || 0) - payableShipping(order));
-    const remaining = (Number(order?.total) || 0) - cancelledSum - shippingReduction;
-    return Math.max(0, Math.round(remaining * 100) / 100);
+    // Cancelling a line also cancels the share of the member discount that line earned. The
+    // discount is inside `order.total` as a subtraction, so that share has to be added back —
+    // otherwise the customer keeps a discount on books they are no longer being charged for.
+    // 0 whenever nothing is cancelled, there is no membership, or the order is a legacy row,
+    // so every existing order's payable amount is bit-for-bit unchanged.
+    const discountReduction = Math.max(0, round2(membershipDiscountOf(order) - payableMembershipDiscount(order)));
+    const remaining = (Number(order?.total) || 0) - cancelledSum - shippingReduction + discountReduction;
+    return Math.max(0, round2(remaining));
 };

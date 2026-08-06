@@ -3,7 +3,9 @@ import crypto from 'crypto';
 import { sendOrderConfirmation, sendOrderShippedEmail, sendOrderStatusEmail, sendPaymentLinkEmail, sendInvoiceEmail, sendCustomConfirmationEmail, sendMembershipWelcome, sendCancellationRequestToShop, sendCancellationRequestReceived } from './email.controller.js';
 import { calcDiscount, couponAlreadyUsed } from './coupon.controller.js';
 import { createGiftCardsForOrder, applyWalletBalance } from './giftCard.controller.js';
-import { activeItems, payableTotal, payableShipping, isCancelledItem, sumItems, bookCount, tierRateUsd } from '../lib/orderTotals.js';
+import { activeItems, payableTotal, payableShipping, isCancelledItem, sumItems, bookCount, tierRateUsd,
+    membershipFeeOf, membershipDiscountOf, membershipRate, membershipBase, membershipLine,
+    payableMembershipDiscount } from '../lib/orderTotals.js';
 import { resolveShippingRule, standardShippingFor, isTieredOption, FREE_SHIPPING_MIN_USD } from '../lib/shippingRule.js';
 import { isMembershipActive } from '../lib/membership.js';
 import { getUsdConversionRate } from '../lib/exchangeRates.js';
@@ -587,6 +589,9 @@ export const getOrderById = async (req, res) => {
         // account page / invoice match what is actually charged (api/lib/orderTotals.js).
         order.payableTotal = payableTotal(order);
         order.payableShipping = payableShipping(order);
+        // Net member discount (cancelled lines give back their share) so My Account / the
+        // customer's invoice can show a breakdown that adds up.
+        order.payableMembershipDiscount = payableMembershipDiscount(order);
 
         // Admin only: the free-shipping rule for this order, so the order form can preview the
         // same total / shipping the save will compute (api/lib/shippingRule.js).
@@ -632,6 +637,9 @@ export const guestTrackOrder = async (req, res) => {
 
         order.payableTotal = payableTotal(order);
         order.payableShipping = payableShipping(order);
+        // Net member discount (cancelled lines give back their share) so My Account / the
+        // customer's invoice can show a breakdown that adds up.
+        order.payableMembershipDiscount = payableMembershipDiscount(order);
 
         res.status(200).json({ status: true, data: order, orderId: order.id });
     } catch (error) {
@@ -680,10 +688,18 @@ export const updateOrder = async (req, res) => {
             select: {
                 shippedAt: true, status: true, paymentType: true, membershipPurchased: true, customerId: true,
                 total: true, shippingCost: true, currency: true, shippingType: true, paymentStatus: true,
+                membershipFee: true, membershipDiscount: true, membership: true, createdAt: true,
                 items: { select: { id: true, price: true, quantity: true, status: true } },
             },
         });
         const itemsBefore = existing?.items || [];
+
+        // Admin removed the membership from this order (the × on its row in the items table).
+        // Only meaningful while a purchased membership is actually on the order — an existing
+        // member simply shopping has no fee to take off.
+        const membershipRemoved =
+            (req.body.remove_membership === true || req.body.removeMembership === true)
+            && membershipFeeOf(existing) > 0;
 
         // Auto-set shippedAt when status changes to shipped
         const newStatus = (updateData.status || '').toLowerCase();
@@ -729,7 +745,7 @@ export const updateOrder = async (req, res) => {
         // purchases activate, and the active-member check keeps it idempotent (no re-extension /
         // duplicate welcome email if Paid is toggled twice).
         if ((updateData.paymentStatus || '').toLowerCase() === 'paid'
-            && existing?.membershipPurchased && existing?.customerId) {
+            && existing?.membershipPurchased && existing?.customerId && !membershipRemoved) {
             const memberNow = await prisma.user.findUnique({
                 where: { id: existing.customerId },
                 select: { email: true, name: true, membership: true, membershipEnd: true },
@@ -849,9 +865,14 @@ export const updateOrder = async (req, res) => {
         //     then follows that edit instead).
         //   • An order that was ALREADY PAID before this save is left alone: its `total` is the
         //     record of what the customer was actually charged.
+        //   • The member discount is a PERCENTAGE of (items + membership fee), so it has to be
+        //     recomputed whenever the items move — carrying the original, larger discount would
+        //     under-charge the customer by exactly that difference. The admin can also take the
+        //     membership off the order entirely, which drops the fee, the discount and the
+        //     activation flag together.
         const paidBefore = ['paid', 'completed', 'refunded'].includes(String(existing?.paymentStatus || '').toLowerCase());
         const itemsTouched = (req.body.items && Array.isArray(req.body.items)) || removedItemIds.length > 0;
-        if (existing && itemsTouched && !paidBefore) {
+        if (existing && (itemsTouched || membershipRemoved) && !paidBefore) {
             const itemsAfter = await prisma.orderItem.findMany({
                 where: { orderId: id }, select: { price: true, quantity: true, status: true },
             });
@@ -891,12 +912,31 @@ export const updateOrder = async (req, res) => {
             }
 
             const shippingDelta = round2(newShipping - prevShipping);
-            if (itemsDelta !== 0 || shippingDelta !== 0) {
+
+            // Membership: `total` carries it as (+ fee − discount). Re-derive the discount at the
+            // order's own effective rate — recovered from the stored fee + discount, so no
+            // settings lookup and no FX — against the remaining items, and let both move the
+            // total. Legacy rows (whose column holds a percentage, not money) resolve to a rate
+            // of 0 and are therefore left completely alone. See lib/orderTotals.js.
+            const feeBefore  = membershipFeeOf(existing);
+            const discBefore = membershipDiscountOf(existing);
+            const rate       = membershipRate({ ...existing, items: itemsBefore });
+            const feeAfter   = membershipRemoved ? 0 : feeBefore;
+            const discAfter  = membershipRemoved ? 0 : round2(rate * membershipBase(itemsAfter, feeAfter));
+            const feeDelta      = round2(feeAfter - feeBefore);
+            const discountDelta = round2(discAfter - discBefore);
+
+            if (itemsDelta !== 0 || shippingDelta !== 0 || feeDelta !== 0 || discountDelta !== 0) {
                 await prisma.order.update({
                     where: { id },
                     data: {
-                        total:        Math.max(0, round2(prevTotal + itemsDelta + shippingDelta)),
+                        total:        Math.max(0, round2(prevTotal + itemsDelta + shippingDelta + feeDelta - discountDelta)),
                         shippingCost: Math.max(0, round2(newShipping)),
+                        // Only ever written for orders whose discount really is money.
+                        ...(discBefore > 0 || membershipRemoved ? { membershipDiscount: discAfter } : {}),
+                        ...(membershipRemoved
+                            ? { membershipFee: 0, membershipPurchased: false, membership: 'No' }
+                            : {}),
                     },
                 });
             }
@@ -1041,6 +1081,7 @@ export const getUserOrders = async (req, res) => {
         const data = orders.map((o) => ({
             ...o,
             payableTotal: payableTotal(o),
+            payableMembershipDiscount: payableMembershipDiscount(o),
             payableShipping: payableShipping(o),
         }));
 
@@ -1071,7 +1112,11 @@ export const getOrderForPayment = async (req, res) => {
         }
 
         // Out-of-print items the admin cancelled are excluded — the customer pays only for available titles (#5)
+        // A membership bought with the order is not a line item, so it's appended as one here —
+        // otherwise the listed items don't add up to the amount being asked for.
         const payableItems = activeItems(order.items).map(({ status, ...it }) => it);
+        const memberLine = membershipLine(order);
+        if (memberLine) payableItems.push(memberLine);
 
         // Return minimal order data — no sensitive customer info
         res.json({ status: true, data: {
@@ -1081,6 +1126,8 @@ export const getOrderForPayment = async (req, res) => {
             currency: order.currency,
             status: order.status,
             items: payableItems,
+            memberDiscount: payableMembershipDiscount(order),
+            shippingCost: payableShipping(order),
             paymentType: order.paymentType,
         }});
     } catch (error) {
@@ -1223,13 +1270,21 @@ export const getInvoice = async (req, res) => {
         const shippingBlock = addrBlock(order.shippingFirstName, order.shippingLastName, order.shippingCompany, order.shippingAddress1, order.shippingAddress2, order.shippingCity, order.shippingState, order.shippingPostcode, order.shippingCountry);
         const billingBlock  = addrBlock(order.billingFirstName,  order.billingLastName,  order.billingCompany,  order.billingAddress1,  order.billingAddress2,  order.billingCity,  order.billingState,  order.billingPostcode,  order.billingCountry);
 
-        const rows = activeItems(order.items).map(item => `
+        // A membership bought with the order is not a line item — append it as one so the
+        // invoice's rows actually add up to its Grand Total.
+        const invoiceLines = activeItems(order.items);
+        const invoiceMemberLine = membershipLine(order);
+        if (invoiceMemberLine) invoiceLines.push(invoiceMemberLine);
+
+        const rows = invoiceLines.map(item => `
             <tr>
               <td>${esc(item.name || item.product?.title || 'Item')}</td>
               <td style="text-align:center">${Number(item.quantity) || 1}</td>
               <td style="text-align:right">${currency} ${Number(item.price || 0).toFixed(2)}</td>
               <td style="text-align:right">${currency} ${(Number(item.price || 0) * (Number(item.quantity) || 1)).toFixed(2)}</td>
             </tr>`).join('');
+
+        const invoiceMemberDiscount = payableMembershipDiscount(order);
 
         const html = `<!DOCTYPE html>
 <html lang="en">
@@ -1281,6 +1336,7 @@ export const getInvoice = async (req, res) => {
 
     <div class="totals">
       <table>
+        ${invoiceMemberDiscount > 0 ? `<tr><td>Member discount</td><td style="color:#c0392b">&minus;${currency} ${invoiceMemberDiscount.toFixed(2)}</td></tr>` : ''}
         ${payableShipping(order) ? `<tr><td>Shipping</td><td>${currency} ${payableShipping(order).toFixed(2)}</td></tr>` : ''}
         <tr class="grand"><td>Grand Total</td><td>${currency} ${payableTotal(order).toFixed(2)}</td></tr>
       </table>

@@ -298,10 +298,14 @@ const navigate = useNavigate();
     return colors[normalizedStatus] || "text-gray-700 bg-gray-100";
   };
 
+  // `order.total` is the ALL-IN amount and already includes shipping — adding shippingCost
+  // again double-counted it. `payableTotal` (from the API) additionally nets out cancelled
+  // lines and their share of the member discount, so it is the amount actually charged.
+  // (Same fix applied to Account/Orders.jsx + OrderStatus.jsx on 2026-06-06; this page was
+  // missed then.)
   const getOrderTotal = (order) => {
-    const subtotal = Number(order.total || order.totalAmount || 0);
-    const shipping = Number(order.shippingCost ?? order.shipping_cost ?? 0);
-    return subtotal + shipping;
+    if (order?.payableTotal != null) return Number(order.payableTotal);
+    return Number(order?.total ?? order?.totalAmount ?? 0);
   };
 
   const getOrderItems = (order) => {
@@ -811,42 +815,37 @@ const navigate = useNavigate();
                                 Order Summary
                               </h4>
                               <div className="space-y-2 text-sm">
-                                <div className="flex justify-between">
-                                  <span className="text-text-muted">
-                                    Subtotal:
-                                  </span>
-                                  <span className="font-medium text-text-main">
-                                    {formatAmount(
-                                      selectedOrder.total || 0,
-                                      selectedOrder.currency,
-                                    )}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-text-muted">
-                                    Shipping:
-                                  </span>
-                                  <span className="font-medium text-text-main">
-                                    {formatAmount(
-                                      selectedOrder.shippingCost ?? selectedOrder.shipping_cost ?? 0,
-                                      selectedOrder.currency,
-                                    )}
-                                  </span>
-                                </div>
-                                {(selectedOrder.membershipDiscount || selectedOrder.membership_discount || 0) > 0 && (
+                              {/* Built from the same net figures the customer is charged:
+                                  items (cancelled lines excluded), the membership bought with
+                                  the order, its discount, then shipping. `order.total` is the
+                                  all-in amount, so it is never shown as a "subtotal" here. */}
+                              {(() => {
+                                const cur = selectedOrder.currency;
+                                const orderItems = selectedOrder.items || selectedOrder.products || [];
+                                const cancelled = (s) => ['cancelled', 'cancelled - other']
+                                  .includes(String(s ?? '').trim().toLowerCase());
+                                const itemsTotal = orderItems
+                                  .filter((it) => !cancelled(it.status))
+                                  .reduce((s, it) => s + (Number(it.price) || 0) * (Number(it.quantity) || 1), 0);
+                                const fee = Math.max(0, Number(selectedOrder.membershipFee ?? selectedOrder.membership_fee) || 0);
+                                const memberDiscount = Math.max(0, Number(selectedOrder.payableMembershipDiscount) || 0);
+                                const shipping = Math.max(0, Number(
+                                  selectedOrder.payableShipping ?? selectedOrder.shippingCost ?? selectedOrder.shipping_cost) || 0);
+                                const row = (label, value, cls = 'text-text-main') => (
                                   <div className="flex justify-between">
-                                    <span className="text-text-muted">
-                                      Membership Discount:
-                                    </span>
-                                    <span className="font-medium text-green-600">
-                                      -
-                                      {formatAmount(
-                                        selectedOrder.membershipDiscount ?? selectedOrder.membership_discount,
-                                        selectedOrder.currency,
-                                      )}
-                                    </span>
+                                    <span className="text-text-muted">{label}</span>
+                                    <span className={`font-medium ${cls}`}>{value}</span>
                                   </div>
-                                )}
+                                );
+                                return (
+                                  <>
+                                    {itemsTotal > 0 && row('Items total:', formatAmount(itemsTotal, cur))}
+                                    {fee > 0 && row('Bagchee Membership (1 Year):', formatAmount(fee, cur))}
+                                    {memberDiscount > 0 && row('Membership discount:', `−${formatAmount(memberDiscount, cur)}`, 'text-red-600')}
+                                    {shipping > 0 && row('Shipping:', formatAmount(shipping, cur))}
+                                  </>
+                                );
+                              })()}
                                 <div className="border-t border-gray-200 pt-2 mt-2">
                                   <div className="flex justify-between text-lg font-bold">
                                     <span className="text-text-main">

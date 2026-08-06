@@ -2,7 +2,7 @@ import { createTransporter } from '../lib/mailer.js';
 import dotenv from 'dotenv';
 import prisma from '../lib/prisma.js';
 import { generateInvoicePdf } from '../lib/invoicePdf.js';
-import { activeItems, payableTotal, payableShipping } from '../lib/orderTotals.js';
+import { activeItems, payableTotal, payableShipping, membershipLine, payableMembershipDiscount } from '../lib/orderTotals.js';
 import { unsubscribeUrl } from '../lib/unsubscribe.js';
 
 dotenv.config();
@@ -360,6 +360,16 @@ export const sendOrderConfirmation = async (email, order) => {
             </tr>
         `).join('');
 
+        // A membership bought with this order isn't a line item — show it as one so the listed
+        // rows reconcile with the Total below (same treatment as the e-gift cards).
+        const memberLine = membershipLine(order);
+        const membershipRows = memberLine ? `
+            <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #e6decd; color: ${theme.textMain};">${escapeHtml(memberLine.name)}</td>
+                <td style="padding: 8px 0; border-bottom: 1px solid #e6decd; text-align: center; color: ${theme.textMain};">1</td>
+                <td style="padding: 8px 0; border-bottom: 1px solid #e6decd; text-align: right; color: ${theme.textMain};">${escapeHtml(order.currency || 'USD')} ${Number(memberLine.price).toFixed(2)}</td>
+            </tr>
+        ` : '';
         const giftCardRows = (order.giftCardItems || []).map(gc => `
             <tr>
                 <td style="padding: 8px 0; border-bottom: 1px solid #e6decd; color: ${theme.textMain};">E-gift Card${gc.recipientName ? ` (for ${escapeHtml(gc.recipientName)})` : ''}</td>
@@ -398,19 +408,15 @@ export const sendOrderConfirmation = async (email, order) => {
                                     <th style="text-align: right; padding-bottom: 8px; border-bottom: 2px solid #e6decd; color: ${theme.textMuted}; font-size: 13px;">Price</th>
                                 </tr>
                             </thead>
-                            <tbody>${itemRows}${giftCardRows}</tbody>
+                            <tbody>${itemRows}${membershipRows}${giftCardRows}</tbody>
                         </table>
                         <div style="margin-top: 20px; text-align: right;">
                             ${payableShipping(order) > 0
                                 ? `<p style="font-size:13px;color:${theme.textMuted};margin:0 0 4px;">Shipping: ${escapeHtml(order.currency || 'USD')} ${payableShipping(order).toFixed(2)}</p>`
                                 : `<p style="font-size:13px;color:#16a34a;margin:0 0 4px;font-weight:600;">Shipping: FREE</p>`
                             }
-                            ${Number(order.membershipFee) > 0
-                                ? `<p style="font-size:13px;color:${theme.textMuted};margin:0 0 4px;">Membership: +${escapeHtml(order.currency || 'USD')} ${Number(order.membershipFee).toFixed(2)}</p>`
-                                : ''
-                            }
-                            ${Number(order.membershipDiscount) > 0
-                                ? `<p style="font-size:13px;color:#16a34a;margin:0 0 4px;font-weight:600;">Member discount: &minus;${escapeHtml(order.currency || 'USD')} ${Number(order.membershipDiscount).toFixed(2)}</p>`
+                            ${payableMembershipDiscount(order) > 0
+                                ? `<p style="font-size:13px;color:#16a34a;margin:0 0 4px;font-weight:600;">Member discount: &minus;${escapeHtml(order.currency || 'USD')} ${payableMembershipDiscount(order).toFixed(2)}</p>`
                                 : ''
                             }
                             ${Number(order.couponDiscount) > 0
@@ -758,6 +764,10 @@ export const sendInvoiceEmail = async (email, order) => {
         const orderNum = order.orderNumber || order.order_number || order.id;
         const currency = order.currency || 'USD';
         const items = activeItems(order.items); // exclude cancelled out-of-print items (#5)
+        const invoiceMemberLine = membershipLine(order); // membership isn't a line item — show it as one
+        if (invoiceMemberLine) items.push(invoiceMemberLine);
+        const invoiceMemberDiscount = payableMembershipDiscount(order);
+        const invoiceShipping = payableShipping(order);
         const itemRows = items.map(item => `
             <tr>
                 <td style="padding:10px 8px;border-bottom:1px solid #e6decd;color:${theme.textMain};">${escapeHtml(item.name || item.product?.title || 'Item')}</td>
@@ -788,6 +798,12 @@ export const sendInvoiceEmail = async (email, order) => {
                   </table>
 
                   <div style="margin-top:20px;text-align:right;border-top:2px solid #e6decd;padding-top:16px;">
+                    ${invoiceMemberDiscount > 0
+                        ? `<p style="font-size:13px;color:#16a34a;margin:0 0 4px;font-weight:600;">Member discount: &minus;${currency} ${invoiceMemberDiscount.toFixed(2)}</p>`
+                        : ''}
+                    ${invoiceShipping > 0
+                        ? `<p style="font-size:13px;color:${theme.textMuted};margin:0 0 4px;">Shipping: ${currency} ${invoiceShipping.toFixed(2)}</p>`
+                        : ''}
                     <p style="font-size:20px;font-weight:700;color:${theme.textMain};">Total: ${currency} ${payableTotal(order).toFixed(2)}</p>
                   </div>
 

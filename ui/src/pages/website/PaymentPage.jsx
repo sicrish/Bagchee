@@ -148,6 +148,24 @@ const PaymentPage = () => {
                   </span>
                 </div>
               ))}
+              {/* Membership is listed as an item above; its discount + shipping are shown here
+                  so the rows always add up to the Total the customer is asked to pay. */}
+              {Number(order?.memberDiscount) > 0 && (
+                <div className="pt-3 border-t border-gray-100 flex justify-between items-center text-sm">
+                  <span className="text-gray-500 font-medium">Member discount</span>
+                  <span className="font-bold text-red-600">
+                    −{currencySymbol}{Number(order.memberDiscount).toFixed(2)}
+                  </span>
+                </div>
+              )}
+              {Number(order?.shippingCost) > 0 && (
+                <div className={`flex justify-between items-center text-sm ${Number(order?.memberDiscount) > 0 ? '' : 'pt-3 border-t border-gray-100'}`}>
+                  <span className="text-gray-500 font-medium">Shipping</span>
+                  <span className="font-bold text-text-main">
+                    {currencySymbol}{Number(order.shippingCost).toFixed(2)}
+                  </span>
+                </div>
+              )}
               <div className="pt-3 border-t border-gray-100 flex justify-between items-center text-sm">
                 <span className="text-gray-500 font-medium">Payment Method</span>
                 <span className="font-bold text-text-main">{order?.paymentType || order?.payment_type || 'PayPal'}</span>

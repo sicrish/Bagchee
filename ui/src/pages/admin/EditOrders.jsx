@@ -72,6 +72,24 @@ const standardShippingFor = (rule, subtotal) => {
 };
 const near = (a, b) => Math.abs((Number(a) || 0) - (Number(b) || 0)) < 0.005;
 
+// ── Membership mirror (Aug-2026) ──────────────────────────────────────────────
+// A membership bought with an order is money on the order that is NOT a line item: the fee
+// lives in `membershipFee` and `membershipDiscount` is a percentage of (items + fee). The
+// effective rate is recovered from those two stored amounts, so editing the items rescales
+// the discount. Mirrors api/lib/orderTotals.js + updateOrder so this form previews exactly
+// what the save will store.
+// ⚠️ Legacy migrated orders stored the discount PERCENTAGE (a bare `10`) in that column rather
+// than a currency amount, so it only counts as money for an order carrying a fee or placed
+// after the membership money model shipped (2026-06-30). KEEP IN SYNC with hasMembershipMoney.
+const MEMBERSHIP_MONEY_FROM = new Date('2026-06-30T00:00:00Z').getTime();
+const hasMembershipMoney = (o) => {
+  if ((Number(o?.membershipFee) || 0) > 0) return true;
+  const created = o?.createdAt || o?.created_at;
+  const ms = created ? new Date(created).getTime() : NaN;
+  return Number.isFinite(ms) && ms >= MEMBERSHIP_MONEY_FROM;
+};
+const membershipBase = (items, fee) => round2(lineSum(items) + (Number(fee) || 0));
+
 const EditOrders = () => {
   const navigate = useNavigate();
   const { id } = useParams(); // URL se Order ID lene ke liye
@@ -244,8 +262,12 @@ const EditOrders = () => {
   // Every recompute is a DELTA from this baseline (never a re-derivation of the total), so
   // gift cards, wallet deductions, coupon and membership amounts inside it stay intact.
   const [shippingRule, setShippingRule] = useState(null);
-  const baselineRef = useRef(null); // { items, total, shipping, shippingType, paid }
+  const baselineRef = useRef(null); // { items, total, shipping, shippingType, paid, membershipFee, membershipDiscount }
   const [cancelRequestedAt, setCancelRequestedAt] = useState(null);
+  // A membership bought with this order. It has no row in `product_to_order`, so it is
+  // rendered as an extra line in the Products table and can be taken off the order there.
+  const [membership, setMembership] = useState({ fee: 0, purchased: false, isMoney: false });
+  const [removeMembership, setRemoveMembership] = useState(false);
 
   const [commentContent, setCommentContent] = useState('');
   const [customerComment, setCustomerComment] = useState('');
@@ -399,12 +421,24 @@ const EditOrders = () => {
           setOrderProducts(d.items || d.products || []);
           setShippingRule(d.shippingRule || null);
           setCancelRequestedAt(d.cancelRequestedAt || d.cancel_requested_at || null);
+          const memberIsMoney = hasMembershipMoney(d);
+          setMembership({
+            fee: memberIsMoney ? Math.max(0, Number(d.membershipFee) || 0) : 0,
+            purchased: d.membershipPurchased === true,
+            isMoney: memberIsMoney,
+          });
+          setRemoveMembership(false);
           baselineRef.current = {
             items: (d.items || d.products || []).map((it) => ({ price: it.price, quantity: it.quantity, status: it.status })),
             total: Number(d.total) || 0,
             shipping: Number(d.shippingCost ?? d.shipping_cost) || 0,
             shippingType: d.shippingType || d.shipping_type || '',
             status: d.status || '',
+            // Membership fee + the discount it earned, both only counted when they really are
+            // money on this order (legacy rows hold a percentage — see hasMembershipMoney).
+            membershipFee: memberIsMoney ? Math.max(0, Number(d.membershipFee) || 0) : 0,
+            membershipDiscount: memberIsMoney
+              ? Math.max(0, Number(d.membershipDiscount ?? d.membership_discount) || 0) : 0,
             // An order that is already paid keeps its recorded amounts — the server won't
             // move them either (`total` is the record of what the customer was charged).
             paid: ['paid', 'completed', 'refunded'].includes(String(d.paymentStatus || d.payment_status || '').toLowerCase()),
@@ -488,6 +522,31 @@ const EditOrders = () => {
   //   shipping = free-shipping rule re-applied to the REMAINING (non-cancelled) books,
   //              unless the admin typed their own figure or changed the shipping method.
   // Always a delta from the loaded baseline, so it's idempotent while typing.
+  // Membership fee + member discount for a given item set. The discount is a percentage of
+  // (items + fee), so it moves with the items; the rate comes from the loaded amounts. A paid
+  // order keeps exactly what it was charged (the server won't move it either).
+  // `discount` is what gets STORED (the whole item set, cancelled lines included, like the
+  // server); `payableDiscount` is what the customer actually keeps once cancelled lines drop
+  // out — the pair mirrors membershipDiscount vs payableMembershipDiscount on the backend.
+  const previewMembership = (nextProducts, removed) => {
+    const b = baselineRef.current;
+    const withPayable = (fee, discount) => {
+      const base = membershipBase(nextProducts, fee);
+      const activeBase = membershipBase((nextProducts || []).filter(p => !isCancelledItemStatus(p.status)), fee);
+      const payableDiscount = discount > 0 && base > 0
+        ? Math.min(discount, round2(discount * (activeBase / base))) : 0;
+      return { fee, discount, payableDiscount };
+    };
+    if (!b) return withPayable(0, 0);
+    const feeBefore  = Number(b.membershipFee) || 0;
+    const discBefore = Number(b.membershipDiscount) || 0;
+    if (b.paid) return withPayable(feeBefore, discBefore);
+    const baseBefore = membershipBase(b.items, feeBefore);
+    const rate = discBefore > 0 && baseBefore > 0 ? discBefore / baseBefore : 0;
+    const fee = removed ? 0 : feeBefore;
+    return withPayable(fee, removed ? 0 : round2(rate * membershipBase(nextProducts, fee)));
+  };
+
   const applyMoneyPreview = (nextProducts, typedShipping, opts = {}) => {
     const b = baselineRef.current;
     if (!b || b.paid) return;
@@ -520,13 +579,31 @@ const EditOrders = () => {
       }
     }
 
-    const total = Math.max(0, round2(b.total + (lineSum(nextProducts) - lineSum(b.items)) + (shipping - prevShipping)));
+    // `total` carries the membership as (+ fee − discount): both move when the items change
+    // or the admin takes the membership off the order.
+    const removed = opts.removeMembership !== undefined ? opts.removeMembership : removeMembership;
+    const m = previewMembership(nextProducts, removed);
+    const feeDelta      = m.fee - (Number(b.membershipFee) || 0);
+    const discountDelta = m.discount - (Number(b.membershipDiscount) || 0);
+
+    const total = Math.max(0, round2(
+      b.total + (lineSum(nextProducts) - lineSum(b.items)) + (shipping - prevShipping)
+      + feeDelta - discountDelta));
     setFormData(prev => ({
       ...prev,
       total: total.toFixed(2),
+      membership_discount: m.discount ? m.discount.toFixed(2) : (removed ? '0.00' : prev.membership_discount),
       // While the admin is typing in the shipping box, leave their raw text alone.
       ...(typedShipping === undefined ? { shipping_cost: shipping.toFixed(2) } : {}),
     }));
+  };
+
+  // Take the membership off / put it back on the order — the totals follow immediately and
+  // are persisted on Update (fee, discount and the activation flag all go).
+  const toggleMembershipRemoval = () => {
+    const next = !removeMembership;
+    setRemoveMembership(next);
+    applyMoneyPreview(orderProducts, undefined, { removeMembership: next });
   };
 
   const handleChange = (e) => {
@@ -667,6 +744,9 @@ const EditOrders = () => {
         // removed_item_ids are existing rows the admin deleted from the table.
         items: orderProducts,
         removed_item_ids: removedItemIds,
+        // Membership taken off the order in the items table — the server drops the fee, the
+        // member discount and the activation-on-payment flag, and moves the total.
+        remove_membership: removeMembership,
       };
 
       const API_URL = process.env.REACT_APP_API_URL;
@@ -685,12 +765,19 @@ const EditOrders = () => {
           setOrderProducts(fresh.items || []);
           setRemovedItemIds([]);
           if (fresh.shippingRule) setShippingRule(fresh.shippingRule);
+          const freshIsMoney = hasMembershipMoney(fresh);
+          const freshFee = freshIsMoney ? Math.max(0, Number(fresh.membershipFee) || 0) : 0;
+          const freshDiscount = freshIsMoney ? Math.max(0, Number(fresh.membershipDiscount) || 0) : 0;
+          setMembership({ fee: freshFee, purchased: fresh.membershipPurchased === true, isMoney: freshIsMoney });
+          setRemoveMembership(false); // the removal has been applied — start clean
           setFormData((prev) => ({
             ...prev,
             status: fresh.status ?? prev.status,
             payment_status: fresh.paymentStatus ?? prev.payment_status,
             total: fresh.total != null ? Number(fresh.total).toFixed(2) : prev.total,
             shipping_cost: fresh.shippingCost != null ? Number(fresh.shippingCost).toFixed(2) : prev.shipping_cost,
+            membership: fresh.membership ?? prev.membership,
+            membership_discount: freshIsMoney ? freshDiscount.toFixed(2) : prev.membership_discount,
           }));
           // New baseline — further edits are deltas from what is now stored.
           baselineRef.current = {
@@ -699,6 +786,8 @@ const EditOrders = () => {
             shipping: Number(fresh.shippingCost) || 0,
             shippingType: fresh.shippingType || '',
             status: fresh.status || '',
+            membershipFee: freshFee,
+            membershipDiscount: freshDiscount,
             paid: ['paid', 'completed', 'refunded'].includes(String(fresh.paymentStatus || '').toLowerCase()),
           };
         }
@@ -934,16 +1023,22 @@ ${estDeliveryLine}
     const dueDate   = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     // Exclude cancelled line items (out of print / other) so the email shows only payable titles (#5)
     const activeProducts = orderProducts.filter(p => !isCancelledItemStatus(p.status));
+    const emailMembership = previewMembership(orderProducts, removeMembership);
     const itemRows  = activeProducts.map(p =>
       `<li>${p.name || p.product?.title || 'Item'} &times; ${p.quantity || 1} &mdash; ${currency} ${Number(p.price || 0).toFixed(2)}</li>`
-    ).join('');
+    ).join('')
+      // A membership isn't a line item — list it so the items add up to the amount quoted below.
+      + (emailMembership.fee > 0
+        ? `<li>Bagchee Membership (1 Year) &times; 1 &mdash; ${currency} ${emailMembership.fee.toFixed(2)}</li>` : '');
     const cancelledSum = orderProducts
       .filter(p => isCancelledItemStatus(p.status))
       .reduce((s, p) => s + (Number(p.price) || 0) * (Number(p.quantity) || 1), 0);
     // Re-rate Expedited/Express shipping for the remaining books (matches backend payable)
     const shippingDrop = Math.max(0, (Number(formData.shipping_cost) || 0)
       - previewPayableShipping(formData.shipping_cost, formData.shipping_type, orderProducts));
-    const total = `${currency} ${Math.max(0, (Number(formData.total) || 0) - cancelledSum - shippingDrop).toFixed(2)}`;
+    // Cancelled lines also give back their share of the member discount (matches payableTotal).
+    const discountRestore = Math.max(0, round2(emailMembership.discount - emailMembership.payableDiscount));
+    const total = `${currency} ${Math.max(0, (Number(formData.total) || 0) - cancelledSum - shippingDrop + discountRestore).toFixed(2)}`;
 
     const paymentType = (formData.payment_type || '').toLowerCase();
     const isWireTransfer = paymentType.includes('wire') || paymentType.includes('bank transfer') || paymentType.includes('western union');
@@ -1545,9 +1640,106 @@ ${bankDetails}
             </tr>
             );
           })}
+
+          {/* Membership bought with this order. It has no product_to_order row — the fee lives
+              on the order itself — so it is shown here as a line of its own. Removing it drops
+              the fee, the member discount and the activation on payment. */}
+          {membership.isMoney && membership.fee > 0 && (
+            <tr className={removeMembership ? 'bg-gray-50' : 'bg-amber-50/60'}>
+              <td className="border p-1">
+                <div className={`px-1 py-0.5 font-bold ${removeMembership ? 'text-gray-400 line-through' : 'text-amber-800'}`}>
+                  Bagchee Membership (1 Year)
+                </div>
+                <span className={`inline-block mt-0.5 text-[9px] font-bold rounded px-1 border ${removeMembership
+                  ? 'text-gray-500 bg-gray-100 border-gray-200'
+                  : 'text-amber-700 bg-amber-100 border-amber-300'}`}>
+                  {removeMembership
+                    ? 'Will be removed on Update'
+                    : `Member discount applies${membership.purchased ? ' · activates when paid' : ''}`}
+                </span>
+                {/* Labelled and inline rather than an icon in the last column — this table
+                    scrolls horizontally, so anything on the far right is invisible until the
+                    admin scrolls (the /admin/blocklist Unblock lesson, 17-July). */}
+                <div className="mt-1">
+                  <button
+                    type="button"
+                    onClick={toggleMembershipRemoval}
+                    className={`inline-flex items-center gap-1 text-[9px] font-bold rounded px-1.5 py-0.5 border ${removeMembership
+                      ? 'text-green-700 bg-green-50 border-green-300 hover:bg-green-100'
+                      : 'text-red-600 bg-red-50 border-red-300 hover:bg-red-100'}`}
+                  >
+                    {removeMembership
+                      ? <><RotateCcw size={9} /> Keep membership</>
+                      : <><Trash2 size={9} /> Remove membership</>}
+                  </button>
+                </div>
+              </td>
+              <td className={`border p-1 text-right pr-2 ${removeMembership ? 'text-gray-400 line-through' : ''}`}>
+                {Number(membership.fee).toFixed(2)}
+              </td>
+              <td className="border p-1 text-center">1</td>
+              <td className="border p-1 text-center text-gray-400">—</td>
+              <td className="border p-1"></td>
+              <td className="border p-1"></td>
+              <td className="border p-1"></td>
+              <td className="border p-1"></td>
+              <td className="border p-1"></td>
+            </tr>
+          )}
         </tbody>
       </table>
     </div>
+
+    {/* Order money breakdown — the Total field alone can't explain itself once a membership
+        or a member discount is involved (items $504 → total $500.10). Mirrors what the
+        invoice / payment link / My Account will show after Update. */}
+    {(() => {
+      const cur = formData.currency || 'USD';
+      const money = (n) => `${cur} ${Number(n || 0).toFixed(2)}`;
+      const m = previewMembership(orderProducts, removeMembership);
+      const itemsTotal = activeLineSum(orderProducts);
+      const cancelledSum = round2(lineSum(orderProducts) - itemsTotal);
+      const shipping = previewPayableShipping(formData.shipping_cost, formData.shipping_type, orderProducts);
+      const payableDiscount = m.payableDiscount; // cancelled lines take their share with them
+      const afterDiscount = round2(itemsTotal + m.fee - payableDiscount);
+      const hasMembershipMoneyNow = m.fee > 0 || payableDiscount > 0;
+      if (!hasMembershipMoneyNow && cancelledSum <= 0 && !removeMembership) return null;
+
+      return (
+        <div className="mt-3 border border-gray-200 rounded bg-gray-50 p-3 text-[11px] max-w-md ml-auto">
+          <div className="flex justify-between py-0.5">
+            <span className="text-text-muted">Items total{cancelledSum > 0 ? ' (excl. cancelled)' : ''}</span>
+            <span className="font-bold text-text-main">{money(itemsTotal)}</span>
+          </div>
+          {m.fee > 0 && (
+            <div className="flex justify-between py-0.5">
+              <span className="text-text-muted">Membership</span>
+              <span className="font-bold text-text-main">{money(m.fee)}</span>
+            </div>
+          )}
+          {payableDiscount > 0 && (
+            <div className="flex justify-between py-0.5">
+              <span className="text-red-600 font-semibold">Membership discount</span>
+              <span className="font-bold text-red-600">&minus;{money(payableDiscount)}</span>
+            </div>
+          )}
+          <div className="flex justify-between py-0.5 border-t border-gray-200 mt-1 pt-1">
+            <span className="text-text-muted">Total after discount</span>
+            <span className="font-bold text-text-main">{money(afterDiscount)}</span>
+          </div>
+          {shipping > 0 && (
+            <div className="flex justify-between py-0.5">
+              <span className="text-text-muted">Shipping</span>
+              <span className="font-bold text-text-main">{money(shipping)}</span>
+            </div>
+          )}
+          <div className="flex justify-between py-1 border-t-2 border-gray-300 mt-1">
+            <span className="font-bold text-text-main uppercase tracking-wide">Order total</span>
+            <span className="font-black text-primary text-[13px]">{money(round2(afterDiscount + shipping))}</span>
+          </div>
+        </div>
+      );
+    })()}
 
     {/* Live money preview: what the customer will be charged + what this edit changed (#5, 5-Aug) */}
     {(() => {
@@ -1559,7 +1751,10 @@ ${bankDetails}
       const fullShipping = Number(formData.shipping_cost) || 0;
       const newShipping  = previewPayableShipping(formData.shipping_cost, formData.shipping_type, orderProducts);
       const shippingDrop = Math.max(0, fullShipping - newShipping);
-      const payablePreview = Math.max(0, (Number(formData.total) || 0) - cancelledSum - shippingDrop);
+      // Cancelled lines give back their share of the member discount too (matches payableTotal).
+      const mPrev = previewMembership(orderProducts, removeMembership);
+      const discountRestore = Math.max(0, round2(mPrev.discount - mPrev.payableDiscount));
+      const payablePreview = Math.max(0, (Number(formData.total) || 0) - cancelledSum - shippingDrop + discountRestore);
 
       // Did this edit move the stored numbers? (items / shipping / total vs what was loaded)
       const totalChanged    = b && !near(Number(formData.total) || 0, b.total);
@@ -1677,7 +1872,18 @@ ${bankDetails}
             </div>
             <div className="grid grid-cols-12 gap-4 items-center">
               <label className={labelClass}>Membership discount</label>
-              <div className="col-span-9"><input type="text" name="membership_discount" value={formData.membership_discount} onChange={handleChange} className={inputClass} /></div>
+              <div className="col-span-9">
+                {/* Derived, not typed: the discount is a percentage of (items + membership fee),
+                    so it is recomputed from the items on every save. Editing it by hand would
+                    only be overwritten on Update. */}
+                <input type="text" name="membership_discount" value={formData.membership_discount} readOnly
+                  className={`${inputClass} bg-gray-100 text-text-muted cursor-not-allowed`} />
+                {membership.isMoney && (
+                  <p className="text-[10px] text-text-muted mt-1">
+                    Calculated from the items {membership.fee > 0 ? '+ membership fee' : ''} — updates automatically when you edit the order.
+                  </p>
+                )}
+              </div>
             </div>
             <div className="grid grid-cols-12 gap-4 items-center">
               <label className={labelClass}>Coupon id</label>

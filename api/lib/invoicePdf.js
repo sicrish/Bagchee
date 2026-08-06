@@ -1,7 +1,7 @@
 // Pure-JS invoice PDF generator (pdfkit — no headless browser, uses built-in Helvetica).
 // Returns a Promise<Buffer> with a print-ready A4 invoice for an order.
 import PDFDocument from 'pdfkit';
-import { activeItems, payableTotal, payableShipping } from './orderTotals.js';
+import { activeItems, payableTotal, payableShipping, membershipLine, payableMembershipDiscount } from './orderTotals.js';
 
 const BLUE  = '#008DDA';
 const DARK  = '#2d2d2d';
@@ -81,8 +81,14 @@ export const generateInvoicePdf = (order) => new Promise((resolve, reject) => {
         };
         drawHeader();
 
+        // A membership bought with the order is not a line item — append it as one so the
+        // printed rows add up to the Grand Total.
+        const pdfLines = activeItems(order.items);
+        const pdfMemberLine = membershipLine(order);
+        if (pdfMemberLine) pdfLines.push(pdfMemberLine);
+
         doc.font('Helvetica').fontSize(10).fillColor(DARK);
-        activeItems(order.items).forEach((it) => {
+        pdfLines.forEach((it) => {
             const name = it.name || it.product?.title || 'Item';
             const qty = Number(it.quantity) || 1;
             const price = Number(it.price) || 0;
@@ -103,6 +109,13 @@ export const generateInvoicePdf = (order) => new Promise((resolve, reject) => {
         y += 8;
         const totalValX = right - 130;   // wide box so "USD 1,234.56" never wraps to a new line
         const totalLblX = right - 290;
+        const memberDiscountShown = payableMembershipDiscount(order);
+        if (memberDiscountShown > 0) {
+            doc.font('Helvetica').fontSize(10).fillColor('#c0392b')
+                .text('Member discount', totalLblX, y, { width: 150, align: 'right' })
+                .text(`- ${money(memberDiscountShown)}`, totalValX, y, { width: 130, align: 'right' });
+            y += 16;
+        }
         const shipShown = payableShipping(order);
         if (shipShown) {
             doc.font('Helvetica').fontSize(10).fillColor(DARK)

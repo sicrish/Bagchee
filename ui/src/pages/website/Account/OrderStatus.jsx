@@ -46,12 +46,25 @@ const OrderStatus = () => {
         // emailed PDF and the amount actually charged.
         const items = (o.items || o.products || []).filter(it => !isCancelledItemStatus(it.status));
         const invoiceTotal = o.payableTotal != null ? o.payableTotal : Number(o.total || 0);
+        // A membership bought with the order isn't a line item — list it so the rows reconcile.
+        const invFee      = Math.max(0, Number(o.membershipFee ?? o.membership_fee) || 0);
+        const invDiscount = Math.max(0, Number(o.payableMembershipDiscount) || 0);
+        const invShipping = Math.max(0, Number(o.payableShipping ?? o.shippingCost ?? o.shipping_cost) || 0);
         const rows = items.map(it => `
             <tr>
                 <td style="padding:8px;border-bottom:1px solid #eee">${it.name || it.product?.title || 'Item'}</td>
                 <td style="padding:8px;border-bottom:1px solid #eee;text-align:center">${it.quantity || 1}</td>
                 <td style="padding:8px;border-bottom:1px solid #eee;text-align:right">${o.currency || 'USD'} ${Number(it.price || 0).toFixed(2)}</td>
-            </tr>`).join('');
+            </tr>`).join('')
+            + (invFee > 0 ? `
+            <tr>
+                <td style="padding:8px;border-bottom:1px solid #eee">Bagchee Membership (1 Year)</td>
+                <td style="padding:8px;border-bottom:1px solid #eee;text-align:center">1</td>
+                <td style="padding:8px;border-bottom:1px solid #eee;text-align:right">${o.currency || 'USD'} ${invFee.toFixed(2)}</td>
+            </tr>` : '');
+        const summaryRows =
+            (invDiscount > 0 ? `<div style="color:#c0392b">Membership discount: −${o.currency || 'USD'} ${invDiscount.toFixed(2)}</div>` : '')
+          + (invShipping > 0 ? `<div>Shipping: ${o.currency || 'USD'} ${invShipping.toFixed(2)}</div>` : '');
         const html = `<!DOCTYPE html><html><head><title>Invoice #${num}</title>
             <style>body{font-family:Arial,sans-serif;margin:40px;color:#333}h1{color:#1a5276}table{width:100%;border-collapse:collapse}th{background:#1a5276;color:#fff;padding:10px;text-align:left}.total{font-size:18px;font-weight:bold;text-align:right;margin-top:16px}@media print{button{display:none}}</style>
             </head><body>
@@ -62,6 +75,7 @@ const OrderStatus = () => {
             <hr/>
             <table><thead><tr><th>Item</th><th style="text-align:center">Qty</th><th style="text-align:right">Price</th></tr></thead>
             <tbody>${rows}</tbody></table>
+            <div style="text-align:right;margin-top:12px;font-size:14px">${summaryRows}</div>
             <div class="total">Total: ${o.currency || 'USD'} ${Number(invoiceTotal).toFixed(2)}</div>
             <br/><button onclick="window.print()">🖨 Print / Save as PDF</button>
             </body></html>`;
@@ -109,6 +123,18 @@ const OrderStatus = () => {
         : Math.max(0, (order.total || 0) - items
             .filter(it => isCancelledItemStatus(it.status))
             .reduce((s, it) => s + (Number(it.price) || 0) * (Number(it.quantity) || 1), 0));
+    // A membership bought with this order is not a line item — the fee sits on the order — so
+    // it is shown as its own line in the summary below. `payableMembershipDiscount` comes from
+    // the API already net of any cancelled lines (and is 0 for legacy orders, whose column
+    // holds a percentage rather than an amount).
+    const membershipFee      = Math.max(0, Number(order.membershipFee ?? order.membership_fee) || 0);
+    const memberDiscount     = Math.max(0, Number(order.payableMembershipDiscount) || 0);
+    const couponDiscount     = Math.max(0, Number(order.couponDiscount ?? order.coupon_discount) || 0);
+    const summaryShipping    = Math.max(0, Number(order.payableShipping ?? order.shippingCost ?? order.shipping_cost) || 0);
+    const summarySubtotal    = items
+        .filter(it => !isCancelledItemStatus(it.status))
+        .reduce((s, it) => s + (Number(it.price) || 0) * (Number(it.quantity) || 1), 0);
+    const showSummary = membershipFee > 0 || memberDiscount > 0;
     const placedAt   = order.createdAt   || order.created_at;
     const shippedAt  = order.shippedAt   || order.shipped_at;
     const estDelivery = order.estimatedDelivery || order.estimated_delivery;
@@ -668,6 +694,47 @@ const OrderStatus = () => {
                             )}
                         </div>
                     </div>
+
+                    {/* Breakdown — without it a membership order's items never add up to the
+                        total the customer is charged (e.g. $504 of books → $500.10). */}
+                    {showSummary && (
+                        <div className="mt-6 pt-5 border-t border-gray-100">
+                            <div className="max-w-sm ml-auto space-y-1.5 text-sm">
+                                <div className="flex justify-between">
+                                    <span className="text-text-muted">Items total</span>
+                                    <span className="font-bold text-text-main">{formatAmount(summarySubtotal, order.currency)}</span>
+                                </div>
+                                {membershipFee > 0 && (
+                                    <div className="flex justify-between">
+                                        <span className="text-text-muted">Bagchee Membership (1 Year)</span>
+                                        <span className="font-bold text-text-main">{formatAmount(membershipFee, order.currency)}</span>
+                                    </div>
+                                )}
+                                {memberDiscount > 0 && (
+                                    <div className="flex justify-between">
+                                        <span className="text-red-600 font-semibold">Membership discount</span>
+                                        <span className="font-bold text-red-600">−{formatAmount(memberDiscount, order.currency)}</span>
+                                    </div>
+                                )}
+                                {couponDiscount > 0 && (
+                                    <div className="flex justify-between">
+                                        <span className="text-green-600 font-semibold">Coupon discount</span>
+                                        <span className="font-bold text-green-600">−{formatAmount(couponDiscount, order.currency)}</span>
+                                    </div>
+                                )}
+                                {summaryShipping > 0 && (
+                                    <div className="flex justify-between">
+                                        <span className="text-text-muted">Shipping</span>
+                                        <span className="font-bold text-text-main">{formatAmount(summaryShipping, order.currency)}</span>
+                                    </div>
+                                )}
+                                <div className="flex justify-between pt-2 border-t border-gray-200">
+                                    <span className="font-black text-text-main uppercase tracking-wide text-xs">Order total</span>
+                                    <span className="font-black text-primary">{formatAmount(displayTotal, order.currency)}</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* ── CANCEL CONFIRMATION POPUP ─────────────────────────────────── */}
