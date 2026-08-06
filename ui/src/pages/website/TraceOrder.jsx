@@ -262,25 +262,77 @@ ${activeTab === 'guest' ? 'bg-white text-primary border-b-2 border-primary' : 't
                                 </span>
                             )}
                         </div>
-                        <div className="divide-y divide-gray-50">
-                            {(tracedOrder.items || []).map((item, i) => (
-                                <div key={i} className="flex justify-between items-center py-3">
-                                    <div>
-                                        <p className="text-sm font-bold text-text-main">{item.name}</p>
-                                        <p className="text-xs text-gray-400">Qty: {item.quantity}</p>
-                                    </div>
-                                    <span className="text-sm font-black text-text-main">
-                                        {Number(item.price || 0).toFixed(2)}
-                                    </span>
+                        {(() => {
+                            // Cancelled lines (out of print / other) are excluded from the invoice and
+                            // the charge, so they must not be listed or counted here either. A
+                            // membership bought with the order is not a line item — shown as one.
+                            // The total is `payableTotal` from the API, never the raw stored total:
+                            // that still carries the cancelled books and would over-state the bill.
+                            const cancelled = (s) => ['cancelled', 'cancelled - other']
+                                .includes(String(s ?? '').trim().toLowerCase());
+                            const cur = tracedOrder.currency || 'USD';
+                            const money = (n) => `${Number(n || 0).toFixed(2)}`;
+                            const lines = (tracedOrder.items || []).filter((it) => !cancelled(it.status));
+                            const fee = Math.max(0, Number(tracedOrder.membershipFee ?? tracedOrder.membership_fee) || 0);
+                            const memberDiscount = Math.max(0, Number(tracedOrder.payableMembershipDiscount) || 0);
+                            const shipping = Math.max(0, Number(
+                                tracedOrder.payableShipping ?? tracedOrder.shippingCost ?? tracedOrder.shipping_cost) || 0);
+                            const itemsTotal = lines.reduce(
+                                (s, it) => s + (Number(it.price) || 0) * (Number(it.quantity) || 1), 0);
+                            const grand = tracedOrder.payableTotal != null
+                                ? Number(tracedOrder.payableTotal) : Number(tracedOrder.total || 0);
+                            const cancelledCount = (tracedOrder.items || []).length - lines.length;
+                            const row = (label, value, cls = 'text-text-main') => (
+                                <div className="flex justify-between items-center py-1 text-sm">
+                                    <span className="text-gray-500">{label}</span>
+                                    <span className={`font-bold ${cls}`}>{value}</span>
                                 </div>
-                            ))}
-                        </div>
-                        <div className="pt-2 border-t border-gray-100 flex justify-between items-center">
-                            <span className="text-sm font-black text-text-main uppercase tracking-wide">Total</span>
-                            <span className="text-xl font-black text-primary">
-                                {Number(tracedOrder.total || 0).toFixed(2)} {tracedOrder.currency}
-                            </span>
-                        </div>
+                            );
+                            return (
+                                <>
+                                    <div className="divide-y divide-gray-50">
+                                        {lines.map((item, i) => (
+                                            <div key={i} className="flex justify-between items-center py-3">
+                                                <div>
+                                                    <p className="text-sm font-bold text-text-main">{item.name}</p>
+                                                    <p className="text-xs text-gray-400">Qty: {item.quantity}</p>
+                                                </div>
+                                                <span className="text-sm font-black text-text-main">
+                                                    {money(item.price)}
+                                                </span>
+                                            </div>
+                                        ))}
+                                        {fee > 0 && (
+                                            <div className="flex justify-between items-center py-3">
+                                                <div>
+                                                    <p className="text-sm font-bold text-text-main">Bagchee Membership (1 Year)</p>
+                                                    <p className="text-xs text-gray-400">Qty: 1</p>
+                                                </div>
+                                                <span className="text-sm font-black text-text-main">{money(fee)}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="pt-2 border-t border-gray-100">
+                                        {lines.length > 0 && row('Items total', money(itemsTotal + fee))}
+                                        {memberDiscount > 0 && row('Membership discount', `−${money(memberDiscount)}`, 'text-red-600')}
+                                        {lines.length > 0 && (shipping > 0
+                                            ? row('Shipping', money(shipping))
+                                            : row('Shipping', 'FREE', 'text-green-600'))}
+                                        <div className="pt-2 mt-1 border-t border-gray-100 flex justify-between items-center">
+                                            <span className="text-sm font-black text-text-main uppercase tracking-wide">Total</span>
+                                            <span className="text-xl font-black text-primary">
+                                                {money(grand)} {cur}
+                                            </span>
+                                        </div>
+                                        {cancelledCount > 0 && (
+                                            <p className="text-[11px] text-red-500 font-bold mt-1 text-right">
+                                                Adjusted — {cancelledCount} unavailable {cancelledCount === 1 ? 'item has' : 'items have'} been removed
+                                            </p>
+                                        )}
+                                    </div>
+                                </>
+                            );
+                        })()}
                         {tracedOrder.status === 'payment pending' && tracedOrder.paymentLink && (
                             <a
                                 href={tracedOrder.paymentLink}

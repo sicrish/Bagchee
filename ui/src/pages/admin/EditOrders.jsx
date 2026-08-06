@@ -1823,10 +1823,35 @@ ${bankDetails}
                 </div>
               </div>
             )}
-            <div className="grid grid-cols-12 gap-4 items-center">
-              <label className={labelClass}>Total</label>
-              <div className="col-span-9"><input type="text" name="total" value={formData.total} onChange={handleChange} className={inputClass} /></div>
-            </div>
+            {/* `total` is the FULL value of everything ordered — cancelled books included —
+                because payableTotal() subtracts them from it. When they differ, saying just
+                "Total" here reads like the amount to charge and contradicts the breakdown
+                above it, so the label says what it is and the payable is shown beside it. */}
+            {(() => {
+              const cur = formData.currency || 'USD';
+              const payable = Math.max(0, round2(
+                (Number(formData.total) || 0)
+                - lineSum(orderProducts.filter(p => isCancelledItemStatus(p.status)))
+                - Math.max(0, (Number(formData.shipping_cost) || 0)
+                    - previewPayableShipping(formData.shipping_cost, formData.shipping_type, orderProducts))
+                + (() => { const m = previewMembership(orderProducts, removeMembership);
+                           return Math.max(0, round2(m.discount - m.payableDiscount)); })()));
+              const differs = !near(payable, Number(formData.total) || 0);
+              return (
+                <div className="grid grid-cols-12 gap-4 items-start">
+                  <label className={labelClass}>{differs ? 'Total (before cancellations)' : 'Total'}</label>
+                  <div className="col-span-9">
+                    <input type="text" name="total" value={formData.total} onChange={handleChange} className={inputClass} />
+                    {differs && (
+                      <p className="text-[11px] mt-1 font-bold text-green-700">
+                        Amount the customer will be charged: {cur} {payable.toFixed(2)}
+                        <span className="font-normal text-text-muted"> — cancelled books are excluded from the invoice, payment link and PayPal.</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
             <div className="grid grid-cols-12 gap-4 items-center">
               <label className={labelClass}>Shipping cost</label>
               <div className="col-span-9"><input type="text" name="shipping_cost" value={formData.shipping_cost} onChange={handleChange} className={inputClass} /></div>

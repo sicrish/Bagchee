@@ -1,6 +1,51 @@
 import prisma from '../lib/prisma.js';
 import { sendMembershipWelcome, sendOrderConfirmation } from './email.controller.js';
-import { activeItems, payableTotal } from '../lib/orderTotals.js';
+import { activeItems, payableTotal, payableShipping, payableMembershipDiscount, membershipLine } from '../lib/orderTotals.js';
+
+// Itemised amount so the buyer sees the books, any membership and the SHIPPING on PayPal's own
+// page instead of a bare total.
+//
+// ⚠️ PayPal REJECTS a purchase unit whose breakdown doesn't add up to `amount.value`, and an
+// order's stored total can legitimately carry amounts we don't itemise here (coupon discount,
+// gift-card wallet deduction — the latter isn't even a column). So the breakdown is built, then
+// only sent when it reconciles to the payable figure EXACTLY; otherwise we fall back to the
+// plain total that has always been sent. Worst case this is no worse than before — it can never
+// block a payment.
+export const buildPayPalAmount = (order, currency, payable) => {
+    const plain = { amount: { currency_code: currency, value: payable.toFixed(2) } };
+    const money = (n) => (Math.round((Number(n) || 0) * 100) / 100).toFixed(2);
+
+    const items = activeItems(order.items).map((it) => ({
+        name: String(it.name || 'Item').slice(0, 127),
+        quantity: String(Math.max(1, parseInt(it.quantity) || 1)),
+        unit_amount: { currency_code: currency, value: money(it.price) },
+    }));
+    const member = membershipLine(order);
+    if (member) items.push({
+        name: member.name,
+        quantity: '1',
+        unit_amount: { currency_code: currency, value: money(member.price) },
+    });
+    if (!items.length) return plain;
+
+    const itemTotal = items.reduce((s, i) => s + Number(i.unit_amount.value) * Number(i.quantity), 0);
+    const shipping  = payableShipping(order);
+    const discount  = payableMembershipDiscount(order);
+    if (Math.abs(itemTotal + shipping - discount - payable) >= 0.005) return plain;
+
+    return {
+        items,
+        amount: {
+            currency_code: currency,
+            value: payable.toFixed(2),
+            breakdown: {
+                item_total: { currency_code: currency, value: money(itemTotal) },
+                ...(shipping > 0 ? { shipping: { currency_code: currency, value: money(shipping) } } : {}),
+                ...(discount > 0 ? { discount: { currency_code: currency, value: money(discount) } } : {}),
+            },
+        },
+    };
+};
 
 const PAYPAL_BASE = 'https://api-m.paypal.com';
 
@@ -56,7 +101,7 @@ export const createPayPalOrderByToken = async (req, res) => {
                 purchase_units: [{
                     reference_id: `bagchee_${dbOrderId}`,
                     description: `Order #${order.orderNumber}`,
-                    amount: { currency_code: ppCurrency, value: payable.toFixed(2) },
+                    ...buildPayPalAmount(order, ppCurrency, payable),
                 }],
                 application_context: {
                     brand_name: 'Bagchee',
@@ -134,7 +179,7 @@ export const createPayPalOrder = async (req, res) => {
                 purchase_units: [{
                     reference_id: `bagchee_${dbOrderId}`,
                     description: `Order #${order.orderNumber}`,
-                    amount: { currency_code: ppCurrency, value: payable.toFixed(2) },
+                    ...buildPayPalAmount(order, ppCurrency, payable),
                 }],
                 application_context: {
                     brand_name: 'Bagchee',

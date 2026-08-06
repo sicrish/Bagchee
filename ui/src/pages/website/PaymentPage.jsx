@@ -158,12 +158,18 @@ const PaymentPage = () => {
                   </span>
                 </div>
               )}
-              {Number(order?.shippingCost) > 0 && (
+              {/* Always shown when there is something to ship — a missing line reads as
+                  "shipping wasn't counted", which is exactly what the customer queried. */}
+              {items.length > 0 && (
                 <div className={`flex justify-between items-center text-sm ${Number(order?.memberDiscount) > 0 ? '' : 'pt-3 border-t border-gray-100'}`}>
                   <span className="text-gray-500 font-medium">Shipping</span>
-                  <span className="font-bold text-text-main">
-                    {currencySymbol}{Number(order.shippingCost).toFixed(2)}
-                  </span>
+                  {Number(order?.shippingCost) > 0 ? (
+                    <span className="font-bold text-text-main">
+                      {currencySymbol}{Number(order.shippingCost).toFixed(2)}
+                    </span>
+                  ) : (
+                    <span className="font-bold text-green-600">FREE</span>
+                  )}
                 </div>
               )}
               <div className="pt-3 border-t border-gray-100 flex justify-between items-center text-sm">
