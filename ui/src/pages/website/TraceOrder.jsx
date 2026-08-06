@@ -263,16 +263,23 @@ ${activeTab === 'guest' ? 'bg-white text-primary border-b-2 border-primary' : 't
                             )}
                         </div>
                         {(() => {
-                            // Cancelled lines (out of print / other) are excluded from the invoice and
-                            // the charge, so they must not be listed or counted here either. A
-                            // membership bought with the order is not a line item — shown as one.
-                            // The total is `payableTotal` from the API, never the raw stored total:
-                            // that still carries the cancelled books and would over-state the bill.
+                            // Cancelled lines (out of print / other) are excluded from the charge but
+                            // still LISTED — struck through, with the reason — because a customer who
+                            // simply stops seeing books he ordered assumes they went missing (order
+                            // 17675). Only the money ignores them. A membership bought with the order
+                            // is not a line item — shown as one. The total is `payableTotal` from the
+                            // API, never the raw stored total: that still carries the cancelled books
+                            // and would over-state the bill.
                             const cancelled = (s) => ['cancelled', 'cancelled - other']
                                 .includes(String(s ?? '').trim().toLowerCase());
+                            // 'cancelled' is out of print; 'cancelled - other' is any other reason.
+                            // The raw value never reaches the customer — only this friendly label.
+                            const cancelLabel = (s) => (String(s ?? '').trim().toLowerCase() === 'cancelled'
+                                ? 'Out of print' : 'Cancelled');
                             const cur = tracedOrder.currency || 'USD';
                             const money = (n) => `${Number(n || 0).toFixed(2)}`;
-                            const lines = (tracedOrder.items || []).filter((it) => !cancelled(it.status));
+                            const allLines = tracedOrder.items || [];
+                            const lines = allLines.filter((it) => !cancelled(it.status));
                             const fee = Math.max(0, Number(tracedOrder.membershipFee ?? tracedOrder.membership_fee) || 0);
                             const memberDiscount = Math.max(0, Number(tracedOrder.payableMembershipDiscount) || 0);
                             const shipping = Math.max(0, Number(
@@ -281,7 +288,7 @@ ${activeTab === 'guest' ? 'bg-white text-primary border-b-2 border-primary' : 't
                                 (s, it) => s + (Number(it.price) || 0) * (Number(it.quantity) || 1), 0);
                             const grand = tracedOrder.payableTotal != null
                                 ? Number(tracedOrder.payableTotal) : Number(tracedOrder.total || 0);
-                            const cancelledCount = (tracedOrder.items || []).length - lines.length;
+                            const cancelledCount = allLines.length - lines.length;
                             const row = (label, value, cls = 'text-text-main') => (
                                 <div className="flex justify-between items-center py-1 text-sm">
                                     <span className="text-gray-500">{label}</span>
@@ -291,17 +298,28 @@ ${activeTab === 'guest' ? 'bg-white text-primary border-b-2 border-primary' : 't
                             return (
                                 <>
                                     <div className="divide-y divide-gray-50">
-                                        {lines.map((item, i) => (
-                                            <div key={i} className="flex justify-between items-center py-3">
-                                                <div>
-                                                    <p className="text-sm font-bold text-text-main">{item.name}</p>
-                                                    <p className="text-xs text-gray-400">Qty: {item.quantity}</p>
+                                        {allLines.map((item, i) => {
+                                            const isCut = cancelled(item.status);
+                                            return (
+                                                <div key={i} className="flex justify-between items-center py-3">
+                                                    <div>
+                                                        <p className={`text-sm font-bold ${isCut ? 'text-red-600 line-through' : 'text-text-main'}`}>
+                                                            {item.name}
+                                                        </p>
+                                                        {isCut ? (
+                                                            <p className="text-[10px] font-black text-red-600 uppercase tracking-wide mt-0.5">
+                                                                {cancelLabel(item.status)} — not charged
+                                                            </p>
+                                                        ) : (
+                                                            <p className="text-xs text-gray-400">Qty: {item.quantity}</p>
+                                                        )}
+                                                    </div>
+                                                    <span className={`text-sm font-black ${isCut ? 'text-red-600 line-through' : 'text-text-main'}`}>
+                                                        {money(item.price)}
+                                                    </span>
                                                 </div>
-                                                <span className="text-sm font-black text-text-main">
-                                                    {money(item.price)}
-                                                </span>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                         {fee > 0 && (
                                             <div className="flex justify-between items-center py-3">
                                                 <div>
@@ -325,9 +343,12 @@ ${activeTab === 'guest' ? 'bg-white text-primary border-b-2 border-primary' : 't
                                             </span>
                                         </div>
                                         {cancelledCount > 0 && (
-                                            <p className="text-[11px] text-red-500 font-bold mt-1 text-right">
-                                                Adjusted — {cancelledCount} unavailable {cancelledCount === 1 ? 'item has' : 'items have'} been removed
-                                            </p>
+                                            <div className="mt-3 rounded-lg bg-red-50 border border-red-200 px-3 py-2.5 text-[11px] leading-relaxed text-red-700">
+                                                The {cancelledCount === 1 ? 'title' : 'titles'} crossed out above {cancelledCount === 1 ? 'is' : 'are'} no
+                                                longer available, so {cancelledCount === 1 ? 'it has' : 'they have'} been removed from your order.
+                                                You have <strong>not</strong> been charged for {cancelledCount === 1 ? 'it' : 'them'} — the total above
+                                                covers the remaining items only.
+                                            </div>
                                         )}
                                     </div>
                                 </>

@@ -1,12 +1,13 @@
 // Pure-JS invoice PDF generator (pdfkit — no headless browser, uses built-in Helvetica).
 // Returns a Promise<Buffer> with a print-ready A4 invoice for an order.
 import PDFDocument from 'pdfkit';
-import { activeItems, payableTotal, payableShipping, membershipLine, payableMembershipDiscount } from './orderTotals.js';
+import { displayItems, payableTotal, payableShipping, membershipLine, payableMembershipDiscount } from './orderTotals.js';
 
 const BLUE  = '#008DDA';
 const DARK  = '#2d2d2d';
 const MUTED = '#888888';
 const LINE  = '#e6decd';
+const RED   = '#b91c1c';   // cancelled / out-of-print lines
 
 export const generateInvoicePdf = (order) => new Promise((resolve, reject) => {
     try {
@@ -83,9 +84,36 @@ export const generateInvoicePdf = (order) => new Promise((resolve, reject) => {
 
         // A membership bought with the order is not a line item — append it as one so the
         // printed rows add up to the Grand Total.
-        const pdfLines = activeItems(order.items);
+        // Cancelled lines stay ON the invoice, struck through in red and contributing nothing,
+        // so the customer can see why a title they ordered isn't being charged for. pdfkit has
+        // no text-decoration, so the strike is drawn as a rule over each cell (`strikeOut`).
+        const pdfLines = displayItems(order);
         const pdfMemberLine = membershipLine(order);
         if (pdfMemberLine) pdfLines.push(pdfMemberLine);
+
+        // Draws a line through the vertical middle of one line of text in a cell.
+        const strikeOut = (x, rowY, w, align, text) => {
+            const textW = Math.min(doc.widthOfString(text), w);
+            const x0 = align === 'right' ? x + w - textW : align === 'center' ? x + (w - textW) / 2 : x;
+            const mid = rowY + doc.currentLineHeight() / 2;
+            doc.moveTo(x0, mid).lineTo(x0 + textW, mid).lineWidth(0.8).strokeColor(RED).stroke();
+        };
+
+        // pdfkit exposes no per-line layout, so a cancelled title is wrapped here (greedy on
+        // spaces — the same rule pdfkit applies to plain Helvetica) and drawn one line at a
+        // time. Without this the strike only crosses the FIRST line of a title that wraps,
+        // which is most of them. Uncancelled rows keep the plain single-call rendering.
+        const wrapLines = (text, width) => {
+            const lines = [];
+            let cur = '';
+            for (const word of String(text).split(/\s+/).filter(Boolean)) {
+                const next = cur ? `${cur} ${word}` : word;
+                if (cur && doc.widthOfString(next) > width) { lines.push(cur); cur = word; }
+                else cur = next;
+            }
+            if (cur) lines.push(cur);
+            return lines.length ? lines : [''];
+        };
 
         doc.font('Helvetica').fontSize(10).fillColor(DARK);
         pdfLines.forEach((it) => {
@@ -93,14 +121,36 @@ export const generateInvoicePdf = (order) => new Promise((resolve, reject) => {
             const qty = Number(it.quantity) || 1;
             const price = Number(it.price) || 0;
             const nameW = xQty - xItem - 6;
-            const nameH = doc.heightOfString(name, { width: nameW });
-            const rowH = Math.max(nameH, 13);
+            const priceStr = money(price);
+            const totalStr = money(price * qty);
+            const noteH = it.cancelled ? 14 : 0;
+            doc.font('Helvetica').fontSize(10);
+            const nameLines = it.cancelled ? wrapLines(name, nameW) : null;
+            const lineH = doc.currentLineHeight();
+            const nameH = it.cancelled ? nameLines.length * lineH : doc.heightOfString(name, { width: nameW });
+            const rowH = Math.max(nameH, 13) + noteH;
             if (y + rowH > doc.page.height - 70) { doc.addPage(); y = 60; drawHeader(); }
-            doc.fillColor(DARK).font('Helvetica').fontSize(10);
-            doc.text(name, xItem, y, { width: nameW });
-            doc.text(String(qty), xQty, y, { width: 50, align: 'center' });
-            doc.text(money(price), xPrice, y, { width: 80, align: 'right' });
-            doc.text(money(price * qty), xTotal, y, { width: 70, align: 'right' });
+            doc.fillColor(it.cancelled ? RED : DARK).font('Helvetica').fontSize(10);
+            if (it.cancelled) {
+                nameLines.forEach((ln, i) => {
+                    doc.text(ln, xItem, y + i * lineH, { width: nameW, lineBreak: false });
+                    strikeOut(xItem, y + i * lineH, nameW, 'left', ln);
+                });
+            } else {
+                doc.text(name, xItem, y, { width: nameW });
+            }
+            doc.fillColor(DARK).text(String(qty), xQty, y, { width: 50, align: 'center' });
+            doc.fillColor(it.cancelled ? RED : DARK);
+            doc.text(priceStr, xPrice, y, { width: 80, align: 'right' });
+            doc.text(totalStr, xTotal, y, { width: 70, align: 'right' });
+            if (it.cancelled) {
+                strikeOut(xPrice, y, 80, 'right', priceStr);
+                strikeOut(xTotal, y, 70, 'right', totalStr);
+                doc.font('Helvetica-Bold').fontSize(7).fillColor(RED)
+                    .text(`${String(it.cancelLabel || 'Cancelled').toUpperCase()} — NOT CHARGED`,
+                        xItem, y + Math.max(nameH, 13) + 2, { width: nameW });
+                doc.font('Helvetica').fontSize(10);
+            }
             y += rowH + 7;
             doc.moveTo(left, y - 3).lineTo(right, y - 3).lineWidth(0.5).strokeColor(LINE).stroke();
         });

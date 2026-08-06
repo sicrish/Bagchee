@@ -5,7 +5,7 @@ import { calcDiscount, couponAlreadyUsed } from './coupon.controller.js';
 import { createGiftCardsForOrder, applyWalletBalance } from './giftCard.controller.js';
 import { activeItems, payableTotal, payableShipping, isCancelledItem, sumItems, bookCount,
     membershipFeeOf, membershipDiscountOf, memberDiscountFor, membershipLine,
-    payableMembershipDiscount } from '../lib/orderTotals.js';
+    payableMembershipDiscount, displayItems } from '../lib/orderTotals.js';
 import { resolveShippingRule, standardShippingFor, isTieredOption, FREE_SHIPPING_MIN_USD } from '../lib/shippingRule.js';
 import { isMembershipActive } from '../lib/membership.js';
 import { getUsdConversionRate } from '../lib/exchangeRates.js';
@@ -1129,10 +1129,16 @@ export const getOrderForPayment = async (req, res) => {
             return res.status(403).json({ status: false, msg: 'Invalid or expired payment link' });
         }
 
-        // Out-of-print items the admin cancelled are excluded — the customer pays only for available titles (#5)
+        // Cancelled (out-of-print) lines are still LISTED — struck through and charged at
+        // nothing — so the customer can see WHY the amount is lower than what they ordered.
+        // Dropping them made a payment link read as "items are missing from my order", which
+        // is exactly what a customer queried on order 17675. The money below is unaffected:
+        // payableTotal / payableShipping / payableMembershipDiscount all still ignore them.
+        // The raw status never leaves the server — only a flag + a friendly label do, so
+        // 'cancelled - other' can't surface to a customer.
         // A membership bought with the order is not a line item, so it's appended as one here —
         // otherwise the listed items don't add up to the amount being asked for.
-        const payableItems = activeItems(order.items).map(({ status, ...it }) => it);
+        const payableItems = displayItems(order).map(({ status, ...it }) => it);
         const memberLine = membershipLine(order);
         if (memberLine) payableItems.push(memberLine);
 
@@ -1231,8 +1237,14 @@ export const requestOrderCancellation = async (req, res) => {
             return res.status(403).json({ status: false, msg: 'Not authorized to cancel this order' });
         }
 
-        const blocked = ['shipped', 'partially shipped', 'in transit', 'delivered', 'completed', 'cancelled'];
-        if (blocked.includes((order.status || '').toLowerCase())) {
+        // Once an order has shipped the customer can no longer cancel it (the client's rule).
+        // Matched case- AND whitespace-insensitively: prod holds both 'shipped' (5,394) and
+        // 'Shipped' (12), 'Partially Shipped', 'Completed', 'Cancelled'. 'returned'/'refunded'
+        // are past shipping too, and a cancelled order has nothing left to cancel.
+        // ⚠️ KEEP IN SYNC with SHIPPED_STATUSES in ui/src/pages/website/Account/OrderStatus.jsx.
+        const blocked = ['shipped', 'partially shipped', 'in transit', 'delivered', 'completed',
+            'cancelled', 'google cancelled', 'returned', 'refunded'];
+        if (blocked.includes(String(order.status || '').trim().toLowerCase())) {
             return res.status(400).json({ status: false, msg: `This order can no longer be cancelled — current status: ${order.status}` });
         }
 
@@ -1290,17 +1302,28 @@ export const getInvoice = async (req, res) => {
 
         // A membership bought with the order is not a line item — append it as one so the
         // invoice's rows actually add up to its Grand Total.
-        const invoiceLines = activeItems(order.items);
+        // Cancelled lines stay ON the invoice, struck through and contributing nothing, so it
+        // is obvious WHY a title that was ordered isn't being charged for. The totals below
+        // are unaffected — they all run through payableTotal / payableShipping.
+        const invoiceLines = displayItems(order);
         const invoiceMemberLine = membershipLine(order);
         if (invoiceMemberLine) invoiceLines.push(invoiceMemberLine);
 
-        const rows = invoiceLines.map(item => `
+        // The strike is on a <span>, not the <td> — text-decoration inherits into children and
+        // cannot be switched off by them, which would strike the "not charged" note as well.
+        const cut = (s) => `<span style="color:#b91c1c;text-decoration:line-through">${s}</span>`;
+        const rows = invoiceLines.map(item => {
+            const mark = (s) => (item.cancelled ? cut(s) : s);
+            return `
             <tr>
-              <td>${esc(item.name || item.product?.title || 'Item')}</td>
+              <td>${mark(esc(item.name || item.product?.title || 'Item'))}${item.cancelled
+                ? `<div style="margin-top:3px;font-size:10px;font-weight:700;color:#b91c1c;text-transform:uppercase;letter-spacing:.04em">${esc(item.cancelLabel)} &mdash; not charged</div>`
+                : ''}</td>
               <td style="text-align:center">${Number(item.quantity) || 1}</td>
-              <td style="text-align:right">${currency} ${Number(item.price || 0).toFixed(2)}</td>
-              <td style="text-align:right">${currency} ${(Number(item.price || 0) * (Number(item.quantity) || 1)).toFixed(2)}</td>
-            </tr>`).join('');
+              <td style="text-align:right">${mark(`${currency} ${Number(item.price || 0).toFixed(2)}`)}</td>
+              <td style="text-align:right">${mark(`${currency} ${(Number(item.price || 0) * (Number(item.quantity) || 1)).toFixed(2)}`)}</td>
+            </tr>`;
+        }).join('');
 
         const invoiceMemberDiscount = payableMembershipDiscount(order);
 

@@ -13,6 +13,8 @@ import CustomerSelect from '../../components/admin/CustomerSelect.jsx';
 // ⚠️ MUST mirror isCancelledItem in api/lib/orderTotals.js (the backend authority).
 const CANCELLED_ITEM_STATUSES = ['cancelled', 'cancelled - other'];
 const isCancelledItemStatus = (s) => CANCELLED_ITEM_STATUSES.includes(String(s ?? '').trim().toLowerCase());
+// Customer-facing reason — the raw 'cancelled - other' value never goes into an email.
+const cancelLabelFor = (s) => (String(s ?? '').trim().toLowerCase() === 'cancelled' ? 'Out of print' : 'Cancelled');
 
 // ── Expedited / Express recognition ───────────────────────────────────────────
 // These two options are never free at any cart value, so they still need to be told apart
@@ -1014,15 +1016,26 @@ ${estDeliveryLine}
     const orderNum  = formData.order_number || id;
     const currency  = formData.currency || 'USD';
     const dueDate   = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-    // Exclude cancelled line items (out of print / other) so the email shows only payable titles (#5)
-    const activeProducts = orderProducts.filter(p => !isCancelledItemStatus(p.status));
+    // EVERY title the customer ordered is listed. Cancelled ones (out of print / other) are
+    // struck through in red and marked "not charged" rather than dropped from the list — a
+    // payment link that just omits them reads as "items are missing from my order", which is
+    // exactly what a customer asked about order 17675. They still contribute nothing to the
+    // total quoted below (see cancelledSum).
     const emailMembership = previewMembership(orderProducts, removeMembership);
-    const itemRows  = activeProducts.map(p =>
-      `<li>${p.name || p.product?.title || 'Item'} &times; ${p.quantity || 1} &mdash; ${currency} ${Number(p.price || 0).toFixed(2)}</li>`
-    ).join('')
+    const cut = (s) => `<span style="color:#b91c1c;text-decoration:line-through">${s}</span>`;
+    const itemRows  = orderProducts.map(p => {
+      const line = `${p.name || p.product?.title || 'Item'} &times; ${p.quantity || 1} &mdash; ${currency} ${Number(p.price || 0).toFixed(2)}`;
+      return isCancelledItemStatus(p.status)
+        ? `<li>${cut(line)} <strong style="color:#b91c1c">(${cancelLabelFor(p.status)} &mdash; not charged)</strong></li>`
+        : `<li>${line}</li>`;
+    }).join('')
       // A membership isn't a line item — list it so the items add up to the amount quoted below.
       + (emailMembership.fee > 0
         ? `<li>Bagchee Membership (1 Year) &times; 1 &mdash; ${currency} ${emailMembership.fee.toFixed(2)}</li>` : '');
+    // Explains the struck-through lines so a smaller amount never reads as items lost.
+    const cancelledCount = orderProducts.filter(p => isCancelledItemStatus(p.status)).length;
+    const cancelledNote = cancelledCount === 0 ? '' :
+      `<p style="color:#991b1b;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 12px;">The ${cancelledCount === 1 ? 'title' : 'titles'} crossed out above ${cancelledCount === 1 ? 'is' : 'are'} no longer available, so ${cancelledCount === 1 ? 'it has' : 'they have'} been removed from your order. You are <strong>not</strong> being charged for ${cancelledCount === 1 ? 'it' : 'them'} &mdash; the amount below covers the remaining items only.</p>`;
     const cancelledSum = orderProducts
       .filter(p => isCancelledItemStatus(p.status))
       .reduce((s, p) => s + (Number(p.price) || 0) * (Number(p.quantity) || 1), 0);
@@ -1053,6 +1066,7 @@ ${estDeliveryLine}
 <strong>Items:</strong><ul>${itemRows}</ul>
 <strong>Total Amount:</strong> ${total}<br>
 <strong>Due:</strong> ${dueDate}</p>
+${cancelledNote}
 <p><strong>Payment Instructions:</strong></p>
 ${bankDetails}
 <p><em>Note: Please use your order number (#${orderNum}) as the reference for your transfer.</em></p>
@@ -1068,6 +1082,7 @@ ${bankDetails}
 <strong>Items:</strong><ul>${itemRows}</ul>
 <strong>Total Outstanding Balance:</strong> ${total}<br>
 <strong>Due Date:</strong> ${dueDate}</p>
+${cancelledNote}
 <p>Please click the link below to complete your payment:<br>
 <a href="${link}" style="color:#008DDA;font-weight:bold;">${link}</a></p>
 <p><em>Note: Your order will be processed immediately upon receipt of this payment.</em></p>

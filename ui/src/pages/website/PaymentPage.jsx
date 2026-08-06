@@ -78,7 +78,14 @@ const PaymentPage = () => {
   const wasCancelled = searchParams.get('paypal_cancelled') === '1';
 
   const currencySymbol = symbols[order?.currency] || '$';
+  // Every title on the order is listed, including ones the shop had to cancel (out of print or
+  // otherwise). Those are struck through and charged at nothing — the API flags them with
+  // `cancelled` + a friendly `cancelLabel`, and its `total` / `shippingCost` / `memberDiscount`
+  // already exclude them. Dropping them from the list entirely is what left a customer asking
+  // where the rest of his order had gone (order 17675).
   const items = order?.items || order?.products || [];
+  const payableItems = items.filter((it) => !it.cancelled);
+  const cancelledCount = items.length - payableItems.length;
 
   const paymentType = (order?.paymentType || order?.payment_type || '').toLowerCase();
   const isStripe  = paymentType.includes('stripe');
@@ -140,14 +147,32 @@ const PaymentPage = () => {
               {items.map((item, idx) => (
                 <div key={idx} className="flex justify-between items-center gap-4">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-text-main line-clamp-1">{item.name || item.title}</p>
-                    <p className="text-xs text-gray-400">Qty: {item.quantity}</p>
+                    {/* 2 lines, not 1 — a customer needs to recognise WHICH title was cancelled. */}
+                    <p className={`text-sm font-bold line-clamp-2 ${item.cancelled ? 'text-red-600 line-through' : 'text-text-main'}`}>
+                      {item.name || item.title}
+                    </p>
+                    {item.cancelled ? (
+                      <p className="text-[10px] font-black text-red-600 uppercase tracking-wide mt-0.5">
+                        {item.cancelLabel || 'Cancelled'} — not charged
+                      </p>
+                    ) : (
+                      <p className="text-xs text-gray-400">Qty: {item.quantity}</p>
+                    )}
                   </div>
-                  <span className="text-sm font-black text-text-main shrink-0">
+                  <span className={`text-sm font-black shrink-0 ${item.cancelled ? 'text-red-600 line-through' : 'text-text-main'}`}>
                     {currencySymbol}{Number(item.price || 0).toFixed(2)}
                   </span>
                 </div>
               ))}
+              {/* Explains the struck-through rows so a smaller total never reads as items lost. */}
+              {cancelledCount > 0 && (
+                <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2.5 text-[11px] leading-relaxed text-red-700">
+                  The {cancelledCount === 1 ? 'title' : 'titles'} crossed out above {cancelledCount === 1 ? 'is' : 'are'} no
+                  longer available, so {cancelledCount === 1 ? 'it has' : 'they have'} been removed from your order.
+                  You are <strong>not</strong> being charged for {cancelledCount === 1 ? 'it' : 'them'} — the total below
+                  covers the remaining items only.
+                </div>
+              )}
               {/* Membership is listed as an item above; its discount + shipping are shown here
                   so the rows always add up to the Total the customer is asked to pay. */}
               {Number(order?.memberDiscount) > 0 && (
@@ -160,7 +185,7 @@ const PaymentPage = () => {
               )}
               {/* Always shown when there is something to ship — a missing line reads as
                   "shipping wasn't counted", which is exactly what the customer queried. */}
-              {items.length > 0 && (
+              {payableItems.length > 0 && (
                 <div className={`flex justify-between items-center text-sm ${Number(order?.memberDiscount) > 0 ? '' : 'pt-3 border-t border-gray-100'}`}>
                   <span className="text-gray-500 font-medium">Shipping</span>
                   {Number(order?.shippingCost) > 0 ? (

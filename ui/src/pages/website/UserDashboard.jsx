@@ -703,6 +703,13 @@ const navigate = useNavigate();
                                 (selectedOrder.items || selectedOrder.products).map((product, idx) => {
                                   const productInfo = getProductInfo(product); // 🟢 Data normalize kiya
                                   const bookLink = getBookDetailLink(productInfo);
+                                  // A cancelled line stays listed but struck through and charged at
+                                  // nothing, matching the order page / invoice / payment link. The
+                                  // raw 'cancelled - other' value never reaches the customer.
+                                  const itemCancelled = ['cancelled', 'cancelled - other']
+                                    .includes(String(product.status ?? '').trim().toLowerCase());
+                                  const cancelLabel = String(product.status ?? '').trim().toLowerCase() === 'cancelled'
+                                    ? 'Out of print' : 'Cancelled';
 
                                   return (
                                     <div
@@ -744,7 +751,7 @@ const navigate = useNavigate();
                                               to={bookLink}
                                               className="hover:text-primary transition-colors"
                                             >
-                                              <h4 className="font-medium text-text-main truncate">
+                                              <h4 className={`font-medium truncate ${itemCancelled ? 'text-red-600 line-through' : 'text-text-main'}`}>
                                                 {productInfo.title ||
                                                   productInfo.name}
                                               </h4>
@@ -753,7 +760,7 @@ const navigate = useNavigate();
                                               <span>
                                                 Qty: {product.quantity}
                                               </span>
-                                              <span className="font-medium text-primary">
+                                              <span className={`font-medium ${itemCancelled ? 'text-red-600 line-through' : 'text-primary'}`}>
                                                 {formatAmount(
                                                   product.price,
                                                   selectedOrder.currency,
@@ -761,11 +768,13 @@ const navigate = useNavigate();
                                               </span>
                                               {product.status && (
                                                 <span
-                                                  className={`px-2 py-0.5 rounded text-xs ${getStatusColor(product.status)}`}
+                                                  className={`px-2 py-0.5 rounded text-xs ${itemCancelled ? 'text-red-700 bg-red-100 font-bold' : getStatusColor(product.status)}`}
                                                 >
-                                                  {formatStatusLabel(
-                                                    product.status,
-                                                  )}
+                                                  {itemCancelled
+                                                    ? `${cancelLabel} — not charged`
+                                                    : formatStatusLabel(
+                                                        product.status,
+                                                      )}
                                                 </span>
                                               )}
                                             </div>

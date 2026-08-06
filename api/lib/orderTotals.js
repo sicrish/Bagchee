@@ -24,6 +24,23 @@ const CANCELLED_STATUSES = new Set([CANCELLED_STATUS, CANCELLED_OTHER_STATUS]);
 export const isCancelledItem = (item) =>
     CANCELLED_STATUSES.has(String(item?.status ?? '').trim().toLowerCase());
 
+// Customer-facing reason for a cancelled line. A cancelled book is still LISTED on every
+// customer surface — struck through and charged at nothing — because silently dropping it
+// makes the order look like items went missing (a customer queried exactly that on order
+// 17675 in Aug 2026: two out-of-print titles disappeared from his payment link).
+// ⚠️ Returns a friendly label so the raw 'cancelled - other' value never reaches a customer.
+export const cancelReasonLabel = (item) =>
+    String(item?.status ?? '').trim().toLowerCase() === CANCELLED_STATUS ? 'Out of print' : 'Cancelled';
+
+// Every line the customer should SEE, in the order they were bought, each tagged with whether
+// it is being charged. Renderers use this instead of activeItems() so nothing disappears;
+// the MONEY still comes from payableTotal / payableShipping / payableMembershipDiscount,
+// which continue to ignore cancelled lines entirely.
+export const displayItems = (order) => (order?.items || []).map((it) => {
+    const cancelled = isCancelledItem(it);
+    return { ...it, cancelled, cancelLabel: cancelled ? cancelReasonLabel(it) : null };
+});
+
 // Line items the customer actually pays for / sees.
 export const activeItems = (items = []) => (items || []).filter((it) => !isCancelledItem(it));
 

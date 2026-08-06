@@ -16,6 +16,8 @@ import toast from 'react-hot-toast';
 // 'cancelled' = out of print; 'cancelled - other' = cancelled for any other reason.
 // Both are excluded from the invoice and the amount charged.
 const isCancelledItemStatus = (s) => ['cancelled', 'cancelled - other'].includes(String(s || '').trim().toLowerCase());
+// Friendly reason shown to the customer — the raw 'cancelled - other' value never surfaces.
+const cancelLabelFor = (s) => (String(s || '').trim().toLowerCase() === 'cancelled' ? 'Out of print' : 'Cancelled');
 
 const OrderStatus = () => {
     const { orderId } = useParams();
@@ -42,20 +44,29 @@ const OrderStatus = () => {
     const handleViewInvoice = () => {
         const o = order;
         const num = o.orderNumber || o.order_number || orderId;
-        // Cancelled items (out of print / other) are excluded from the invoice — matches the
-        // emailed PDF and the amount actually charged.
-        const items = (o.items || o.products || []).filter(it => !isCancelledItemStatus(it.status));
+        // Cancelled items (out of print / other) are excluded from the invoice TOTAL but stay
+        // listed, struck through with the reason — matches the emailed HTML/PDF invoice. A
+        // title that silently vanishes reads as a missing item, not as one that wasn't charged.
+        const items = o.items || o.products || [];
         const invoiceTotal = o.payableTotal != null ? o.payableTotal : Number(o.total || 0);
         // A membership bought with the order isn't a line item — list it so the rows reconcile.
         const invFee      = Math.max(0, Number(o.membershipFee ?? o.membership_fee) || 0);
         const invDiscount = Math.max(0, Number(o.payableMembershipDiscount) || 0);
         const invShipping = Math.max(0, Number(o.payableShipping ?? o.shippingCost ?? o.shipping_cost) || 0);
-        const rows = items.map(it => `
+        // The strike goes on a <span>, not the <td> — text-decoration inherits into children and
+        // can't be turned off by them, which would strike the "not charged" note too.
+        const cut = (s) => `<span style="color:#b91c1c;text-decoration:line-through">${s}</span>`;
+        const rows = items.map(it => {
+            const isCut = isCancelledItemStatus(it.status);
+            const mark = (s) => (isCut ? cut(s) : s);
+            return `
             <tr>
-                <td style="padding:8px;border-bottom:1px solid #eee">${it.name || it.product?.title || 'Item'}</td>
+                <td style="padding:8px;border-bottom:1px solid #eee">${mark(it.name || it.product?.title || 'Item')}${isCut
+                    ? `<div style="margin-top:3px;font-size:10px;font-weight:700;color:#b91c1c;text-transform:uppercase">${cancelLabelFor(it.status)} &mdash; not charged</div>` : ''}</td>
                 <td style="padding:8px;border-bottom:1px solid #eee;text-align:center">${it.quantity || 1}</td>
-                <td style="padding:8px;border-bottom:1px solid #eee;text-align:right">${o.currency || 'USD'} ${Number(it.price || 0).toFixed(2)}</td>
-            </tr>`).join('')
+                <td style="padding:8px;border-bottom:1px solid #eee;text-align:right">${mark(`${o.currency || 'USD'} ${Number(it.price || 0).toFixed(2)}`)}</td>
+            </tr>`;
+        }).join('')
             + (invFee > 0 ? `
             <tr>
                 <td style="padding:8px;border-bottom:1px solid #eee">Bagchee Membership (1 Year)</td>
@@ -138,7 +149,9 @@ const OrderStatus = () => {
     const placedAt   = order.createdAt   || order.created_at;
     const shippedAt  = order.shippedAt   || order.shipped_at;
     const estDelivery = order.estimatedDelivery || order.estimated_delivery;
-    const orderStatus = (order.status || '').toLowerCase();
+    // Trimmed as well as lowercased — this value gates the Cancel Order button, and prod holds
+    // both 'shipped' and 'Shipped'. An untrimmed compare would let a stray space re-expose it.
+    const orderStatus = String(order.status || '').trim().toLowerCase();
     const payStatus   = order.paymentStatus || order.payment_status || '';
     const paymentMethod = order.paymentType || order.payment_type || '';
     const isWireUnpaid  = (() => {
@@ -221,7 +234,13 @@ const OrderStatus = () => {
     const orderConfig = getStatusConfig(orderStatus);
 
     // ── Can cancel? (blocked once shipped or beyond) ──────────────────────────
-    const SHIPPED_STATUSES = ['shipped', 'partially shipped', 'in transit', 'delivered', 'completed', 'cancelled'];
+    // The client's rule: once an order is marked Shipped, nobody sees Cancel Order again.
+    // 'returned' / 'refunded' are past shipping too, and a cancelled order has nothing left to
+    // cancel. ⚠️ KEEP IN SYNC with the `blocked` list in requestOrderCancellation
+    // (api/controller/order.controller.js) — the server rejects the request either way, this
+    // just stops the customer being offered a button that can only fail.
+    const SHIPPED_STATUSES = ['shipped', 'partially shipped', 'in transit', 'delivered', 'completed',
+        'cancelled', 'google cancelled', 'returned', 'refunded'];
     const canCancel = !SHIPPED_STATUSES.includes(orderStatus);
     const cancelRequestedAt = order.cancelRequestedAt || order.cancel_requested_at || null;
 
@@ -484,11 +503,18 @@ const OrderStatus = () => {
                                 )
                             ) : (
                                 orderStatus !== 'cancelled' && (
-                                    <div className="flex items-center gap-3 p-3.5 rounded-xl bg-gray-50 border border-gray-100 opacity-50 cursor-not-allowed">
-                                        <div className="w-9 h-9 rounded-full bg-white flex items-center justify-center text-gray-400">
+                                    <div className="flex items-center gap-3 p-3.5 rounded-xl bg-gray-50 border border-gray-100 opacity-60 cursor-not-allowed">
+                                        <div className="w-9 h-9 rounded-full bg-white flex shrink-0 items-center justify-center text-gray-400">
                                             <Ban className="w-4 h-4" />
                                         </div>
-                                        <span className="text-gray-400 font-bold text-sm font-montserrat">Cannot Cancel</span>
+                                        <div>
+                                            <span className="block text-gray-400 font-bold text-sm font-montserrat">Cannot Cancel</span>
+                                            <span className="block text-[11px] text-gray-400">
+                                                {orderStatus === 'returned' ? 'This order has been returned'
+                                                    : orderStatus === 'refunded' ? 'This order has been refunded'
+                                                    : 'This order has already been dispatched'}
+                                            </span>
+                                        </div>
                                     </div>
                                 )
                             )}
@@ -545,8 +571,10 @@ const OrderStatus = () => {
                                             </div>
                                             <div className="flex flex-col justify-center">
                                                 <span className="text-[10px] font-black text-primary uppercase tracking-widest mb-1">Item {idx + 1}</span>
-                                                <h4 className={`text-base font-bold mb-1 leading-snug line-clamp-2 font-montserrat ${itemCancelled ? 'text-gray-400 line-through' : 'text-text-main'}`}>{productName}</h4>
-                                                <p className={`font-black text-lg ${itemCancelled ? 'text-gray-400 line-through' : 'text-text-main'}`}>{formatAmount(item.price, order.currency)}</p>
+                                                {/* Red, not grey — the same cut mark the payment link, the emails and the
+                                                    invoice use, so a cancelled title reads identically wherever it appears. */}
+                                                <h4 className={`text-base font-bold mb-1 leading-snug line-clamp-2 font-montserrat ${itemCancelled ? 'text-red-600 line-through' : 'text-text-main'}`}>{productName}</h4>
+                                                <p className={`font-black text-lg ${itemCancelled ? 'text-red-600 line-through' : 'text-text-main'}`}>{formatAmount(item.price, order.currency)}</p>
                                                 {item.quantity > 1 && <p className="text-xs text-text-muted mt-0.5">Qty: {item.quantity}</p>}
                                                 {itemCancelled && (
                                                     <span className="inline-block mt-1.5 text-[10px] font-black text-red-600 bg-red-50 border border-red-200 rounded px-1.5 py-0.5 uppercase tracking-wide">
@@ -689,7 +717,8 @@ const OrderStatus = () => {
                             </p>
                             {cancelledItemsCount > 0 && (
                                 <p className="text-[10px] text-red-500 font-bold mt-0.5">
-                                    Adjusted — {cancelledItemsCount} cancelled {cancelledItemsCount === 1 ? 'item' : 'items'} removed
+                                    {cancelledItemsCount === 1 ? 'The crossed-out title above is' : `The ${cancelledItemsCount} crossed-out titles above are`} not
+                                    included — you have not been charged for {cancelledItemsCount === 1 ? 'it' : 'them'}
                                 </p>
                             )}
                         </div>

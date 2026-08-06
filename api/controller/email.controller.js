@@ -2,7 +2,8 @@ import { createTransporter } from '../lib/mailer.js';
 import dotenv from 'dotenv';
 import prisma from '../lib/prisma.js';
 import { generateInvoicePdf } from '../lib/invoicePdf.js';
-import { activeItems, payableTotal, payableShipping, membershipLine, payableMembershipDiscount } from '../lib/orderTotals.js';
+import { payableTotal, payableShipping, membershipLine, payableMembershipDiscount,
+    displayItems, isCancelledItem } from '../lib/orderTotals.js';
 import { unsubscribeUrl } from '../lib/unsubscribe.js';
 
 dotenv.config();
@@ -61,6 +62,68 @@ const escapeHtml = (str) => {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+};
+
+// ── Order line rows — shared by the confirmation / payment-link / invoice emails ──────────
+//
+// A cancelled line (out of print, or cancelled for another reason) is NOT dropped from the
+// list: it is shown struck through in red with the reason, and contributes nothing to the
+// total. Quietly removing it is what confused a customer on order 17675 — his payment link
+// listed one book of the three he had ordered, with no explanation of where the others went.
+//
+// ⚠️ The strike lives on a <span>, never on the <td>: text-decoration inherits into children
+// and cannot be switched off by them, so styling the cell would strike the "not charged"
+// note as well. A membership bought with the order isn't a line item, so it is appended here
+// as one — otherwise the listed rows don't add up to the total quoted underneath.
+const CELL = 'padding:8px 0;border-bottom:1px solid #e6decd;';
+const strikeHtml = (s) => `<span style="color:#b91c1c;text-decoration:line-through;">${s}</span>`;
+
+const orderItemRowsHtml = (order, currency) => {
+    const cur = escapeHtml(currency || 'USD');
+    const rows = displayItems(order).map((item) => {
+        const mark = (s) => (item.cancelled ? strikeHtml(s) : s);
+        return `
+            <tr>
+                <td style="${CELL}color:${theme.textMain};">${mark(escapeHtml(item.name || item.product?.title || 'Item'))}${item.cancelled
+                    ? `<div style="margin-top:3px;font-size:10px;font-weight:700;color:#b91c1c;text-transform:uppercase;letter-spacing:0.04em;">${escapeHtml(item.cancelLabel)} &mdash; not charged</div>`
+                    : ''}</td>
+                <td style="${CELL}text-align:center;color:${theme.textMain};">${Number(item.quantity) || 1}</td>
+                <td style="${CELL}text-align:right;white-space:nowrap;color:${theme.textMain};">${mark(`${cur} ${Number(item.price || 0).toFixed(2)}`)}</td>
+            </tr>`;
+    }).join('');
+
+    const memberLine = membershipLine(order);
+    return rows + (memberLine ? `
+            <tr>
+                <td style="${CELL}color:${theme.textMain};">${escapeHtml(memberLine.name)}</td>
+                <td style="${CELL}text-align:center;color:${theme.textMain};">1</td>
+                <td style="${CELL}text-align:right;white-space:nowrap;color:${theme.textMain};">${cur} ${Number(memberLine.price).toFixed(2)}</td>
+            </tr>` : '');
+};
+
+// Table header for the rows above.
+const orderItemsTableHtml = (rowsHtml) => `
+                        <table style="width:100%;border-collapse:collapse;">
+                            <thead>
+                                <tr>
+                                    <th style="text-align:left;padding-bottom:8px;border-bottom:2px solid #e6decd;color:${theme.textMuted};font-size:13px;">Item</th>
+                                    <th style="text-align:center;padding-bottom:8px;border-bottom:2px solid #e6decd;color:${theme.textMuted};font-size:13px;">Qty</th>
+                                    <th style="text-align:right;padding-bottom:8px;border-bottom:2px solid #e6decd;color:${theme.textMuted};font-size:13px;">Price</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rowsHtml}</tbody>
+                        </table>`;
+
+// Explains the struck-through rows. Only rendered when the order actually has one.
+const cancelledNoteHtml = (order) => {
+    const cancelled = (order?.items || []).filter((it) => isCancelledItem(it));
+    if (!cancelled.length) return '';
+    const one = cancelled.length === 1;
+    return `
+                        <div style="margin-top:16px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:14px;font-size:13px;color:#991b1b;">
+                            The ${one ? 'title' : 'titles'} crossed out above ${one ? 'is' : 'are'} no longer available, so ${one ? 'it has' : 'they have'} been removed from your order.
+                            You have <strong>not</strong> been charged for ${one ? 'it' : 'them'} &mdash; the total below is for the remaining ${one ? 'items' : 'items'} only.
+                        </div>`;
 };
 
 const sendMail = async (email, name, firstName) => {
@@ -352,24 +415,11 @@ export const sendOrderConfirmation = async (email, order) => {
             if (settings?.emailsCopy?.trim()) bccAddresses = settings.emailsCopy.trim();
         } catch { /* non-critical — don't block the email */ }
 
-        const itemRows = activeItems(order.items).map(item => `
-            <tr>
-                <td style="padding: 8px 0; border-bottom: 1px solid #e6decd; color: ${theme.textMain};">${escapeHtml(item.name || item.product?.title || 'Item')}</td>
-                <td style="padding: 8px 0; border-bottom: 1px solid #e6decd; text-align: center; color: ${theme.textMain};">${Number(item.quantity) || 0}</td>
-                <td style="padding: 8px 0; border-bottom: 1px solid #e6decd; text-align: right; color: ${theme.textMain};">${escapeHtml(order.currency || 'USD')} ${Number(item.price).toFixed(2)}</td>
-            </tr>
-        `).join('');
-
-        // A membership bought with this order isn't a line item — show it as one so the listed
-        // rows reconcile with the Total below (same treatment as the e-gift cards).
-        const memberLine = membershipLine(order);
-        const membershipRows = memberLine ? `
-            <tr>
-                <td style="padding: 8px 0; border-bottom: 1px solid #e6decd; color: ${theme.textMain};">${escapeHtml(memberLine.name)}</td>
-                <td style="padding: 8px 0; border-bottom: 1px solid #e6decd; text-align: center; color: ${theme.textMain};">1</td>
-                <td style="padding: 8px 0; border-bottom: 1px solid #e6decd; text-align: right; color: ${theme.textMain};">${escapeHtml(order.currency || 'USD')} ${Number(memberLine.price).toFixed(2)}</td>
-            </tr>
-        ` : '';
+        // Every title the customer ordered is listed. Cancelled ones are struck through with
+        // the reason and charged at nothing — see orderItemRowsHtml. A membership bought with
+        // this order isn't a line item and is appended by the same helper, so the listed rows
+        // reconcile with the Total below (same treatment as the e-gift cards).
+        const itemRows = orderItemRowsHtml(order, order.currency);
         const giftCardRows = (order.giftCardItems || []).map(gc => `
             <tr>
                 <td style="padding: 8px 0; border-bottom: 1px solid #e6decd; color: ${theme.textMain};">E-gift Card${gc.recipientName ? ` (for ${escapeHtml(gc.recipientName)})` : ''}</td>
@@ -408,8 +458,9 @@ export const sendOrderConfirmation = async (email, order) => {
                                     <th style="text-align: right; padding-bottom: 8px; border-bottom: 2px solid #e6decd; color: ${theme.textMuted}; font-size: 13px;">Price</th>
                                 </tr>
                             </thead>
-                            <tbody>${itemRows}${membershipRows}${giftCardRows}</tbody>
+                            <tbody>${itemRows}${giftCardRows}</tbody>
                         </table>
+                        ${cancelledNoteHtml(order)}
                         <div style="margin-top: 20px; text-align: right;">
                             ${payableShipping(order) > 0
                                 ? `<p style="font-size:13px;color:${theme.textMuted};margin:0 0 4px;">Shipping: ${escapeHtml(order.currency || 'USD')} ${payableShipping(order).toFixed(2)}</p>`
@@ -687,6 +738,26 @@ export const sendPaymentLinkEmail = async (email, order, paymentLink) => {
         const firstName = escapeHtml(order.shippingFirstName || order.customer?.name?.split(' ')[0] || 'Valued Customer');
         const orderNum  = escapeHtml(order.orderNumber || `#${order.id}`);
         const safeLink  = paymentLink; // URL — not user-supplied, safe to embed
+        const currency  = escapeHtml(order.currency || 'USD');
+
+        // What they are being asked to pay for. This email used to carry NO item list at all,
+        // so a customer whose out-of-print titles had been cancelled saw a smaller amount with
+        // nothing to explain it (order 17675). Cancelled lines are listed struck through and
+        // charged at nothing; the total is always payableTotal, never the raw stored total.
+        const hasItems  = Array.isArray(order.items) && order.items.length > 0;
+        const summary = !hasItems ? '' : `
+                  <div style="margin-top:24px;">
+                    ${orderItemsTableHtml(orderItemRowsHtml(order, order.currency))}
+                    ${cancelledNoteHtml(order)}
+                    <div style="margin-top:16px;text-align:right;">
+                      ${payableMembershipDiscount(order) > 0
+                        ? `<p style="font-size:13px;color:#16a34a;margin:0 0 4px;font-weight:600;">Member discount: &minus;${currency} ${payableMembershipDiscount(order).toFixed(2)}</p>` : ''}
+                      ${payableShipping(order) > 0
+                        ? `<p style="font-size:13px;color:${theme.textMuted};margin:0 0 4px;">Shipping: ${currency} ${payableShipping(order).toFixed(2)}</p>`
+                        : `<p style="font-size:13px;color:#16a34a;margin:0 0 4px;font-weight:600;">Shipping: FREE</p>`}
+                      <p style="font-size:18px;font-weight:700;color:${theme.textMain};margin:6px 0 0;">Amount to pay: ${currency} ${payableTotal(order).toFixed(2)}</p>
+                    </div>
+                  </div>`;
 
         const template = `
             <div style="font-family:'Inter',Helvetica,Arial,sans-serif;background-color:${theme.cream};padding:40px 0;">
@@ -699,6 +770,7 @@ export const sendPaymentLinkEmail = async (email, order, paymentLink) => {
                     Great news! Your order <strong>${orderNum}</strong> has been reviewed and approved by our team.
                     Please click the button below to complete your payment securely.
                   </p>
+                  ${summary}
                   <div style="text-align:center;margin:32px 0;">
                     <a href="${safeLink}" style="display:inline-block;background:${theme.primary};color:#fff;text-decoration:none;padding:16px 40px;font-size:16px;font-weight:700;border-radius:8px;letter-spacing:.5px;">
                       Complete Payment →
@@ -763,17 +835,11 @@ export const sendInvoiceEmail = async (email, order) => {
 
         const orderNum = order.orderNumber || order.order_number || order.id;
         const currency = order.currency || 'USD';
-        const items = activeItems(order.items); // exclude cancelled out-of-print items (#5)
-        const invoiceMemberLine = membershipLine(order); // membership isn't a line item — show it as one
-        if (invoiceMemberLine) items.push(invoiceMemberLine);
+        // Cancelled out-of-print lines stay listed but struck through and uncharged (#5), and
+        // the membership (not a line item) is appended — both handled by orderItemRowsHtml.
         const invoiceMemberDiscount = payableMembershipDiscount(order);
         const invoiceShipping = payableShipping(order);
-        const itemRows = items.map(item => `
-            <tr>
-                <td style="padding:10px 8px;border-bottom:1px solid #e6decd;color:${theme.textMain};">${escapeHtml(item.name || item.product?.title || 'Item')}</td>
-                <td style="padding:10px 8px;border-bottom:1px solid #e6decd;text-align:center;color:${theme.textMain};">${Number(item.quantity) || 1}</td>
-                <td style="padding:10px 8px;border-bottom:1px solid #e6decd;text-align:right;color:${theme.textMain};">${currency} ${Number(item.price || 0).toFixed(2)}</td>
-            </tr>`).join('');
+        const itemRows = orderItemRowsHtml(order, currency);
 
         const shippingName = [order.shippingFirstName, order.shippingLastName].filter(Boolean).join(' ');
         const shippingAddr = [order.shippingAddress1, order.shippingCity, order.shippingState, order.shippingPostcode, order.shippingCountry].filter(Boolean).join(', ');
@@ -796,6 +862,7 @@ export const sendInvoiceEmail = async (email, order) => {
                     </thead>
                     <tbody>${itemRows}</tbody>
                   </table>
+                  ${cancelledNoteHtml(order)}
 
                   <div style="margin-top:20px;text-align:right;border-top:2px solid #e6decd;padding-top:16px;">
                     ${invoiceMemberDiscount > 0
