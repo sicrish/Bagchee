@@ -425,7 +425,10 @@ const Checkout = () => {
 
   // 6. Member Discount — applies to non-members buying a membership AND already-active members
   const memberDiscountPercent = Number(settings?.member_discount) || 10;
-  const memberDiscount = (buyingMembership || isActiveMember) ? Math.round((subtotal + currentMembershipCost) * (memberDiscountPercent / 100) * 100) / 100 : 0;
+  // The discount applies to the BOOKS only — the membership fee is not discounted by the
+  // membership it pays for (client's rule, 2026-08-06). Mirrors saveOrder, which is
+  // authoritative on the charge, so what is shown here is what is billed.
+  const memberDiscount = (buyingMembership || isActiveMember) ? Math.round(subtotal * (memberDiscountPercent / 100) * 100) / 100 : 0;
 
   let couponDiscount = 0;
   if (appliedCoupon) {

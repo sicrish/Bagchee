@@ -101,43 +101,37 @@ const tierUsd = (tiers, books) => {
     return band ? band.usd : tiers[tiers.length - 1].usd;
 };
 
-// Is this shipping type priced in quantity bands (Expedited / Express) rather than flat?
+// Is this an Expedited / Express option? ⚠️ The band VALUES above no longer price anything
+// (see payableShipping) — the tables survive purely so a tiered option can be recognised,
+// because Expedited / Express are never free at any cart value.
 export const isTieredShipping = (shippingType) => !!tierTableForType(shippingType);
-
-// Band rate (USD) for a shipping type + book count; null for standard/free shipping.
-// Used to re-scale a tiered order's stored cost when the admin edits quantities.
-export const tierRateUsd = (shippingType, books) => {
-    const tiers = tierTableForType(shippingType);
-    return tiers ? tierUsd(tiers, books) : null;
-};
 
 // Shipping the customer should actually be charged after any cancellations.
 //
-// For Expedited / Express orders we re-band the shipping for the REMAINING (active)
-// books and scale the stored shippingCost by newBand / originalBand. Scaling by the
-// ratio (rather than recomputing an absolute USD figure) keeps EUR / GBP orders correct
-// without exchange rates and is robust to any manual shippingCost edit by the admin.
+// ⚠️ Every shipping option — Standard, Expedited and Express alike — is a FLAT admin-defined
+// price per currency. The storefront has priced them that way since 2026-06-05 (`4b12a23`),
+// when the hardcoded SHIPPING_TIERS tables were removed from Cart.jsx / Checkout.jsx in favour
+// of `shippingPriceFor(option, currency)` — which takes no quantity at all. So the number of
+// books does NOT change what shipping costs, and reducing or cancelling books must never
+// re-price it. (Until 2026-08-06 this function still ratio-scaled Expedited/Express by the
+// quantity bands below; the bands had stopped governing price two months earlier, so the
+// re-scale invented a discount that no rule backed — Expedited $15 became $8.57 when an order
+// went from 4 books to 1. It had never fired in production before because no tiered order had
+// ever had an item cancelled.)
 //
-// Returns the original shippingCost UNCHANGED when: there is no shipping cost, the order
-// isn't Expedited/Express (standard/free is flat — never re-banded), or nothing was
-// cancelled so the book count is unchanged. So non-partial orders are never affected.
+// The bands survive ONLY as a way to recognise a tiered option (`isTieredShipping`), which
+// still matters because Expedited/Express are never free at any cart value.
+//
+// The one case that does change the charge: the order HAD books and every one of them has been
+// cancelled → nothing left to ship. ⚠️ An order that never had any line items (e.g. a
+// membership-only order such as prod #17476) keeps its stored shipping — "all cancelled" and
+// "never had any" are different things, and conflating them silently rewrites legacy orders.
 export const payableShipping = (order) => {
     const shipping = Number(order?.shippingCost) || 0;
     if (shipping <= 0) return 0;
-
-    const tiers = tierTableFor(order);
-    if (!tiers) return shipping; // standard / free shipping — untouched
-
-    const allBooks = bookCount(order?.items);
-    const remainingBooks = bookCount(activeItems(order?.items));
-    if (remainingBooks >= allBooks) return shipping; // nothing cancelled
-
-    const origUsd = tierUsd(tiers, allBooks);
-    if (origUsd <= 0) return shipping; // guard divide-by-zero
-    const newUsd = tierUsd(tiers, remainingBooks);
-
-    const scaled = Math.round(shipping * (newUsd / origUsd) * 100) / 100;
-    return Math.max(0, Math.min(shipping, scaled)); // can only ever lower the charge
+    if (!tierTableFor(order)) return shipping; // standard / free shipping — untouched
+    if (bookCount(order?.items) <= 0) return shipping; // never had books — leave it alone
+    return bookCount(activeItems(order?.items)) > 0 ? shipping : 0;
 };
 
 // ---------------------------------------------------------------------------
@@ -147,11 +141,12 @@ export const payableShipping = (order) => {
 // lives in `order.membershipFee` and the member discount — a percentage of (items + fee) —
 // in `order.membershipDiscount`, both in the order's own currency.
 //
-// The stored discount is always the discount for the order's CURRENT full item set plus the
-// fee (updateOrder keeps it that way when an admin edits the items), so the effective rate
-// can be recovered from those two columns alone — no settings lookup, no extra column, and
-// EUR/GBP orders stay correct with no exchange rates, exactly like payableShipping()'s
-// ratio-scaling.
+// ⚠️ The discount applies to the BOOKS only — the membership fee itself is not discounted
+// (client's rule, 2026-08-06). The stored discount is therefore always
+// `settings.member_discount`% of the order's CURRENT full item set, and updateOrder keeps it
+// that way when an admin edits the items. Cancelling a line takes that line's share of the
+// discount with it, which is a pure active/all ratio — no base convention, no exchange rates,
+// so EUR/GBP orders stay correct.
 //
 // ⚠️ LEGACY DATA GUARD. Migrated orders stored the member-discount PERCENTAGE — a bare `10` —
 // in `membershipDiscount` rather than a currency amount: 2,720 prod rows, every one created
@@ -176,23 +171,20 @@ export const hasMembershipMoney = (order) => {
 export const membershipDiscountOf = (order) =>
     hasMembershipMoney(order) ? Math.max(0, Number(order?.membershipDiscount) || 0) : 0;
 
-// Everything the member discount was calculated on: all items (cancelled included) + the fee.
-export const membershipBase = (items, fee) => round2(sumItems(items) + (Number(fee) || 0));
+// The member discount for a given set of books at a given percentage. Used by updateOrder to
+// re-derive the stored amount after an admin edits the items.
+export const memberDiscountFor = (items, pct) =>
+    round2(sumItems(items) * (Number(pct) || 0) / 100);
 
-// Effective member-discount rate for this order, recovered from the stored amounts.
-export const membershipRate = (order) => {
-    const disc = membershipDiscountOf(order);
-    if (disc <= 0) return 0;
-    const base = membershipBase(order?.items, membershipFeeOf(order));
-    return base > 0 ? disc / base : 0;
-};
-
-// Member discount the customer actually keeps once cancelled lines are excluded — the same
-// rate applied to the remaining books plus the fee.
+// Member discount the customer actually keeps once cancelled lines are excluded: the stored
+// amount scaled by the share of the books that survive. A pure ratio, so it is correct
+// whatever percentage produced the stored number.
 export const payableMembershipDiscount = (order) => {
     const disc = membershipDiscountOf(order);
     if (disc <= 0) return 0;
-    const payable = round2(membershipRate(order) * membershipBase(activeItems(order?.items), membershipFeeOf(order)));
+    const all = sumItems(order?.items);
+    if (all <= 0) return 0; // the fee alone carries no discount
+    const payable = round2(disc * (sumItems(activeItems(order?.items)) / all));
     return Math.max(0, Math.min(disc, payable)); // never more than was granted
 };
 

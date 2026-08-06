@@ -3,8 +3,8 @@ import crypto from 'crypto';
 import { sendOrderConfirmation, sendOrderShippedEmail, sendOrderStatusEmail, sendPaymentLinkEmail, sendInvoiceEmail, sendCustomConfirmationEmail, sendMembershipWelcome, sendCancellationRequestToShop, sendCancellationRequestReceived } from './email.controller.js';
 import { calcDiscount, couponAlreadyUsed } from './coupon.controller.js';
 import { createGiftCardsForOrder, applyWalletBalance } from './giftCard.controller.js';
-import { activeItems, payableTotal, payableShipping, isCancelledItem, sumItems, bookCount, tierRateUsd,
-    membershipFeeOf, membershipDiscountOf, membershipRate, membershipBase, membershipLine,
+import { activeItems, payableTotal, payableShipping, isCancelledItem, sumItems, bookCount,
+    membershipFeeOf, membershipDiscountOf, memberDiscountFor, membershipLine,
     payableMembershipDiscount } from '../lib/orderTotals.js';
 import { resolveShippingRule, standardShippingFor, isTieredOption, FREE_SHIPPING_MIN_USD } from '../lib/shippingRule.js';
 import { isMembershipActive } from '../lib/membership.js';
@@ -316,7 +316,10 @@ export const saveOrder = async (req, res) => {
                 if (buysMembership) {
                     membershipFeeUsd         = Number(dbSettings?.membershipCartPrice) || 0;
                     membershipFeeNative      = membershipFeeForCurrency(currency, dbSettings, membershipFeeUsd, orderRate);
-                    membershipDiscountNative = round2(membershipFeeNative * memberDiscountPct / 100);
+                    // ⚠️ The member discount applies to the BOOKS only — the membership fee is
+                    // not discounted by the membership it pays for (client's rule, 2026-08-06).
+                    // Kept as a named zero so the fee/discount split below stays readable.
+                    membershipDiscountNative = 0;
                 }
             }
 
@@ -593,9 +596,15 @@ export const getOrderById = async (req, res) => {
         // customer's invoice can show a breakdown that adds up.
         order.payableMembershipDiscount = payableMembershipDiscount(order);
 
-        // Admin only: the free-shipping rule for this order, so the order form can preview the
-        // same total / shipping the save will compute (api/lib/shippingRule.js).
-        if (req.user.role === 'admin') order.shippingRule = await resolveShippingRule(order);
+        // Admin only: the free-shipping rule for this order + the live member-discount
+        // percentage, so the order form previews exactly the total / shipping / discount the
+        // save will compute (api/lib/shippingRule.js, updateOrder).
+        if (req.user.role === 'admin') {
+            order.shippingRule = await resolveShippingRule(order);
+            order.memberDiscountPct = Number((await prisma.settings.findFirst({
+                orderBy: { id: 'desc' }, select: { memberDiscount: true },
+            }))?.memberDiscount) || 0;
+        }
 
         res.status(200).json({ status: true, data: order });
     } catch (error) {
@@ -693,6 +702,12 @@ export const updateOrder = async (req, res) => {
             },
         });
         const itemsBefore = existing?.items || [];
+
+        // Live member-discount percentage. Fetched once: the money block re-derives the
+        // stored discount with it, and the admin form is sent it so its preview matches.
+        const memberPct = Number((await prisma.settings.findFirst({
+            orderBy: { id: 'desc' }, select: { memberDiscount: true },
+        }))?.memberDiscount) || 0;
 
         // Admin removed the membership from this order (the × on its row in the items table).
         // Only meaningful while a purchased membership is actually on the order — an existing
@@ -890,10 +905,10 @@ export const updateOrder = async (req, res) => {
             if (!adminSetShipping && !typeChanged) {
                 const rule = await resolveShippingRule({ currency: existing.currency, shippingType: existing.shippingType });
                 if (rule.tiered) {
-                    const oldBand = tierRateUsd(existing.shippingType, bookCount(itemsBefore));
-                    const newBand = tierRateUsd(existing.shippingType, bookCount(itemsAfter));
-                    if (prevShipping > 0 && oldBand > 0 && newBand !== oldBand)
-                        newShipping = round2(prevShipping * (newBand / oldBand));
+                    // Expedited / Express are a FLAT admin price per option — the quantity does
+                    // not price them (see payableShipping), so the stored cost stands. Only an
+                    // order with no books left at all stops being shipped.
+                    if (bookCount(itemsBefore) > 0 && bookCount(itemsAfter) === 0) newShipping = 0;
                 } else {
                     // The stored cost counts as rule-managed when it matches what the rule gives
                     // for either the remaining books or the full original set — an order whose
@@ -913,16 +928,17 @@ export const updateOrder = async (req, res) => {
 
             const shippingDelta = round2(newShipping - prevShipping);
 
-            // Membership: `total` carries it as (+ fee − discount). Re-derive the discount at the
-            // order's own effective rate — recovered from the stored fee + discount, so no
-            // settings lookup and no FX — against the remaining items, and let both move the
-            // total. Legacy rows (whose column holds a percentage, not money) resolve to a rate
-            // of 0 and are therefore left completely alone. See lib/orderTotals.js.
+            // Membership: `total` carries it as (+ fee − discount). Re-derive the discount as
+            // `settings.member_discount`% of the remaining BOOKS — the fee itself is not
+            // discounted. The live setting is read rather than a rate reverse-engineered from
+            // the stored amounts, so an order placed under an older convention can't carry that
+            // convention forward. Legacy rows (whose column holds a percentage, not money) have
+            // membershipDiscountOf() === 0 and are left completely alone. See lib/orderTotals.js.
             const feeBefore  = membershipFeeOf(existing);
             const discBefore = membershipDiscountOf(existing);
-            const rate       = membershipRate({ ...existing, items: itemsBefore });
             const feeAfter   = membershipRemoved ? 0 : feeBefore;
-            const discAfter  = membershipRemoved ? 0 : round2(rate * membershipBase(itemsAfter, feeAfter));
+            const discAfter  = (membershipRemoved || discBefore <= 0)
+                ? 0 : memberDiscountFor(itemsAfter, memberPct);
             const feeDelta      = round2(feeAfter - feeBefore);
             const discountDelta = round2(discAfter - discBefore);
 
@@ -947,7 +963,9 @@ export const updateOrder = async (req, res) => {
         if (freshOrder) {
             freshOrder.payableTotal    = payableTotal(freshOrder);
             freshOrder.payableShipping = payableShipping(freshOrder);
+            freshOrder.payableMembershipDiscount = payableMembershipDiscount(freshOrder);
             freshOrder.shippingRule    = await resolveShippingRule(freshOrder);
+            freshOrder.memberDiscountPct = memberPct;
         }
         res.status(200).json({ status: true, msg: 'Order updated successfully', data: freshOrder });
     } catch (error) {

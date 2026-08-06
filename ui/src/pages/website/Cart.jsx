@@ -212,8 +212,10 @@ const Cart = () => {
   // Pre-compute grand total so it's transparent and testable
   const membershipUsdForTotal = buyingMembership ? (getMembershipData().usd || 0) : 0;
   const memberDiscountPercent = Number(settings?.member_discount || settings?.memberDiscount) || 10;
+  // Books only — the membership fee is not discounted by the membership it pays for
+  // (client's rule, 2026-08-06). Must match Checkout.jsx and saveOrder.
   const memberDiscountUSD = (buyingMembership || isActiveMember)
-    ? Math.round((subtotalAfterItemDiscount + membershipUsdForTotal) * (memberDiscountPercent / 100) * 100) / 100
+    ? Math.round(subtotalAfterItemDiscount * (memberDiscountPercent / 100) * 100) / 100
     : 0;
   const grandTotalUSD = subtotalAfterItemDiscount + membershipUsdForTotal - memberDiscountUSD + finalShippingUSD;
 

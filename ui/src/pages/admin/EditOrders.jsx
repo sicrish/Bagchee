@@ -14,45 +14,29 @@ import CustomerSelect from '../../components/admin/CustomerSelect.jsx';
 const CANCELLED_ITEM_STATUSES = ['cancelled', 'cancelled - other'];
 const isCancelledItemStatus = (s) => CANCELLED_ITEM_STATUSES.includes(String(s ?? '').trim().toLowerCase());
 
-// ── Tiered shipping (Expedited / Express) re-rate for partial invoicing (#5) ──
-// When out-of-print line items are cancelled, Expedited/Express shipping is re-banded
-// for the REMAINING books (it's priced in quantity bands, not per book). This mirrors
-// payableShipping() in api/lib/orderTotals.js so the admin's live preview matches what
-// the backend will actually charge. ⚠️ KEEP IN SYNC with that file and the source table
-// in ui/src/pages/website/Cart.jsx (SHIPPING_TIERS — Express id 5, Expedited id 3).
-const SHIP_TIERS = {
-  express:   [[1,2,50],[3,6,80],[7,11,110],[12,15,150],[16,20,200],[21,25,280],[26,36,350],[37,50,435],[51,100,550],[101,Infinity,730]],
-  expedited: [[1,2,20],[3,6,35],[7,11,50], [12,15,80], [16,20,120],[21,25,150],[26,36,175],[37,50,222],[51,100,280],[101,Infinity,400]],
-};
-const tierTableForType = (shippingType) => {
+// ── Expedited / Express recognition ───────────────────────────────────────────
+// These two options are never free at any cart value, so they still need to be told apart
+// from Standard. ⚠️ Their prices are FLAT admin values (`shippingPriceFor`), NOT quantity
+// bands — the band tables that used to live here were removed on 2026-08-06 because they had
+// stopped pricing anything on 2026-06-05 (`4b12a23`) and were inventing shipping discounts.
+// KEEP IN SYNC with isTieredShipping in api/lib/orderTotals.js.
+const isTieredShippingType = (shippingType) => {
   const t = String(shippingType || '').trim().toLowerCase();
-  if (t.includes('expedited')) return SHIP_TIERS.expedited;
-  if (t.includes('express')) return SHIP_TIERS.express;
   // The live Express option is titled "3-5 Days Worldwide Delivery" — no keyword to match on.
-  if (t === '3-5 days worldwide delivery') return SHIP_TIERS.express;
-  return null;
-};
-const tierUsdFor = (tiers, books) => {
-  if (books <= 0) return 0;
-  const band = tiers.find(([min, max]) => books >= min && books <= max);
-  return band ? band[2] : tiers[tiers.length - 1][2];
+  return t.includes('expedited') || t.includes('express') || t === '3-5 days worldwide delivery';
 };
 const countBooks = (arr = []) => arr.reduce((n, it) => n + (Number(it.quantity) || 1), 0);
-// Shipping the customer will actually be charged after cancellations. Returns the
-// original cost unchanged for standard/free shipping or when nothing is cancelled.
+// Shipping the customer will actually be charged after cancellations.
+// ⚠️ Every option (Standard, Expedited, Express) is a FLAT admin price per currency — the
+// storefront has priced them with `shippingPriceFor(option, currency)`, which takes no
+// quantity, since 2026-06-05. So changing quantities never re-prices shipping; only an order
+// with nothing left to ship drops to zero. Mirrors payableShipping in api/lib/orderTotals.js.
 const previewPayableShipping = (shippingCost, shippingType, items = []) => {
   const shipping = Number(shippingCost) || 0;
   if (shipping <= 0) return 0;
-  const tiers = tierTableForType(shippingType);
-  if (!tiers) return shipping;
-  const allBooks = countBooks(items);
-  const remaining = countBooks(items.filter((p) => !isCancelledItemStatus(p.status)));
-  if (remaining >= allBooks) return shipping;
-  const origUsd = tierUsdFor(tiers, allBooks);
-  if (origUsd <= 0) return shipping;
-  const newUsd = tierUsdFor(tiers, remaining);
-  const scaled = Math.round(shipping * (newUsd / origUsd) * 100) / 100;
-  return Math.max(0, Math.min(shipping, scaled));
+  if (!isTieredShippingType(shippingType)) return shipping;
+  if (countBooks(items) <= 0) return shipping; // never had books (membership-only order)
+  return countBooks(items.filter((p) => !isCancelledItemStatus(p.status))) > 0 ? shipping : 0;
 };
 
 // ── Free-shipping rule mirror (5-Aug-2026) ────────────────────────────────────
@@ -88,7 +72,10 @@ const hasMembershipMoney = (o) => {
   const ms = created ? new Date(created).getTime() : NaN;
   return Number.isFinite(ms) && ms >= MEMBERSHIP_MONEY_FROM;
 };
-const membershipBase = (items, fee) => round2(lineSum(items) + (Number(fee) || 0));
+// The member discount applies to the BOOKS only — the membership fee is not discounted by the
+// membership it pays for. The percentage comes from the server with the order
+// (`memberDiscountPct`), never guessed here.
+const memberDiscountFor = (items, pct) => round2(lineSum(items) * (Number(pct) || 0) / 100);
 
 const EditOrders = () => {
   const navigate = useNavigate();
@@ -268,6 +255,8 @@ const EditOrders = () => {
   // rendered as an extra line in the Products table and can be taken off the order there.
   const [membership, setMembership] = useState({ fee: 0, purchased: false, isMoney: false });
   const [removeMembership, setRemoveMembership] = useState(false);
+  // Live member-discount percentage, served with the order for admins (never guessed here).
+  const [memberDiscountPct, setMemberDiscountPct] = useState(0);
 
   const [commentContent, setCommentContent] = useState('');
   const [customerComment, setCustomerComment] = useState('');
@@ -422,6 +411,7 @@ const EditOrders = () => {
           setShippingRule(d.shippingRule || null);
           setCancelRequestedAt(d.cancelRequestedAt || d.cancel_requested_at || null);
           const memberIsMoney = hasMembershipMoney(d);
+          setMemberDiscountPct(Number(d.memberDiscountPct) || 0);
           setMembership({
             fee: memberIsMoney ? Math.max(0, Number(d.membershipFee) || 0) : 0,
             purchased: d.membershipPurchased === true,
@@ -449,6 +439,7 @@ const EditOrders = () => {
           applyMoneyPreview(d.items || d.products || [], undefined, {
             rule: d.shippingRule || null,
             shippingType: d.shippingType || d.shipping_type || '',
+            memberDiscountPct: Number(d.memberDiscountPct) || 0,
           });
           setCommentContent(d.comment || '');
           setCustomerComment(d.customerComment || d.customer_comment || '');
@@ -528,23 +519,26 @@ const EditOrders = () => {
   // `discount` is what gets STORED (the whole item set, cancelled lines included, like the
   // server); `payableDiscount` is what the customer actually keeps once cancelled lines drop
   // out — the pair mirrors membershipDiscount vs payableMembershipDiscount on the backend.
-  const previewMembership = (nextProducts, removed) => {
+  // `pctOverride` is passed on the load pass, before setMemberDiscountPct has committed.
+  const previewMembership = (nextProducts, removed, pctOverride) => {
+    const pct = pctOverride !== undefined ? pctOverride : memberDiscountPct;
     const b = baselineRef.current;
     const withPayable = (fee, discount) => {
-      const base = membershipBase(nextProducts, fee);
-      const activeBase = membershipBase((nextProducts || []).filter(p => !isCancelledItemStatus(p.status)), fee);
-      const payableDiscount = discount > 0 && base > 0
-        ? Math.min(discount, round2(discount * (activeBase / base))) : 0;
+      // Cancelled lines take their share of the discount with them — a pure books ratio.
+      const all = lineSum(nextProducts);
+      const active = activeLineSum(nextProducts);
+      const payableDiscount = discount > 0 && all > 0
+        ? Math.min(discount, round2(discount * (active / all))) : 0;
       return { fee, discount, payableDiscount };
     };
     if (!b) return withPayable(0, 0);
     const feeBefore  = Number(b.membershipFee) || 0;
     const discBefore = Number(b.membershipDiscount) || 0;
     if (b.paid) return withPayable(feeBefore, discBefore);
-    const baseBefore = membershipBase(b.items, feeBefore);
-    const rate = discBefore > 0 && baseBefore > 0 ? discBefore / baseBefore : 0;
     const fee = removed ? 0 : feeBefore;
-    return withPayable(fee, removed ? 0 : round2(rate * membershipBase(nextProducts, fee)));
+    return withPayable(fee, removed || discBefore <= 0
+      ? 0
+      : memberDiscountFor(nextProducts, pct));
   };
 
   const applyMoneyPreview = (nextProducts, typedShipping, opts = {}) => {
@@ -561,11 +555,9 @@ const EditOrders = () => {
 
     if (!adminSet && !typeChanged) {
       if (rule?.tiered) {
-        const tiers = tierTableForType(b.shippingType);
-        const oldBand = tiers ? tierUsdFor(tiers, countBooks(b.items)) : 0;
-        const newBand = tiers ? tierUsdFor(tiers, countBooks(nextProducts)) : 0;
-        if (prevShipping > 0 && oldBand > 0 && newBand !== oldBand)
-          shipping = round2(prevShipping * (newBand / oldBand));
+        // Expedited / Express are a FLAT admin price — quantity never re-prices them, so the
+        // stored cost stands. Only an order with no books left stops being shipped.
+        if (countBooks(b.items) > 0 && countBooks(nextProducts) === 0) shipping = 0;
       } else {
         // The stored cost counts as rule-managed when it matches what the rule gives for
         // either the remaining books or the full original set (an order cancelled before
@@ -582,7 +574,7 @@ const EditOrders = () => {
     // `total` carries the membership as (+ fee − discount): both move when the items change
     // or the admin takes the membership off the order.
     const removed = opts.removeMembership !== undefined ? opts.removeMembership : removeMembership;
-    const m = previewMembership(nextProducts, removed);
+    const m = previewMembership(nextProducts, removed, opts.memberDiscountPct);
     const feeDelta      = m.fee - (Number(b.membershipFee) || 0);
     const discountDelta = m.discount - (Number(b.membershipDiscount) || 0);
 
@@ -765,6 +757,7 @@ const EditOrders = () => {
           setOrderProducts(fresh.items || []);
           setRemovedItemIds([]);
           if (fresh.shippingRule) setShippingRule(fresh.shippingRule);
+          if (fresh.memberDiscountPct != null) setMemberDiscountPct(Number(fresh.memberDiscountPct) || 0);
           const freshIsMoney = hasMembershipMoney(fresh);
           const freshFee = freshIsMoney ? Math.max(0, Number(fresh.membershipFee) || 0) : 0;
           const freshDiscount = freshIsMoney ? Math.max(0, Number(fresh.membershipDiscount) || 0) : 0;
