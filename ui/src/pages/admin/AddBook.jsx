@@ -79,6 +79,7 @@ const AddBook = () => {
     const [publisherSearchLoading, setPublisherSearchLoading] = useState(false);
 
     const categorySearchRef = useRef(null);
+    const relatedBoxRef = useRef(null);
     const [relatedSearchQuery, setRelatedSearchQuery] = useState("");
     const [relatedSearchResults, setRelatedSearchResults] = useState([]);
     const [isRelatedDropdownOpen, setIsRelatedDropdownOpen] = useState(false);
@@ -603,6 +604,24 @@ const AddBook = () => {
         return () => clearTimeout(delayDebounceFn);
     }, [relatedSearchQuery, isRelatedDropdownOpen]);
 
+    // Close the related dropdown on an outside click. Deliberately NOT a full-screen
+    // backdrop div: that overlay sat on top of the search input itself, so right-click /
+    // long-press hit the overlay instead of the field and the browser showed the plain
+    // page menu with no Paste.
+    useEffect(() => {
+        if (!isRelatedDropdownOpen) return;
+        const handleOutside = (e) => {
+            if (relatedBoxRef.current && !relatedBoxRef.current.contains(e.target)) {
+                setIsRelatedDropdownOpen(false);
+            }
+        };
+        // mousedown only, NOT touchstart: mobile fires a compatibility mousedown on tap
+        // but not when a touch turns into a scroll, so this closes on an outside tap
+        // (what the old overlay did) without closing every time the page is scrolled.
+        document.addEventListener('mousedown', handleOutside);
+        return () => document.removeEventListener('mousedown', handleOutside);
+    }, [isRelatedDropdownOpen]);
+
     const handleAddRelatedProduct = (product) => {
         const idToAdd = product.bagcheeId || product.bagchee_id;
         if (selectedRelatedItems.find(item => item.id === idToAdd)) return toast.error("Already linked!");
@@ -884,7 +903,7 @@ const AddBook = () => {
                                         ))}
                                     </div>
                                 )}
-                                <div className="relative">
+                                <div className="relative" ref={relatedBoxRef}>
                                     <input type="text" value={relatedSearchQuery} onChange={(e) => { setRelatedSearchQuery(e.target.value); setIsRelatedDropdownOpen(true); }} onFocus={() => setIsRelatedDropdownOpen(true)} onMouseDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.stopPropagation()} placeholder="Search product by isbn or title or id" className="theme-input w-full" />
                                     {isRelatedDropdownOpen && relatedSearchQuery.length > 2 && (
                                         <div className="absolute z-50 top-full left-0 w-full bg-white border border-gray-300 rounded shadow-lg mt-1 max-h-60 overflow-y-auto">
@@ -896,7 +915,6 @@ const AddBook = () => {
                                             )) : <div className="p-3 text-xs text-gray-400 text-center">No products found</div>}
                                         </div>
                                     )}
-                                    {isRelatedDropdownOpen && <div className="fixed inset-0 z-10" onClick={() => setIsRelatedDropdownOpen(false)}></div>}
                                 </div>
                             </div>
                         </div>

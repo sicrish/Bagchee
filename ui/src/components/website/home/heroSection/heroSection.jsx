@@ -24,7 +24,9 @@ const HeroSlider = () => {
       const res = await axios.get(`${API_URL}/home-slider/list`);
       if (res.data.status) {
         const activeBanners = res.data.data
-          .filter(b => b.isActive)
+          // An admin can now clear a slide's images; skip slides with nothing left to
+          // show rather than rendering a broken <img> across the hero.
+          .filter(b => b.isActive && (b.desktopImage || b.mobileImage))
           .sort((a, b) => (a.order || 0) - (b.order || 0));
         
         // Smarter Background Pre-loading within the query function
@@ -80,12 +82,16 @@ const HeroSlider = () => {
              className={`block w-full h-full ${isActive ? 'pointer-events-auto' : 'pointer-events-none'}`}
            >
                 <picture className="w-full h-full block">
-                    <source 
-                        media="(min-width: 768px)" 
-                        srcSet={getImageUrl(banner.desktopImage)} 
-                    />
-                    <img 
-                        src={getImageUrl(banner.mobileImage)} 
+                    {/* Either image may be empty now that they can be removed — emit the
+                        desktop source only when it exists, and fall back for the <img>. */}
+                    {banner.desktopImage && (
+                        <source
+                            media="(min-width: 768px)"
+                            srcSet={getImageUrl(banner.desktopImage)}
+                        />
+                    )}
+                    <img
+                        src={getImageUrl(banner.mobileImage || banner.desktopImage)}
                         loading={index === 0 ? "eager" : "lazy"}
                         {...(index === 0 ? { fetchpriority: "high" } : {})}
                         alt={banner.title || `Banner ${index}`} 

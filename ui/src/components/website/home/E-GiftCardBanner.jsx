@@ -29,7 +29,9 @@ const EGiftcardBanner = () => {
 
   // 2. Filter Active and Sort by Order
   const activeBanners = bannerList
-    ?.filter(b => b.isActive)
+    // An admin can now clear a banner's images; skip banners with nothing left to show
+    // rather than rendering a broken <img> on the homepage.
+    ?.filter(b => b.isActive && (b.desktopImage || b.mobileImage))
     ?.sort((a, b) => (a.order || 0) - (b.order || 0));
 
   if (!activeBanners || activeBanners.length === 0) return null;
@@ -52,9 +54,10 @@ const EGiftcardBanner = () => {
             />
           )}
 
-          {/* 🟢 Desktop Image (Default / Screen >= 1024px) */}
-          <img 
-            src={getFullImageUrl(banner.desktopImage)}  
+          {/* 🟢 Desktop Image (Default / Screen >= 1024px) — falls back to the mobile
+              image if the desktop one was removed, so the banner still renders. */}
+          <img
+            src={getFullImageUrl(banner.desktopImage || banner.mobileImage)}
             alt="E-Gift Card Banner" 
             className="block w-full h-auto"
             loading="lazy" 

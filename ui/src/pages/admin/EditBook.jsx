@@ -33,6 +33,11 @@ const EditBook = () => {
 
     const [tocImageFile, setTocImageFile] = useState(null);
     const [tocPreview, setTocPreview] = useState(null);
+    // The TOC image already on the product, mirroring `serverImage` for the cover.
+    // The DB image MUST live in its own state, not in tocPreview: tocPreview is derived
+    // from tocImageFile, so clearing a DB-loaded image by setting tocImageFile to null
+    // is a no-op (it is already null) and React skips the re-render.
+    const [serverTocImage, setServerTocImage] = useState(null);
 
     const [tocImagesList, setTocImagesList] = useState([]);
     const [relatedImagesList, setRelatedImagesList] = useState([]);
@@ -77,6 +82,7 @@ const EditBook = () => {
     const [publisherSearchLoading, setPublisherSearchLoading] = useState(false);
 
     // Related Products Search States
+    const relatedBoxRef = useRef(null);
     const [relatedSearchQuery, setRelatedSearchQuery] = useState("");
     const [relatedSearchResults, setRelatedSearchResults] = useState([]);
     const [isRelatedDropdownOpen, setIsRelatedDropdownOpen] = useState(false);
@@ -318,7 +324,7 @@ const EditBook = () => {
                     const baseUrl = API_URL.replace('/api', '') || 'http://localhost:5000';
                     cleanTocPath = `${baseUrl}${cleanTocPath.startsWith('/') ? '' : '/'}${cleanTocPath}`;
                 }
-                setTocPreview(cleanTocPath);
+                setServerTocImage(cleanTocPath);
             }
 
             const imgRaw = book.defaultImage || book.default_image || book.producticonname;
@@ -484,6 +490,24 @@ const EditBook = () => {
         }, 500);
         return () => clearTimeout(delayDebounceFn);
     }, [relatedSearchQuery, isRelatedDropdownOpen]);
+
+    // Close the related dropdown on an outside click. Deliberately NOT a full-screen
+    // backdrop div: that overlay sat on top of the search input itself, so right-click /
+    // long-press hit the overlay instead of the field and the browser showed the plain
+    // page menu with no Paste.
+    useEffect(() => {
+        if (!isRelatedDropdownOpen) return;
+        const handleOutside = (e) => {
+            if (relatedBoxRef.current && !relatedBoxRef.current.contains(e.target)) {
+                setIsRelatedDropdownOpen(false);
+            }
+        };
+        // mousedown only, NOT touchstart: mobile fires a compatibility mousedown on tap
+        // but not when a touch turns into a scroll, so this closes on an outside tap
+        // (what the old overlay did) without closing every time the page is scrolled.
+        document.addEventListener('mousedown', handleOutside);
+        return () => document.removeEventListener('mousedown', handleOutside);
+    }, [isRelatedDropdownOpen]);
 
     const handleAddRelatedProduct = (product) => {
         const idToAdd = product.bagcheeId || product.bagchee_id;
@@ -717,15 +741,18 @@ const EditBook = () => {
             data.append('source', formData.source || '');
             data.append('rating', formData.rating || '');
             data.append('rated_times', formData.rated_times || '');
-            data.append('toc_image', formData.toc_image || '');
-
             if (imageFile) {
                 data.append('default_image', imageFile);
             } else if (!serverImage) {
                 // User explicitly removed the cover image
                 data.append('remove_default_image', 'true');
             }
-            if (tocImageFile) data.append('toc_image', tocImageFile);
+            if (tocImageFile) {
+                data.append('toc_image', tocImageFile);
+            } else if (!serverTocImage) {
+                // User explicitly removed the default TOC image
+                data.append('remove_toc_image', 'true');
+            }
 
             // Uploads carry a _replace tag: the dbId of the row this file replaces in
             // place ('' = brand-new row). Prevents "Replace" from appending a duplicate.
@@ -806,7 +833,7 @@ const EditBook = () => {
         return () => URL.revokeObjectURL(objectUrl);
     }, [tocImageFile]);
 
-    const removeTocImage = () => { setTocImageFile(null); const input = document.getElementById('toc_image_input'); if (input) input.value = ""; };
+    const removeTocImage = () => { setTocImageFile(null); setServerTocImage(null); setTocPreview(null); setFormData(prev => ({ ...prev, toc_image: '' })); const input = document.getElementById('toc_image_input'); if (input) input.value = ""; };
 
     const selectedLeadingCategory = categories.find(c => (c.id || c._id) === formData.leading_category);
 
@@ -1034,8 +1061,8 @@ const EditBook = () => {
                                         ))}
                                     </div>
                                 )}
-                                <div className="relative">
-                                    <input type="text" value={relatedSearchQuery} onChange={(e) => { setRelatedSearchQuery(e.target.value); setIsRelatedDropdownOpen(true); }} onFocus={() => setIsRelatedDropdownOpen(true)} onMouseDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.stopPropagation()} placeholder="Search product to link..." className="theme-input w-full relative z-20" />
+                                <div className="relative" ref={relatedBoxRef}>
+                                    <input type="text" value={relatedSearchQuery} onChange={(e) => { setRelatedSearchQuery(e.target.value); setIsRelatedDropdownOpen(true); }} onFocus={() => setIsRelatedDropdownOpen(true)} onMouseDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.stopPropagation()} placeholder="Search product to link..." className="theme-input w-full" />
                                     {isRelatedSearching && <Loader2 size={16} className="animate-spin absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />}
                                     {isRelatedDropdownOpen && relatedSearchQuery.length > 2 && (
                                         <div className="absolute z-50 top-full left-0 w-full bg-white border border-gray-300 rounded shadow-lg mt-1 max-h-60 overflow-y-auto">
@@ -1047,7 +1074,6 @@ const EditBook = () => {
                                             )) : <div className="p-3 text-xs text-gray-400 text-center">No products found</div>}
                                         </div>
                                     )}
-                                    {isRelatedDropdownOpen && <div className="fixed inset-0 z-10" onClick={() => setIsRelatedDropdownOpen(false)}></div>}
                                 </div>
                             </div>
                         </div>
@@ -1245,20 +1271,20 @@ const EditBook = () => {
                             <label className="col-span-3 text-right text-[11px] font-bold text-gray-500 uppercase pt-2">Default toc image</label>
                             <div className="col-span-9 flex flex-col gap-3">
                                 <div className="flex items-center gap-3">
-                                    {tocPreview && (
+                                    {(tocPreview || serverTocImage) && (
                                         <div className="relative group">
-                                            <img src={tocPreview} alt="TOC Preview" className="w-16 h-20 object-cover border rounded shadow-sm" />
+                                            <img src={tocPreview || serverTocImage} alt="TOC Preview" className="w-16 h-20 object-cover border rounded shadow-sm" />
                                             <button type="button" onClick={removeTocImage} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:scale-110"><X size={10} /></button>
                                         </div>
                                     )}
                                     <input type="file" id="toc_image_input" className="hidden" accept="image/*" onChange={(e) => {
                                         const file = e.target.files?.[0];
                                         if (!file) return;
-                                        if (validateImageFiles(file)) setTocImageFile(file);
+                                        if (validateImageFiles(file)) { setTocImageFile(file); setServerTocImage(null); }
                                         else e.target.value = "";
                                     }} />
                                     <label htmlFor="toc_image_input" className="cursor-pointer bg-white border border-dashed border-gray-300 px-4 py-2 rounded-lg text-[11px] font-bold uppercase hover:bg-gray-50 transition-all flex items-center gap-2">
-                                        <Upload size={14} /> {tocPreview ? "Change" : "Upload"}
+                                        <Upload size={14} /> {(tocPreview || serverTocImage) ? "Change" : "Upload"}
                                     </label>
                                 </div>
                             </div>

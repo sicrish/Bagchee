@@ -73,6 +73,10 @@ export const updateSocial = async (req, res) => {
         if (req.files && req.files.icon_image) {
             if (social.image) await deleteFileLocal(social.image);
             updateData.image = await saveFileLocal(req.files.icon_image, 'socials');
+        } else if (req.body.remove_icon_image === 'true') {
+            // Explicit removal. Column is NOT NULL → '' is the empty value, never null.
+            if (social.image) await deleteFileLocal(social.image);
+            updateData.image = '';
         }
         await prisma.social.update({ where: { id }, data: updateData });
         res.status(200).json({ status: true, msg: 'Social updated successfully!' });

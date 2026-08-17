@@ -55,10 +55,18 @@ export const updateBanner = async (req, res) => {
         if (req.files?.image1) {
             updateData.image1 = await saveFileLocal(req.files.image1, 'side-banners');
             if (oldBanner.image1) await deleteFileLocal(oldBanner.image1);
+        } else if (req.body.remove_image1 === 'true') {
+            // Explicit removal. The column is NOT NULL, so '' is the empty value
+            // (the schema's own default) — never null, which would throw.
+            if (oldBanner.image1) await deleteFileLocal(oldBanner.image1);
+            updateData.image1 = '';
         }
         if (req.files?.image2) {
             updateData.image2 = await saveFileLocal(req.files.image2, 'side-banners');
             if (oldBanner.image2) await deleteFileLocal(oldBanner.image2);
+        } else if (req.body.remove_image2 === 'true') {
+            if (oldBanner.image2) await deleteFileLocal(oldBanner.image2);
+            updateData.image2 = '';
         }
         const updated = await prisma.sideBannerOne.update({ where: { id }, data: updateData });
         res.status(200).json({ status: true, msg: 'Banner updated successfully!', data: updated });

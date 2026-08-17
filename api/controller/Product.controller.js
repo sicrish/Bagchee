@@ -510,6 +510,11 @@ export const update = async (req, res) => {
             const path = await saveFileLocal(file, 'products');
             if (existing.tocImage) await deleteFileLocal(existing.tocImage);
             updateData.tocImage = path;
+        } else if (req.body.remove_toc_image === 'true') {
+            // Explicit removal only. An absent flag leaves tocImage untouched, so older
+            // bundles and any other caller stay append-only and can never blank it.
+            if (existing.tocImage) await deleteFileLocal(existing.tocImage);
+            updateData.tocImage = null;
         }
 
         // ── Update scalar fields ──────────────────────────────────────────────

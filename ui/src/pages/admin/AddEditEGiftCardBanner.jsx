@@ -17,8 +17,12 @@ const AddEditEGiftCardBanner = () => {
   const [isDataInitialized, setIsDataInitialized] = useState(false);
 
   // States for Desktop & Mobile Images
-  const [desktopImage, setDesktopImage] = useState(null); 
+  const [desktopImage, setDesktopImage] = useState(null);
   const [desktopPreview, setDesktopPreview] = useState(null);
+  // Clearing the preview alone only hides the image locally — the server keeps it and it
+  // reappears on reload. These flags tell the save which stored images to actually delete.
+  const [removedDesktop, setRemovedDesktop] = useState(false);
+  const [removedMobile, setRemovedMobile] = useState(false);
 
   const [mobileImage, setMobileImage] = useState(null); 
   const [mobilePreview, setMobilePreview] = useState(null);
@@ -109,7 +113,9 @@ const AddEditEGiftCardBanner = () => {
     data.append('isActive', formData.active === 'yes');
     data.append('order', formData.order);
     if (desktopImage) data.append('desktopImage', desktopImage);
+    else if (removedDesktop) data.append('remove_desktopImage', 'true');
     if (mobileImage) data.append('mobileImage', mobileImage);
+    else if (removedMobile) data.append('remove_mobileImage', 'true');
 
     saveMutation.mutate(data, {
       onSuccess: (resData) => {
@@ -157,7 +163,7 @@ const AddEditEGiftCardBanner = () => {
                       {desktopPreview && (
                         <div className="relative group">
                             <img src={desktopPreview} alt="Desktop" className="w-48 h-20 object-cover rounded border shadow-sm" />
-                            <button type="button" onClick={() => {setDesktopImage(null); setDesktopPreview(null)}} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-0.5"><X size={12}/></button>
+                            <button type="button" onClick={() => {setDesktopImage(null); setDesktopPreview(null); setRemovedDesktop(true)}} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-0.5"><X size={12}/></button>
                         </div>
                       )}
                   </div>
@@ -180,7 +186,7 @@ const AddEditEGiftCardBanner = () => {
                       {mobilePreview && (
                         <div className="relative group">
                             <img src={mobilePreview} alt="Mobile" className="w-20 h-24 object-cover rounded border shadow-sm" />
-                            <button type="button" onClick={() => {setMobileImage(null); setMobilePreview(null)}} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-0.5"><X size={12}/></button>
+                            <button type="button" onClick={() => {setMobileImage(null); setMobilePreview(null); setRemovedMobile(true)}} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-0.5"><X size={12}/></button>
                         </div>
                       )}
                   </div>

@@ -18,8 +18,12 @@ const AddEditSideBannerOne = () => {
   const [isDataInitialized, setIsDataInitialized] = useState(false);
 
   // States for Left (Image 1) & Right (Image 2)
-  const [image1, setImage1] = useState(null); 
+  const [image1, setImage1] = useState(null);
   const [preview1, setPreview1] = useState(null);
+  // Clearing the preview alone only hides the image locally — the server keeps it and it
+  // reappears on reload. These flags tell the save which stored images to actually delete.
+  const [removed1, setRemoved1] = useState(false);
+  const [removed2, setRemoved2] = useState(false);
 
   const [image2, setImage2] = useState(null); 
   const [preview2, setPreview2] = useState(null);
@@ -90,6 +94,7 @@ const AddEditSideBannerOne = () => {
   const removeImage1 = () => {
     setImage1(null);
     setPreview1(null);
+    setRemoved1(true);
     const input = document.getElementById('image1-input');
     if (input) input.value = "";
   };
@@ -97,6 +102,7 @@ const AddEditSideBannerOne = () => {
   const removeImage2 = () => {
     setImage2(null);
     setPreview2(null);
+    setRemoved2(true);
     const input = document.getElementById('image2-input');
     if (input) input.value = "";
   };
@@ -141,7 +147,9 @@ const AddEditSideBannerOne = () => {
     data.append('order', formData.order);
 
     if (image1) data.append('image1', image1);
+    else if (removed1) data.append('remove_image1', 'true');
     if (image2) data.append('image2', image2);
+    else if (removed2) data.append('remove_image2', 'true');
 
     saveBannerMutation.mutate(data, {
       onSuccess: (resData) => {

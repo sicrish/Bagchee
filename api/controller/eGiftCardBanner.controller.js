@@ -77,10 +77,18 @@ export const updateBanner = async (req, res) => {
         if (req.files?.desktopImage) {
             updateData.desktopImage = await saveFileLocal(req.files.desktopImage, 'e-gift-card-banners');
             if (banner.desktopImage) await deleteFileLocal(banner.desktopImage);
+        } else if (req.body.remove_desktopImage === 'true') {
+            // Explicit removal. Column is NOT NULL → '' is the empty value, never null.
+            // The storefront banner hides itself when there is no image left to show.
+            if (banner.desktopImage) await deleteFileLocal(banner.desktopImage);
+            updateData.desktopImage = '';
         }
         if (req.files?.mobileImage) {
             updateData.mobileImage = await saveFileLocal(req.files.mobileImage, 'e-gift-card-banners');
             if (banner.mobileImage) await deleteFileLocal(banner.mobileImage);
+        } else if (req.body.remove_mobileImage === 'true') {
+            if (banner.mobileImage) await deleteFileLocal(banner.mobileImage);
+            updateData.mobileImage = '';
         }
 
         const updated = await prisma.eGiftCardBanner.update({ where: { id }, data: updateData });

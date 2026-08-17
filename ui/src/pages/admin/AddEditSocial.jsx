@@ -15,6 +15,9 @@ const AddSocial = () => {
   // 🟢 Prevent continuous state overwrite during typing
   const [isDataInitialized, setIsDataInitialized] = useState(false);
   const [imagePreview, setImagePreview] = useState(null);
+  // Clearing the preview alone only hides the icon locally — the server keeps it and it
+  // reappears on reload. This flag tells the save to actually delete the stored icon.
+  const [removedIcon, setRemovedIcon] = useState(false);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -155,6 +158,8 @@ data.append('order', formData.order || 0);
     // Append Image only if new one selected
     if (formData.icon_image) {
       data.append('icon_image', formData.icon_image);
+    } else if (removedIcon) {
+      data.append('remove_icon_image', 'true');
     }
 
     saveSocialMutation.mutate(data, {
@@ -297,7 +302,7 @@ data.append('order', formData.order || 0);
                     {imagePreview ? (
                         <div className="relative group">
                             <img src={imagePreview} alt="Preview" className="h-16 object-contain mb-2" />
-                            <button type="button" onClick={() => {setImagePreview(null); setFormData({...formData, icon_image: null})}} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:scale-110 transition-transform"><X size={12}/></button>
+                            <button type="button" onClick={() => {setImagePreview(null); setFormData({...formData, icon_image: null}); setRemovedIcon(true)}}className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:scale-110 transition-transform"><X size={12}/></button>
                         </div>
                     ) : (
                         <UploadCloud size={24} className="text-gray-400 mb-2"/>

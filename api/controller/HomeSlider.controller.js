@@ -42,10 +42,19 @@ export const update = async (req, res) => {
         if (req.files?.desktopImage) {
             const newPath = await saveFileLocal(req.files.desktopImage, 'homesliders');
             if (newPath) { if (slider.desktopImage) await deleteFileLocal(slider.desktopImage); updateData.desktopImage = newPath; }
+        } else if (req.body.remove_desktopImage === 'true') {
+            // Explicit removal. Column is NOT NULL → '' is the empty value, never null.
+            // The hero section skips slides with no usable image, so this cannot leave
+            // a broken <img> on the homepage.
+            if (slider.desktopImage) await deleteFileLocal(slider.desktopImage);
+            updateData.desktopImage = '';
         }
         if (req.files?.mobileImage) {
             const newPath = await saveFileLocal(req.files.mobileImage, 'homesliders');
             if (newPath) { if (slider.mobileImage) await deleteFileLocal(slider.mobileImage); updateData.mobileImage = newPath; }
+        } else if (req.body.remove_mobileImage === 'true') {
+            if (slider.mobileImage) await deleteFileLocal(slider.mobileImage);
+            updateData.mobileImage = '';
         }
         await prisma.homeSlider.update({ where: { id }, data: updateData });
         res.status(200).json({ status: true, msg: 'Slider updated successfully' });
