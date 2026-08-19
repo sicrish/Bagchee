@@ -3,6 +3,7 @@ import prisma from '../lib/prisma.js';
 import { saveFileLocal } from '../utils/fileHandler.js';
 import { v2 as cloudinary } from 'cloudinary';
 import { unsubscribeUrl, unsubscribeToken } from '../lib/unsubscribe.js';
+import { parseListParam } from '../lib/queryList.js';
 
 cloudinary.config({
     cloud_name: process.env.CLOUD_NAME,
@@ -425,7 +426,8 @@ export const getRecipientsCount = async (req, res) => {
             return res.status(400).json({ status: false, msg: 'No valid audience keys provided.' });
         }
 
-        const cats = selectedCategories ? selectedCategories.split(',').map(c => c.trim()).filter(Boolean) : [];
+        // Category titles can contain commas ("Cooking, Food & Wine") — never split. See lib/queryList.js.
+        const cats = parseListParam(selectedCategories);
         let count = 0;
 
         for (const aud of audienceArr) {
@@ -464,7 +466,8 @@ export const getRecipientsCount = async (req, res) => {
 export const getAudienceCounts = async (req, res) => {
     try {
         const { selectedCategories } = req.query;
-        const cats = selectedCategories ? selectedCategories.split(',').map(c => c.trim()).filter(Boolean) : [];
+        // Category titles can contain commas ("Cooking, Food & Wine") — never split. See lib/queryList.js.
+        const cats = parseListParam(selectedCategories);
 
         const [subscribers, members, purchasers, categories] = await Promise.all([
             prisma.newsletterSubscriber.count({ where: { isActive: true } }),

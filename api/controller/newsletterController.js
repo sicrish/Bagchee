@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import prisma from '../lib/prisma.js';
 import { sendNewsletterConfirmation } from './email.controller.js';
 import { verifyRecaptcha } from '../lib/recaptcha.js';
+import { parseListParam } from '../lib/queryList.js';
 
 // Note: Mongoose model had `categories` field — not in Prisma schema, dropped.
 // Mongoose used `firstname`/`lastname` — Prisma uses `firstName`/`lastName`.
@@ -168,7 +169,8 @@ export const getAllSubscribers = async (req, res) => {
         const pageSize = parseInt(req.query.limit) || 25;
         const skip = (pageNum - 1) * pageSize;
         const { categories, search, status } = req.query;
-        const catFilter = categories ? categories.split(',').map(c => c.trim()).filter(Boolean) : [];
+        // Category titles can contain commas ("Cooking, Food & Wine") — never split. See lib/queryList.js.
+        const catFilter = parseListParam(categories);
         const where = {};
         // Default to confirmed subscribers only. `status=pending` / `status=all` let an
         // admin inspect unconfirmed (double opt-in) records if ever needed.

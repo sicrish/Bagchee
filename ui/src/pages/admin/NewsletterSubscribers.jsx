@@ -82,7 +82,9 @@ const NewsletterSubscribers = () => {
       const params = new URLSearchParams();
       params.append('page', isExport ? 1 : currentPage);
       params.append('limit', isExport ? 100000 : itemsPerPage);
-      if (cats.length > 0) params.append('categories', cats.join(','));
+      // One occurrence per category — NEVER comma-joined. Real category titles
+      // contain commas ("Cooking, Food & Wine"), which a joined string shreds.
+      cats.forEach(c => params.append('categories', c));
       if (searchVal) params.append('search', searchVal);
 
       const res = await axios.get(`${API_BASE_URL}/newsletter-subs/list?${params.toString()}`);

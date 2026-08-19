@@ -702,7 +702,12 @@ const SendEmail = () => {
   const fetchAudienceCounts = useCallback(async (cats) => {
     setCountsLoading(true);
     try {
-      const params = cats && cats.length > 0 ? `?selectedCategories=${cats.join(',')}` : '';
+      // One occurrence per category, properly encoded. A joined string shreds the
+      // titles that contain commas ("Cooking, Food & Wine") and the raw `&` in
+      // them used to terminate the query string outright.
+      const qs = new URLSearchParams();
+      (cats || []).forEach(c => qs.append('selectedCategories', c));
+      const params = qs.toString() ? `?${qs.toString()}` : '';
       const res = await axios.get(`${API_BASE_URL}/email-campaign/audience-counts${params}`);
       if (res.data.status) setAudienceCounts(res.data.counts);
     } catch {
